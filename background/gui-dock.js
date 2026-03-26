@@ -510,22 +510,28 @@
     };
   };
 
-  G.setupDockBehavior = function setupDockBehavior(ui) {
-    const { dock, scroll, toTopBtn, toggleBtn } = ui;
-    if (!dock || !scroll || !toggleBtn)
-::contentReference[oaicite:1]{index=1}
- return;
+G.setupDockBehavior = function setupDockBehavior(ui) {
+  const { dock, scroll, toTopBtn, toggleBtn } = ui;
 
-    function syncToggleState() {
-      const collapsed = dock.classList.contains("is-collapsed");
-      toggleBtn.textContent = collapsed ? "v" : "^";
-      toggleBtn.setAttribute("aria-expanded", String(!collapsed));
-      toggleBtn.setAttribute(
-        "aria-label",
-        collapsed ? "Expand controls panel" : "Collapse controls panel"
-      );
-      toggleBtn.title = collapsed ? "Expand controls panel" : "Collapse controls panel";
-    }
+  if (!dock || !scroll || !toggleBtn) return;
+
+  function syncToggleState() {
+    const collapsed = dock.classList.contains("is-collapsed");
+    toggleBtn.textContent = collapsed ? "v" : "^";
+    toggleBtn.setAttribute("aria-expanded", String(!collapsed));
+    toggleBtn.setAttribute(
+      "aria-label",
+      collapsed ? "Expand controls panel" : "Collapse controls panel"
+    );
+    toggleBtn.title = collapsed ? "Expand controls panel" : "Collapse controls panel";
+  }
+
+  function updateToTopVisibility() {
+    if (!toTopBtn) return;
+    toTopBtn.classList.toggle("is-visible", scroll.scrollTop > 160);
+  }
+
+};
 
     function updateToTopVisibility() {
       if (!toTopBtn) return;
