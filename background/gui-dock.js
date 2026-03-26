@@ -448,7 +448,8 @@
             <h1 class="oil-dock-title">Oilslick Controls</h1>
             <p class="oil-dock-copy">
               Live tuning dock for the oil-spill background. Use drag or click to adjust controls.
-              Quick actions: <span class="oil-dock-kbd">R</span> regenerate,
+              Quick actions:
+              <span class="oil-dock-kbd">R</span> regenerate,
               <span class="oil-dock-kbd">Space</span> pause.
             </p>
           </div>
@@ -510,50 +511,22 @@
     };
   };
 
-G.setupDockBehavior = function setupDockBehavior(ui) {
-  const { dock, scroll, toTopBtn, toggleBtn } = ui;
+  G.setupDockBehavior = function setupDockBehavior(ui) {
+    const { dock, scroll, toTopBtn, toggleBtn } = ui;
 
-  if (!dock || !scroll || !toggleBtn) return;
+    if (!dock || !scroll || !toggleBtn) return;
 
-  function syncToggleState() {
-    const collapsed = dock.classList.contains("is-collapsed");
-    toggleBtn.textContent = collapsed ? "v" : "^";
-    toggleBtn.setAttribute("aria-expanded", String(!collapsed));
-    toggleBtn.setAttribute(
-      "aria-label",
-      collapsed ? "Expand controls panel" : "Collapse controls panel"
-    );
-    toggleBtn.title = collapsed ? "Expand controls panel" : "Collapse controls panel";
-  }
+    function syncToggleState() {
+      const collapsed = dock.classList.contains("is-collapsed");
+      toggleBtn.textContent = collapsed ? "v" : "^";
+      toggleBtn.setAttribute("aria-expanded", String(!collapsed));
+      toggleBtn.setAttribute(
+        "aria-label",
+        collapsed ? "Expand controls panel" : "Collapse controls panel"
+      );
+      toggleBtn.title = collapsed ? "Expand controls panel" : "Collapse controls panel";
+    }
 
-  function updateToTopVisibility() {
-    if (!toTopBtn) return;
-    toTopBtn.classList.toggle("is-visible", scroll.scrollTop > 160);
-  }
-
-  if (!toggleBtn.dataset.oilspillBound) {
-    toggleBtn.dataset.oilspillBound = "1";
-    toggleBtn.addEventListener("click", () => {
-      dock.classList.toggle("is-collapsed");
-      syncToggleState();
-    });
-  }
-
-  if (!scroll.dataset.oilspillBound) {
-    scroll.dataset.oilspillBound = "1";
-    scroll.addEventListener("scroll", updateToTopVisibility);
-  }
-
-  if (toTopBtn && !toTopBtn.dataset.oilspillBound) {
-    toTopBtn.dataset.oilspillBound = "1";
-    toTopBtn.addEventListener("click", () => {
-      scroll.scrollTo({ top: 0, behavior: "smooth" });
-    });
-  }
-
-  syncToggleState();
-  updateToTopVisibility();
-};
     function updateToTopVisibility() {
       if (!toTopBtn) return;
       toTopBtn.classList.toggle("is-visible", scroll.scrollTop > 160);
@@ -569,7 +542,7 @@ G.setupDockBehavior = function setupDockBehavior(ui) {
 
     if (!scroll.dataset.oilspillBound) {
       scroll.dataset.oilspillBound = "1";
-      scroll.addEventListener("scroll", updateToTopVisibility);
+      scroll.addEventListener("scroll", updateToTopVisibility, { passive: true });
     }
 
     if (toTopBtn && !toTopBtn.dataset.oilspillBound) {
@@ -581,34 +554,5 @@ G.setupDockBehavior = function setupDockBehavior(ui) {
 
     syncToggleState();
     updateToTopVisibility();
-  };
-
-  G.disableWheelTuning = function disableWheelTuning(guiRoot, scrollEl) {
-    if (!guiRoot || !scrollEl || guiRoot.dataset.oilspillWheelGuard) return;
-
-    guiRoot.dataset.oilspillWheelGuard = "1";
-
-    guiRoot.addEventListener(
-      "wheel",
-      (event) => {
-        const target = event.target;
-        if (!(target instanceof Element)) return;
-
-        const risky = target.closest(
-          ".controller input, .controller select, .controller option, .slider, .widget"
-        );
-
-        if (!risky) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        scrollEl.scrollTop += event.deltaY;
-      },
-      { passive: false, capture: true }
-    );
-  };
-
-  G.setupInteractionGuards = function setupInteractionGuards(ui, gui) {
-    G.disableWheelTuning(gui.domElement, ui.scroll);
   };
 })();
