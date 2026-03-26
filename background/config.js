@@ -27,7 +27,7 @@ window.OilSpill = {
   debug: {
   enabled: true,
   logInit: true,
-  logFrameStats: true,
+  logFrameStats: false,
   frameSampleRate: 30,
   stopOnInvalidParticle: false,
   showOverlay: true
