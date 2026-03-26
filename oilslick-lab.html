@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,21 +12,17 @@
       --dock-collapsed-offset: calc(var(--dock-width) - 42px);
 
       --glass-bg:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.055) 0%,
           rgba(255, 255, 255, 0.018) 28%,
-          rgba(255, 255, 255, 0.028) 100%
-        ),
+          rgba(255, 255, 255, 0.028) 100%),
         rgba(8, 14, 20, 0.58);
 
       --glass-bg-strong:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.065) 0%,
           rgba(255, 255, 255, 0.02) 30%,
-          rgba(255, 255, 255, 0.03) 100%
-        ),
+          rgba(255, 255, 255, 0.03) 100%),
         rgba(8, 14, 20, 0.68);
 
       --glass-border: rgba(255, 255, 255, 0.12);
@@ -99,11 +96,9 @@
       border-radius: 999px;
       border: 1px solid rgba(255, 255, 255, 0.16);
       background:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.08) 0%,
-          rgba(255, 255, 255, 0.025) 100%
-        ),
+          rgba(255, 255, 255, 0.025) 100%),
         rgba(8, 14, 20, 0.42);
       color: rgba(255, 255, 255, 0.95);
       display: inline-flex;
@@ -121,11 +116,9 @@
 
     .dock-toggle:hover {
       background:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.11) 0%,
-          rgba(255, 255, 255, 0.035) 100%
-        ),
+          rgba(255, 255, 255, 0.035) 100%),
         rgba(8, 14, 20, 0.5);
       border-color: rgba(255, 255, 255, 0.26);
     }
@@ -202,20 +195,16 @@
       border: 2px solid transparent;
       background-clip: padding-box;
       background:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.18) 0%,
-          rgba(255, 255, 255, 0.09) 100%
-        );
+          rgba(255, 255, 255, 0.09) 100%);
     }
 
     .dock-scroll::-webkit-scrollbar-thumb:hover {
       background:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.26) 0%,
-          rgba(255, 255, 255, 0.13) 100%
-        );
+          rgba(255, 255, 255, 0.13) 100%);
     }
 
     .dock-scroll {
@@ -249,11 +238,9 @@
       appearance: none;
       border: 1px solid rgba(255, 255, 255, 0.16);
       background:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.08) 0%,
-          rgba(255, 255, 255, 0.025) 100%
-        ),
+          rgba(255, 255, 255, 0.025) 100%),
         rgba(8, 14, 20, 0.44);
       color: white;
       padding: 9px 12px;
@@ -271,11 +258,9 @@
 
     .glass-button:hover {
       background:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.11) 0%,
-          rgba(255, 255, 255, 0.035) 100%
-        ),
+          rgba(255, 255, 255, 0.035) 100%),
         rgba(8, 14, 20, 0.5);
       border-color: rgba(255, 255, 255, 0.26);
     }
@@ -347,11 +332,9 @@
       height: 16px;
       border-radius: 999px;
       background:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.08) 0%,
-          rgba(255, 255, 255, 0.035) 100%
-        ),
+          rgba(255, 255, 255, 0.035) 100%),
         rgba(255, 255, 255, 0.025);
       border: 1px solid rgba(255, 255, 255, 0.09);
       box-shadow:
@@ -365,22 +348,18 @@
       height: 100%;
       border-radius: 999px;
       background:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.82) 0%,
-          rgba(255, 255, 255, 0.58) 100%
-        );
+          rgba(255, 255, 255, 0.58) 100%);
       opacity: 0.95;
     }
 
     #gui-mount .lil-gui .slider:hover {
       border-color: rgba(255, 255, 255, 0.16);
       background:
-        linear-gradient(
-          180deg,
+        linear-gradient(180deg,
           rgba(255, 255, 255, 0.1) 0%,
-          rgba(255, 255, 255, 0.04) 100%
-        ),
+          rgba(255, 255, 255, 0.04) 100%),
         rgba(255, 255, 255, 0.03);
     }
 
@@ -416,17 +395,11 @@
     }
   </style>
 </head>
+
 <body>
   <aside class="lab-dock glass-surface" id="lab-dock" aria-label="Oilslick controls">
-    <button
-      id="dock-toggle"
-      class="dock-toggle"
-      type="button"
-      aria-expanded="true"
-      aria-controls="dock-scroll"
-      aria-label="Collapse controls panel"
-      title="Collapse controls panel"
-    >
+    <button id="dock-toggle" class="dock-toggle" type="button" aria-expanded="true" aria-controls="dock-scroll"
+      aria-label="Collapse controls panel" title="Collapse controls panel">
       ‹
     </button>
 
@@ -475,6 +448,11 @@
   <script src="background/curves.js"></script>
   <script src="background/particles.js"></script>
   <script src="background/background.js"></script>
+  <script src="background/gui-defaults.js"></script>
+  <script src="background/gui-actions.js"></script>
+  <script src="background/gui-dock.js"></script>
+  <script src="background/gui-controls.js"></script>
   <script src="background/gui.js"></script>
 </body>
+
 </html>
