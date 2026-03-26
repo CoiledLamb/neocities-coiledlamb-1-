@@ -531,8 +531,29 @@ G.setupDockBehavior = function setupDockBehavior(ui) {
     toTopBtn.classList.toggle("is-visible", scroll.scrollTop > 160);
   }
 
-};
+  if (!toggleBtn.dataset.oilspillBound) {
+    toggleBtn.dataset.oilspillBound = "1";
+    toggleBtn.addEventListener("click", () => {
+      dock.classList.toggle("is-collapsed");
+      syncToggleState();
+    });
+  }
 
+  if (!scroll.dataset.oilspillBound) {
+    scroll.dataset.oilspillBound = "1";
+    scroll.addEventListener("scroll", updateToTopVisibility);
+  }
+
+  if (toTopBtn && !toTopBtn.dataset.oilspillBound) {
+    toTopBtn.dataset.oilspillBound = "1";
+    toTopBtn.addEventListener("click", () => {
+      scroll.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  syncToggleState();
+  updateToTopVisibility();
+};
     function updateToTopVisibility() {
       if (!toTopBtn) return;
       toTopBtn.classList.toggle("is-visible", scroll.scrollTop > 160);
