@@ -11,19 +11,18 @@
   <script>window.PAGE_CATEGORY = 'hands';</script>
   <script src="gallery.js" defer></script>
 </head>
-
 <body>
-  <div class="page-frame">
-    <div class="page-title">Hand Studies</div>
-    <div class="tabs"></div>
-    <div class="gallery"></div>
-    <div class="pagination"></div>
-  </div>
+  <div class="page-title">Hands</div>
+  <p class="page-subtitle">hand studies</p>
+  <div class="tabs"></div>
+  <div class="gallery"></div>
+  <div class="pagination"></div>
 
   <div id="lightbox" onclick="this.style.display='none'">
-    <span class="arrow left" onclick="event.stopPropagation(); showPrev()">&lt;</span>
-    <img id="lightbox-img">
-    <span class="arrow right" onclick="event.stopPropagation(); showNext()">&gt;</span>
+    <span class="arrow left"  onclick="event.stopPropagation(); showPrev()">&lsaquo;</span>
+    <img id="lightbox-img" onclick="event.stopPropagation()">
+    <span class="arrow right" onclick="event.stopPropagation(); showNext()">&rsaquo;</span>
+    <span class="lb-close" onclick="event.stopPropagation(); document.getElementById('lightbox').style.display='none'">&#x2715;</span>
   </div>
 </body>
 </html>

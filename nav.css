@@ -1,6 +1,5 @@
 /* ==============================================
    SHARED SIDEBAR NAV
-   Matches site palette: #155352 bg, dark glass panels
    ============================================== */
 
 .nav-sidebar {
@@ -8,13 +7,12 @@
   top: 0;
   left: 0;
   height: 100vh;
-  width: 200px;
+  width: 180px;
   z-index: 100;
   display: flex;
   flex-direction: column;
   padding: 20px 0;
   box-sizing: border-box;
-
   background:
     linear-gradient(180deg,
       rgba(255,255,255,0.055) 0%,
@@ -27,9 +25,9 @@
 }
 
 .nav-logo {
-  padding: 0 18px 20px;
+  padding: 0 16px 18px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .nav-logo a {
@@ -42,37 +40,35 @@
   display: block;
 }
 
-.nav-logo a:hover {
-  color: white;
-}
+.nav-logo a:hover { color: white; }
 
 .nav-links {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 0 10px;
+  gap: 0;
+  padding: 0 8px;
   overflow-y: auto;
 }
 
 .nav-item {
-  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
+/* Shared link style */
 .nav-link {
   display: block;
   width: 100%;
   box-sizing: border-box;
-  padding: 8px 10px;
-  color: rgba(255,255,255,0.72);
+  padding: 7px 10px;
+  color: rgba(255,255,255,0.70);
   font-family: "Source Code Pro", monospace;
   font-size: 12px;
   text-decoration: none;
-  border-radius: 6px;
+  border-radius: 5px;
   border: 1px solid transparent;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
-  cursor: pointer;
-  background: none;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -89,67 +85,47 @@
   border-color: rgba(255,255,255,0.16);
 }
 
-/* Dropdown toggle row */
-.nav-dropdown-toggle {
+/* Parent label (slightly brighter) */
+.nav-parent {
+  color: rgba(255,255,255,0.85);
+  font-size: 12px;
+}
+
+/* Always-visible children block */
+.nav-children {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.nav-dropdown-toggle .nav-arrow {
-  font-size: 10px;
-  opacity: 0.55;
-  transition: transform 0.18s;
-  flex-shrink: 0;
-}
-
-.nav-item.open > .nav-link .nav-arrow {
-  transform: rotate(90deg);
-}
-
-/* Dropdown children */
-.nav-dropdown {
-  display: none;
   flex-direction: column;
-  gap: 1px;
-  padding: 2px 0 2px 12px;
+  padding: 1px 0 4px 14px;
 }
 
-.nav-item.open > .nav-dropdown {
-  display: flex;
-}
-
-.nav-dropdown .nav-link {
+.nav-child {
   font-size: 11px;
-  padding: 6px 10px;
-  color: rgba(255,255,255,0.62);
+  padding: 5px 10px;
+  color: rgba(255,255,255,0.55);
 }
 
-.nav-dropdown .nav-link:hover,
-.nav-dropdown .nav-link.active {
-  color: white;
+.nav-child:hover,
+.nav-child.active {
+  color: rgba(255,255,255,0.95);
 }
 
 /* Divider */
 .nav-divider {
   height: 1px;
   background: rgba(255,255,255,0.07);
-  margin: 8px 10px;
+  margin: 8px 6px;
 }
 
-/* Push page content right of the sidebar */
+/* Offset page content */
 .nav-offset {
-  margin-left: 200px;
+  margin-left: 180px;
 }
 
-/* Responsive: collapse sidebar to top bar on small screens */
+/* ---- Responsive: top bar on small screens ---- */
 @media (max-width: 700px) {
   .nav-sidebar {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: 0; left: 0; right: 0;
     height: auto;
     width: 100%;
     flex-direction: row;
@@ -165,33 +141,26 @@
     border-bottom: none;
     border-right: 1px solid rgba(255,255,255,0.08);
     margin-bottom: 0;
-    margin-right: 8px;
+    margin-right: 6px;
+    flex-shrink: 0;
   }
 
   .nav-links {
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 2px;
-    padding: 8px 0;
+    align-items: center;
+    gap: 0;
+    padding: 6px 0;
     overflow-x: auto;
     overflow-y: visible;
   }
 
-  .nav-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    background: rgba(8,14,20,0.92);
-    border: 1px solid rgba(255,255,255,0.12);
-    backdrop-filter: blur(10px);
-    border-radius: 6px;
-    padding: 4px 0;
-    min-width: 130px;
-    z-index: 300;
-  }
+  .nav-item { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .nav-children { flex-direction: row; padding: 0; }
+  .nav-divider { display: none; }
 
   .nav-offset {
     margin-left: 0;
-    padding-top: 48px;
+    padding-top: 46px;
   }
 }

@@ -1,118 +1,113 @@
 // ==============================================
 // gallery.js  —  generic category gallery
 // ==============================================
-// Per-page config: set window.PAGE_CATEGORY before
-// this script loads. e.g.:
+// Per-page setup (before this script):
 //   <script>window.PAGE_CATEGORY = 'figures';</script>
 //   <script src="gallery.js" defer></script>
+//
+// URL state params (all optional):
+//   ?month=03&sort=asc&page=2
 // ==============================================
 
 // --------------------------
 // CATEGORY CONFIG
-// --------------------------
-// Add a new entry here for each gallery category.
-// folder  : image path prefix (trailing slash)
-// fallback: filenames used if gallery.json fails to load
+// Add categories here as needed.
 // --------------------------
 const CATEGORY_CONFIG = {
   figures: {
-    folder: "/images/figures/",
-    fallback: [
-      "figures 022026.webp","figures 022126.webp","figures 022226.webp",
-      "figures 022426.webp","figures 022526.webp","figures 022626.webp",
-      "figures 022726.webp","figures 030226.webp","figures 030426.webp",
-      "figures 030526.webp","figures 030626.webp","figures 030726.webp",
-      "figures 030826.webp","figures 030926.webp","figures 031126.webp",
-      "figures 031226.webp","figures 031326.webp","figures 031526.webp",
-      "figures 031626.webp","figures 031726.webp","figures 031826.webp",
-      "figures 031926.webp","figures 032026.webp"
-    ]
+    folder: '/images/figures/',
+    fallback: []
   },
   hands: {
-    folder: "/images/hands/",
-    fallback: [
-      "hands 022026.webp","hands 022226.webp","hands 032426.webp","hands 03526.webp"
-    ]
+    folder: '/images/hands/',
+    fallback: []
+  },
+  artwork: {
+    folder: '/images/artwork/',
+    fallback: []
   },
   general: {
-    folder: "/images/general/",
+    folder: '/images/general/',
     fallback: []
   }
 };
 
-// --------------------------
-// PAGE SETUP
-// Reads window.PAGE_CATEGORY, falls back to 'figures'
-// --------------------------
-const PAGE_CATEGORY = (window.PAGE_CATEGORY || "figures");
+const PAGE_CATEGORY = window.PAGE_CATEGORY || 'figures';
 
-// Validate — warn if the category isn't registered
 if (!CATEGORY_CONFIG[PAGE_CATEGORY]) {
   console.warn(`gallery.js: unknown PAGE_CATEGORY "${PAGE_CATEGORY}". Add it to CATEGORY_CONFIG.`);
 }
 
 // --------------------------
-// STATE
+// URL STATE HELPERS
+// --------------------------
+function getParam(key) {
+  return new URLSearchParams(window.location.search).get(key);
+}
+
+function setParams(updates) {
+  const params = new URLSearchParams(window.location.search);
+  Object.entries(updates).forEach(([k, v]) => {
+    if (v === null || v === undefined) {
+      params.delete(k);
+    } else {
+      params.set(k, String(v));
+    }
+  });
+  const qs = params.toString();
+  const newUrl = window.location.pathname + (qs ? '?' + qs : '');
+  history.replaceState(null, '', newUrl);
+}
+
+// --------------------------
+// STATE  (initialised from URL)
 // --------------------------
 const PER_PAGE = 20;
-let currentPage = 1;
-let galleryImages = [];
-let currentIndex = 0;
-let sortDescending = true;
-let observer;
-let currentMonth = "all";
+let currentPage     = parseInt(getParam('page'),  10) || 1;
+let sortDescending  = (getParam('sort') || 'desc') !== 'asc';
+let currentMonth    = getParam('month') || 'all';
 
-let galleryData = {};
+let galleryImages   = [];
+let currentIndex    = 0;
+let observer;
+let galleryData     = {};
 Object.keys(CATEGORY_CONFIG).forEach(k => { galleryData[k] = []; });
 
 // --------------------------
 // HELPERS — date / filename
 // --------------------------
-
-/** Parse date parts from a filename like "figures 022026.webp" */
 function extractDateFromFilename(filename) {
   let digits = filename
-    .replace(/^(figures|hands|general)\s/i, "")
-    .replace(/\.webp$/i, "")
-    .replace(/^(\d{6})[b-z]$/i, "$1")
-    .replace(/^(\d{5})[b-z]$/i, "$1");
+    .replace(/^(figures|hands|artwork|general)\s/i, '')
+    .replace(/\.webp$/i, '')
+    .replace(/^(\d{6})[b-z]$/i, '$1')
+    .replace(/^(\d{5})[b-z]$/i, '$1');
 
   let mm, dd, yy;
   if (digits.length === 5) {
-    mm = digits.slice(0, 1);
-    dd = digits.slice(1, 3);
-    yy = digits.slice(3, 5);
+    mm = digits.slice(0, 1); dd = digits.slice(1, 3); yy = digits.slice(3, 5);
   } else if (digits.length === 6) {
-    mm = digits.slice(0, 2);
-    dd = digits.slice(2, 4);
-    yy = digits.slice(4, 6);
+    mm = digits.slice(0, 2); dd = digits.slice(2, 4); yy = digits.slice(4, 6);
   } else {
     return null;
   }
-
   return {
-    iso:     `20${yy}-${mm.padStart(2, "0")}-${dd}`,
-    display: `${mm.padStart(2, "0")}/${dd}/${yy}`
+    iso:     `20${yy}-${mm.padStart(2, '0')}-${dd}`,
+    display: `${mm.padStart(2, '0')}/${dd}/${yy}`
   };
 }
 
-/** Normalise a raw item (string or object) to { file, date, display } */
 function normalizeItem(raw) {
-  if (typeof raw === "object" && raw !== null) {
-    return {
-      file:    raw.file    || "",
-      date:    raw.date    || null,
-      display: raw.display || raw.file || "Untitled"
-    };
+  if (typeof raw === 'object' && raw !== null) {
+    return { file: raw.file || '', date: raw.date || null, display: raw.display || raw.file || 'Untitled' };
   }
-  if (typeof raw === "string") {
+  if (typeof raw === 'string') {
     const d = extractDateFromFilename(raw);
     return { file: raw, date: d ? d.iso : null, display: d ? d.display : raw };
   }
-  return { file: "", date: null, display: "Untitled" };
+  return { file: '', date: null, display: 'Untitled' };
 }
 
-/** Normalise an array of raw items and drop any with no filename */
 function normalizeItems(items) {
   if (!Array.isArray(items)) return [];
   return items.map(normalizeItem).filter(i => i.file);
@@ -122,20 +117,11 @@ function normalizeItems(items) {
 // HELPERS — current category
 // --------------------------
 function currentItems()  { return galleryData[PAGE_CATEGORY] || []; }
-function currentFolder() { return CATEGORY_CONFIG[PAGE_CATEGORY]?.folder || ""; }
+function currentFolder() { return CATEGORY_CONFIG[PAGE_CATEGORY]?.folder || ''; }
 function imagePath(item) { return currentFolder() + item.file; }
-
-function monthOf(item) {
-  if (!item.date) return "??";
-  const p = item.date.split("-");
-  return p.length >= 2 ? p[1] : "??";
-}
-
-function captionOf(item) { return item.display || item.file || "Untitled"; }
-
-function hasDate(item) {
-  return !!item.date && !isNaN(new Date(item.date).getTime());
-}
+function monthOf(item)   { if (!item.date) return '??'; const p = item.date.split('-'); return p[1] || '??'; }
+function captionOf(item) { return item.display || item.file || 'Untitled'; }
+function hasDate(item)   { return !!item.date && !isNaN(new Date(item.date).getTime()); }
 
 // --------------------------
 // SORT COMPARATOR
@@ -145,72 +131,70 @@ function compareItems(a, b) {
   if (ad && bd) {
     const diff = new Date(b.date) - new Date(a.date);
     if (diff !== 0) return sortDescending ? diff : -diff;
-    return sortDescending
-      ? b.file.localeCompare(a.file)
-      : a.file.localeCompare(b.file);
+    return sortDescending ? b.file.localeCompare(a.file) : a.file.localeCompare(b.file);
   }
   if (ad && !bd) return -1;
-  if (!ad && bd) return 1;
-  return sortDescending
-    ? b.file.localeCompare(a.file)
-    : a.file.localeCompare(b.file);
+  if (!ad && bd) return  1;
+  return sortDescending ? b.file.localeCompare(a.file) : a.file.localeCompare(b.file);
 }
 
 // --------------------------
 // TABS
 // --------------------------
 const MONTH_NAMES = {
-  "01":"Jan","02":"Feb","03":"Mar","04":"Apr",
-  "05":"May","06":"Jun","07":"Jul","08":"Aug",
-  "09":"Sep","10":"Oct","11":"Nov","12":"Dec"
+  '01':'Jan','02':'Feb','03':'Mar','04':'Apr',
+  '05':'May','06':'Jun','07':'Jul','08':'Aug',
+  '09':'Sep','10':'Oct','11':'Nov','12':'Dec'
 };
 
 function generateTabs(items) {
-  const container = document.querySelector(".tabs");
-  container.innerHTML = "";
+  const container = document.querySelector('.tabs');
+  container.innerHTML = '';
 
   const counts = {};
   items.forEach(item => {
     const m = monthOf(item);
-    if (m !== "??") counts[m] = (counts[m] || 0) + 1;
+    if (m !== '??') counts[m] = (counts[m] || 0) + 1;
   });
 
-  function makeTab(label, onClick, isActive) {
-    const t = document.createElement("div");
-    t.className = "tab" + (isActive ? " active" : "");
-    t.innerText = label;
+  function makeTab(label, onClick, isActive, extraClass) {
+    const t = document.createElement('div');
+    t.className = 'tab' + (isActive ? ' active' : '') + (extraClass ? ' ' + extraClass : '');
+    t.textContent = label;
     t.onclick = onClick;
     return t;
   }
 
-  container.appendChild(
-    makeTab(`All (${items.length})`, () => {
-      currentMonth = "all"; currentPage = 1; transitionGallery(generateGallery);
-    }, currentMonth === "all")
-  );
+  container.appendChild(makeTab(
+    `All (${items.length})`,
+    () => { currentMonth = 'all'; currentPage = 1; setParams({ month: null, page: null }); transitionGallery(generateGallery); },
+    currentMonth === 'all'
+  ));
 
   Object.keys(counts).sort().forEach(m => {
-    container.appendChild(
-      makeTab(`${MONTH_NAMES[m] || m} (${counts[m]})`, () => {
-        currentMonth = m; currentPage = 1; transitionGallery(generateGallery);
-      }, m === currentMonth)
-    );
+    container.appendChild(makeTab(
+      `${MONTH_NAMES[m] || m} (${counts[m]})`,
+      () => { currentMonth = m; currentPage = 1; setParams({ month: m, page: null }); transitionGallery(generateGallery); },
+      m === currentMonth
+    ));
   });
 
-  container.appendChild(
-    makeTab(sortDescending ? "Newest First" : "Oldest First", toggleSort, false)
-      // give the sort tab its extra class
+  const sortTab = makeTab(
+    sortDescending ? 'Newest First' : 'Oldest First',
+    toggleSort,
+    false,
+    'sort'
   );
-  container.lastChild.classList.add("sort");
+  container.appendChild(sortTab);
 }
 
 // --------------------------
 // TRANSITIONS
 // --------------------------
 function transitionGallery(fn) {
-  const g = document.querySelector(".gallery");
-  g.classList.add("fade-out");
-  setTimeout(() => { fn(); g.classList.remove("fade-out"); }, 200);
+  const g = document.querySelector('.gallery');
+  g.classList.add('fade-out');
+  setTimeout(() => { fn(); g.classList.remove('fade-out'); }, 200);
 }
 
 // --------------------------
@@ -219,6 +203,7 @@ function transitionGallery(fn) {
 function toggleSort() {
   sortDescending = !sortDescending;
   currentPage = 1;
+  setParams({ sort: sortDescending ? null : 'asc', page: null });
   transitionGallery(generateGallery);
 }
 
@@ -235,15 +220,13 @@ function setupLazyLoading() {
         observer.unobserve(img);
       }
     });
-  }, { rootMargin: "100px" });
-  document.querySelectorAll("img[data-src]").forEach(img => observer.observe(img));
+  }, { rootMargin: '120px' });
+  document.querySelectorAll('img[data-src]').forEach(img => observer.observe(img));
 }
 
 function preloadNextPage(filtered) {
-  const start = currentPage * PER_PAGE;
-  filtered.slice(start, start + PER_PAGE).forEach(item => {
-    const img = new Image();
-    img.src = imagePath(item);
+  filtered.slice(currentPage * PER_PAGE, (currentPage + 1) * PER_PAGE).forEach(item => {
+    const img = new Image(); img.src = imagePath(item);
   });
 }
 
@@ -251,34 +234,32 @@ function preloadNextPage(filtered) {
 // MAIN GALLERY RENDER
 // --------------------------
 function generateGallery() {
-  const gallery = document.querySelector(".gallery");
-  gallery.innerHTML = "";
+  const gallery = document.querySelector('.gallery');
+  gallery.innerHTML = '';
   galleryImages = [];
 
   const items = currentItems();
   generateTabs(items);
 
   let filtered = items.slice();
-  if (currentMonth !== "all") {
-    filtered = filtered.filter(item => monthOf(item) === currentMonth);
-  }
+  if (currentMonth !== 'all') filtered = filtered.filter(i => monthOf(i) === currentMonth);
   filtered.sort(compareItems);
 
   const pageItems = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
 
   pageItems.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "thumb";
+    const div = document.createElement('div');
+    div.className = 'thumb';
 
-    const img = document.createElement("img");
+    const img = document.createElement('img');
     img.dataset.src = imagePath(item);
     img.alt = item.file;
     img.onclick = () => openLightbox(img);
     div.appendChild(img);
 
-    const caption = document.createElement("div");
-    caption.className = "caption";
-    caption.innerText = captionOf(item);
+    const caption = document.createElement('div');
+    caption.className = 'caption';
+    caption.textContent = captionOf(item);
     div.appendChild(caption);
 
     gallery.appendChild(div);
@@ -294,18 +275,20 @@ function generateGallery() {
 // PAGINATION
 // --------------------------
 function renderPagination(filtered) {
-  const container = document.querySelector(".pagination");
-  container.innerHTML = "";
+  const container = document.querySelector('.pagination');
+  container.innerHTML = '';
   const total = Math.ceil(filtered.length / PER_PAGE);
   for (let i = 1; i <= total; i++) {
-    const a = document.createElement("a");
-    a.innerText = i;
-    a.href = "#";
-    if (i === currentPage) a.classList.add("active");
+    const a = document.createElement('a');
+    a.textContent = i;
+    a.href = '#';
+    if (i === currentPage) a.classList.add('active');
     a.onclick = e => {
       e.preventDefault();
       currentPage = i;
+      setParams({ page: i > 1 ? i : null });
       transitionGallery(generateGallery);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     container.appendChild(a);
   }
@@ -316,48 +299,37 @@ function renderPagination(filtered) {
 // --------------------------
 function openLightbox(imgEl) {
   currentIndex = galleryImages.indexOf(imgEl);
-  const lb  = document.getElementById("lightbox");
-  const lbi = document.getElementById("lightbox-img");
-  lb.style.display = "flex";
+  const lb  = document.getElementById('lightbox');
+  const lbi = document.getElementById('lightbox-img');
+  lb.style.display = 'flex';
   lbi.style.opacity = 0;
   setTimeout(() => {
     lbi.src = imgEl.src || imgEl.dataset.src;
     lbi.style.opacity = 1;
-  }, 200);
+  }, 50);
 }
 
 function changeImage(idx) {
   if (!galleryImages.length) return;
-  const lbi = document.getElementById("lightbox-img");
+  const lbi = document.getElementById('lightbox-img');
   lbi.style.opacity = 0;
   setTimeout(() => {
     currentIndex = idx;
     const t = galleryImages[currentIndex];
     lbi.src = t.src || t.dataset.src;
     lbi.style.opacity = 1;
-  }, 200);
+  }, 150);
 }
 
-function showNext() {
-  if (!galleryImages.length) return;
-  changeImage((currentIndex + 1) % galleryImages.length);
-}
+function showNext() { changeImage((currentIndex + 1) % galleryImages.length); }
+function showPrev() { changeImage((currentIndex - 1 + galleryImages.length) % galleryImages.length); }
 
-function showPrev() {
-  if (!galleryImages.length) return;
-  changeImage((currentIndex - 1 + galleryImages.length) % galleryImages.length);
-}
-
-// --------------------------
-// KEYBOARD
-// --------------------------
-document.addEventListener("keydown", e => {
-  const lb = document.getElementById("lightbox");
-  if (lb.style.display === "flex") {
-    if (e.key === "ArrowRight") showNext();
-    if (e.key === "ArrowLeft")  showPrev();
-    if (e.key === "Escape")     lb.style.display = "none";
-  }
+document.addEventListener('keydown', e => {
+  const lb = document.getElementById('lightbox');
+  if (!lb || lb.style.display !== 'flex') return;
+  if (e.key === 'ArrowRight') showNext();
+  if (e.key === 'ArrowLeft')  showPrev();
+  if (e.key === 'Escape')     lb.style.display = 'none';
 });
 
 // --------------------------
@@ -371,21 +343,18 @@ function loadFallbackData() {
 
 async function loadGalleryData() {
   loadFallbackData();
-
   try {
-    const res = await fetch("gallery.json", { cache: "no-store" });
+    const res = await fetch('gallery.json', { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-
     Object.keys(CATEGORY_CONFIG).forEach(k => {
       galleryData[k] = normalizeItems(
         Array.isArray(data[k]) ? data[k] : CATEGORY_CONFIG[k].fallback
       );
     });
   } catch (err) {
-    console.warn("gallery.js: using fallback data:", err);
+    console.warn('gallery.js: using fallback data:', err);
   }
-
   generateGallery();
 }
 
