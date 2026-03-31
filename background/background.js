@@ -53,8 +53,9 @@
 
     S.generateTealCurves();
 
-    // Breath zones need canvas dimensions — init/re-init after resize
+    // Breath zones and drift currents need canvas dimensions
     S.initBreathZones();
+    S.initDriftCurrents();
 
     for (let y = -S.spacing; y < S.height + S.spacing; y += S.spacing) {
       for (let x = -S.spacing; x < S.width + S.spacing; x += S.spacing) {
@@ -77,6 +78,9 @@
       });
     }
   }
+
+  // Expose so gui-actions.js regenerateScene() can call it directly
+  S.rebuildScene = init;
 
   function buildGrid() {
     const minX = -S.spacing * 2;
@@ -145,8 +149,8 @@
       S.ctx.clearRect(0, 0, S.width, S.height);
       buildGrid();
 
-      // Tick breath zones once per frame
       S.tickBreath(now);
+      S.tickDriftCurrents(now);
 
       for (let i = 0; i < S.dots.length; i++) {
         const d = S.dots[i];
@@ -177,10 +181,6 @@
       console.log("[OilSpill:frame]", {
         frame: S.debugStats.frame,
         paused: isPaused,
-        updated: S.debugStats.updated,
-        drawn: S.debugStats.drawn,
-        invalidVelocity: S.debugStats.invalidVelocity,
-        invalidPosition: S.debugStats.invalidPosition,
         typeCounts: S.debugStats.typeCounts,
         composition: S.compositionPlan ? {
           preset:      S.compositionPlan.preset,
