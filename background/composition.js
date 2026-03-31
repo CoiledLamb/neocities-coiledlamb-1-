@@ -23,8 +23,6 @@
   }
 
   S.generateCompositionPlan = function () {
-    // Four possible diagonal directions, weighted so all four appear.
-    // Each maps to a start corner → end corner crossing the full canvas.
     const directionRoll = Math.random();
     let direction;
     if (directionRoll < 0.25)      direction = "tl-br";
@@ -38,49 +36,50 @@
     let dominantEnd;
     let quietCorner;
 
-    // Each direction: start near one corner edge, end near the opposite corner edge.
-    // Slight inset (0.04–0.18) keeps the line clearly on-canvas at both ends.
+    // Push start/end to true canvas edges (slightly off-screen is fine).
+    // The visible "tail" problem was caused by clamping too far inward.
+    // Now the line always enters and exits the viewport fully.
     if (direction === "tl-br") {
       dominantStart = {
-        x: rand(S.width * 0.04, S.width * 0.18),
-        y: rand(S.height * 0.04, S.height * 0.22)
+        x: rand(-S.width * 0.04, S.width * 0.10),
+        y: rand(-S.height * 0.04, S.height * 0.14)
       };
       dominantEnd = {
-        x: rand(S.width * 0.82, S.width * 0.96),
-        y: rand(S.height * 0.78, S.height * 0.96)
+        x: rand(S.width * 0.90, S.width * 1.04),
+        y: rand(S.height * 0.86, S.height * 1.04)
       };
       quietCorner = Math.random() < 0.7 ? "bottom-left" : "top-right";
 
     } else if (direction === "bl-tr") {
       dominantStart = {
-        x: rand(S.width * 0.04, S.width * 0.18),
-        y: rand(S.height * 0.78, S.height * 0.96)
+        x: rand(-S.width * 0.04, S.width * 0.10),
+        y: rand(S.height * 0.86, S.height * 1.04)
       };
       dominantEnd = {
-        x: rand(S.width * 0.82, S.width * 0.96),
-        y: rand(S.height * 0.04, S.height * 0.22)
+        x: rand(S.width * 0.90, S.width * 1.04),
+        y: rand(-S.height * 0.04, S.height * 0.14)
       };
       quietCorner = Math.random() < 0.7 ? "top-left" : "bottom-right";
 
     } else if (direction === "tr-bl") {
       dominantStart = {
-        x: rand(S.width * 0.82, S.width * 0.96),
-        y: rand(S.height * 0.04, S.height * 0.22)
+        x: rand(S.width * 0.90, S.width * 1.04),
+        y: rand(-S.height * 0.04, S.height * 0.14)
       };
       dominantEnd = {
-        x: rand(S.width * 0.04, S.width * 0.18),
-        y: rand(S.height * 0.78, S.height * 0.96)
+        x: rand(-S.width * 0.04, S.width * 0.10),
+        y: rand(S.height * 0.86, S.height * 1.04)
       };
       quietCorner = Math.random() < 0.7 ? "bottom-right" : "top-left";
 
-    } else { // br-tl
+    } else {
       dominantStart = {
-        x: rand(S.width * 0.82, S.width * 0.96),
-        y: rand(S.height * 0.78, S.height * 0.96)
+        x: rand(S.width * 0.90, S.width * 1.04),
+        y: rand(S.height * 0.86, S.height * 1.04)
       };
       dominantEnd = {
-        x: rand(S.width * 0.04, S.width * 0.18),
-        y: rand(S.height * 0.04, S.height * 0.22)
+        x: rand(-S.width * 0.04, S.width * 0.10),
+        y: rand(-S.height * 0.04, S.height * 0.14)
       };
       quietCorner = Math.random() < 0.7 ? "top-right" : "bottom-left";
     }
@@ -100,38 +99,46 @@
 
     const purplePlan = [];
 
-    // Primary vortex: large, near energy center
+    // Primary vortex: placed off the dominant axis by a meaningful perpendicular
+    // distance so it sits beside the teal line rather than on top of it.
+    // Min lateral offset = 80px so it never fully overlaps the dominant band.
+    const primaryLateralSign = Math.random() < 0.5 ? 1 : -1;
+    const primaryLateral = primaryLateralSign * rand(80, 160);
+    const primaryT = rand(0.28, 0.48);
+    const primaryBase = lerpPoint(dominantStart, dominantEnd, primaryT);
+
     purplePlan.push({
       role: "primaryAnchor",
-      x: energyCenter.x + perp.x * rand(-40, 40),
-      y: energyCenter.y + perp.y * rand(-40, 40),
+      x: primaryBase.x + perp.x * primaryLateral,
+      y: primaryBase.y + perp.y * primaryLateral,
       radius: rand(155, 215)
     });
 
     if (secondaryCount >= 1) {
+      // Secondary goes on the OPPOSITE side of the dominant line from primary,
+      // further along the flow. This gives visual balance without overlap.
+      const secondaryLateral = -primaryLateralSign * rand(60, 120);
       const secondaryT = rand(0.58, 0.78);
       const secondaryBase = lerpPoint(dominantStart, dominantEnd, secondaryT);
-      const secondaryOffset = rand(-S.width * 0.08, S.width * 0.08);
 
-      // Secondary vortex: meaningfully smaller than primary for visual hierarchy
       purplePlan.push({
         role: "secondaryAnchor",
-        x: secondaryBase.x + perp.x * secondaryOffset,
-        y: secondaryBase.y + perp.y * secondaryOffset,
+        x: secondaryBase.x + perp.x * secondaryLateral,
+        y: secondaryBase.y + perp.y * secondaryLateral,
         radius: rand(85, 130)
       });
     }
 
-    // Optional third micro-vortex for compositions with high secondary count
+    // Optional micro-vortex: small, anywhere near the quiet zone
     if (secondaryCount >= 2 && Math.random() < 0.45) {
       const microT = rand(0.12, 0.28);
       const microBase = lerpPoint(dominantStart, dominantEnd, microT);
-      const microOffset = rand(-S.width * 0.12, S.width * 0.12);
+      const microLateral = (Math.random() < 0.5 ? 1 : -1) * rand(100, 180);
 
       purplePlan.push({
         role: "microAnchor",
-        x: microBase.x + perp.x * microOffset,
-        y: microBase.y + perp.y * microOffset,
+        x: microBase.x + perp.x * microLateral,
+        y: microBase.y + perp.y * microLateral,
         radius: rand(50, 85)
       });
     }
@@ -146,7 +153,7 @@
       asymmetryStrength,
       tealPlan: {
         dominantWidth,
-        dominantAmplitude: rand(24, 42),
+        dominantAmplitude: rand(28, 48),
         dominantFrequency: rand(0.9, 1.3),
         secondaryCount,
         secondaryOffsetMin: 46,

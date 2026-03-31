@@ -27,39 +27,34 @@
     drawn: 0,
     invalidVelocity: 0,
     invalidPosition: 0,
-    typeCounts: {
-      blue: 0,
-      teal: 0,
-      purple: 0
-    }
+    typeCounts: { blue: 0, teal: 0, purple: 0 }
   };
 
   function resizeCanvas() {
-    S.width = window.innerWidth;
+    S.width  = window.innerWidth;
     S.height = window.innerHeight;
-    S.dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    S.dpr    = Math.min(window.devicePixelRatio || 1, 1.5);
 
-    S.canvas.width = Math.floor(S.width * S.dpr);
+    S.canvas.width  = Math.floor(S.width  * S.dpr);
     S.canvas.height = Math.floor(S.height * S.dpr);
     S.ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
   }
 
   function init() {
-    S.dots = [];
+    S.dots        = [];
     S.purpleBlobs = [];
-    S.tealCurves = [];
+    S.tealCurves  = [];
 
     S.compositionPlan = S.generateCompositionPlan();
 
     for (const blob of S.compositionPlan.purplePlan) {
-      S.purpleBlobs.push({
-        x: blob.x,
-        y: blob.y,
-        radius: blob.radius
-      });
+      S.purpleBlobs.push({ x: blob.x, y: blob.y, radius: blob.radius });
     }
 
     S.generateTealCurves();
+
+    // Breath zones need canvas dimensions — init/re-init after resize
+    S.initBreathZones();
 
     for (let y = -S.spacing; y < S.height + S.spacing; y += S.spacing) {
       for (let x = -S.spacing; x < S.width + S.spacing; x += S.spacing) {
@@ -73,7 +68,6 @@
     if (S.debug.enabled && S.debug.logInit) {
       const counts = { blue: 0, teal: 0, purple: 0 };
       for (const d of S.dots) counts[d.type]++;
-
       console.log("[OilSpill:init]", {
         dots: S.dots.length,
         tealCurves: S.tealCurves.length,
@@ -91,7 +85,7 @@
     S.gridOffsetX = Math.ceil(-minX / S.spacing);
     S.gridOffsetY = Math.ceil(-minY / S.spacing);
 
-    const cols = Math.ceil((S.width - minX + S.spacing * 2) / S.spacing) + 2;
+    const cols = Math.ceil((S.width  - minX + S.spacing * 2) / S.spacing) + 2;
     const rows = Math.ceil((S.height - minY + S.spacing * 2) / S.spacing) + 2;
 
     S.grid = Array.from({ length: rows }, () =>
@@ -99,13 +93,10 @@
     );
 
     for (let i = 0; i < S.dots.length; i++) {
-      const d = S.dots[i];
+      const d  = S.dots[i];
       const gx = Math.floor(d.x / S.spacing) + S.gridOffsetX;
       const gy = Math.floor(d.y / S.spacing) + S.gridOffsetY;
-
-      if (S.grid[gy] && S.grid[gy][gx]) {
-        S.grid[gy][gx].push(d);
-      }
+      if (S.grid[gy] && S.grid[gy][gx]) S.grid[gy][gx].push(d);
     }
   }
 
@@ -116,7 +107,7 @@
     const statusEl = document.getElementById("lab-status");
     if (!statusEl) return;
 
-    const plan = S.compositionPlan || {};
+    const plan   = S.compositionPlan || {};
     const paused = !!(S.tuning && S.tuning.sim && S.tuning.sim.paused);
 
     statusEl.textContent = [
@@ -131,7 +122,7 @@
       `teal     ${S.debugStats.typeCounts.teal}`,
       `purple   ${S.debugStats.typeCounts.purple}`,
       "",
-      `preset   ${plan.preset || "-"}`,
+      `preset   ${plan.preset    || "-"}`,
       `flow     ${plan.direction || "-"}`,
       `quiet    ${plan.quietCorner || "-"}`
     ].join("\n");
@@ -139,19 +130,23 @@
 
   function animate() {
     S.debugStats.frame++;
-    S.debugStats.updated = 0;
-    S.debugStats.drawn = 0;
-    S.debugStats.invalidVelocity = 0;
-    S.debugStats.invalidPosition = 0;
-    S.debugStats.typeCounts.blue = 0;
-    S.debugStats.typeCounts.teal = 0;
+    S.debugStats.updated          = 0;
+    S.debugStats.drawn            = 0;
+    S.debugStats.invalidVelocity  = 0;
+    S.debugStats.invalidPosition  = 0;
+    S.debugStats.typeCounts.blue   = 0;
+    S.debugStats.typeCounts.teal   = 0;
     S.debugStats.typeCounts.purple = 0;
 
     const isPaused = !!(S.tuning && S.tuning.sim && S.tuning.sim.paused);
+    const now = performance.now();
 
     if (!isPaused) {
       S.ctx.clearRect(0, 0, S.width, S.height);
       buildGrid();
+
+      // Tick breath zones once per frame
+      S.tickBreath(now);
 
       for (let i = 0; i < S.dots.length; i++) {
         const d = S.dots[i];
@@ -187,13 +182,11 @@
         invalidVelocity: S.debugStats.invalidVelocity,
         invalidPosition: S.debugStats.invalidPosition,
         typeCounts: S.debugStats.typeCounts,
-        composition: S.compositionPlan
-          ? {
-              preset: S.compositionPlan.preset,
-              direction: S.compositionPlan.direction,
-              quietCorner: S.compositionPlan.quietCorner
-            }
-          : null
+        composition: S.compositionPlan ? {
+          preset:      S.compositionPlan.preset,
+          direction:   S.compositionPlan.direction,
+          quietCorner: S.compositionPlan.quietCorner
+        } : null
       });
     }
 
