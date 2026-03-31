@@ -274,22 +274,17 @@
         this.vy += this.laneNY * (lateral * 0.00075 + ribbonBias);
       }
 
-      // blue wake refill: simple and safe
+      // blue wake refill: passive ambient behavior only.
+      // Blue should feel like background fluid, not something that chases teal.
+      // Fix: remove centroid-pull entirely; keep only a very faint downstream
+      // carry so blue gently drifts in the wake direction without tracking bands.
       if (this.type === "blue" && nearbyTealCount > 0.0001) {
-        nearbyTealX /= nearbyTealCount;
-        nearbyTealY /= nearbyTealCount;
         nearbyTealFlowX /= nearbyTealCount;
         nearbyTealFlowY /= nearbyTealCount;
 
-        const toBand = S.distWrapped(nearbyTealX, nearbyTealY, this.x, this.y);
-
-        // softer refill pull
-        this.vx += toBand.dx * 0.0042;
-        this.vy += toBand.dy * 0.0042;
-
-        // very light downstream carry only
-        this.vx += nearbyTealFlowX * 0.0025;
-        this.vy += nearbyTealFlowY * 0.0025;
+        // Downstream carry only — no positional pull toward band centroid
+        this.vx += nearbyTealFlowX * 0.0012;
+        this.vy += nearbyTealFlowY * 0.0012;
       }
 
       // type-specific drift / damping
@@ -398,9 +393,13 @@
         const dy = this.y - this.blob.y;
         const dist = Math.hypot(dx, dy);
 
-        const coreRadius = 24;
-        const middleRadius = 92;
-        const outerRadius = 175;
+        // Use blob.radius to scale color zones proportionally across
+        // all vortex sizes rather than hard-coded pixel values.
+        // This means small micro-vortices get the full color range
+        // instead of appearing uniformly mid-tone.
+        const coreRadius    = this.blob.radius * 0.14;
+        const middleRadius  = this.blob.radius * 0.52;
+        const outerRadius   = this.blob.radius;
 
         let baseIndex = 1;
 

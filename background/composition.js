@@ -23,37 +23,66 @@
   }
 
   S.generateCompositionPlan = function () {
-    const direction = Math.random() < 0.5 ? "tl-br" : "bl-tr";
+    // Four possible diagonal directions, weighted so all four appear.
+    // Each maps to a start corner → end corner crossing the full canvas.
+    const directionRoll = Math.random();
+    let direction;
+    if (directionRoll < 0.25)      direction = "tl-br";
+    else if (directionRoll < 0.5)  direction = "bl-tr";
+    else if (directionRoll < 0.75) direction = "tr-bl";
+    else                           direction = "br-tl";
+
     const asymmetryStrength = rand(0.65, 0.95);
 
     let dominantStart;
     let dominantEnd;
     let quietCorner;
 
+    // Each direction: start near one corner edge, end near the opposite corner edge.
+    // Slight inset (0.04–0.18) keeps the line clearly on-canvas at both ends.
     if (direction === "tl-br") {
       dominantStart = {
-        x: rand(-S.width * 0.02, S.width * 0.18),
-        y: rand(-S.height * 0.02, S.height * 0.22)
+        x: rand(S.width * 0.04, S.width * 0.18),
+        y: rand(S.height * 0.04, S.height * 0.22)
       };
-
       dominantEnd = {
-        x: rand(S.width * 0.82, S.width * 1.02),
-        y: rand(S.height * 0.78, S.height * 1.02)
+        x: rand(S.width * 0.82, S.width * 0.96),
+        y: rand(S.height * 0.78, S.height * 0.96)
       };
-
       quietCorner = Math.random() < 0.7 ? "bottom-left" : "top-right";
-    } else {
+
+    } else if (direction === "bl-tr") {
       dominantStart = {
-        x: rand(-S.width * 0.02, S.width * 0.18),
-        y: rand(S.height * 0.78, S.height * 1.02)
+        x: rand(S.width * 0.04, S.width * 0.18),
+        y: rand(S.height * 0.78, S.height * 0.96)
       };
-
       dominantEnd = {
-        x: rand(S.width * 0.82, S.width * 1.02),
-        y: rand(-S.height * 0.02, S.height * 0.22)
+        x: rand(S.width * 0.82, S.width * 0.96),
+        y: rand(S.height * 0.04, S.height * 0.22)
       };
-
       quietCorner = Math.random() < 0.7 ? "top-left" : "bottom-right";
+
+    } else if (direction === "tr-bl") {
+      dominantStart = {
+        x: rand(S.width * 0.82, S.width * 0.96),
+        y: rand(S.height * 0.04, S.height * 0.22)
+      };
+      dominantEnd = {
+        x: rand(S.width * 0.04, S.width * 0.18),
+        y: rand(S.height * 0.78, S.height * 0.96)
+      };
+      quietCorner = Math.random() < 0.7 ? "bottom-right" : "top-left";
+
+    } else { // br-tl
+      dominantStart = {
+        x: rand(S.width * 0.82, S.width * 0.96),
+        y: rand(S.height * 0.78, S.height * 0.96)
+      };
+      dominantEnd = {
+        x: rand(S.width * 0.04, S.width * 0.18),
+        y: rand(S.height * 0.04, S.height * 0.22)
+      };
+      quietCorner = Math.random() < 0.7 ? "top-right" : "bottom-left";
     }
 
     const energyT = rand(0.32, 0.46);
@@ -71,11 +100,12 @@
 
     const purplePlan = [];
 
+    // Primary vortex: large, near energy center
     purplePlan.push({
       role: "primaryAnchor",
       x: energyCenter.x + perp.x * rand(-40, 40),
       y: energyCenter.y + perp.y * rand(-40, 40),
-      radius: rand(170, 205)
+      radius: rand(155, 215)
     });
 
     if (secondaryCount >= 1) {
@@ -83,11 +113,26 @@
       const secondaryBase = lerpPoint(dominantStart, dominantEnd, secondaryT);
       const secondaryOffset = rand(-S.width * 0.08, S.width * 0.08);
 
+      // Secondary vortex: meaningfully smaller than primary for visual hierarchy
       purplePlan.push({
         role: "secondaryAnchor",
         x: secondaryBase.x + perp.x * secondaryOffset,
         y: secondaryBase.y + perp.y * secondaryOffset,
-        radius: rand(130, 165)
+        radius: rand(85, 130)
+      });
+    }
+
+    // Optional third micro-vortex for compositions with high secondary count
+    if (secondaryCount >= 2 && Math.random() < 0.45) {
+      const microT = rand(0.12, 0.28);
+      const microBase = lerpPoint(dominantStart, dominantEnd, microT);
+      const microOffset = rand(-S.width * 0.12, S.width * 0.12);
+
+      purplePlan.push({
+        role: "microAnchor",
+        x: microBase.x + perp.x * microOffset,
+        y: microBase.y + perp.y * microOffset,
+        radius: rand(50, 85)
       });
     }
 

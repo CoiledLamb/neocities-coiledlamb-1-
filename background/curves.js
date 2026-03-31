@@ -27,6 +27,15 @@
     };
   }
 
+  // Clamp a point so it stays within a padded canvas boundary.
+  // This prevents secondaries from spawning off-screen.
+  function clampToCanvas(p, pad) {
+    return {
+      x: S.clamp(p.x, pad, S.width - pad),
+      y: S.clamp(p.y, pad, S.height - pad)
+    };
+  }
+
   function buildFallbackCurves() {
     S.tealCurves = [];
     const count = 3 + ((Math.random() * 2) | 0);
@@ -91,7 +100,8 @@
     const perp = perpendicularUnit(a, b);
     const dir = directionUnit(a, b);
 
-    // dominant curve
+    // Dominant curve: always full canvas-to-canvas, no clamping needed
+    // because dominantStart/End are already inset in composition.js
     S.tealCurves.push({
       role: "dominant",
       start: { x: a.x, y: a.y },
@@ -102,7 +112,10 @@
       width: plan.tealPlan.dominantWidth
     });
 
-    // secondary curves
+    // Secondary curves: offset perpendicular from the dominant,
+    // but clamped so they stay visible inside the canvas.
+    // The key fix: compute raw start/end then clamp to canvas bounds
+    // rather than letting them drift off-screen with edge jitter.
     for (let i = 0; i < plan.tealPlan.secondaryCount; i++) {
       const side = i % 2 === 0 ? 1 : -1;
 
@@ -112,18 +125,25 @@
       const startShift = offsetBase * rand(0.65, 1.0);
       const endShift = offsetBase * rand(0.45, 0.9);
 
-      const alongJitterStart = rand(-S.width * 0.03, S.width * 0.03);
-      const alongJitterEnd = rand(-S.width * 0.04, S.width * 0.04);
+      // Along-axis jitter: smaller range so secondaries don't slip
+      // off the start/end edges
+      const alongJitterStart = rand(-S.width * 0.015, S.width * 0.015);
+      const alongJitterEnd = rand(-S.width * 0.02, S.width * 0.02);
 
-      const start = {
+      const rawStart = {
         x: a.x + perp.x * startShift + dir.x * alongJitterStart,
         y: a.y + perp.y * startShift + dir.y * alongJitterStart
       };
 
-      const end = {
+      const rawEnd = {
         x: b.x + perp.x * endShift + dir.x * alongJitterEnd,
         y: b.y + perp.y * endShift + dir.y * alongJitterEnd
       };
+
+      // Clamp with a generous pad so the whole ribbon width stays on-screen
+      const pad = plan.tealPlan.secondaryWidthMax * 0.5 + 8;
+      const start = clampToCanvas(rawStart, pad);
+      const end = clampToCanvas(rawEnd, pad);
 
       S.tealCurves.push({
         role: "secondary",
