@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Oilslick Lab</title>
+  <title>Oilslick Lab — Coiled Lamb</title>
+  <link rel="stylesheet" href="nav.css" />
 
   <style>
     :root {
@@ -55,6 +56,18 @@
 
     body {
       position: relative;
+    }
+
+    /* Override nav-offset for this page — content is fixed/fullscreen */
+    .nav-offset {
+      margin-left: 0 !important;
+    }
+
+    /* Push the lab dock right of the sidebar on wide screens */
+    @media (min-width: 701px) {
+      .lab-dock {
+        right: 12px;
+      }
     }
 
     .glass-surface {
@@ -327,7 +340,6 @@
       color: rgba(255, 255, 255, 0.96);
     }
 
-    /* thicker frosted slider treatment */
     #gui-mount .lil-gui .slider {
       height: 16px;
       border-radius: 999px;
@@ -397,6 +409,9 @@
 </head>
 
 <body>
+  <script>window.NAV_ACTIVE = 'oilslick';</script>
+  <script src="nav.js"></script>
+
   <aside class="lab-dock glass-surface" id="lab-dock" aria-label="Oilslick controls">
     <button id="dock-toggle" class="dock-toggle" type="button" aria-expanded="true" aria-controls="dock-scroll"
       aria-label="Collapse controls panel" title="Collapse controls panel">
