@@ -6,30 +6,19 @@
 //   <script src="gallery.js" defer></script>
 //
 // URL state params (all optional):
-//   ?month=03&sort=asc&page=2
+//   ?month=03&sort=asc&img=4
+//   img = 0-based index into the sorted/filtered list;
+//         opens that image in the lightbox on load.
 // ==============================================
 
 // --------------------------
 // CATEGORY CONFIG
-// Add categories here as needed.
 // --------------------------
 const CATEGORY_CONFIG = {
-  figures: {
-    folder: '/images/figures/',
-    fallback: []
-  },
-  hands: {
-    folder: '/images/hands/',
-    fallback: []
-  },
-  artwork: {
-    folder: '/images/artwork/',
-    fallback: []
-  },
-  general: {
-    folder: '/images/general/',
-    fallback: []
-  }
+  figures: { folder: '/images/figures/', fallback: [] },
+  hands:   { folder: '/images/hands/',   fallback: [] },
+  artwork: { folder: '/images/artwork/', fallback: [] },
+  general: { folder: '/images/general/', fallback: [] }
 };
 
 const PAGE_CATEGORY = window.PAGE_CATEGORY || 'figures';
@@ -48,29 +37,23 @@ function getParam(key) {
 function setParams(updates) {
   const params = new URLSearchParams(window.location.search);
   Object.entries(updates).forEach(([k, v]) => {
-    if (v === null || v === undefined) {
-      params.delete(k);
-    } else {
-      params.set(k, String(v));
-    }
+    if (v === null || v === undefined) params.delete(k);
+    else params.set(k, String(v));
   });
   const qs = params.toString();
-  const newUrl = window.location.pathname + (qs ? '?' + qs : '');
-  history.replaceState(null, '', newUrl);
+  history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
 }
 
 // --------------------------
 // STATE  (initialised from URL)
 // --------------------------
-const PER_PAGE = 20;
-let currentPage     = parseInt(getParam('page'),  10) || 1;
-let sortDescending  = (getParam('sort') || 'desc') !== 'asc';
-let currentMonth    = getParam('month') || 'all';
+let sortDescending = (getParam('sort') || 'desc') !== 'asc';
+let currentMonth   = getParam('month') || 'all';
 
-let galleryImages   = [];
-let currentIndex    = 0;
+let galleryImages  = [];   // ordered list of <img> elements on the current view
+let currentIndex   = 0;
 let observer;
-let galleryData     = {};
+let galleryData    = {};
 Object.keys(CATEGORY_CONFIG).forEach(k => { galleryData[k] = []; });
 
 // --------------------------
@@ -88,19 +71,16 @@ function extractDateFromFilename(filename) {
     mm = digits.slice(0, 1); dd = digits.slice(1, 3); yy = digits.slice(3, 5);
   } else if (digits.length === 6) {
     mm = digits.slice(0, 2); dd = digits.slice(2, 4); yy = digits.slice(4, 6);
-  } else {
-    return null;
-  }
+  } else { return null; }
   return {
-    iso:     `20${yy}-${mm.padStart(2, '0')}-${dd}`,
-    display: `${mm.padStart(2, '0')}/${dd}/${yy}`
+    iso:     `20${yy}-${mm.padStart(2,'0')}-${dd}`,
+    display: `${mm.padStart(2,'0')}/${dd}/${yy}`
   };
 }
 
 function normalizeItem(raw) {
-  if (typeof raw === 'object' && raw !== null) {
+  if (typeof raw === 'object' && raw !== null)
     return { file: raw.file || '', date: raw.date || null, display: raw.display || raw.file || 'Untitled' };
-  }
   if (typeof raw === 'string') {
     const d = extractDateFromFilename(raw);
     return { file: raw, date: d ? d.iso : null, display: d ? d.display : raw };
@@ -119,7 +99,7 @@ function normalizeItems(items) {
 function currentItems()  { return galleryData[PAGE_CATEGORY] || []; }
 function currentFolder() { return CATEGORY_CONFIG[PAGE_CATEGORY]?.folder || ''; }
 function imagePath(item) { return currentFolder() + item.file; }
-function monthOf(item)   { if (!item.date) return '??'; const p = item.date.split('-'); return p[1] || '??'; }
+function monthOf(item)   { if (!item.date) return '??'; return item.date.split('-')[1] || '??'; }
 function captionOf(item) { return item.display || item.file || 'Untitled'; }
 function hasDate(item)   { return !!item.date && !isNaN(new Date(item.date).getTime()); }
 
@@ -167,25 +147,22 @@ function generateTabs(items) {
 
   container.appendChild(makeTab(
     `All (${items.length})`,
-    () => { currentMonth = 'all'; currentPage = 1; setParams({ month: null, page: null }); transitionGallery(generateGallery); },
+    () => { currentMonth = 'all'; setParams({ month: null, img: null }); transitionGallery(generateGallery); },
     currentMonth === 'all'
   ));
 
   Object.keys(counts).sort().forEach(m => {
     container.appendChild(makeTab(
       `${MONTH_NAMES[m] || m} (${counts[m]})`,
-      () => { currentMonth = m; currentPage = 1; setParams({ month: m, page: null }); transitionGallery(generateGallery); },
+      () => { currentMonth = m; setParams({ month: m, img: null }); transitionGallery(generateGallery); },
       m === currentMonth
     ));
   });
 
-  const sortTab = makeTab(
+  container.appendChild(makeTab(
     sortDescending ? 'Newest First' : 'Oldest First',
-    toggleSort,
-    false,
-    'sort'
-  );
-  container.appendChild(sortTab);
+    toggleSort, false, 'sort'
+  ));
 }
 
 // --------------------------
@@ -202,8 +179,7 @@ function transitionGallery(fn) {
 // --------------------------
 function toggleSort() {
   sortDescending = !sortDescending;
-  currentPage = 1;
-  setParams({ sort: sortDescending ? null : 'asc', page: null });
+  setParams({ sort: sortDescending ? null : 'asc', img: null });
   transitionGallery(generateGallery);
 }
 
@@ -216,22 +192,17 @@ function setupLazyLoading() {
     entries.forEach(e => {
       if (e.isIntersecting) {
         const img = e.target;
-        img.src = img.dataset.src;
+        if (img.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; }
         observer.unobserve(img);
       }
     });
-  }, { rootMargin: '120px' });
+  }, { rootMargin: '200px' });
   document.querySelectorAll('img[data-src]').forEach(img => observer.observe(img));
-}
-
-function preloadNextPage(filtered) {
-  filtered.slice(currentPage * PER_PAGE, (currentPage + 1) * PER_PAGE).forEach(item => {
-    const img = new Image(); img.src = imagePath(item);
-  });
 }
 
 // --------------------------
 // MAIN GALLERY RENDER
+// All matching images are rendered — no pagination cap.
 // --------------------------
 function generateGallery() {
   const gallery = document.querySelector('.gallery');
@@ -245,16 +216,14 @@ function generateGallery() {
   if (currentMonth !== 'all') filtered = filtered.filter(i => monthOf(i) === currentMonth);
   filtered.sort(compareItems);
 
-  const pageItems = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
-
-  pageItems.forEach(item => {
+  filtered.forEach(item => {
     const div = document.createElement('div');
     div.className = 'thumb';
 
     const img = document.createElement('img');
     img.dataset.src = imagePath(item);
     img.alt = item.file;
-    img.onclick = () => openLightbox(img);
+    // index into galleryImages is set after push; capture via closure after
     div.appendChild(img);
 
     const caption = document.createElement('div');
@@ -266,47 +235,53 @@ function generateGallery() {
     galleryImages.push(img);
   });
 
-  renderPagination(filtered);
-  setupLazyLoading();
-  preloadNextPage(filtered);
-}
+  // Wire up click handlers now that indices are stable
+  galleryImages.forEach((img, idx) => {
+    img.onclick = () => openLightbox(idx);
+  });
 
-// --------------------------
-// PAGINATION
-// --------------------------
-function renderPagination(filtered) {
-  const container = document.querySelector('.pagination');
-  container.innerHTML = '';
-  const total = Math.ceil(filtered.length / PER_PAGE);
-  for (let i = 1; i <= total; i++) {
-    const a = document.createElement('a');
-    a.textContent = i;
-    a.href = '#';
-    if (i === currentPage) a.classList.add('active');
-    a.onclick = e => {
-      e.preventDefault();
-      currentPage = i;
-      setParams({ page: i > 1 ? i : null });
-      transitionGallery(generateGallery);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-    container.appendChild(a);
+  // Hide pagination — everything is on one page now
+  const pag = document.querySelector('.pagination');
+  if (pag) pag.innerHTML = '';
+
+  setupLazyLoading();
+
+  // If URL has ?img=N, open that image in the lightbox
+  const imgParam = parseInt(getParam('img'), 10);
+  if (!isNaN(imgParam) && imgParam >= 0 && imgParam < galleryImages.length) {
+    // Wait a tick so the DOM is painted before opening
+    setTimeout(() => openLightbox(imgParam), 0);
   }
 }
 
 // --------------------------
 // LIGHTBOX
 // --------------------------
-function openLightbox(imgEl) {
-  currentIndex = galleryImages.indexOf(imgEl);
+function openLightbox(idx) {
+  currentIndex = idx;
   const lb  = document.getElementById('lightbox');
   const lbi = document.getElementById('lightbox-img');
   lb.style.display = 'flex';
   lbi.style.opacity = 0;
-  setTimeout(() => {
-    lbi.src = imgEl.src || imgEl.dataset.src;
-    lbi.style.opacity = 1;
-  }, 50);
+
+  const img = galleryImages[currentIndex];
+  const src = img.src || img.dataset.src;
+  lbi.src = src;
+  lbi.onload = () => { lbi.style.opacity = 1; };
+
+  // Ensure the image is loaded even if still lazy
+  if (img.dataset.src) {
+    img.src = img.dataset.src;
+    delete img.dataset.src;
+    if (observer) observer.unobserve(img);
+  }
+
+  setParams({ img: idx });
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').style.display = 'none';
+  setParams({ img: null });
 }
 
 function changeImage(idx) {
@@ -314,22 +289,31 @@ function changeImage(idx) {
   const lbi = document.getElementById('lightbox-img');
   lbi.style.opacity = 0;
   setTimeout(() => {
-    currentIndex = idx;
-    const t = galleryImages[currentIndex];
-    lbi.src = t.src || t.dataset.src;
-    lbi.style.opacity = 1;
+    currentIndex = (idx + galleryImages.length) % galleryImages.length;
+    const img = galleryImages[currentIndex];
+
+    // Force-load if still lazy
+    if (img.dataset.src) {
+      img.src = img.dataset.src;
+      delete img.dataset.src;
+      if (observer) observer.unobserve(img);
+    }
+
+    lbi.src = img.src;
+    lbi.onload = () => { lbi.style.opacity = 1; };
+    setParams({ img: currentIndex });
   }, 150);
 }
 
-function showNext() { changeImage((currentIndex + 1) % galleryImages.length); }
-function showPrev() { changeImage((currentIndex - 1 + galleryImages.length) % galleryImages.length); }
+function showNext() { changeImage(currentIndex + 1); }
+function showPrev() { changeImage(currentIndex - 1); }
 
 document.addEventListener('keydown', e => {
   const lb = document.getElementById('lightbox');
   if (!lb || lb.style.display !== 'flex') return;
   if (e.key === 'ArrowRight') showNext();
   if (e.key === 'ArrowLeft')  showPrev();
-  if (e.key === 'Escape')     lb.style.display = 'none';
+  if (e.key === 'Escape')     closeLightbox();
 });
 
 // --------------------------
