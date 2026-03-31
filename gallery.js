@@ -55,7 +55,11 @@ let galleryData = {
 function extractDateDataFromFilename(filename) {
   let digits = filename
     .replace(/^(figures|hands|general)\s/i, "")
-    .replace(/\.webp$/i, "");
+    .replace(/\.webp$/i, "")
+    // Strip trailing same-day suffix letter (b, c, d...) if present after 6 digits
+    .replace(/^(\d{6})[b-z]$/i, "$1")
+    // Also handle 5-digit with suffix
+    .replace(/^(\d{5})[b-z]$/i, "$1");
 
   let mm, dd, yy;
 
@@ -73,7 +77,7 @@ function extractDateDataFromFilename(filename) {
 
   return {
     iso: `20${yy}-${mm.padStart(2, "0")}-${dd}`,
-    display: `${mm}/${dd}/${yy}`
+    display: `${mm.padStart(2, "0")}/${dd}/${yy}`
   };
 }
 
@@ -152,7 +156,13 @@ function compareItems(a, b) {
   if (aHasDate && bHasDate) {
     const aDate = new Date(a.date);
     const bDate = new Date(b.date);
-    return sortDescending ? bDate - aDate : aDate - bDate;
+    if (aDate.getTime() !== bDate.getTime()) {
+      return sortDescending ? bDate - aDate : aDate - bDate;
+    }
+    // Same date: sort by filename so same-day entries appear consistently
+    return sortDescending
+      ? b.file.localeCompare(a.file)
+      : a.file.localeCompare(b.file);
   }
 
   if (aHasDate && !bHasDate) return -1;
