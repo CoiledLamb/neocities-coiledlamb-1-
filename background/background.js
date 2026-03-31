@@ -6,13 +6,13 @@
   canvas.id = "oilspill-bg";
 
   Object.assign(canvas.style, {
-    position: "fixed",
-    inset: "0",
-    width: "100vw",
-    height: "100vh",
-    display: "block",
+    position:      "fixed",
+    inset:         "0",
+    width:         "100vw",
+    height:        "100vh",
+    display:       "block",
     pointerEvents: "none",
-    zIndex: "0"
+    zIndex:        "0"
   });
 
   document.body.prepend(canvas);
@@ -52,10 +52,9 @@
     }
 
     S.generateTealCurves();
-
-    // Breath zones and drift currents need canvas dimensions
     S.initBreathZones();
     S.initDriftCurrents();
+    S.initSublayer();       // rebuild sublayer grid + noise on each regen
 
     for (let y = -S.spacing; y < S.height + S.spacing; y += S.spacing) {
       for (let x = -S.spacing; x < S.width + S.spacing; x += S.spacing) {
@@ -79,7 +78,6 @@
     }
   }
 
-  // Expose so gui-actions.js regenerateScene() can call it directly
   S.rebuildScene = init;
 
   function buildGrid() {
@@ -143,7 +141,11 @@
     S.debugStats.typeCounts.purple = 0;
 
     const isPaused = !!(S.tuning && S.tuning.sim && S.tuning.sim.paused);
-    const now = performance.now();
+    const now   = performance.now();
+    const frame = S.debugStats.frame;
+
+    // Draw sublayer (ASCII halftone) — runs on its own cadence inside
+    S.drawSublayer(now, frame);
 
     if (!isPaused) {
       S.ctx.clearRect(0, 0, S.width, S.height);
@@ -165,9 +167,8 @@
         const d = S.dots[i];
         d.draw();
         S.debugStats.drawn++;
-        if (S.debugStats.typeCounts[d.type] !== undefined) {
+        if (S.debugStats.typeCounts[d.type] !== undefined)
           S.debugStats.typeCounts[d.type]++;
-        }
       }
     }
 
@@ -179,7 +180,7 @@
       S.debugStats.frame % S.debug.frameSampleRate === 0
     ) {
       console.log("[OilSpill:frame]", {
-        frame: S.debugStats.frame,
+        frame,
         paused: isPaused,
         typeCounts: S.debugStats.typeCounts,
         composition: S.compositionPlan ? {
@@ -198,6 +199,7 @@
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       resizeCanvas();
+      S.resizeSublayer();
       init();
     }, 120);
   });
