@@ -1,9 +1,19 @@
-// --------------------------
-// PAGE CONFIG
-// --------------------------
-// Change these per page if needed.
-const PAGE_CATEGORY = "figures";
+// ==============================================
+// gallery.js  —  generic category gallery
+// ==============================================
+// Per-page config: set window.PAGE_CATEGORY before
+// this script loads. e.g.:
+//   <script>window.PAGE_CATEGORY = 'figures';</script>
+//   <script src="gallery.js" defer></script>
+// ==============================================
 
+// --------------------------
+// CATEGORY CONFIG
+// --------------------------
+// Add a new entry here for each gallery category.
+// folder  : image path prefix (trailing slash)
+// fallback: filenames used if gallery.json fails to load
+// --------------------------
 const CATEGORY_CONFIG = {
   figures: {
     folder: "/images/figures/",
@@ -18,14 +28,12 @@ const CATEGORY_CONFIG = {
       "figures 031926.webp","figures 032026.webp"
     ]
   },
-
   hands: {
     folder: "/images/hands/",
     fallback: [
       "hands 022026.webp","hands 022226.webp","hands 032426.webp","hands 03526.webp"
     ]
   },
-
   general: {
     folder: "/images/general/",
     fallback: []
@@ -33,9 +41,20 @@ const CATEGORY_CONFIG = {
 };
 
 // --------------------------
+// PAGE SETUP
+// Reads window.PAGE_CATEGORY, falls back to 'figures'
+// --------------------------
+const PAGE_CATEGORY = (window.PAGE_CATEGORY || "figures");
+
+// Validate — warn if the category isn't registered
+if (!CATEGORY_CONFIG[PAGE_CATEGORY]) {
+  console.warn(`gallery.js: unknown PAGE_CATEGORY "${PAGE_CATEGORY}". Add it to CATEGORY_CONFIG.`);
+}
+
+// --------------------------
 // STATE
 // --------------------------
-const perPage = 20;
+const PER_PAGE = 20;
 let currentPage = 1;
 let galleryImages = [];
 let currentIndex = 0;
@@ -43,26 +62,22 @@ let sortDescending = true;
 let observer;
 let currentMonth = "all";
 
-let galleryData = {
-  figures: [],
-  hands: [],
-  general: []
-};
+let galleryData = {};
+Object.keys(CATEGORY_CONFIG).forEach(k => { galleryData[k] = []; });
 
 // --------------------------
-// NORMALIZATION
+// HELPERS — date / filename
 // --------------------------
-function extractDateDataFromFilename(filename) {
+
+/** Parse date parts from a filename like "figures 022026.webp" */
+function extractDateFromFilename(filename) {
   let digits = filename
     .replace(/^(figures|hands|general)\s/i, "")
     .replace(/\.webp$/i, "")
-    // Strip trailing same-day suffix letter (b, c, d...) if present after 6 digits
     .replace(/^(\d{6})[b-z]$/i, "$1")
-    // Also handle 5-digit with suffix
     .replace(/^(\d{5})[b-z]$/i, "$1");
 
   let mm, dd, yy;
-
   if (digits.length === 5) {
     mm = digits.slice(0, 1);
     dd = digits.slice(1, 3);
@@ -76,98 +91,66 @@ function extractDateDataFromFilename(filename) {
   }
 
   return {
-    iso: `20${yy}-${mm.padStart(2, "0")}-${dd}`,
+    iso:     `20${yy}-${mm.padStart(2, "0")}-${dd}`,
     display: `${mm.padStart(2, "0")}/${dd}/${yy}`
   };
 }
 
-function normalizeItem(item) {
-  if (typeof item === "object" && item !== null) {
+/** Normalise a raw item (string or object) to { file, date, display } */
+function normalizeItem(raw) {
+  if (typeof raw === "object" && raw !== null) {
     return {
-      file: item.file || "",
-      date: item.date || null,
-      display: item.display || item.file || "Untitled"
+      file:    raw.file    || "",
+      date:    raw.date    || null,
+      display: raw.display || raw.file || "Untitled"
     };
   }
-
-  if (typeof item === "string") {
-    const dateData = extractDateDataFromFilename(item);
-
-    return {
-      file: item,
-      date: dateData ? dateData.iso : null,
-      display: dateData ? dateData.display : item
-    };
+  if (typeof raw === "string") {
+    const d = extractDateFromFilename(raw);
+    return { file: raw, date: d ? d.iso : null, display: d ? d.display : raw };
   }
-
-  return {
-    file: "",
-    date: null,
-    display: "Untitled"
-  };
+  return { file: "", date: null, display: "Untitled" };
 }
 
-function normalizeCategory(items) {
+/** Normalise an array of raw items and drop any with no filename */
+function normalizeItems(items) {
   if (!Array.isArray(items)) return [];
-  return items
-    .map(normalizeItem)
-    .filter(item => item.file);
-}
-
-function loadFallbackData() {
-  galleryData.figures = normalizeCategory(CATEGORY_CONFIG.figures.fallback);
-  galleryData.hands = normalizeCategory(CATEGORY_CONFIG.hands.fallback);
-  galleryData.general = normalizeCategory(CATEGORY_CONFIG.general.fallback);
+  return items.map(normalizeItem).filter(i => i.file);
 }
 
 // --------------------------
-// HELPERS
+// HELPERS — current category
 // --------------------------
-function getCurrentItems() {
-  return galleryData[PAGE_CATEGORY] || [];
-}
+function currentItems()  { return galleryData[PAGE_CATEGORY] || []; }
+function currentFolder() { return CATEGORY_CONFIG[PAGE_CATEGORY]?.folder || ""; }
+function imagePath(item) { return currentFolder() + item.file; }
 
-function getCurrentFolder() {
-  return CATEGORY_CONFIG[PAGE_CATEGORY]?.folder || "";
-}
-
-function getImagePath(item) {
-  return getCurrentFolder() + item.file;
-}
-
-function getMonthFromItem(item) {
+function monthOf(item) {
   if (!item.date) return "??";
-  const parts = item.date.split("-");
-  return parts.length >= 2 ? parts[1] : "??";
+  const p = item.date.split("-");
+  return p.length >= 2 ? p[1] : "??";
 }
 
-function getCaption(item) {
-  return item.display || item.file || "Untitled";
-}
+function captionOf(item) { return item.display || item.file || "Untitled"; }
 
-function hasRealDate(item) {
+function hasDate(item) {
   return !!item.date && !isNaN(new Date(item.date).getTime());
 }
 
+// --------------------------
+// SORT COMPARATOR
+// --------------------------
 function compareItems(a, b) {
-  const aHasDate = hasRealDate(a);
-  const bHasDate = hasRealDate(b);
-
-  if (aHasDate && bHasDate) {
-    const aDate = new Date(a.date);
-    const bDate = new Date(b.date);
-    if (aDate.getTime() !== bDate.getTime()) {
-      return sortDescending ? bDate - aDate : aDate - bDate;
-    }
-    // Same date: sort by filename so same-day entries appear consistently
+  const ad = hasDate(a), bd = hasDate(b);
+  if (ad && bd) {
+    const diff = new Date(b.date) - new Date(a.date);
+    if (diff !== 0) return sortDescending ? diff : -diff;
     return sortDescending
       ? b.file.localeCompare(a.file)
       : a.file.localeCompare(b.file);
   }
-
-  if (aHasDate && !bHasDate) return -1;
-  if (!aHasDate && bHasDate) return 1;
-
+  if (ad && !bd) return -1;
+  if (!ad && bd) return 1;
   return sortDescending
     ? b.file.localeCompare(a.file)
     : a.file.localeCompare(b.file);
@@ -176,79 +159,58 @@ function compareItems(a, b) {
 // --------------------------
 // TABS
 // --------------------------
-function generateTabs(allItems = getCurrentItems()) {
+const MONTH_NAMES = {
+  "01":"Jan","02":"Feb","03":"Mar","04":"Apr",
+  "05":"May","06":"Jun","07":"Jul","08":"Aug",
+  "09":"Sep","10":"Oct","11":"Nov","12":"Dec"
+};
+
+function generateTabs(items) {
   const container = document.querySelector(".tabs");
   container.innerHTML = "";
 
   const counts = {};
-
-  allItems.forEach(item => {
-    const month = getMonthFromItem(item);
-    if (month !== "??") {
-      counts[month] = (counts[month] || 0) + 1;
-    }
+  items.forEach(item => {
+    const m = monthOf(item);
+    if (m !== "??") counts[m] = (counts[m] || 0) + 1;
   });
 
-  const monthNames = {
-    "01":"Jan","02":"Feb","03":"Mar","04":"Apr",
-    "05":"May","06":"Jun","07":"Jul","08":"Aug",
-    "09":"Sep","10":"Oct","11":"Nov","12":"Dec"
-  };
+  function makeTab(label, onClick, isActive) {
+    const t = document.createElement("div");
+    t.className = "tab" + (isActive ? " active" : "");
+    t.innerText = label;
+    t.onclick = onClick;
+    return t;
+  }
 
-  const allTab = document.createElement("div");
-  allTab.className = "tab";
-  allTab.innerText = `All (${allItems.length})`;
+  container.appendChild(
+    makeTab(`All (${items.length})`, () => {
+      currentMonth = "all"; currentPage = 1; transitionGallery(generateGallery);
+    }, currentMonth === "all")
+  );
 
-  if (currentMonth === "all") allTab.classList.add("active");
+  Object.keys(counts).sort().forEach(m => {
+    container.appendChild(
+      makeTab(`${MONTH_NAMES[m] || m} (${counts[m]})`, () => {
+        currentMonth = m; currentPage = 1; transitionGallery(generateGallery);
+      }, m === currentMonth)
+    );
+  });
 
-  allTab.onclick = () => {
-    currentMonth = "all";
-    currentPage = 1;
-    transitionGallery(generateGallery);
-  };
-
-  container.appendChild(allTab);
-
-  Object.keys(counts)
-    .sort()
-    .forEach(month => {
-      const tab = document.createElement("div");
-      tab.className = "tab";
-      tab.innerText = `${monthNames[month] || month} (${counts[month]})`;
-
-      if (month === currentMonth) tab.classList.add("active");
-
-      tab.onclick = () => {
-        currentMonth = month;
-        currentPage = 1;
-        transitionGallery(generateGallery);
-      };
-
-      container.appendChild(tab);
-    });
-
-  const sortTab = document.createElement("div");
-  sortTab.className = "tab sort";
-  sortTab.innerText = sortDescending ? "Newest First" : "Oldest First";
-
-  sortTab.onclick = () => {
-    toggleSort();
-  };
-
-  container.appendChild(sortTab);
+  container.appendChild(
+    makeTab(sortDescending ? "Newest First" : "Oldest First", toggleSort, false)
+      // give the sort tab its extra class
+  );
+  container.lastChild.classList.add("sort");
 }
 
 // --------------------------
 // TRANSITIONS
 // --------------------------
-function transitionGallery(callback) {
-  const gallery = document.querySelector(".gallery");
-  gallery.classList.add("fade-out");
-
-  setTimeout(() => {
-    callback();
-    gallery.classList.remove("fade-out");
-  }, 200);
+function transitionGallery(fn) {
+  const g = document.querySelector(".gallery");
+  g.classList.add("fade-out");
+  setTimeout(() => { fn(); g.classList.remove("fade-out"); }, 200);
 }
 
 // --------------------------
@@ -265,89 +227,65 @@ function toggleSort() {
 // --------------------------
 function setupLazyLoading() {
   if (observer) observer.disconnect();
-
   observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const img = entry.target;
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const img = e.target;
         img.src = img.dataset.src;
         observer.unobserve(img);
       }
     });
   }, { rootMargin: "100px" });
-
-  document.querySelectorAll("img[data-src]").forEach(img => {
-    observer.observe(img);
-  });
+  document.querySelectorAll("img[data-src]").forEach(img => observer.observe(img));
 }
 
-// --------------------------
-// PRELOAD
-// --------------------------
 function preloadNextPage(filtered) {
-  const start = currentPage * perPage;
-  const nextSet = filtered.slice(start, start + perPage);
-
-  nextSet.forEach(item => {
+  const start = currentPage * PER_PAGE;
+  filtered.slice(start, start + PER_PAGE).forEach(item => {
     const img = new Image();
-    img.src = getImagePath(item);
+    img.src = imagePath(item);
   });
 }
 
 // --------------------------
-// MAIN GALLERY
+// MAIN GALLERY RENDER
 // --------------------------
 function generateGallery() {
   const gallery = document.querySelector(".gallery");
   gallery.innerHTML = "";
   galleryImages = [];
 
-  const allItems = getCurrentItems();
-  generateTabs(allItems);
+  const items = currentItems();
+  generateTabs(items);
 
-  let filtered = allItems.slice();
-
+  let filtered = items.slice();
   if (currentMonth !== "all") {
-    filtered = filtered.filter(item => getMonthFromItem(item) === currentMonth);
+    filtered = filtered.filter(item => monthOf(item) === currentMonth);
   }
-
   filtered.sort(compareItems);
 
-  const start = (currentPage - 1) * perPage;
-  const pageItems = filtered.slice(start, start + perPage);
+  const pageItems = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
 
   pageItems.forEach(item => {
     const div = document.createElement("div");
     div.className = "thumb";
 
     const img = document.createElement("img");
-    img.dataset.src = getImagePath(item);
+    img.dataset.src = imagePath(item);
     img.alt = item.file;
     img.onclick = () => openLightbox(img);
-
     div.appendChild(img);
 
     const caption = document.createElement("div");
     caption.className = "caption";
-    caption.innerText = getCaption(item);
+    caption.innerText = captionOf(item);
     div.appendChild(caption);
-
-    // temporary debug link
-    const link = document.createElement("a");
-    link.href = getImagePath(item);
-    link.innerText = "open";
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.style.display = "block";
-    link.style.fontSize = "10px";
-    link.style.opacity = "0.6";
-    div.appendChild(link);
 
     gallery.appendChild(div);
     galleryImages.push(img);
   });
 
-  paginateGallery(filtered);
+  renderPagination(filtered);
   setupLazyLoading();
   preloadNextPage(filtered);
 }
@@ -355,27 +293,20 @@ function generateGallery() {
 // --------------------------
 // PAGINATION
 // --------------------------
-function paginateGallery(filtered) {
+function renderPagination(filtered) {
   const container = document.querySelector(".pagination");
   container.innerHTML = "";
-
-  const totalPages = Math.ceil(filtered.length / perPage);
-
-  for (let i = 1; i <= totalPages; i++) {
+  const total = Math.ceil(filtered.length / PER_PAGE);
+  for (let i = 1; i <= total; i++) {
     const a = document.createElement("a");
     a.innerText = i;
     a.href = "#";
-
-    if (i === currentPage) {
-      a.classList.add("active");
-    }
-
-    a.onclick = (e) => {
+    if (i === currentPage) a.classList.add("active");
+    a.onclick = e => {
       e.preventDefault();
       currentPage = i;
       transitionGallery(generateGallery);
     };
-
     container.appendChild(a);
   }
 }
@@ -383,33 +314,27 @@ function paginateGallery(filtered) {
 // --------------------------
 // LIGHTBOX
 // --------------------------
-function openLightbox(imgElement) {
-  currentIndex = galleryImages.indexOf(imgElement);
-
-  const lightbox = document.getElementById("lightbox");
-  const lightboxImg = document.getElementById("lightbox-img");
-
-  lightbox.style.display = "flex";
-  lightboxImg.style.opacity = 0;
-
+function openLightbox(imgEl) {
+  currentIndex = galleryImages.indexOf(imgEl);
+  const lb  = document.getElementById("lightbox");
+  const lbi = document.getElementById("lightbox-img");
+  lb.style.display = "flex";
+  lbi.style.opacity = 0;
   setTimeout(() => {
-    lightboxImg.src = imgElement.src || imgElement.dataset.src;
-    lightboxImg.style.opacity = 1;
+    lbi.src = imgEl.src || imgEl.dataset.src;
+    lbi.style.opacity = 1;
   }, 200);
 }
 
-function changeImage(newIndex) {
+function changeImage(idx) {
   if (!galleryImages.length) return;
-
-  const img = document.getElementById("lightbox-img");
-  img.style.opacity = 0;
-
+  const lbi = document.getElementById("lightbox-img");
+  lbi.style.opacity = 0;
   setTimeout(() => {
-    currentIndex = newIndex;
-    const target = galleryImages[currentIndex];
-
-    img.src = target.src || target.dataset.src;
-    img.style.opacity = 1;
+    currentIndex = idx;
+    const t = galleryImages[currentIndex];
+    lbi.src = t.src || t.dataset.src;
+    lbi.style.opacity = 1;
   }, 200);
 }
 
@@ -426,48 +351,42 @@ function showPrev() {
 // --------------------------
 // KEYBOARD
 // --------------------------
-document.addEventListener("keydown", (e) => {
-  const lightbox = document.getElementById("lightbox");
-
-  if (lightbox.style.display === "flex") {
+document.addEventListener("keydown", e => {
+  const lb = document.getElementById("lightbox");
+  if (lb.style.display === "flex") {
     if (e.key === "ArrowRight") showNext();
-    if (e.key === "ArrowLeft") showPrev();
-    if (e.key === "Escape") lightbox.style.display = "none";
+    if (e.key === "ArrowLeft")  showPrev();
+    if (e.key === "Escape")     lb.style.display = "none";
   }
 });
 
 // --------------------------
-// LOAD DATA
+// DATA LOADING
 // --------------------------
+function loadFallbackData() {
+  Object.keys(CATEGORY_CONFIG).forEach(k => {
+    galleryData[k] = normalizeItems(CATEGORY_CONFIG[k].fallback);
+  });
+}
+
 async function loadGalleryData() {
   loadFallbackData();
 
   try {
-    const response = await fetch("gallery.json", { cache: "no-store" });
+    const res = await fetch("gallery.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    galleryData.figures = normalizeCategory(
-      Array.isArray(data.figures) ? data.figures : CATEGORY_CONFIG.figures.fallback
-    );
-
-    galleryData.hands = normalizeCategory(
-      Array.isArray(data.hands) ? data.hands : CATEGORY_CONFIG.hands.fallback
-    );
-
-    galleryData.general = normalizeCategory(
-      Array.isArray(data.general) ? data.general : CATEGORY_CONFIG.general.fallback
-    );
+    Object.keys(CATEGORY_CONFIG).forEach(k => {
+      galleryData[k] = normalizeItems(
+        Array.isArray(data[k]) ? data[k] : CATEGORY_CONFIG[k].fallback
+      );
+    });
   } catch (err) {
-    console.warn("Using fallback gallery data:", err);
+    console.warn("gallery.js: using fallback data:", err);
   }
 
   generateGallery();
 }
 
-// --------------------------
 window.onload = loadGalleryData;

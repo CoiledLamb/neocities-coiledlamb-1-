@@ -1,51 +1,420 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Studies</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Studies — Coiled Lamb</title>
+  <link rel="stylesheet" href="nav.css" />
+
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
+    html, body {
       margin: 0;
+      background: #155352;
+      color: white;
+      font-family: "Source Code Pro", monospace;
+      min-height: 100vh;
     }
 
-    .sidebar {
-      width: 200px;
-      background-color: #222;
-      color: white;
-      padding: 15px;
-      height: 100vh;
+    /* ---- page layout ---- */
+    .studies-page {
+      padding: 40px 36px;
+      box-sizing: border-box;
+      max-width: 900px;
     }
 
-    .sidebar a {
-      color: white;
-      text-decoration: none;
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.6rem, 4vw, 2.8rem);
+      line-height: 1;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      color: rgba(255,255,255,0.55);
+      margin: 0 0 32px;
+      letter-spacing: 0.04em;
+    }
+
+    /* ---- glass panel ---- */
+    .glass {
+      background:
+        linear-gradient(180deg,
+          rgba(255,255,255,0.055) 0%,
+          rgba(255,255,255,0.018) 28%,
+          rgba(255,255,255,0.028) 100%),
+        rgba(8,14,20,0.42);
+      border: 1px solid rgba(255,255,255,0.10);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 4px;
+    }
+
+    /* ---- section labels ---- */
+    .section-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.45);
+      margin: 0 0 12px;
+    }
+
+    /* ---- carousel ---- */
+    .carousel-wrap {
+      padding: 18px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .carousel-track-outer {
+      overflow: hidden;
+      border-radius: 2px;
+    }
+
+    .carousel-track {
+      display: flex;
+      gap: 12px;
+      transition: transform 0.35s ease;
+    }
+
+    .carousel-slide {
+      flex: 0 0 calc(33.333% - 8px);
+      aspect-ratio: 1 / 1;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.09);
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .carousel-slide:hover {
+      border-color: rgba(255,255,255,0.22);
+    }
+
+    .carousel-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
       display: block;
-      margin: 10px 0;
     }
 
-    .content {
-      padding: 20px;
+    .carousel-slide .slide-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: rgba(255,255,255,0.25);
+    }
+
+    .carousel-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+    }
+
+    .carousel-btn {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.13);
+      color: white;
+      font-family: "Source Code Pro", monospace;
+      font-size: 16px;
+      padding: 4px 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border-radius: 3px;
+    }
+
+    .carousel-btn:hover {
+      background: rgba(255,255,255,0.13);
+    }
+
+    .carousel-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .carousel-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.22);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .carousel-dot.active {
+      background: rgba(255,255,255,0.75);
+    }
+
+    /* ---- two-col lower section ---- */
+    .lower-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    /* ---- gallery links ---- */
+    .gallery-links-panel {
+      padding: 18px;
+    }
+
+    .gallery-link-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .gallery-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.85);
+      text-decoration: none;
+      font-size: 12px;
+      border-radius: 3px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .gallery-link:hover {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(255,255,255,0.18);
+      color: white;
+    }
+
+    .gallery-link .arrow {
+      opacity: 0.45;
+      font-size: 14px;
+    }
+
+    /* ---- process panel ---- */
+    .process-panel {
+      padding: 18px;
+    }
+
+    .process-list {
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .process-row {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .process-key {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.38);
+    }
+
+    .process-val {
+      font-size: 12px;
+      color: rgba(255,255,255,0.82);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 700px) {
+      .lower-grid { grid-template-columns: 1fr; }
+      .carousel-slide { flex: 0 0 calc(50% - 6px); }
+      .studies-page { padding: 20px 16px; }
     }
   </style>
 </head>
-
 <body>
+  <script>window.NAV_ACTIVE = 'studies';</script>
+  <script src="nav.js"></script>
 
-  <div class="sidebar">
-    <h2>Navigation</h2>
-    <a href="index.html">Home</a>
-    <a href="studies.html">Studies</a>
-  </div>
-
-  <div class="content">
+  <div class="studies-page">
     <h1>Studies</h1>
+    <p class="subtitle">figure drawing / hands / anatomy</p>
 
-    <ul>
-      <li><a href="figures.html">Figures</a></li>
-      <li><a href="hands.html">Hands</a></li>
-    </ul>
+    <!-- RECENT WORK CAROUSEL -->
+    <div class="carousel-wrap glass">
+      <p class="section-label" style="margin-bottom:14px;">Recent Work</p>
+      <div class="carousel-track-outer">
+        <div class="carousel-track" id="carousel-track"></div>
+      </div>
+      <div class="carousel-controls">
+        <button class="carousel-btn" id="carousel-prev" aria-label="Previous">&#8249;</button>
+        <div class="carousel-dots" id="carousel-dots"></div>
+        <button class="carousel-btn" id="carousel-next" aria-label="Next">&#8250;</button>
+      </div>
+    </div>
+
+    <div class="lower-grid">
+      <!-- GALLERY LINKS -->
+      <div class="gallery-links-panel glass">
+        <p class="section-label">Galleries</p>
+        <div class="gallery-link-list">
+          <a class="gallery-link" href="figures.html">
+            <span>Figures</span>
+            <span class="arrow">›</span>
+          </a>
+          <a class="gallery-link" href="hands.html">
+            <span>Hands</span>
+            <span class="arrow">›</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- PROCESS / TOOLS -->
+      <div class="process-panel glass">
+        <p class="section-label">Process &amp; Tools</p>
+        <div class="process-list" id="process-list">
+          <div class="process-row">
+            <span class="process-key">Tablet</span>
+            <span class="process-val" id="proc-tablet">—</span>
+          </div>
+          <div class="process-row">
+            <span class="process-key">Programs</span>
+            <span class="process-val" id="proc-programs">—</span>
+          </div>
+          <div class="process-row">
+            <span class="process-key">Sites</span>
+            <span class="process-val" id="proc-sites">—</span>
+          </div>
+          <div class="process-row">
+            <span class="process-key">Process</span>
+            <span class="process-val" id="proc-notes">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <script>
+    // -----------------------------------------------
+    // PROCESS INFO — edit these values
+    // -----------------------------------------------
+    const PROCESS_INFO = {
+      tablet:   "—",
+      programs: "—",
+      sites:    "—",
+      notes:    "—"
+    };
+
+    document.getElementById('proc-tablet').textContent   = PROCESS_INFO.tablet;
+    document.getElementById('proc-programs').textContent = PROCESS_INFO.programs;
+    document.getElementById('proc-sites').textContent    = PROCESS_INFO.sites;
+    document.getElementById('proc-notes').textContent    = PROCESS_INFO.notes;
+
+    // -----------------------------------------------
+    // CAROUSEL — loads from gallery.json, shows the
+    // most recent N images across all categories
+    // -----------------------------------------------
+    const CAROUSEL_VISIBLE = 3;  // slides visible at once
+    const CAROUSEL_RECENT  = 9;  // total slides to pull
+
+    const FOLDER_MAP = {
+      figures: '/images/figures/',
+      hands:   '/images/hands/',
+      general: '/images/general/'
+    };
+
+    let carouselItems = [];
+    let carouselPage  = 0;
+
+    function totalPages() {
+      return Math.max(1, Math.ceil(carouselItems.length / CAROUSEL_VISIBLE));
+    }
+
+    function renderCarousel() {
+      const track = document.getElementById('carousel-track');
+      const dots  = document.getElementById('carousel-dots');
+      track.innerHTML = '';
+      dots.innerHTML  = '';
+
+      if (!carouselItems.length) {
+        const slide = document.createElement('div');
+        slide.className = 'carousel-slide';
+        slide.innerHTML = '<div class="slide-placeholder">no recent images</div>';
+        track.appendChild(slide);
+        return;
+      }
+
+      carouselItems.forEach(item => {
+        const slide = document.createElement('div');
+        slide.className = 'carousel-slide';
+        const img = document.createElement('img');
+        img.src = item.path;
+        img.alt = item.display || '';
+        img.loading = 'lazy';
+        slide.appendChild(img);
+        track.appendChild(slide);
+      });
+
+      for (let i = 0; i < totalPages(); i++) {
+        const dot = document.createElement('div');
+        dot.className = 'carousel-dot' + (i === carouselPage ? ' active' : '');
+        dot.onclick = () => goToPage(i);
+        dots.appendChild(dot);
+      }
+
+      updateTrackPosition();
+    }
+
+    function updateTrackPosition() {
+      const track = document.getElementById('carousel-track');
+      const slideW = track.parentElement.clientWidth / CAROUSEL_VISIBLE;
+      const offset = carouselPage * CAROUSEL_VISIBLE * (slideW + 12);
+      track.style.transform = `translateX(-${offset}px)`;
+      document.querySelectorAll('.carousel-dot').forEach((d, i) => {
+        d.classList.toggle('active', i === carouselPage);
+      });
+    }
+
+    function goToPage(p) {
+      carouselPage = Math.max(0, Math.min(p, totalPages() - 1));
+      updateTrackPosition();
+    }
+
+    document.getElementById('carousel-prev').onclick = () => goToPage(carouselPage - 1);
+    document.getElementById('carousel-next').onclick = () => goToPage(carouselPage + 1);
+
+    async function loadCarousel() {
+      try {
+        const res  = await fetch('gallery.json', { cache: 'no-store' });
+        const data = await res.json();
+
+        let all = [];
+        Object.entries(data).forEach(([cat, items]) => {
+          const folder = FOLDER_MAP[cat] || ('/images/' + cat + '/');
+          if (!Array.isArray(items)) return;
+          items.forEach(item => {
+            const file = typeof item === 'string' ? item : item.file;
+            const date = typeof item === 'object' ? (item.date || null) : null;
+            const display = typeof item === 'object' ? (item.display || file) : file;
+            if (file) all.push({ path: folder + file, date, display });
+          });
+        });
+
+        // Sort by date desc, put undated at end
+        all.sort((a, b) => {
+          if (a.date && b.date) return new Date(b.date) - new Date(a.date);
+          if (a.date) return -1;
+          if (b.date) return 1;
+          return 0;
+        });
+
+        carouselItems = all.slice(0, CAROUSEL_RECENT);
+      } catch (e) {
+        carouselItems = [];
+      }
+      renderCarousel();
+    }
+
+    loadCarousel();
+  </script>
 </body>
 </html>

@@ -1,17 +1,29 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Hands</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hands — Coiled Lamb</title>
+  <link rel="stylesheet" href="nav.css" />
+  <link rel="stylesheet" href="style.css">
+  <script>window.NAV_ACTIVE = 'hands';</script>
+  <script src="nav.js"></script>
+  <script>window.PAGE_CATEGORY = 'hands';</script>
+  <script src="gallery.js" defer></script>
 </head>
-<script src="gallery.js"></script>
-<body>
-  <h1>Hand Studies</h1>
 
-  <div class="gallery">
-    <img src="images/figure1.jpg">
-    <img src="images/figure2.jpg">
+<body>
+  <div class="page-frame">
+    <div class="page-title">Hand Studies</div>
+    <div class="tabs"></div>
+    <div class="gallery"></div>
+    <div class="pagination"></div>
   </div>
 
-  <a href="studies.html">← Back to Studies</a>
+  <div id="lightbox" onclick="this.style.display='none'">
+    <span class="arrow left" onclick="event.stopPropagation(); showPrev()">&lt;</span>
+    <img id="lightbox-img">
+    <span class="arrow right" onclick="event.stopPropagation(); showNext()">&gt;</span>
+  </div>
 </body>
 </html>

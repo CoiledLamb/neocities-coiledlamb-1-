@@ -1,43 +1,29 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Figures</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Figures — Coiled Lamb</title>
+  <link rel="stylesheet" href="nav.css" />
   <link rel="stylesheet" href="style.css">
-
+  <script>window.NAV_ACTIVE = 'figures';</script>
+  <script src="nav.js"></script>
+  <script>window.PAGE_CATEGORY = 'figures';</script>
   <script src="gallery.js" defer></script>
-  <script src="background.js" defer></script>
 </head>
 
 <body>
   <div class="page-frame">
-
-    <!-- TITLE -->
     <div class="page-title">Figure Studies</div>
-
-    <!-- TABS -->
     <div class="tabs"></div>
-
-    <!-- GALLERY -->
     <div class="gallery"></div>
-
-    <!-- PAGINATION -->
     <div class="pagination"></div>
-
-    <!-- FOOTER -->
-    <div class="page-footer">
-      <a href="studies.html">← Back to Studies</a>
-    </div>
-
   </div>
 
-  <!-- LIGHTBOX -->
   <div id="lightbox" onclick="this.style.display='none'">
     <span class="arrow left" onclick="event.stopPropagation(); showPrev()">&lt;</span>
     <img id="lightbox-img">
     <span class="arrow right" onclick="event.stopPropagation(); showNext()">&gt;</span>
   </div>
-
 </body>
 </html>
