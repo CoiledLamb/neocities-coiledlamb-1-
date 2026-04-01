@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Toys — Coiled Lamb</title>
+  <link rel="stylesheet" href="nav.css" />
+  <style>
+    html, body {
+      margin: 0;
+      background: #155352;
+      color: white;
+      font-family: "Source Code Pro", monospace;
+      min-height: 100vh;
+    }
+    .toys-page {
+      padding: 40px 40px 60px;
+      box-sizing: border-box;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.6rem, 3vw, 2.6rem);
+      line-height: 1;
+      font-weight: 700;
+    }
+    .subtitle {
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+      margin: 0 0 32px;
+      letter-spacing: 0.05em;
+    }
+    .toy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      max-width: 800px;
+    }
+    .toy-card {
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      background:
+        linear-gradient(180deg,
+          rgba(255,255,255,0.050) 0%,
+          rgba(255,255,255,0.016) 28%,
+          rgba(255,255,255,0.024) 100%),
+        rgba(8,14,20,0.40);
+      border: 1px solid rgba(255,255,255,0.09);
+      backdrop-filter: blur(8px);
+      border-radius: 4px;
+      text-decoration: none;
+      color: white;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .toy-card:hover {
+      border-color: rgba(255,255,255,0.22);
+      background:
+        linear-gradient(180deg,
+          rgba(255,255,255,0.07) 0%,
+          rgba(255,255,255,0.025) 28%,
+          rgba(255,255,255,0.035) 100%),
+        rgba(8,14,20,0.45);
+    }
+    .toy-name {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0 0 6px;
+      letter-spacing: 0.02em;
+    }
+    .toy-desc {
+      font-size: 11px;
+      color: rgba(255,255,255,0.50);
+      line-height: 1.6;
+      margin: 0;
+    }
+    .toy-arr {
+      margin-top: 14px;
+      font-size: 18px;
+      color: rgba(255,255,255,0.30);
+      align-self: flex-end;
+    }
+  </style>
+</head>
+<body>
+  <script>window.NAV_ACTIVE = 'toys';</script>
+  <script src="nav.js"></script>
+
+  <div class="toys-page">
+    <h1>Toys</h1>
+    <p class="subtitle">experiments &amp; interactive things</p>
+
+    <div class="toy-grid">
+      <a class="toy-card" href="oilslick-lab.html">
+        <span class="toy-name">Oilslick Labs</span>
+        <p class="toy-desc">Live-tunable oil-spill background. Tweak particle count, speed, colour bleed, and more.</p>
+        <span class="toy-arr">›</span>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About — Coiled Lamb</title>
+  <link rel="stylesheet" href="nav.css" />
+  <style>
+    html, body {
+      margin: 0;
+      background: #155352;
+      color: white;
+      font-family: "Source Code Pro", monospace;
+      min-height: 100vh;
+    }
+    .about-page {
+      padding: 40px 40px 60px;
+      box-sizing: border-box;
+      max-width: 640px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.4rem, 3vw, 2.2rem);
+      font-weight: 700;
+      line-height: 1;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: rgba(255,255,255,0.40);
+      letter-spacing: 0.06em;
+      margin: 0 0 36px;
+    }
+    .glass {
+      background:
+        linear-gradient(180deg,
+          rgba(255,255,255,0.050) 0%,
+          rgba(255,255,255,0.016) 28%,
+          rgba(255,255,255,0.024) 100%),
+        rgba(8,14,20,0.40);
+      border: 1px solid rgba(255,255,255,0.09);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 4px;
+      padding: 24px;
+    }
+    .placeholder-text {
+      font-size: 12px;
+      color: rgba(255,255,255,0.35);
+      line-height: 1.8;
+      letter-spacing: 0.03em;
+    }
+    /* placeholder dashes to show where content goes */
+    .field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-bottom: 18px;
+    }
+    .field-row:last-child { margin-bottom: 0; }
+    .field-key {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      color: rgba(255,255,255,0.30);
+    }
+    .field-val {
+      font-size: 12px;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <script>window.NAV_ACTIVE = 'about';</script>
+  <script src="nav.js"></script>
+
+  <div class="about-page">
+    <h1>About</h1>
+    <p class="subtitle">coiled lamb</p>
+
+    <div class="glass">
+      <div class="field-row">
+        <span class="field-key">Who</span>
+        <span class="field-val">—</span>
+      </div>
+      <div class="field-row">
+        <span class="field-key">What</span>
+        <span class="field-val">—</span>
+      </div>
+      <div class="field-row">
+        <span class="field-key">Links</span>
+        <span class="field-val">—</span>
+      </div>
+      <div class="field-row">
+        <span class="field-key">Contact</span>
+        <span class="field-val">—</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
