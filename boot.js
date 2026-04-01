@@ -2,12 +2,12 @@
    BOOT SEQUENCE — boot.js
    Include on every page. Call startBoot() on load.
 
-   First-visit gate:
-     Uses localStorage key 'cl-booted'.
-     Boot only runs once; subsequent page loads
-     skip straight to the site.
-     startBoot() can still be called manually
-     (e.g. a replay button in dev) to force it.
+   Session gate:
+     Uses sessionStorage key 'cl-booted'.
+     Boot runs once per browser session (tab open→close).
+     Hard reload within the same session skips it;
+     opening a new tab or window shows it again.
+     startBoot(true) forces a replay regardless.
 
    Real loading gate:
      Set window.BOOT_READY = false before load,
@@ -17,7 +17,7 @@
 'use strict';
 (function () {
 
-const BOOT_FLAG = 'cl-booted'; // localStorage key
+const BOOT_FLAG = 'cl-booted'; // sessionStorage key
 
 const OIL_COLORS = [
   '#40a4b9','#55b0c4','#77bfcf','#9d78d4',
@@ -33,7 +33,7 @@ const ASCII_TEXT =
 
 // ---- Timing constants ----
 const CHAR_MS  = 18;  // typing speed per character
-const BLINK_MS = 80;  // ▓ blink half-period (faster ellipsis)
+const BLINK_MS = 80;  // ▓ blink half-period
 const BLINK_N  = 2;   // blinks before committing each dot
 const DOT_MS   = 15;  // pause after committing a dot
 
@@ -231,8 +231,7 @@ async function runBoot() {
   await wait(200);
   if (bootAborted) return;
 
-  // Welcome line — typed character by character with oil colours,
-  // same palette as the sweep so they look synchronised.
+  // Welcome line — typed character by character with oil colours
   welcomeEl.style.display = 'block';
   const wLine = document.createElement('div');
   wLine.className = 'tline';
@@ -264,8 +263,8 @@ async function runBoot() {
   await wait(1000);
   if (bootAborted) return;
 
-  // Mark as booted so future page loads skip the sequence
-  try { localStorage.setItem(BOOT_FLAG, '1'); } catch (_) {}
+  // Mark session as booted — future page loads this session skip the sequence
+  try { sessionStorage.setItem(BOOT_FLAG, '1'); } catch (_) {}
 
   // Crossfade to site
   stopSweep();
@@ -277,13 +276,12 @@ async function runBoot() {
   if (!bootAborted && bootEl) bootEl.style.display = 'none';
 }
 
-// startBoot() — checks first-visit flag.
-// Pass force=true to always run (used by dev replay button).
+// startBoot() — checks session flag.
+// Pass force=true to always run (replay button).
 window.startBoot = function (force) {
-  // First-visit check — skip if already booted (unless forced)
   if (!force) {
     try {
-      if (localStorage.getItem(BOOT_FLAG) === '1') {
+      if (sessionStorage.getItem(BOOT_FLAG) === '1') {
         skipToSite();
         return;
       }
@@ -304,8 +302,8 @@ window.dismissBoot = function () {
   bootAborted = true;
   bootTimers.forEach(clearTimeout); bootTimers = [];
   stopSweep();
-  // Mark as booted when user skips, same as completing it
-  try { localStorage.setItem(BOOT_FLAG, '1'); } catch (_) {}
+  // Mark session as booted when user skips
+  try { sessionStorage.setItem(BOOT_FLAG, '1'); } catch (_) {}
   skipToSite();
 };
 
