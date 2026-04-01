@@ -1,9 +1,7 @@
 /* ==============================================
-   BOOT SCREEN
-   Caves of Qud terminal aesthetic
+   BOOT SCREEN — Caves of Qud terminal aesthetic
    ============================================== */
 
-/* ---- Keyframes ---- */
 @keyframes oil {
   0%   { background-position: 0% center; }
   100% { background-position: 200% center; }
@@ -17,7 +15,8 @@
   100% { border-color: #40a4b9; }
 }
 
-/* ---- Oilslick text — site title + boot welcome only ---- */
+/* Oilslick text — site title + boot welcome.
+   4s cycle to stay in sync with the JS sweep. */
 .oil-text {
   background: linear-gradient(90deg,
     #40a4b9 0%, #77bfcf 18%, #9d78d4 38%,
@@ -26,15 +25,15 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: oil 5s linear infinite;
+  animation: oil 4s linear infinite;
 }
 
-/* ---- Oilslick border — active nav/tab/pagination/thumb hover ---- */
+/* Oilslick border — active nav/tab/pagination/thumb hover */
 .oil-border-active {
   animation: oil-border 4s linear infinite;
 }
 
-/* ---- Scanlines ---- */
+/* Scanlines */
 #scanlines {
   position: fixed; inset: 0;
   background: repeating-linear-gradient(
@@ -45,7 +44,7 @@
   z-index: 200;
 }
 
-/* ---- Boot overlay ---- */
+/* Boot overlay */
 #boot {
   position: fixed; inset: 0;
   background: #0b2e2d;
@@ -81,13 +80,15 @@
 .tline .key { color: #3a6a68; }
 .tline .val { color: #77bfcf; }
 .tline .dot { color: #77bfcf; }
-/* ▓ cursor — contained to avoid line-height overflow */
+
+/* ▓ cursor — sits on the text baseline, same visual size,
+   no line-height expansion */
 .tline .blk {
   color: #77bfcf;
   display: inline-block;
-  line-height: 1;
-  vertical-align: top;
-  font-size: 0.85em;
+  line-height: inherit;
+  vertical-align: middle;
+  font-size: 1em;
 }
 
 /* Welcome line */

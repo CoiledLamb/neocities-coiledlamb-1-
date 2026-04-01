@@ -2,13 +2,22 @@
    BOOT SEQUENCE — boot.js
    Include on every page. Call startBoot() on load.
 
-   For real loading gates:
+   First-visit gate:
+     Uses localStorage key 'cl-booted'.
+     Boot only runs once; subsequent page loads
+     skip straight to the site.
+     startBoot() can still be called manually
+     (e.g. a replay button in dev) to force it.
+
+   Real loading gate:
      Set window.BOOT_READY = false before load,
-     then set it to true when assets are ready.
-     The ellipsis loop will keep cycling until it's true.
+     flip to true when assets are ready.
+     The ellipsis loop keeps cycling until then.
    ============================================== */
 'use strict';
 (function () {
+
+const BOOT_FLAG = 'cl-booted'; // localStorage key
 
 const OIL_COLORS = [
   '#40a4b9','#55b0c4','#77bfcf','#9d78d4',
@@ -23,10 +32,10 @@ const ASCII_TEXT =
 \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d`;
 
 // ---- Timing constants ----
-const CHAR_MS  = 18;   // typing speed per character
-const BLINK_MS = 130;  // ▓ blink half-period
-const BLINK_N  = 2;    // blinks before committing each dot
-const DOT_MS   = 30;   // pause after committing a dot
+const CHAR_MS  = 18;  // typing speed per character
+const BLINK_MS = 80;  // ▓ blink half-period (faster ellipsis)
+const BLINK_N  = 2;   // blinks before committing each dot
+const DOT_MS   = 15;  // pause after committing a dot
 
 // ---- State ----
 let charSpans   = [];
@@ -45,6 +54,8 @@ function wait(ms) {
 }
 
 // ---- ASCII sweep ----
+// Cycle time: (charSpans + WIN + 4) * 42ms + 600ms pause ≈ 4s
+// Matches the CSS oil animation at 4s in boot.css.
 function buildAscii() {
   const el = q('boot-ascii');
   el.innerHTML = '';
@@ -135,6 +146,14 @@ async function drawOneDot(lineEl) {
   await wait(DOT_MS);
 }
 
+// ---- Skip to site (no animation) ----
+function skipToSite() {
+  const bootEl = q('boot');
+  const siteEl = q('site');
+  if (bootEl) bootEl.style.display = 'none';
+  if (siteEl) siteEl.classList.add('visible');
+}
+
 // ---- Main boot sequence ----
 async function runBoot() {
   bootAborted = false;
@@ -180,7 +199,7 @@ async function runBoot() {
 
   if (bootAborted) return;
 
-  // Loading line — loops until window.BOOT_READY is true (or 2 passes in mockup)
+  // Loading line — loops until window.BOOT_READY is true (or 2 passes default)
   const loadLine = newLine();
   await typeString(loadLine, 'STATUS.....', 'key', CHAR_MS);
   if (bootAborted) return;
@@ -188,7 +207,6 @@ async function runBoot() {
   if (bootAborted) return;
   moveCursor(loadLine);
 
-  // Keep looping ellipsis until ready (defaults to 2 loops if BOOT_READY not set)
   let loops = 0;
   const maxLoops = (typeof window.BOOT_READY === 'boolean') ? Infinity : 2;
   while (loops < maxLoops) {
@@ -210,10 +228,11 @@ async function runBoot() {
   if (bootAborted) return;
   removeCursor(loadLine);
 
-  await wait(260);
+  await wait(200);
   if (bootAborted) return;
 
-  // Welcome line — typed character by character with oil colours
+  // Welcome line — typed character by character with oil colours,
+  // same palette as the sweep so they look synchronised.
   welcomeEl.style.display = 'block';
   const wLine = document.createElement('div');
   wLine.className = 'tline';
@@ -237,19 +256,16 @@ async function runBoot() {
   }
   if (bootAborted) return;
 
-  // Final cursor: 2 slow blinks then gone
+  // ▓ disappears immediately after welcome finishes typing
   const finalCur = wLine.querySelector('.blk');
-  if (finalCur) {
-    for (let i = 0; i < 4; i++) {
-      if (bootAborted) break;
-      finalCur.style.visibility = (i % 2 === 0) ? 'hidden' : 'visible';
-      await wait(BLINK_MS);
-    }
-    finalCur.remove();
-  }
+  if (finalCur) finalCur.remove();
 
-  await wait(500);
+  // Welcome hangs visibly for ~1s before crossfade
+  await wait(1000);
   if (bootAborted) return;
+
+  // Mark as booted so future page loads skip the sequence
+  try { localStorage.setItem(BOOT_FLAG, '1'); } catch (_) {}
 
   // Crossfade to site
   stopSweep();
@@ -261,7 +277,19 @@ async function runBoot() {
   if (!bootAborted && bootEl) bootEl.style.display = 'none';
 }
 
-window.startBoot = function () {
+// startBoot() — checks first-visit flag.
+// Pass force=true to always run (used by dev replay button).
+window.startBoot = function (force) {
+  // First-visit check — skip if already booted (unless forced)
+  if (!force) {
+    try {
+      if (localStorage.getItem(BOOT_FLAG) === '1') {
+        skipToSite();
+        return;
+      }
+    } catch (_) {}
+  }
+
   bootAborted = true;
   bootTimers.forEach(clearTimeout); bootTimers = [];
   stopSweep();
@@ -276,10 +304,9 @@ window.dismissBoot = function () {
   bootAborted = true;
   bootTimers.forEach(clearTimeout); bootTimers = [];
   stopSweep();
-  const bootEl = q('boot');
-  const siteEl = q('site');
-  if (bootEl) bootEl.style.display = 'none';
-  if (siteEl) siteEl.classList.add('visible');
+  // Mark as booted when user skips, same as completing it
+  try { localStorage.setItem(BOOT_FLAG, '1'); } catch (_) {}
+  skipToSite();
 };
 
 })();
