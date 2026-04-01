@@ -4,24 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hands — Coiled Lamb</title>
+  <link rel="stylesheet" href="boot.css" />
   <link rel="stylesheet" href="nav.css" />
   <link rel="stylesheet" href="style.css">
-  <script>window.NAV_ACTIVE = 'hands';</script>
-  <script src="nav.js"></script>
-  <script>window.PAGE_CATEGORY = 'hands';</script>
-  <script src="gallery.js" defer></script>
 </head>
 <body>
-  <div class="page-title">Hands</div>
-  <p class="page-subtitle">hand studies</p>
-  <div class="tabs"></div>
-  <div class="gallery"></div>
-  <div class="pagination"></div>
-  <div id="lightbox" onclick="closeLightbox()">
-    <span class="arrow left"  onclick="event.stopPropagation(); showPrev()">&lsaquo;</span>
-    <img id="lightbox-img" onclick="event.stopPropagation()">
-    <span class="arrow right" onclick="event.stopPropagation(); showNext()">&rsaquo;</span>
-    <span class="lb-close"   onclick="event.stopPropagation(); closeLightbox()">&#x2715;</span>
+  <div id="scanlines"></div>
+  <div id="boot">
+    <div id="boot-ascii"></div>
+    <div id="boot-terminal"></div>
+    <div id="boot-welcome"></div>
+    <span class="boot-skip" onclick="dismissBoot()">[ press any key to skip ]</span>
   </div>
+  <div id="site">
+    <script>window.NAV_ACTIVE = 'hands';</script>
+    <script src="nav.js"></script>
+    <div class="page-title">Hands</div>
+    <p class="page-subtitle">hand studies</p>
+    <div class="tabs"></div>
+    <div class="gallery"></div>
+    <div class="pagination"></div>
+  </div>
+  <div id="lightbox" onclick="closeLightbox()">
+    <span class="arrow left" onclick="event.stopPropagation();showPrev()">&lsaquo;</span>
+    <img id="lightbox-img" onclick="event.stopPropagation()">
+    <span class="arrow right" onclick="event.stopPropagation();showNext()">&rsaquo;</span>
+    <span class="lb-close" onclick="event.stopPropagation();closeLightbox()">&#x2715;</span>
+  </div>
+  <script src="boot.js"></script>
+  <script>window.PAGE_CATEGORY='hands';</script>
+  <script src="gallery.js" defer></script>
+  <script>document.addEventListener('keydown',e=>{if(document.getElementById('boot').style.display!=='none')dismissBoot();});startBoot();</script>
 </body>
 </html>

@@ -1,168 +1,121 @@
 /* ==============================================
-   SHARED SIDEBAR NAV
+   SHARED SIDEBAR NAV — v1 terminal aesthetic
    ============================================== */
 
 .nav-sidebar {
   position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
-  width: 180px;
+  top: 0; left: 0;
+  height: 100vh; width: 180px;
   z-index: 100;
-  display: flex;
-  flex-direction: column;
+  display: flex; flex-direction: column;
   padding: 20px 0;
   box-sizing: border-box;
-  background:
-    linear-gradient(180deg,
-      rgba(255,255,255,0.055) 0%,
-      rgba(255,255,255,0.018) 28%,
-      rgba(255,255,255,0.028) 100%),
-    rgba(8,14,20,0.62);
-  border-right: 1px solid rgba(255,255,255,0.10);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: #0b2e2d;
+  border-right: 1px solid #1e5554;
+  font-family: 'Source Code Pro', monospace;
 }
 
-/* Logo block — site name + about link */
 .nav-logo {
   padding: 0 16px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid #1e5554;
   margin-bottom: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
+/* Site title — oilslick via boot.css .oil-text */
 .nav-logo-title {
-  color: rgba(255,255,255,0.95);
-  text-decoration: none;
-  font-family: "Source Code Pro", monospace;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 13px; font-weight: 600;
   letter-spacing: 0.04em;
+  display: block; text-decoration: none;
 }
-
-.nav-logo-title:hover { color: white; }
 
 .nav-logo-sub {
-  color: rgba(255,255,255,0.42);
-  text-decoration: none;
-  font-family: "Source Code Pro", monospace;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  display: block; margin-top: 5px;
+  font-size: 11px; color: #7aa8a6;
+  letter-spacing: 0.04em; text-decoration: none;
   transition: color 0.15s;
 }
-
-.nav-logo-sub:hover,
-.nav-logo-sub.active { color: rgba(255,255,255,0.85); }
+.nav-logo-sub:hover { color: #e0eeec; }
 
 .nav-links {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
   padding: 0 8px;
-  overflow-y: auto;
+  display: flex; flex-direction: column;
+  overflow-y: auto; flex: 1;
 }
 
-.nav-item {
-  display: flex;
-  flex-direction: column;
-}
-
-.nav-link {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 7px 10px;
-  color: rgba(255,255,255,0.70);
-  font-family: "Source Code Pro", monospace;
-  font-size: 12px;
-  text-decoration: none;
-  border-radius: 5px;
-  border: 1px solid transparent;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.nav-link:hover {
-  background: rgba(255,255,255,0.07);
-  color: rgba(255,255,255,0.95);
-  border-color: rgba(255,255,255,0.10);
-}
-
-.nav-link.active {
-  background: rgba(255,255,255,0.10);
-  color: white;
-  border-color: rgba(255,255,255,0.16);
-}
-
+/*
+  Colour tiers:
+    parent  #c8deda  near-white section labels
+    child   #7aa8a6  mid-teal subordinate links
+  Active state:
+    parent  → oilslick border box (all sides), no arrow
+    child   → "> " cyan arrow prefix, no box
+*/
 .nav-parent {
-  color: rgba(255,255,255,0.85);
-  font-size: 12px;
+  display: block;
+  padding: 6px 10px;
+  font-size: 12px; color: #c8deda;
+  text-decoration: none; letter-spacing: 0.03em;
+  border: 1px solid transparent; border-radius: 2px;
+  transition: color 0.12s;
 }
+.nav-parent:hover { color: #ffffff; }
+.nav-parent.active { animation: oil-border 4s linear infinite; }
 
 .nav-children {
-  display: flex;
-  flex-direction: column;
-  padding: 1px 0 4px 14px;
+  padding: 2px 0 5px 10px;
+  display: flex; flex-direction: column;
 }
 
 .nav-child {
-  font-size: 11px;
-  padding: 5px 10px;
-  color: rgba(255,255,255,0.55);
+  display: block;
+  padding: 4px 10px;
+  font-size: 11px; color: #7aa8a6;
+  text-decoration: none; letter-spacing: 0.02em;
+  border-radius: 2px; transition: color 0.12s;
+}
+.nav-child::before { content: ''; display: inline; color: #77bfcf; }
+.nav-child:hover { color: #e0eeec; }
+.nav-child.active { color: #c8deda; }
+.nav-child.active::before { content: '> '; }
+
+.nav-badge {
+  font-size: 8px; padding: 1px 4px;
+  background: rgba(157,120,212,0.12);
+  border: 1px solid rgba(157,120,212,0.28);
+  color: rgba(218,139,218,0.80);
+  border-radius: 2px; margin-left: 5px;
+  vertical-align: middle; letter-spacing: 0.04em;
 }
 
-.nav-child:hover,
-.nav-child.active { color: rgba(255,255,255,0.95); }
+.nav-divider { height: 1px; background: #1e5554; margin: 8px 6px; }
 
-.nav-divider {
-  height: 1px;
-  background: rgba(255,255,255,0.07);
-  margin: 8px 6px;
-}
-
+/* Offset page content */
 .nav-offset { margin-left: 180px; }
 
+/* Responsive */
 @media (max-width: 700px) {
   .nav-sidebar {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: auto;
-    width: 100%;
-    flex-direction: row;
-    align-items: center;
+    position: fixed; top: 0; left: 0; right: 0;
+    height: auto; width: 100%;
+    flex-direction: row; align-items: center;
     padding: 0 12px;
-    border-right: none;
-    border-bottom: 1px solid rgba(255,255,255,0.10);
+    border-right: none; border-bottom: 1px solid #1e5554;
     z-index: 200;
   }
   .nav-logo {
     padding: 8px 12px 8px 0;
-    border-bottom: none;
-    border-right: 1px solid rgba(255,255,255,0.08);
-    margin-bottom: 0;
-    margin-right: 6px;
-    flex-shrink: 0;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
+    border-bottom: none; border-right: 1px solid #1e5554;
+    margin-bottom: 0; margin-right: 6px;
+    flex-shrink: 0; flex-direction: row;
+    align-items: center; gap: 8px;
   }
   .nav-links {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0;
-    padding: 6px 0;
-    overflow-x: auto;
-    overflow-y: visible;
+    flex-direction: row; flex-wrap: wrap;
+    align-items: center; gap: 0;
+    padding: 6px 0; overflow-x: auto; overflow-y: visible;
   }
   .nav-item { flex-direction: row; flex-wrap: wrap; align-items: center; }
   .nav-children { flex-direction: row; padding: 0; }
-  .nav-divider { width: 1px; height: 20px; margin: 0 6px; background: rgba(255,255,255,0.10); }
+  .nav-divider { width: 1px; height: 20px; margin: 0 6px; }
   .nav-offset { margin-left: 0; padding-top: 46px; }
 }

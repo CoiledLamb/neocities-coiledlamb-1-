@@ -1,0 +1,109 @@
+/* ==============================================
+   BOOT SCREEN
+   Caves of Qud terminal aesthetic
+   ============================================== */
+
+/* ---- Keyframes ---- */
+@keyframes oil {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes oil-border {
+  0%   { border-color: #40a4b9; }
+  25%  { border-color: #77bfcf; }
+  50%  { border-color: #da8bda; }
+  75%  { border-color: #9d78d4; }
+  100% { border-color: #40a4b9; }
+}
+
+/* ---- Oilslick text — site title + boot welcome only ---- */
+.oil-text {
+  background: linear-gradient(90deg,
+    #40a4b9 0%, #77bfcf 18%, #9d78d4 38%,
+    #da8bda 54%, #9d78d4 70%, #77bfcf 85%, #40a4b9 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: oil 5s linear infinite;
+}
+
+/* ---- Oilslick border — active nav/tab/pagination/thumb hover ---- */
+.oil-border-active {
+  animation: oil-border 4s linear infinite;
+}
+
+/* ---- Scanlines ---- */
+#scanlines {
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom, transparent 0px, transparent 2px,
+    rgba(0,0,0,0.10) 2px, rgba(0,0,0,0.10) 3px
+  );
+  pointer-events: none;
+  z-index: 200;
+}
+
+/* ---- Boot overlay ---- */
+#boot {
+  position: fixed; inset: 0;
+  background: #0b2e2d;
+  z-index: 1000;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 0.7s ease;
+}
+#boot.fading { opacity: 0; pointer-events: none; }
+
+/* ASCII block */
+#boot-ascii {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  margin-bottom: 32px;
+  line-height: 1.5;
+  text-align: center;
+  white-space: pre;
+  user-select: none;
+}
+#boot-ascii span { transition: color 0.10s; }
+
+/* Terminal output area */
+#boot-terminal {
+  width: 340px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  line-height: 1.7;
+}
+
+/* Terminal lines */
+.tline { display: block; white-space: pre; }
+.tline .key { color: #3a6a68; }
+.tline .val { color: #77bfcf; }
+.tline .dot { color: #77bfcf; }
+/* ▓ cursor — contained to avoid line-height overflow */
+.tline .blk {
+  color: #77bfcf;
+  display: inline-block;
+  line-height: 1;
+  vertical-align: top;
+  font-size: 0.85em;
+}
+
+/* Welcome line */
+#boot-welcome {
+  width: 340px;
+  display: none;
+  text-align: center;
+  margin-top: 14px;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+}
+
+/* Skip hint */
+.boot-skip {
+  position: absolute; bottom: 22px; right: 28px;
+  font-size: 10px; color: #2a5c5a; letter-spacing: 0.08em;
+  cursor: pointer; transition: color 0.15s;
+}
+.boot-skip:hover { color: #4a7a78; }

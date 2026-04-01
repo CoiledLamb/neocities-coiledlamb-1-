@@ -4,152 +4,79 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NSFW — Coiled Lamb</title>
+  <link rel="stylesheet" href="boot.css" />
   <link rel="stylesheet" href="nav.css" />
   <link rel="stylesheet" href="style.css">
-
   <style>
-    /* ---- Age gate overlay ---- */
     #age-gate {
-      position: fixed;
-      inset: 0;
-      z-index: 9000;
+      position: fixed; inset: 0; z-index: 9000;
       background: #0e2e2d;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
     }
-
     #age-gate.hidden { display: none; }
-
     .gate-box {
-      max-width: 380px;
-      width: calc(100vw - 48px);
-      background:
-        linear-gradient(180deg,
-          rgba(255,255,255,0.055) 0%,
-          rgba(255,255,255,0.018) 28%,
-          rgba(255,255,255,0.028) 100%),
-        rgba(8,14,20,0.55);
-      border: 1px solid rgba(255,255,255,0.12);
-      backdrop-filter: blur(10px);
-      border-radius: 4px;
-      padding: 32px 28px;
-      text-align: center;
-      font-family: "Source Code Pro", monospace;
-      color: white;
+      max-width: 380px; width: calc(100vw - 48px);
+      background: rgba(8,14,20,0.55); border: 1px solid #1e5554;
+      backdrop-filter: blur(10px); border-radius: 2px;
+      padding: 32px 28px; text-align: center;
+      font-family: 'Source Code Pro', monospace; color: #b1c9c3;
     }
-
-    .gate-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: rgba(255,100,100,0.70);
-      margin: 0 0 10px;
-    }
-
-    .gate-title {
-      font-size: 1.6rem;
-      font-weight: 700;
-      margin: 0 0 12px;
-      line-height: 1;
-    }
-
-    .gate-body {
-      font-size: 12px;
-      color: rgba(255,255,255,0.60);
-      line-height: 1.7;
-      margin: 0 0 28px;
-    }
-
-    .gate-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-    }
-
-    .gate-btn {
-      font-family: "Source Code Pro", monospace;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 9px 20px;
-      border-radius: 3px;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-
-    .gate-btn-confirm {
-      background: rgba(255,255,255,0.10);
-      border: 1px solid rgba(255,255,255,0.22);
-      color: white;
-    }
-    .gate-btn-confirm:hover {
-      background: rgba(255,255,255,0.17);
-      border-color: rgba(255,255,255,0.38);
-    }
-
-    .gate-btn-leave {
-      background: transparent;
-      border: 1px solid rgba(255,255,255,0.10);
-      color: rgba(255,255,255,0.45);
-    }
-    .gate-btn-leave:hover {
-      border-color: rgba(255,255,255,0.22);
-      color: rgba(255,255,255,0.70);
-    }
+    .gate-label { font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:rgba(218,139,218,0.70); margin:0 0 10px; }
+    .gate-title { font-size:1.6rem; font-weight:700; margin:0 0 12px; line-height:1; color:#e0eeec; }
+    .gate-body { font-size:12px; color:#7aa8a6; line-height:1.7; margin:0 0 28px; }
+    .gate-actions { display:flex; gap:10px; justify-content:center; }
+    .gate-btn { font-family:'Source Code Pro',monospace; font-size:12px; font-weight:600; padding:9px 20px; border-radius:2px; cursor:pointer; transition:background 0.15s,border-color 0.15s; }
+    .gate-btn-confirm { background:rgba(255,255,255,0.08); border:1px solid #1e5554; color:#b1c9c3; }
+    .gate-btn-confirm:hover { background:rgba(255,255,255,0.14); border-color:#40a4b9; }
+    .gate-btn-leave { background:transparent; border:1px solid #1e5554; color:#4a7a78; }
+    .gate-btn-leave:hover { border-color:#3a6a68; color:#7aa8a6; }
   </style>
 </head>
 <body>
-  <!-- Age gate — shown unless session flag is set -->
+  <div id="scanlines"></div>
   <div id="age-gate">
     <div class="gate-box">
       <p class="gate-label">18+ content</p>
       <h1 class="gate-title">NSFW</h1>
-      <p class="gate-body">
-        This section contains adult content.<br>
-        You must be 18 or older to continue.
-      </p>
+      <p class="gate-body">This section contains adult content.<br>You must be 18 or older to continue.</p>
       <div class="gate-actions">
         <button class="gate-btn gate-btn-confirm" onclick="gateEnter()">I am 18 or older</button>
-        <button class="gate-btn gate-btn-leave"   onclick="gateLeave()">Take me back</button>
+        <button class="gate-btn gate-btn-leave" onclick="gateLeave()">Take me back</button>
       </div>
     </div>
   </div>
-
-  <script>window.NAV_ACTIVE = 'nsfw';</script>
-  <script src="nav.js"></script>
-
-  <div class="page-title">NSFW</div>
-  <p class="page-subtitle">18+ content</p>
-  <div class="tabs"></div>
-  <div class="gallery"></div>
-  <div class="pagination"></div>
-
-  <div id="lightbox" onclick="closeLightbox()">
-    <span class="arrow left"  onclick="event.stopPropagation(); showPrev()">&lsaquo;</span>
-    <img id="lightbox-img" onclick="event.stopPropagation()">
-    <span class="arrow right" onclick="event.stopPropagation(); showNext()">&rsaquo;</span>
-    <span class="lb-close"   onclick="event.stopPropagation(); closeLightbox()">&#x2715;</span>
+  <div id="boot">
+    <div id="boot-ascii"></div>
+    <div id="boot-terminal"></div>
+    <div id="boot-welcome"></div>
+    <span class="boot-skip" onclick="dismissBoot()">[ press any key to skip ]</span>
   </div>
-
-  <script>
-    // Age gate logic
-    (function () {
-      if (sessionStorage.getItem('nsfw-ok') === '1') {
-        document.getElementById('age-gate').classList.add('hidden');
-      }
-    })();
-
-    function gateEnter() {
-      sessionStorage.setItem('nsfw-ok', '1');
-      document.getElementById('age-gate').classList.add('hidden');
-    }
-
-    function gateLeave() {
-      window.location.href = 'artwork.html';
-    }
-  </script>
-
-  <script>window.PAGE_CATEGORY = 'nsfw';</script>
+  <div id="site">
+    <script>window.NAV_ACTIVE = 'nsfw';</script>
+    <script src="nav.js"></script>
+    <div class="page-title">NSFW</div>
+    <p class="page-subtitle">18+ content</p>
+    <div class="tabs"></div>
+    <div class="gallery"></div>
+    <div class="pagination"></div>
+  </div>
+  <div id="lightbox" onclick="closeLightbox()">
+    <span class="arrow left" onclick="event.stopPropagation();showPrev()">&lsaquo;</span>
+    <img id="lightbox-img" onclick="event.stopPropagation()">
+    <span class="arrow right" onclick="event.stopPropagation();showNext()">&rsaquo;</span>
+    <span class="lb-close" onclick="event.stopPropagation();closeLightbox()">&#x2715;</span>
+  </div>
+  <script src="boot.js"></script>
+  <script>window.PAGE_CATEGORY='nsfw';</script>
   <script src="gallery.js" defer></script>
+  <script>
+    (function(){
+      if(sessionStorage.getItem('nsfw-ok')==='1')document.getElementById('age-gate').classList.add('hidden');
+    })();
+    function gateEnter(){sessionStorage.setItem('nsfw-ok','1');document.getElementById('age-gate').classList.add('hidden');}
+    function gateLeave(){window.location.href='artwork.html';}
+    document.addEventListener('keydown',e=>{if(document.getElementById('boot').style.display!=='none')dismissBoot();});
+    startBoot();
+  </script>
 </body>
 </html>

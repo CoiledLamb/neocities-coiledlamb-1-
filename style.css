@@ -1,11 +1,11 @@
 /* ==============================================
-   GALLERY PAGES SHARED STYLES
-   (figures, hands, artwork — dark teal theme)
+   GALLERY PAGES SHARED STYLES — v1 terminal aesthetic
+   (figures, hands, artwork, nsfw)
    ============================================== */
 
 body {
   background-color: #155352;
-  color: white;
+  color: #b1c9c3;
   font-family: 'Source Code Pro', monospace;
   font-weight: 600;
   margin: 0;
@@ -17,174 +17,109 @@ body {
 /* ---- Page title ---- */
 .page-title {
   font-size: clamp(1.4rem, 3vw, 2.2rem);
+  color: #e0eeec;
   margin: 0 0 4px;
-  line-height: 1;
-  font-weight: 700;
+  line-height: 1; font-weight: 700;
 }
 
 .page-subtitle {
   font-size: 11px;
-  color: rgba(255,255,255,0.45);
+  color: #7aa8a6;
   letter-spacing: 0.05em;
   margin: 0 0 24px;
 }
 
-/* ---- Tabs row ---- */
+/* ---- Tabs ---- */
 .tabs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  display: flex; flex-wrap: wrap;
+  align-items: center; gap: 6px;
   margin-bottom: 20px;
 }
 
 .tab {
   padding: 5px 11px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.70);
+  border: 1px solid #1e5554;
+  background: transparent; color: #4a7a78;
   cursor: pointer;
   font-size: 12px;
-  font-family: 'Source Code Pro', monospace;
-  font-weight: 600;
-  border-radius: 3px;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: 'Source Code Pro', monospace; font-weight: 600;
+  border-radius: 2px; letter-spacing: 0.04em;
+  transition: border-color 0.12s, color 0.12s;
 }
-
-.tab:hover {
-  background: rgba(255,255,255,0.10);
-  color: rgba(255,255,255,0.95);
-  border-color: rgba(255,255,255,0.30);
-}
-
-.tab.active {
-  background: rgba(255,255,255,0.14);
-  color: white;
-  border-color: rgba(255,255,255,0.40);
-}
-
-.tab.sort {
-  margin-left: 6px;
-  border-style: dashed;
-}
+.tab:hover { border-color: #40a4b9; color: #b1c9c3; }
+.tab.active { color: #e0eeec; animation: oil-border 4s linear infinite; }
+.tab.sort { border-style: dashed; margin-left: 6px; }
+.tab.sort.active { border-style: dashed; }
 
 /* ---- Gallery grid ---- */
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 14px;
-  opacity: 1;
-  transition: opacity 0.22s ease;
-  align-items: start; /* don't stretch cells to equal height */
+  gap: 14px; align-items: start;
 }
-
 .gallery.fade-out { opacity: 0; }
 
 /* ---- Thumbnail ---- */
 .thumb {
-  /* No fixed aspect-ratio — images show at their natural proportions */
   overflow: hidden;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.09);
+  background: #0b2e2d;
+  border: 1px solid #1e5554;
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: transform 0.15s;
 }
-
 .thumb:hover {
-  border-color: rgba(255,255,255,0.28);
+  animation: oil-border 4s linear infinite;
   transform: scale(1.02);
 }
-
-.thumb img {
-  width: 100%;
-  height: auto;       /* natural height, no crop */
-  display: block;
-}
+.thumb img { width: 100%; height: auto; display: block; }
 
 /* ---- Caption ---- */
 .caption {
   text-align: center;
-  font-size: 11px;
-  color: rgba(255,255,255,0.50);
-  margin-top: 5px;
+  font-size: 11px; color: #3a6a68;
+  margin-top: 5px; padding-bottom: 6px;
   font-weight: 600;
-  padding-bottom: 6px;
 }
 
-/* ---- Pagination (kept for very large sets if re-enabled) ---- */
+/* ---- Pagination ---- */
 .pagination {
   margin-top: 28px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
+  display: flex; flex-wrap: wrap;
+  gap: 6px; justify-content: center;
 }
-
 .pagination a {
   padding: 4px 10px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.65);
-  text-decoration: none;
-  font-size: 12px;
-  border-radius: 3px;
-  transition: background 0.15s, color 0.15s;
+  border: 1px solid #1e5554;
+  background: transparent; color: #4a7a78;
+  text-decoration: none; font-size: 12px;
+  border-radius: 2px;
+  transition: border-color 0.12s, color 0.12s;
 }
-
-.pagination a:hover {
-  background: rgba(255,255,255,0.10);
-  color: white;
-}
-
-.pagination a.active {
-  background: rgba(255,255,255,0.14);
-  color: white;
-  border-color: rgba(255,255,255,0.38);
-}
+.pagination a:hover { border-color: #40a4b9; color: #b1c9c3; }
+.pagination a.active { color: #e0eeec; animation: oil-border 4s linear infinite; }
 
 /* ---- Lightbox ---- */
 #lightbox {
-  display: none;
-  position: fixed;
-  inset: 0;
+  display: none; position: fixed; inset: 0;
   background: rgba(0,0,0,0.92);
-  justify-content: center;
-  align-items: center;
+  justify-content: center; align-items: center;
   z-index: 9999;
 }
-
-#lightbox-img {
-  max-width: 88vw;
-  max-height: 88vh;
-  transition: opacity 0.18s;
-}
+#lightbox-img { max-width: 88vw; max-height: 88vh; transition: opacity 0.18s; }
 
 .arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 44px;
-  color: rgba(255,255,255,0.65);
-  cursor: pointer;
-  user-select: none;
-  z-index: 10000;
-  padding: 0 16px;
-  transition: color 0.15s;
+  position: absolute; top: 50%; transform: translateY(-50%);
+  font-size: 44px; color: rgba(119,191,207,0.65);
+  cursor: pointer; user-select: none; z-index: 10000;
+  padding: 0 16px; transition: color 0.15s;
 }
-
-.arrow:hover { color: white; }
+.arrow:hover { color: #77bfcf; }
 .arrow.left  { left: 10px; }
 .arrow.right { right: 10px; }
 
 .lb-close {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  font-size: 26px;
-  color: rgba(255,255,255,0.55);
-  cursor: pointer;
-  z-index: 10000;
-  transition: color 0.15s;
+  position: absolute; top: 16px; right: 20px;
+  font-size: 26px; color: rgba(119,191,207,0.50);
+  cursor: pointer; z-index: 10000; transition: color 0.15s;
 }
-
-.lb-close:hover { color: white; }
+.lb-close:hover { color: #77bfcf; }

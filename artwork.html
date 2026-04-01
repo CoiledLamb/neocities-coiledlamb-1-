@@ -4,299 +4,148 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Coiled Lamb — Artwork</title>
+  <link rel="stylesheet" href="boot.css" />
   <link rel="stylesheet" href="nav.css" />
-
   <style>
-    html, body {
-      margin: 0;
-      background: #155352;
-      color: white;
-      font-family: "Source Code Pro", monospace;
-      min-height: 100vh;
-    }
-    .artwork-page {
-      padding: 40px 40px 60px;
-      box-sizing: border-box;
-    }
-    h1 {
-      margin: 0 0 6px;
-      font-size: clamp(1.6rem, 3vw, 2.6rem);
-      line-height: 1;
-    }
-    .subtitle {
-      font-size: 12px;
-      color: rgba(255,255,255,0.50);
-      margin: 0 0 30px;
-      letter-spacing: 0.05em;
-    }
-    .glass {
-      background:
-        linear-gradient(180deg,
-          rgba(255,255,255,0.050) 0%,
-          rgba(255,255,255,0.016) 28%,
-          rgba(255,255,255,0.024) 100%),
-        rgba(8,14,20,0.40);
-      border: 1px solid rgba(255,255,255,0.09);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border-radius: 4px;
-    }
-    .section-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: rgba(255,255,255,0.38);
-      margin: 0 0 14px;
-    }
-    .carousel-wrap { padding: 20px; margin-bottom: 20px; }
-    .carousel-track-outer { overflow: hidden; }
-    .carousel-track {
-      display: flex; gap: 10px;
-      transition: transform 0.35s ease;
-      will-change: transform;
-    }
-    .carousel-slide {
-      flex: 0 0 calc(25% - 8px);
-      aspect-ratio: 1 / 1;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      overflow: hidden; cursor: pointer;
-      transition: border-color 0.15s, opacity 0.15s;
-    }
-    .carousel-slide:hover { border-color: rgba(255,255,255,0.25); opacity: 0.92; }
-    .carousel-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .slide-placeholder {
-      width: 100%; height: 100%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; color: rgba(255,255,255,0.22);
-    }
-    .carousel-controls {
-      display: flex; align-items: center;
-      justify-content: space-between; margin-top: 12px;
-    }
-    .carousel-btn {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      color: white; font-family: "Source Code Pro", monospace;
-      font-size: 18px; padding: 3px 14px; cursor: pointer;
-      transition: background 0.15s; border-radius: 3px; line-height: 1.6;
-    }
-    .carousel-btn:hover { background: rgba(255,255,255,0.12); }
-    .carousel-dots { display: flex; gap: 6px; align-items: center; }
-    .carousel-dot {
-      width: 5px; height: 5px; border-radius: 50%;
-      background: rgba(255,255,255,0.20); cursor: pointer;
-      transition: background 0.15s;
-    }
-    .carousel-dot.active { background: rgba(255,255,255,0.70); }
-    .lower-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .gallery-links-panel { padding: 18px; }
-    .gallery-link-list { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }
-    .gallery-link {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 9px 12px;
-      background: rgba(255,255,255,0.035);
-      border: 1px solid rgba(255,255,255,0.07);
-      color: rgba(255,255,255,0.82);
-      text-decoration: none; font-size: 12px; border-radius: 3px;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .gallery-link:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.16); color: white; }
-    .gallery-link .arr { opacity: 0.40; font-size: 14px; }
-    .gallery-link .badge {
-      font-size: 9px; letter-spacing: 0.06em;
-      padding: 2px 6px;
-      background: rgba(255,80,80,0.15);
-      border: 1px solid rgba(255,80,80,0.30);
-      color: rgba(255,160,160,0.90);
-      border-radius: 2px;
-      margin-left: 6px;
-    }
-    .process-panel { padding: 18px; }
-    .process-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
-    .process-row { display: flex; flex-direction: column; gap: 2px; }
-    .process-key { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.35); }
-    .process-val { font-size: 12px; color: rgba(255,255,255,0.78); line-height: 1.5; }
-    #lightbox {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.92);
-      justify-content: center; align-items: center; z-index: 9999;
-    }
-    #lightbox-img { max-width: 88vw; max-height: 88vh; transition: opacity 0.2s; }
-    .lb-arrow {
-      position: absolute; top: 50%; transform: translateY(-50%);
-      font-size: 44px; color: rgba(255,255,255,0.7);
-      cursor: pointer; user-select: none; z-index: 10000;
-      padding: 0 16px; transition: color 0.15s;
-    }
-    .lb-arrow:hover { color: white; }
-    .lb-arrow.left { left: 10px; }
-    .lb-arrow.right { right: 10px; }
-    .lb-close {
-      position: absolute; top: 16px; right: 20px;
-      font-size: 28px; color: rgba(255,255,255,0.6);
-      cursor: pointer; z-index: 10000; transition: color 0.15s;
-    }
-    .lb-close:hover { color: white; }
-    @media (max-width: 900px) { .carousel-slide { flex: 0 0 calc(33.333% - 7px); } }
-    @media (max-width: 640px) {
-      .lower-grid { grid-template-columns: 1fr; }
-      .carousel-slide { flex: 0 0 calc(50% - 5px); }
-      .artwork-page { padding: 20px 16px 40px; }
-    }
+    html, body { margin:0; background:#155352; color:#b1c9c3; font-family:'Source Code Pro',monospace; min-height:100vh; }
+    #site { opacity:0; transition:opacity 0.7s ease; }
+    #site.visible { opacity:1; }
+    #scanlines { position:fixed;inset:0;background:repeating-linear-gradient(to bottom,transparent 0px,transparent 2px,rgba(0,0,0,0.10) 2px,rgba(0,0,0,0.10) 3px);pointer-events:none;z-index:200; }
+    .artwork-page { padding:40px 40px 60px; box-sizing:border-box; }
+    h1 { margin:0 0 6px; font-size:clamp(1.6rem,3vw,2.6rem); line-height:1; color:#e0eeec; }
+    .subtitle { font-size:12px; color:#7aa8a6; margin:0 0 30px; letter-spacing:0.05em; }
+    .glass { background:rgba(11,46,45,0.55); border:1px solid #1e5554; border-radius:2px; }
+    .section-label { font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:#3a6a68; margin:0 0 14px; }
+    .lower-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .panel { padding:18px; }
+    .carousel-wrap { padding:20px; margin-bottom:20px; }
+    .carousel-track-outer { overflow:hidden; }
+    .carousel-track { display:flex; gap:10px; transition:transform 0.35s ease; will-change:transform; }
+    .carousel-slide { flex:0 0 calc(25% - 8px); aspect-ratio:1/1; background:rgba(255,255,255,0.05); border:1px solid #1e5554; overflow:hidden; cursor:pointer; transition:border-color 0.15s; }
+    .carousel-slide:hover { border-color:#40a4b9; }
+    .carousel-slide img { width:100%; height:100%; object-fit:cover; display:block; }
+    .slide-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:11px; color:#2a5c5a; }
+    .carousel-controls { display:flex; align-items:center; justify-content:space-between; margin-top:12px; }
+    .carousel-btn { background:rgba(255,255,255,0.06); border:1px solid #1e5554; color:#b1c9c3; font-family:'Source Code Pro',monospace; font-size:18px; padding:3px 14px; cursor:pointer; transition:background 0.15s; border-radius:2px; line-height:1.6; }
+    .carousel-btn:hover { background:rgba(255,255,255,0.12); }
+    .carousel-dots { display:flex; gap:6px; align-items:center; }
+    .carousel-dot { width:5px; height:5px; border-radius:50%; background:#1e5554; cursor:pointer; transition:background 0.15s; }
+    .carousel-dot.active { background:#77bfcf; }
+    .gallery-link { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; margin-bottom:7px; background:rgba(11,46,45,0.60); border:1px solid #1e5554; color:#b1c9c3; text-decoration:none; font-size:12px; border-radius:2px; transition:border-color 0.12s,color 0.12s; }
+    .gallery-link:hover { border-color:#40a4b9; color:#e0eeec; }
+    .gallery-link .arr { color:#3a6a68; }
+    .badge { font-size:9px; padding:2px 5px; background:rgba(157,120,212,0.12); border:1px solid rgba(157,120,212,0.28); color:rgba(218,139,218,0.80); border-radius:2px; margin-left:5px; }
+    .process-row { margin-bottom:10px; }
+    .proc-key { font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:#3a6a68; margin-bottom:2px; }
+    .proc-val { font-size:12px; color:#b1c9c3; }
+    #lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); justify-content:center; align-items:center; z-index:9999; }
+    #lightbox-img { max-width:88vw; max-height:88vh; transition:opacity 0.2s; }
+    .lb-arrow { position:absolute; top:50%; transform:translateY(-50%); font-size:44px; color:rgba(119,191,207,0.65); cursor:pointer; user-select:none; z-index:10000; padding:0 16px; transition:color 0.15s; }
+    .lb-arrow:hover { color:#77bfcf; }
+    .lb-arrow.left { left:10px; } .lb-arrow.right { right:10px; }
+    .lb-close { position:absolute; top:16px; right:20px; font-size:28px; color:rgba(119,191,207,0.6); cursor:pointer; z-index:10000; transition:color 0.15s; }
+    .lb-close:hover { color:#77bfcf; }
+    @media(max-width:640px){.lower-grid{grid-template-columns:1fr;}.artwork-page{padding:20px 16px 40px;}}
   </style>
 </head>
 <body>
-  <script>window.NAV_ACTIVE = 'artwork';</script>
-  <script src="nav.js"></script>
+  <div id="scanlines"></div>
 
-  <div class="artwork-page">
-    <h1>Artwork</h1>
-    <p class="subtitle">figure drawing / hands / anatomy</p>
+  <!-- BOOT -->
+  <div id="boot">
+    <div id="boot-ascii"></div>
+    <div id="boot-terminal"></div>
+    <div id="boot-welcome"></div>
+    <span class="boot-skip" onclick="dismissBoot()">[ press any key to skip ]</span>
+  </div>
 
-    <div class="carousel-wrap glass">
-      <p class="section-label">Recent Work</p>
-      <div class="carousel-track-outer">
-        <div class="carousel-track" id="carousel-track"></div>
-      </div>
-      <div class="carousel-controls">
-        <button class="carousel-btn" id="carousel-prev" aria-label="Previous">&#8249;</button>
-        <div class="carousel-dots" id="carousel-dots"></div>
-        <button class="carousel-btn" id="carousel-next" aria-label="Next">&#8250;</button>
-      </div>
-    </div>
+  <div id="site">
+    <script>window.NAV_ACTIVE = 'artwork';</script>
+    <script src="nav.js"></script>
 
-    <div class="lower-grid">
-      <div class="gallery-links-panel glass">
-        <p class="section-label">Galleries</p>
-        <div class="gallery-link-list">
-          <a class="gallery-link" href="figures.html"><span>Figures</span><span class="arr">›</span></a>
-          <a class="gallery-link" href="hands.html"><span>Hands</span><span class="arr">›</span></a>
-          <a class="gallery-link" href="nsfw.html">
-            <span>NSFW <span class="badge">18+</span></span>
-            <span class="arr">›</span>
-          </a>
+    <div class="artwork-page">
+      <h1>Artwork</h1>
+      <p class="subtitle">figure drawing / hands / anatomy</p>
+
+      <div class="carousel-wrap glass">
+        <p class="section-label">Recent Work</p>
+        <div class="carousel-track-outer">
+          <div class="carousel-track" id="carousel-track"></div>
+        </div>
+        <div class="carousel-controls">
+          <button class="carousel-btn" id="carousel-prev">&#8249;</button>
+          <div class="carousel-dots" id="carousel-dots"></div>
+          <button class="carousel-btn" id="carousel-next">&#8250;</button>
         </div>
       </div>
 
-      <div class="process-panel glass">
-        <p class="section-label">Process &amp; Tools</p>
-        <div class="process-list">
-          <div class="process-row"><span class="process-key">Tablet</span><span class="process-val" id="proc-tablet">—</span></div>
-          <div class="process-row"><span class="process-key">Programs</span><span class="process-val" id="proc-programs">—</span></div>
-          <div class="process-row"><span class="process-key">Sites</span><span class="process-val" id="proc-sites">—</span></div>
-          <div class="process-row"><span class="process-key">Process</span><span class="process-val" id="proc-notes">—</span></div>
+      <div class="lower-grid">
+        <div class="panel glass">
+          <p class="section-label">Galleries</p>
+          <a class="gallery-link" href="figures.html"><span>Figures</span><span class="arr">›</span></a>
+          <a class="gallery-link" href="hands.html"><span>Hands</span><span class="arr">›</span></a>
+          <a class="gallery-link" href="nsfw.html"><span>NSFW <span class="badge">18+</span></span><span class="arr">›</span></a>
+        </div>
+        <div class="panel glass">
+          <p class="section-label">Process &amp; Tools</p>
+          <div class="process-row"><div class="proc-key">Tablet</div><div class="proc-val" id="proc-tablet">—</div></div>
+          <div class="process-row"><div class="proc-key">Programs</div><div class="proc-val" id="proc-programs">—</div></div>
+          <div class="process-row"><div class="proc-key">Sites</div><div class="proc-val" id="proc-sites">—</div></div>
+          <div class="process-row"><div class="proc-key">Process</div><div class="proc-val" id="proc-notes">—</div></div>
         </div>
       </div>
     </div>
   </div>
 
   <div id="lightbox" onclick="lbClose()">
-    <span class="lb-arrow left" onclick="event.stopPropagation(); lbPrev()">&#8249;</span>
+    <span class="lb-arrow left" onclick="event.stopPropagation();lbPrev()">&#8249;</span>
     <img id="lightbox-img" onclick="event.stopPropagation()">
-    <span class="lb-arrow right" onclick="event.stopPropagation(); lbNext()">&#8250;</span>
+    <span class="lb-arrow right" onclick="event.stopPropagation();lbNext()">&#8250;</span>
     <span class="lb-close" onclick="lbClose()">&#x2715;</span>
   </div>
 
+  <script src="boot.js"></script>
   <script>
-    const PROCESS_INFO = { tablet: '—', programs: '—', sites: '—', notes: '—' };
+    const PROCESS_INFO = { tablet:'—', programs:'—', sites:'—', notes:'—' };
     document.getElementById('proc-tablet').textContent   = PROCESS_INFO.tablet;
     document.getElementById('proc-programs').textContent = PROCESS_INFO.programs;
     document.getElementById('proc-sites').textContent    = PROCESS_INFO.sites;
     document.getElementById('proc-notes').textContent    = PROCESS_INFO.notes;
 
-    const CAROUSEL_VISIBLE = 4, CAROUSEL_RECENT = 12;
-    const FOLDER_MAP = {
-      figures: '/images/figures/', hands: '/images/hands/',
-      nsfw: '/images/nsfw/', general: '/images/general/'
-    };
-    let carouselItems = [], carouselPage = 0;
-    function totalPages() { return Math.max(1, Math.ceil(carouselItems.length / CAROUSEL_VISIBLE)); }
-
-    function renderCarousel() {
-      const track = document.getElementById('carousel-track');
-      const dots  = document.getElementById('carousel-dots');
-      track.innerHTML = ''; dots.innerHTML = '';
-      if (!carouselItems.length) {
-        const s = document.createElement('div'); s.className = 'carousel-slide';
-        s.innerHTML = '<div class="slide-placeholder">no recent images</div>';
-        track.appendChild(s); return;
-      }
-      carouselItems.forEach((item, idx) => {
-        const slide = document.createElement('div'); slide.className = 'carousel-slide';
-        const img = document.createElement('img');
-        img.src = item.path; img.alt = item.display || ''; img.loading = 'lazy';
-        img.onclick = () => lbOpen(idx);
-        slide.appendChild(img); track.appendChild(slide);
-      });
-      for (let i = 0; i < totalPages(); i++) {
-        const dot = document.createElement('div');
-        dot.className = 'carousel-dot' + (i === carouselPage ? ' active' : '');
-        dot.onclick = () => goToPage(i); dots.appendChild(dot);
-      }
+    const CAROUSEL_VISIBLE=4, CAROUSEL_RECENT=12;
+    const FOLDER_MAP={figures:'/images/figures/',hands:'/images/hands/',nsfw:'/images/nsfw/',general:'/images/general/'};
+    let carouselItems=[],carouselPage=0;
+    function totalPages(){return Math.max(1,Math.ceil(carouselItems.length/CAROUSEL_VISIBLE));}
+    function renderCarousel(){
+      const track=document.getElementById('carousel-track'),dots=document.getElementById('carousel-dots');
+      track.innerHTML='';dots.innerHTML='';
+      if(!carouselItems.length){const s=document.createElement('div');s.className='carousel-slide';s.innerHTML='<div class="slide-placeholder">no recent images</div>';track.appendChild(s);return;}
+      carouselItems.forEach((item,idx)=>{const slide=document.createElement('div');slide.className='carousel-slide';const img=document.createElement('img');img.src=item.path;img.alt=item.display||'';img.loading='lazy';img.onclick=()=>lbOpen(idx);slide.appendChild(img);track.appendChild(slide);});
+      for(let i=0;i<totalPages();i++){const dot=document.createElement('div');dot.className='carousel-dot'+(i===carouselPage?' active':'');dot.onclick=()=>goToPage(i);dots.appendChild(dot);}
       updateTrack();
     }
-
-    function updateTrack() {
-      const track = document.getElementById('carousel-track');
-      const slideW = track.parentElement.clientWidth / CAROUSEL_VISIBLE;
-      track.style.transform = `translateX(-${carouselPage * CAROUSEL_VISIBLE * (slideW + 10)}px)`;
-      document.querySelectorAll('.carousel-dot').forEach((d, i) => d.classList.toggle('active', i === carouselPage));
-    }
-    function goToPage(p) { carouselPage = Math.max(0, Math.min(p, totalPages() - 1)); updateTrack(); }
-    document.getElementById('carousel-prev').onclick = () => goToPage(carouselPage - 1);
-    document.getElementById('carousel-next').onclick = () => goToPage(carouselPage + 1);
-
-    let lbIndex = 0;
-    function lbOpen(idx) {
-      lbIndex = idx;
-      const lb = document.getElementById('lightbox'), img = document.getElementById('lightbox-img');
-      lb.style.display = 'flex'; img.style.opacity = 0;
-      img.src = carouselItems[lbIndex].path;
-      img.onload = () => { img.style.opacity = 1; };
-    }
-    function lbClose() { document.getElementById('lightbox').style.display = 'none'; }
-    function lbStep(dir) {
-      lbIndex = (lbIndex + dir + carouselItems.length) % carouselItems.length;
-      const img = document.getElementById('lightbox-img');
-      img.style.opacity = 0;
-      setTimeout(() => { img.src = carouselItems[lbIndex].path; img.onload = () => { img.style.opacity = 1; }; }, 150);
-    }
-    function lbNext() { lbStep(1); }
-    function lbPrev() { lbStep(-1); }
-    document.addEventListener('keydown', e => {
-      const lb = document.getElementById('lightbox');
-      if (lb.style.display !== 'flex') return;
-      if (e.key === 'ArrowRight') lbNext();
-      if (e.key === 'ArrowLeft')  lbPrev();
-      if (e.key === 'Escape')     lbClose();
-    });
-
-    async function loadCarousel() {
-      try {
-        const res = await fetch('gallery.json', { cache: 'no-store' });
-        const data = await res.json();
-        let all = [];
-        Object.entries(data).forEach(([cat, items]) => {
-          if (cat === 'nsfw') return; // exclude NSFW from main carousel
-          const folder = FOLDER_MAP[cat] || ('/images/' + cat + '/');
-          if (!Array.isArray(items)) return;
-          items.forEach(item => {
-            const file = typeof item === 'string' ? item : item.file;
-            const date = typeof item === 'object' ? (item.date || null) : null;
-            const display = typeof item === 'object' ? (item.display || file) : file;
-            if (file) all.push({ path: folder + file, date, display });
-          });
-        });
-        all.sort((a, b) => {
-          if (a.date && b.date) return new Date(b.date) - new Date(a.date);
-          return a.date ? -1 : 1;
-        });
-        carouselItems = all.slice(0, CAROUSEL_RECENT);
-      } catch (_) { carouselItems = []; }
+    function updateTrack(){const track=document.getElementById('carousel-track');const slideW=track.parentElement.clientWidth/CAROUSEL_VISIBLE;track.style.transform=`translateX(-${carouselPage*CAROUSEL_VISIBLE*(slideW+10)}px)`;document.querySelectorAll('.carousel-dot').forEach((d,i)=>d.classList.toggle('active',i===carouselPage));}
+    function goToPage(p){carouselPage=Math.max(0,Math.min(p,totalPages()-1));updateTrack();}
+    document.getElementById('carousel-prev').onclick=()=>goToPage(carouselPage-1);
+    document.getElementById('carousel-next').onclick=()=>goToPage(carouselPage+1);
+    let lbIdx=0;
+    function lbOpen(idx){lbIdx=idx;const lb=document.getElementById('lightbox'),img=document.getElementById('lightbox-img');lb.style.display='flex';img.style.opacity=0;img.src=carouselItems[lbIdx].path;img.onload=()=>{img.style.opacity=1;};}
+    function lbClose(){document.getElementById('lightbox').style.display='none';}
+    function lbStep(d){lbIdx=(lbIdx+d+carouselItems.length)%carouselItems.length;const img=document.getElementById('lightbox-img');img.style.opacity=0;setTimeout(()=>{img.src=carouselItems[lbIdx].path;img.onload=()=>{img.style.opacity=1;};},150);}
+    function lbNext(){lbStep(1);}function lbPrev(){lbStep(-1);}
+    document.addEventListener('keydown',e=>{const lb=document.getElementById('lightbox');if(lb.style.display!=='flex')return;if(e.key==='ArrowRight')lbNext();if(e.key==='ArrowLeft')lbPrev();if(e.key==='Escape')lbClose();});
+    async function loadCarousel(){
+      try{
+        const res=await fetch('gallery.json',{cache:'no-store'});const data=await res.json();
+        let all=[];Object.entries(data).forEach(([cat,items])=>{if(cat==='nsfw')return;const folder=FOLDER_MAP[cat]||('/images/'+cat+'/');if(!Array.isArray(items))return;items.forEach(item=>{const file=typeof item==='string'?item:item.file;const date=typeof item==='object'?(item.date||null):null;const display=typeof item==='object'?(item.display||file):file;if(file)all.push({path:folder+file,date,display});});});
+        all.sort((a,b)=>{if(a.date&&b.date)return new Date(b.date)-new Date(a.date);return a.date?-1:1;});
+        carouselItems=all.slice(0,CAROUSEL_RECENT);
+      }catch(_){carouselItems=[];}
       renderCarousel();
     }
     loadCarousel();
+    document.addEventListener('keydown',e=>{if(document.getElementById('boot').style.display!=='none')dismissBoot();});
+    startBoot();
   </script>
 </body>
 </html>
