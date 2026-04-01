@@ -52,6 +52,7 @@
 
     sidebar.appendChild(logo);
 
+    // Nav links (scrollable middle section)
     const links = document.createElement('div');
     links.className = 'nav-links';
 
@@ -71,8 +72,8 @@
       li.appendChild(a);
 
       if (item.children) {
-        const sub = document.createElement('div');
-        sub.className = 'nav-children';
+        const childWrap = document.createElement('div');
+        childWrap.className = 'nav-children';
         item.children.forEach(child => {
           const ca = document.createElement('a');
           ca.className = 'nav-child' + (child.key === active ? ' active' : '');
@@ -84,15 +85,32 @@
             b.textContent = child.badge;
             ca.appendChild(b);
           }
-          sub.appendChild(ca);
+          childWrap.appendChild(ca);
         });
-        li.appendChild(sub);
+        li.appendChild(childWrap);
       }
 
       links.appendChild(li);
     });
 
     sidebar.appendChild(links);
+
+    // Footer — replay button pinned to bottom
+    const footer = document.createElement('div');
+    footer.className = 'nav-footer';
+
+    const replay = document.createElement('button');
+    replay.className = 'nav-replay';
+    replay.textContent = '[ replay opening ]';
+    replay.setAttribute('type', 'button');
+    replay.setAttribute('aria-label', 'Replay opening sequence');
+    replay.onclick = function () {
+      // force=true bypasses the first-visit localStorage check
+      if (typeof window.startBoot === 'function') window.startBoot(true);
+    };
+    footer.appendChild(replay);
+    sidebar.appendChild(footer);
+
     return sidebar;
   }
 

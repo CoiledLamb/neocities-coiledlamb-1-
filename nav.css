@@ -8,7 +8,7 @@
   height: 100vh; width: 180px;
   z-index: 100;
   display: flex; flex-direction: column;
-  padding: 20px 0;
+  padding: 20px 0 0;  /* bottom padding removed — footer handles it */
   box-sizing: border-box;
   background: #0b2e2d;
   border-right: 1px solid #1e5554;
@@ -19,9 +19,9 @@
   padding: 0 16px 16px;
   border-bottom: 1px solid #1e5554;
   margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
-/* Site title — oilslick via boot.css .oil-text */
 .nav-logo-title {
   font-size: 13px; font-weight: 600;
   letter-spacing: 0.04em;
@@ -36,6 +36,7 @@
 }
 .nav-logo-sub:hover { color: #e0eeec; }
 
+/* Scrollable nav links — flex:1 so footer is pushed to bottom */
 .nav-links {
   padding: 0 8px;
   display: flex; flex-direction: column;
@@ -47,7 +48,7 @@
     parent  #c8deda  near-white section labels
     child   #7aa8a6  mid-teal subordinate links
   Active state:
-    parent  → oilslick border box (all sides), no arrow
+    parent  → oilslick border box, no arrow
     child   → "> " cyan arrow prefix, no box
 */
 .nav-parent {
@@ -89,6 +90,31 @@
 
 .nav-divider { height: 1px; background: #1e5554; margin: 8px 6px; }
 
+/* Footer — pinned to bottom of sidebar */
+.nav-footer {
+  flex-shrink: 0;
+  padding: 10px 8px 14px;
+  border-top: 1px solid #1e5554;
+}
+
+/* Replay opening button */
+.nav-replay {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 5px 10px;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #2a5c5a;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: color 0.15s;
+}
+.nav-replay:hover { color: #7aa8a6; }
+
 /* Offset page content */
 .nav-offset { margin-left: 180px; }
 
@@ -106,16 +132,16 @@
     padding: 8px 12px 8px 0;
     border-bottom: none; border-right: 1px solid #1e5554;
     margin-bottom: 0; margin-right: 6px;
-    flex-shrink: 0; flex-direction: row;
-    align-items: center; gap: 8px;
+    flex-shrink: 0;
   }
   .nav-links {
     flex-direction: row; flex-wrap: wrap;
     align-items: center; gap: 0;
     padding: 6px 0; overflow-x: auto; overflow-y: visible;
   }
-  .nav-item { flex-direction: row; flex-wrap: wrap; align-items: center; }
   .nav-children { flex-direction: row; padding: 0; }
   .nav-divider { width: 1px; height: 20px; margin: 0 6px; }
+  /* Footer hidden in mobile top-bar layout */
+  .nav-footer { display: none; }
   .nav-offset { margin-left: 0; padding-top: 46px; }
 }
