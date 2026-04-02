@@ -113,21 +113,27 @@
     return sidebar;
   }
 
-  // IDs that must remain direct children of <body> — never wrapped
+  // IDs that must stay as direct <body> children — never wrapped in .nav-offset
+  // (position:fixed elements break if their containing block gains a transform/offset)
   const BODY_LEVEL_IDS = new Set(['boot', 'lightbox', 'scanlines', 'age-gate']);
 
   function injectNav() {
     const sidebar = buildSidebar();
     document.body.insertBefore(sidebar, document.body.firstChild);
 
-    // Wrap only content children — skip fixed overlays that must stay at body level
+    // Snapshot to a plain array first — iterating a live HTMLCollection while
+    // moving nodes out of it causes elements to be skipped.
+    const children = Array.from(document.body.children);
+
     const wrapper = document.createElement('div');
     wrapper.className = 'nav-offset';
-    Array.from(document.body.children).slice(1).forEach(c => {
-      if (!BODY_LEVEL_IDS.has(c.id)) {
-        wrapper.appendChild(c);
-      }
+
+    children.forEach(c => {
+      if (c === sidebar) return;                  // skip the sidebar we just inserted
+      if (BODY_LEVEL_IDS.has(c.id)) return;       // leave fixed overlays at body level
+      wrapper.appendChild(c);                     // moves the node into wrapper
     });
+
     document.body.appendChild(wrapper);
   }
 
