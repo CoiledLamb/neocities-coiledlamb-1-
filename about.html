@@ -10,39 +10,508 @@
     html, body { margin:0; background:#155352; color:#b1c9c3; font-family:'Source Code Pro',monospace; min-height:100vh; }
     #site { opacity:0; transition:opacity 0.7s ease; }
     #site.visible { opacity:1; }
-    .about-page { padding:40px 40px 60px; box-sizing:border-box; max-width:640px; }
-    h1 { margin:0 0 6px; font-size:clamp(1.4rem,3vw,2.2rem); font-weight:700; line-height:1; color:#e0eeec; }
-    .subtitle { font-size:11px; color:#4a7a78; letter-spacing:0.06em; margin:0 0 36px; }
-    .glass { background:rgba(11,46,45,0.55); border:1px solid #1e5554; border-radius:2px; padding:24px; }
-    .field-row { display:flex; flex-direction:column; gap:3px; margin-bottom:18px; }
-    .field-row:last-child { margin-bottom:0; }
-    .field-key { font-size:10px; text-transform:uppercase; letter-spacing:0.10em; color:#3a6a68; }
-    .field-val { font-size:12px; color:#7aa8a6; line-height:1.6; }
+
+    /* ---- Oilslick gradient — matches boot.css exactly ---- */
+    @keyframes oil {
+      0%   { background-position: 0% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes oil-border {
+      0%   { border-color: #40a4b9; }
+      25%  { border-color: #77bfcf; }
+      50%  { border-color: #da8bda; }
+      75%  { border-color: #9d78d4; }
+      100% { border-color: #40a4b9; }
+    }
+    .oil-text {
+      background: linear-gradient(90deg,
+        #40a4b9 0%, #77bfcf 18%, #9d78d4 38%,
+        #da8bda 54%, #9d78d4 70%, #77bfcf 85%, #40a4b9 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: oil 4s linear infinite;
+    }
+
+    /* ---- Page header ---- */
+    .site-wordmark { margin:0 0 2px; font-size:clamp(1.6rem,3.5vw,2.6rem); font-weight:700; line-height:1; }
+    .page-title { font-size:13px; color:#7aa8a6; letter-spacing:0.10em; margin:0 0 28px; text-transform:lowercase; }
+
+    /* ---- Layout ---- */
+    .about-page { padding:40px 40px 60px; box-sizing:border-box; max-width:860px; }
+    .glass { background:rgba(11,46,45,0.55); border:1px solid #1e5554; border-radius:2px; }
+    .section-label { font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:#3a6a68; margin:0 0 14px; }
+
+    /* ---- Hero / Blurb + Find Me merged ---- */
+    .hero-block { margin-bottom:20px; }
+    .hero-top { display:grid; grid-template-columns:auto 1fr; gap:20px; padding:20px 20px 0; }
+
+    /* Sona */
+    .sona-frame {
+      width:260px; height:auto; aspect-ratio:1/1.25;
+      overflow:hidden; border:1px solid #1e5554; border-radius:2px;
+      flex-shrink:0; position:relative; cursor:pointer; transition:border-color 0.15s;
+    }
+    .sona-frame:hover { animation:oil-border 4s linear infinite; }
+    .sona-frame img { width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
+    .sona-gallery-link { display:inline-block; margin-top:8px; font-size:10px; color:#4a7a78; letter-spacing:0.06em; text-decoration:none; transition:color 0.15s; }
+    .sona-gallery-link:hover { color:#77bfcf; }
+    .sona-gallery-link::before { content:'> '; color:#77bfcf; }
+    .blurb-panel { padding:0; display:flex; flex-direction:column; justify-content:flex-start; padding-top:4px; }
+    .blurb-text { font-size:12px; color:#b1c9c3; line-height:1.7; margin:0 0 12px; }
+    .blurb-text:last-of-type { margin-bottom:0; }
+
+    /* imood */
+    .imood-row { display:flex; align-items:center; gap:10px; margin-top:14px; }
+    .imood-label { font-size:10px; text-transform:uppercase; letter-spacing:0.10em; color:#3a6a68; }
+    .imood-row img { height:14px; image-rendering:pixelated; }
+
+    /* Find Me strip */
+    .hero-divider { height:1px; background:#1e5554; margin:20px 20px 0; }
+    .find-me-strip { padding:16px 20px 20px; }
+    .find-me-strip .section-label { margin-bottom:10px; }
+    .links-grid { display:flex; flex-wrap:wrap; gap:8px; }
+    .link-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:rgba(11,46,45,0.60); border:1px solid #1e5554; color:#7aa8a6; text-decoration:none; font-size:11px; border-radius:2px; transition:border-color 0.12s,color 0.12s; letter-spacing:0.03em; }
+    .link-pill:hover { border-color:#40a4b9; color:#e0eeec; }
+    .link-pill .link-icon { font-size:13px; opacity:0.6; }
+
+    /* ---- Event tags ---- */
+    .medialog-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:4px; }
+    .medialog-tag { font-size:9px; text-transform:uppercase; letter-spacing:0.10em; color:#3a6a68; background:rgba(11,46,45,0.8); border:1px solid #1e5554; border-radius:1px; padding:2px 6px; white-space:nowrap; }
+
+    /* ---- Get To Know Me — Tabbed grid ---- */
+    .gtkm-section { margin-bottom:20px; }
+    .gtkm-tabs { display:flex; border-bottom:1px solid #1e5554; padding:0 20px; }
+    .gtkm-tab { font-family:'Source Code Pro',monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:#3a6a68; background:none; border:none; border-bottom:2px solid transparent; padding:10px 14px 9px; cursor:pointer; transition:color 0.15s,border-color 0.15s; margin-bottom:-1px; }
+    .gtkm-tab:hover { color:#7aa8a6; }
+    .gtkm-tab.active { color:#77bfcf; border-bottom-color:#77bfcf; }
+    .gtkm-panels { padding:16px 20px 20px; }
+    .gtkm-panel { display:none; }
+    .gtkm-panel.active { display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); gap:6px; }
+    .gtkm-item { position:relative; aspect-ratio:2/3; overflow:hidden; border:1px solid #1e5554; border-radius:2px; cursor:pointer; transition:border-color 0.15s; background:#0b2e2d; }
+    .gtkm-item:hover { animation:oil-border 4s linear infinite; }
+    .gtkm-item img { width:100%; height:100%; object-fit:cover; display:block; transition:opacity 0.2s; }
+    .gtkm-item .item-label { position:absolute; bottom:0; left:0; right:0; padding:6px 8px; background:linear-gradient(transparent,rgba(11,46,45,0.92)); font-size:10px; color:#b1c9c3; letter-spacing:0.03em; line-height:1.3; pointer-events:none; }
+
+    /* ---- Media Log ---- */
+    .medialog-section { margin-bottom:20px; }
+    .medialog-tabs { display:flex; border-bottom:1px solid #1e5554; padding:0 20px; }
+    .medialog-tab { font-family:'Source Code Pro',monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:#3a6a68; background:none; border:none; border-bottom:2px solid transparent; padding:10px 14px 9px; cursor:pointer; transition:color 0.15s,border-color 0.15s; margin-bottom:-1px; }
+    .medialog-tab:hover { color:#7aa8a6; }
+    .medialog-tab.active { color:#77bfcf; border-bottom-color:#77bfcf; }
+    .medialog-panels { padding:20px; }
+    .medialog-panel { display:none; }
+    .medialog-panel.active { display:flex; flex-direction:column; gap:0; }
+    .medialog-entry { display:grid; grid-template-columns:120px 1fr; gap:16px; align-items:start; padding:16px 0; }
+    .medialog-entry:first-child { padding-top:0; }
+    .medialog-entry + .medialog-entry { border-top:1px solid #1e5554; }
+    .medialog-art { width:120px; aspect-ratio:3/4; object-fit:cover; border:1px solid #1e5554; border-radius:2px; display:block; background:#0b2e2d; flex-shrink:0; }
+    .medialog-body { display:flex; flex-direction:column; gap:5px; min-width:0; padding-top:2px; }
+    .medialog-title { font-size:13px; color:#e0eeec; font-weight:700; margin:0; line-height:1.2; }
+    .medialog-meta { font-size:10px; color:#3a6a68; letter-spacing:0.06em; text-transform:uppercase; }
+    .medialog-excerpt { font-size:11px; color:#7aa8a6; line-height:1.7; margin:4px 0 0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+    .medialog-excerpt.expanded { display:block; -webkit-line-clamp:unset; }
+    .medialog-expand { font-family:'Source Code Pro',monospace; font-size:10px; color:#4a7a78; background:none; border:none; padding:2px 0 0; cursor:pointer; letter-spacing:0.04em; transition:color 0.15s; text-align:left; }
+    .medialog-expand::before { content:'> '; color:#77bfcf; }
+    .medialog-expand:hover { color:#b1c9c3; }
+
+    /* ---- Journal ---- */
+    .journal-section { padding:20px; margin-bottom:20px; }
+    .journal-entry { margin-bottom:16px; }
+    .journal-entry:last-child { margin-bottom:0; }
+    .journal-date { font-size:10px; color:#3a6a68; letter-spacing:0.08em; margin-bottom:4px; text-transform:uppercase; }
+    .journal-body { font-size:12px; color:#7aa8a6; line-height:1.7; }
+    .journal-divider { height:1px; background:#1e5554; margin:16px 0; }
+
+    /* ---- Lightbox ---- */
+    #lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); justify-content:center; align-items:center; z-index:9999; }
+    #lightbox-img { max-width:88vw; max-height:88vh; transition:opacity 0.2s; }
+    .lb-arrow { position:absolute; top:50%; transform:translateY(-50%); font-size:44px; color:rgba(119,191,207,0.65); cursor:pointer; user-select:none; z-index:10000; padding:0 16px; transition:color 0.15s; }
+    .lb-arrow:hover { color:#77bfcf; }
+    .lb-arrow.left { left:10px; } .lb-arrow.right { right:10px; }
+    .lb-close { position:absolute; top:16px; right:20px; font-size:28px; color:rgba(119,191,207,0.6); cursor:pointer; z-index:10000; transition:color 0.15s; }
+    .lb-close:hover { color:#77bfcf; }
+
+    /* ---- Responsive ---- */
+    @media(max-width:640px){
+      .about-page { padding:20px 16px 40px; }
+      .hero-top { grid-template-columns:1fr; justify-items:center; padding:16px 16px 0; }
+      .sona-frame { width:200px; aspect-ratio:1/1.25; }
+      .hero-divider { margin:16px 16px 0; }
+      .find-me-strip { padding:14px 16px 16px; }
+      .medialog-entry { grid-template-columns:80px 1fr; gap:12px; }
+      .medialog-art { width:80px; }
+      .gtkm-panel.active { grid-template-columns:repeat(3,1fr); gap:4px; }
+      .gtkm-item .item-label { font-size:9px; padding:4px 5px; }
+    }
   </style>
 </head>
 <body>
   <div id="scanlines"></div>
+
+  <!-- BOOT -->
   <div id="boot">
     <div id="boot-ascii"></div>
     <div id="boot-terminal"></div>
     <div id="boot-welcome"></div>
-    <span class="boot-skip" onclick="dismissBoot()">[ press any key to skip ]</span>
+    <span class="boot-skip" onclick="if(typeof dismissBoot==='function')dismissBoot()">[ press any key to skip ]</span>
   </div>
+
   <div id="site">
     <script>window.NAV_ACTIVE = 'about';</script>
     <script src="nav.js"></script>
+
     <div class="about-page">
-      <h1>About</h1>
-      <p class="subtitle">coiled lamb</p>
-      <div class="glass">
-        <div class="field-row"><span class="field-key">Who</span><span class="field-val">—</span></div>
-        <div class="field-row"><span class="field-key">What</span><span class="field-val">—</span></div>
-        <div class="field-row"><span class="field-key">Links</span><span class="field-val">—</span></div>
-        <div class="field-row"><span class="field-key">Contact</span><span class="field-val">—</span></div>
+      <h1 class="site-wordmark oil-text">coiled lamb</h1>
+      <p class="page-title">about me</p>
+
+      <!-- HERO + FIND ME -->
+      <div class="hero-block glass">
+        <div class="hero-top">
+          <div>
+            <div class="sona-frame" onclick="lbOpenSingle('images/about/sona.webp')">
+              <img src="images/about/sona.webp" alt="my sona — art by chimeracauldron" />
+            </div>
+            <a class="sona-gallery-link" href="#sona-gallery">sona gallery</a>
+          </div>
+          <div class="blurb-panel">
+            <p class="section-label">Who</p>
+            <p class="blurb-text">
+              hey, i'm coiled lamb. artist, terminal enthusiast, creature of habit.
+              i draw figures and hands mostly. sometimes i make websites that look like
+              they belong on a CRT. nice to meet you.
+            </p>
+            <div class="imood-row">
+              <span class="imood-label">Mood</span>
+              <a href="https://www.imood.com" target="_blank" rel="noopener">
+                <img src="https://www.imood.com/query/uname-YOURUSERNAME/fg-7aa8a6/bgtrans-1/imood.gif" alt="my current mood" />
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="hero-divider"></div>
+        <div class="find-me-strip">
+          <p class="section-label">Find Me Elsewhere</p>
+          <div class="links-grid">
+            <a class="link-pill" href="#" target="_blank" rel="noopener"><span class="link-icon">◈</span> discord</a>
+            <a class="link-pill" href="#" target="_blank" rel="noopener"><span class="link-icon">☁</span> bluesky</a>
+            <a class="link-pill" href="#" target="_blank" rel="noopener"><span class="link-icon">△</span> tumblr</a>
+            <a class="link-pill" href="#" target="_blank" rel="noopener"><span class="link-icon">◉</span> twitter</a>
+            <a class="link-pill" href="#" target="_blank" rel="noopener"><span class="link-icon">▣</span> github</a>
+          </div>
+        </div>
+      </div><!-- .hero-block -->
+
+      <!-- MEDIA LOG -->
+      <div class="medialog-section glass">
+        <div class="medialog-tabs">
+          <button class="medialog-tab active" data-tab="playing">Now Playing</button>
+          <button class="medialog-tab" data-tab="watching">Now Watching</button>
+          <button class="medialog-tab" data-tab="listening">Now Listening</button>
+        </div>
+        <div class="medialog-panels">
+
+          <div class="medialog-panel active" id="ml-playing">
+            <div class="medialog-entry">
+              <img class="medialog-art" src="https://cdn.cloudflare.steamstatic.com/steam/apps/3280350/library_600x900.jpg" alt="Death Stranding 2" />
+              <div class="medialog-body">
+                <p class="medialog-title">Death Stranding 2: On the Beach</p>
+                <span class="medialog-meta">PS5 · started apr 2026</span>
+                <p class="medialog-excerpt" id="ml-excerpt-ds2">
+                  Replace this with your actual thoughts on Death Stranding 2.
+                </p>
+                <button class="medialog-expand" onclick="mlToggle('ml-excerpt-ds2', this)">read more</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="medialog-panel" id="ml-watching">
+            <div class="medialog-entry">
+              <!-- SAVE MANUALLY: https://myanimelist.net/anime/23321 -->
+              <img class="medialog-art" src="images/about/currently/cross-ange.webp" alt="Cross Ange" />
+              <div class="medialog-body">
+                <p class="medialog-title">Cross Ange</p>
+                <span class="medialog-meta">anime · in progress</span>
+                <div class="medialog-tags"><span class="medialog-tag">mecha mondays</span></div>
+                <p class="medialog-excerpt" id="ml-excerpt-ca">Your thoughts on Cross Ange go here.</p>
+                <button class="medialog-expand" onclick="mlToggle('ml-excerpt-ca', this)">read more</button>
+              </div>
+            </div>
+            <div class="medialog-entry">
+              <!-- SAVE MANUALLY: https://myanimelist.net/anime/1105 -->
+              <img class="medialog-art" src="images/about/currently/strawberry-panic.webp" alt="Strawberry Panic" />
+              <div class="medialog-body">
+                <p class="medialog-title">Strawberry Panic!</p>
+                <span class="medialog-meta">anime · in progress</span>
+                <div class="medialog-tags"><span class="medialog-tag">yurouletti</span></div>
+                <p class="medialog-excerpt" id="ml-excerpt-sp">Your Strawberry Panic thoughts here.</p>
+                <button class="medialog-expand" onclick="mlToggle('ml-excerpt-sp', this)">read more</button>
+              </div>
+            </div>
+            <div class="medialog-entry">
+              <!-- SAVE MANUALLY: https://myanimelist.net/anime/904 -->
+              <img class="medialog-art" src="images/about/currently/haruhi.webp" alt="Haruhi" />
+              <div class="medialog-body">
+                <p class="medialog-title">The Melancholy of Haruhi Suzumiya</p>
+                <span class="medialog-meta">anime · in progress</span>
+                <div class="medialog-tags"><span class="medialog-tag">anime friday</span></div>
+                <p class="medialog-excerpt" id="ml-excerpt-haru">Your Haruhi thoughts here.</p>
+                <button class="medialog-expand" onclick="mlToggle('ml-excerpt-haru', this)">read more</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="medialog-panel" id="ml-listening">
+            <div class="medialog-entry">
+              <!-- SAVE MANUALLY: BBNG Found a Light (Beale Street) cover -->
+              <img class="medialog-art" src="images/about/currently/bbng-found-a-light.webp" alt="BADBADNOTGOOD — Found a Light" />
+              <div class="medialog-body">
+                <p class="medialog-title">BADBADNOTGOOD</p>
+                <span class="medialog-meta">Found a Light (Beale Street)</span>
+                <p class="medialog-excerpt" id="ml-excerpt-bbng">Your BBNG thoughts here.</p>
+                <button class="medialog-expand" onclick="mlToggle('ml-excerpt-bbng', this)">read more</button>
+              </div>
+            </div>
+            <div class="medialog-entry">
+              <!-- SAVE MANUALLY: Homeshake Horsie cover -->
+              <img class="medialog-art" src="images/about/currently/homeshake-horsie.webp" alt="Homeshake — Horsie" />
+              <div class="medialog-body">
+                <p class="medialog-title">Homeshake</p>
+                <span class="medialog-meta">Horsie</span>
+                <p class="medialog-excerpt" id="ml-excerpt-hs">Your Horsie thoughts here.</p>
+                <button class="medialog-expand" onclick="mlToggle('ml-excerpt-hs', this)">read more</button>
+              </div>
+            </div>
+            <div class="medialog-entry">
+              <!-- SAVE MANUALLY: Duster In Dreams cover -->
+              <img class="medialog-art" src="images/about/currently/duster-in-dreams.webp" alt="Duster — In Dreams" />
+              <div class="medialog-body">
+                <p class="medialog-title">Duster</p>
+                <span class="medialog-meta">In Dreams</span>
+                <p class="medialog-excerpt" id="ml-excerpt-dust">Your In Dreams thoughts here.</p>
+                <button class="medialog-expand" onclick="mlToggle('ml-excerpt-dust', this)">read more</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- .medialog-section -->
+
+      <!-- GET TO KNOW ME -->
+      <div class="gtkm-section glass">
+        <div class="gtkm-tabs">
+          <button class="gtkm-tab active" data-tab="games">Games</button>
+          <button class="gtkm-tab" data-tab="shows">Shows &amp; Films</button>
+          <button class="gtkm-tab" data-tab="music">Music</button>
+        </div>
+        <div class="gtkm-panels">
+
+          <div class="gtkm-panel active" id="gtkm-games">
+            <div class="gtkm-item" data-lb="https://cdn.cloudflare.steamstatic.com/steam/apps/1996010/library_600x900.jpg">
+              <img src="https://cdn.cloudflare.steamstatic.com/steam/apps/1996010/library_600x900.jpg" alt="Crow Country" loading="lazy" />
+              <div class="item-label">Crow Country</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://cdn.cloudflare.steamstatic.com/steam/apps/2246340/library_600x900.jpg">
+              <img src="https://cdn.cloudflare.steamstatic.com/steam/apps/2246340/library_600x900.jpg" alt="Monster Hunter Wilds" loading="lazy" />
+              <div class="item-label">Monster Hunter</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://cdn.cloudflare.steamstatic.com/steam/apps/39210/library_600x900.jpg">
+              <img src="https://cdn.cloudflare.steamstatic.com/steam/apps/39210/library_600x900.jpg" alt="FFXIV" loading="lazy" />
+              <div class="item-label">FFXIV</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://cdn.cloudflare.steamstatic.com/steam/apps/333640/library_600x900.jpg">
+              <img src="https://cdn.cloudflare.steamstatic.com/steam/apps/333640/library_600x900.jpg" alt="Caves of Qud" loading="lazy" />
+              <div class="item-label">Caves of Qud</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://cdn.cloudflare.steamstatic.com/steam/apps/1190460/library_600x900.jpg">
+              <img src="https://cdn.cloudflare.steamstatic.com/steam/apps/1190460/library_600x900.jpg" alt="Death Stranding" loading="lazy" />
+              <div class="item-label">Death Stranding</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://cdn.cloudflare.steamstatic.com/steam/apps/477740/library_600x900.jpg">
+              <img src="https://cdn.cloudflare.steamstatic.com/steam/apps/477740/library_600x900.jpg" alt="Nonary Games" loading="lazy" />
+              <div class="item-label">Nonary Games</div>
+            </div>
+            <!-- SAVE MANUALLY: PMD Blue Rescue Team (GBA) -->
+            <div class="gtkm-item" data-lb="images/about/games/pmd-blue-rescue.webp">
+              <img src="images/about/games/pmd-blue-rescue.webp" alt="PMD Blue Rescue Team" loading="lazy" />
+              <div class="item-label">PMD Blue Rescue</div>
+            </div>
+            <!-- SAVE MANUALLY: Pokémon Diamond (NDS) -->
+            <div class="gtkm-item" data-lb="images/about/games/pokemon-diamond.webp">
+              <img src="images/about/games/pokemon-diamond.webp" alt="Pokémon Diamond" loading="lazy" />
+              <div class="item-label">Pokémon Diamond</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://cdn.cloudflare.steamstatic.com/steam/apps/1267910/library_600x900.jpg">
+              <img src="https://cdn.cloudflare.steamstatic.com/steam/apps/1267910/library_600x900.jpg" alt="Melvor Idle" loading="lazy" />
+              <div class="item-label">Melvor Idle</div>
+            </div>
+          </div>
+
+          <!-- SAVE MANUALLY — see images-to-save.txt for all sources -->
+          <div class="gtkm-panel" id="gtkm-shows">
+            <div class="gtkm-item" data-lb="images/about/shows/flcl.webp"><img src="images/about/shows/flcl.webp" alt="FLCL" loading="lazy" /><div class="item-label">FLCL</div></div>
+            <div class="gtkm-item" data-lb="images/about/shows/drrr.webp"><img src="images/about/shows/drrr.webp" alt="Durarara!!" loading="lazy" /><div class="item-label">DRRR!!</div></div>
+            <div class="gtkm-item" data-lb="images/about/shows/soul-eater.webp"><img src="images/about/shows/soul-eater.webp" alt="Soul Eater" loading="lazy" /><div class="item-label">Soul Eater</div></div>
+            <div class="gtkm-item" data-lb="images/about/shows/king-of-the-hill.webp"><img src="images/about/shows/king-of-the-hill.webp" alt="King of the Hill" loading="lazy" /><div class="item-label">King of the Hill</div></div>
+            <div class="gtkm-item" data-lb="images/about/shows/atla.webp"><img src="images/about/shows/atla.webp" alt="Avatar: The Last Airbender" loading="lazy" /><div class="item-label">Avatar: TLA</div></div>
+            <div class="gtkm-item" data-lb="images/about/shows/fmab.webp"><img src="images/about/shows/fmab.webp" alt="Fullmetal Alchemist: Brotherhood" loading="lazy" /><div class="item-label">FMA: Brotherhood</div></div>
+            <div class="gtkm-item" data-lb="images/about/shows/submarine.webp"><img src="images/about/shows/submarine.webp" alt="Submarine" loading="lazy" /><div class="item-label">Submarine</div></div>
+            <div class="gtkm-item" data-lb="images/about/shows/her.webp"><img src="images/about/shows/her.webp" alt="Her" loading="lazy" /><div class="item-label">Her</div></div>
+            <div class="gtkm-item" data-lb="images/about/shows/isle-of-dogs.webp"><img src="images/about/shows/isle-of-dogs.webp" alt="Isle of Dogs" loading="lazy" /><div class="item-label">Isle of Dogs</div></div>
+          </div>
+
+          <!-- Cover Art Archive: coverartarchive.org/release-group/{MBID}/front-500.jpg -->
+          <div class="gtkm-panel" id="gtkm-music">
+            <div class="gtkm-item" data-lb="https://coverartarchive.org/release-group/bfcf215c-6d4e-4b4a-a003-8905b51a7f88/front-500.jpg">
+              <img src="https://coverartarchive.org/release-group/bfcf215c-6d4e-4b4a-a003-8905b51a7f88/front-500.jpg" alt="Homeshake — Midnight Snack" loading="lazy" />
+              <div class="item-label">Homeshake</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://coverartarchive.org/release-group/16297acb-896e-48e4-8390-f9ca95c4f0d9/front-500.jpg">
+              <img src="https://coverartarchive.org/release-group/16297acb-896e-48e4-8390-f9ca95c4f0d9/front-500.jpg" alt="BADBADNOTGOOD — IV" loading="lazy" />
+              <div class="item-label">BBNG</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://coverartarchive.org/release/23185da2-0291-47f4-b890-d6bc5c38150a/front-500.jpg">
+              <img src="https://coverartarchive.org/release/23185da2-0291-47f4-b890-d6bc5c38150a/front-500.jpg" alt="Men I Trust — Untourable Album" loading="lazy" />
+              <div class="item-label">Men I Trust</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://coverartarchive.org/release-group/7c365e51-de7b-4c72-80dd-4e0536258c6e/front-500.jpg">
+              <img src="https://coverartarchive.org/release-group/7c365e51-de7b-4c72-80dd-4e0536258c6e/front-500.jpg" alt="King Gizzard — Nonagon Infinity" loading="lazy" />
+              <div class="item-label">King Gizzard</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://coverartarchive.org/release-group/f478fad9-a746-3625-9f14-bc4a74918c0e/front-500.jpg">
+              <img src="https://coverartarchive.org/release-group/f478fad9-a746-3625-9f14-bc4a74918c0e/front-500.jpg" alt="The Microphones — The Glow pt. 2" loading="lazy" />
+              <div class="item-label">The Microphones</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://coverartarchive.org/release-group/f7da2770-bf72-3dea-8904-ff6135822724/front-500.jpg">
+              <img src="https://coverartarchive.org/release-group/f7da2770-bf72-3dea-8904-ff6135822724/front-500.jpg" alt="MGMT — Oracular Spectacular" loading="lazy" />
+              <div class="item-label">MGMT</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://coverartarchive.org/release-group/97ee3a0f-183b-4830-aa5c-45507a084d37/front-500.jpg">
+              <img src="https://coverartarchive.org/release-group/97ee3a0f-183b-4830-aa5c-45507a084d37/front-500.jpg" alt="Arctic Monkeys — Tranquility Base Hotel + Casino" loading="lazy" />
+              <div class="item-label">Arctic Monkeys</div>
+            </div>
+            <div class="gtkm-item" data-lb="https://coverartarchive.org/release-group/122e15fb-266e-4b72-91e2-bb7737394365/front-500.jpg">
+              <img src="https://coverartarchive.org/release-group/122e15fb-266e-4b72-91e2-bb7737394365/front-500.jpg" alt="Glass Animals — How to Be a Human Being" loading="lazy" />
+              <div class="item-label">Glass Animals</div>
+            </div>
+            <!-- SAVE MANUALLY: Duster Together — see images-to-save.txt -->
+            <div class="gtkm-item" data-lb="images/about/music/duster-together.webp">
+              <img src="images/about/music/duster-together.webp" alt="Duster — Together" loading="lazy" />
+              <div class="item-label">Duster</div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- .gtkm-section -->
+
+      <!-- JOURNAL -->
+      <div class="journal-section glass">
+        <p class="section-label">Journal</p>
+        <div class="journal-entry">
+          <div class="journal-date">— APR 02 2026 —</div>
+          <div class="journal-body">
+            Replace this with your first journal entry. Write about whatever you want —
+            what you're working on, what you're thinking about, a song that's stuck in
+            your head. This is your space.
+          </div>
+        </div>
       </div>
-    </div>
+
+    </div><!-- .about-page -->
+  </div><!-- #site -->
+
+  <!-- LIGHTBOX -->
+  <div id="lightbox" onclick="lbClose()">
+    <span class="lb-arrow left" onclick="event.stopPropagation();lbPrev()">&#8249;</span>
+    <img id="lightbox-img" onclick="event.stopPropagation()" />
+    <span class="lb-arrow right" onclick="event.stopPropagation();lbNext()">&#8250;</span>
+    <span class="lb-close" onclick="lbClose()">&#x2715;</span>
   </div>
+
   <script src="boot.js"></script>
-  <script>document.addEventListener('keydown',e=>{if(document.getElementById('boot').style.display!=='none')dismissBoot();});startBoot();</script>
+  <script>
+    // GET TO KNOW ME — tabs
+    document.querySelectorAll('.gtkm-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.gtkm-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.gtkm-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('gtkm-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // MEDIA LOG — tabs + expand
+    document.querySelectorAll('.medialog-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.medialog-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.medialog-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('ml-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    function mlToggle(excerptId, btn) {
+      const el = document.getElementById(excerptId);
+      const expanded = el.classList.toggle('expanded');
+      btn.textContent = expanded ? 'collapse' : 'read more';
+    }
+
+    // LIGHTBOX
+    let lbItems = [], lbIdx = 0;
+
+    document.querySelectorAll('.gtkm-item[data-lb]').forEach(el => {
+      el.addEventListener('click', () => {
+        const panel = el.closest('.gtkm-panel');
+        lbItems = Array.from(panel.querySelectorAll('.gtkm-item[data-lb]')).map(i => i.dataset.lb);
+        lbIdx = Array.from(panel.querySelectorAll('.gtkm-item[data-lb]')).indexOf(el);
+        lbOpen();
+      });
+    });
+
+    function lbOpenSingle(src) { lbItems = [src]; lbIdx = 0; lbOpen(); }
+
+    function lbOpen() {
+      const lb = document.getElementById('lightbox');
+      const img = document.getElementById('lightbox-img');
+      lb.style.display = 'flex';
+      img.style.opacity = 0;
+      img.src = lbItems[lbIdx];
+      img.onload = () => { img.style.opacity = 1; };
+    }
+
+    function lbClose() { document.getElementById('lightbox').style.display = 'none'; }
+
+    function lbStep(d) {
+      lbIdx = (lbIdx + d + lbItems.length) % lbItems.length;
+      const img = document.getElementById('lightbox-img');
+      img.style.opacity = 0;
+      setTimeout(() => { img.src = lbItems[lbIdx]; img.onload = () => { img.style.opacity = 1; }; }, 150);
+    }
+
+    function lbNext() { lbStep(1); }
+    function lbPrev() { lbStep(-1); }
+
+    document.addEventListener('keydown', e => {
+      const lb = document.getElementById('lightbox');
+      if (lb.style.display !== 'flex') return;
+      if (e.key === 'ArrowRight') lbNext();
+      if (e.key === 'ArrowLeft') lbPrev();
+      if (e.key === 'Escape') lbClose();
+    });
+
+    // BOOT
+    document.addEventListener('keydown', e => {
+      if (typeof dismissBoot === 'function' && document.getElementById('boot').style.display !== 'none') dismissBoot();
+    });
+    if (typeof startBoot === 'function') {
+      startBoot();
+    } else {
+      var bootEl = document.getElementById('boot');
+      var siteEl = document.getElementById('site');
+      if (bootEl) bootEl.style.display = 'none';
+      if (siteEl) siteEl.classList.add('visible');
+    }
+  </script>
 </body>
 </html>
