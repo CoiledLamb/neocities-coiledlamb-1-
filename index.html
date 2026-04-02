@@ -2,10 +2,259 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=artwork.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Coiled Lamb</title>
+  <meta name="description" content="coiled lamb — artist, figure drawing, terminal aesthetics." />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="boot.css" />
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      background: #0b2e2d;
+      color: #b1c9c3;
+      font-family: 'Source Code Pro', monospace;
+      font-weight: 600;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #site {
+      opacity: 0;
+      transition: opacity 0.7s ease;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 56px 32px;
+      box-sizing: border-box;
+    }
+    #site.visible { opacity: 1; }
+
+    /* -- Header -- */
+    .landing-header { display: flex; flex-direction: column; gap: 6px; }
+    .landing-wordmark {
+      font-size: clamp(2.2rem, 5vw, 3.8rem);
+      font-weight: 700;
+      line-height: 1;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+    .landing-tagline {
+      font-size: 12px;
+      color: #7aa8a6;
+      letter-spacing: 0.08em;
+      margin: 0;
+    }
+
+    /* -- Navigation cards -- */
+    .landing-nav { display: flex; gap: 14px; flex-wrap: wrap; }
+    .nav-card {
+      flex: 1 1 180px;
+      min-width: 160px;
+      max-width: 280px;
+      background: rgba(11,46,45,0.55);
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      padding: 18px 20px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .nav-card:hover {
+      background: rgba(11,46,45,0.80);
+      animation: oil-border 4s linear infinite;
+    }
+    .nav-card-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #3a6a68;
+    }
+    .nav-card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #e0eeec;
+      line-height: 1;
+    }
+    .nav-card-desc {
+      font-size: 11px;
+      color: #7aa8a6;
+      line-height: 1.5;
+      margin-top: 2px;
+    }
+    .nav-card-arr {
+      font-size: 11px;
+      color: #3a6a68;
+      margin-top: auto;
+      padding-top: 10px;
+      transition: color 0.15s;
+    }
+    .nav-card:hover .nav-card-arr { color: #77bfcf; }
+
+    /* -- Footer strip -- */
+    .landing-footer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    /* 88x31 buttons */
+    .button-shelf { display: flex; flex-direction: column; gap: 6px; }
+    .button-shelf-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #2a5c5a;
+    }
+    .button-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-end; }
+    .button-row a { display: block; line-height: 0; }
+    .button-row img {
+      width: 88px; height: 31px;
+      image-rendering: pixelated;
+      border: 1px solid #1e5554;
+      display: block;
+      transition: border-color 0.12s;
+    }
+    .button-row a:hover img { border-color: #40a4b9; }
+
+    /* Webring */
+    .webring-slot { display: flex; flex-direction: column; gap: 6px; }
+    .webring-slot-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #2a5c5a;
+    }
+    .webring-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #4a7a78;
+    }
+    .webring-strip a {
+      color: #4a7a78;
+      text-decoration: none;
+      transition: color 0.12s;
+    }
+    .webring-strip a:hover { color: #77bfcf; }
+    .webring-name { font-size: 10px; color: #3a6a68; letter-spacing: 0.06em; }
+
+    /* Neighbor links */
+    .neighbor-links { display: flex; flex-direction: column; gap: 6px; text-align: right; }
+    .neighbor-links-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #2a5c5a;
+    }
+    .neighbor-list { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: flex-end; }
+    .neighbor-list a {
+      font-size: 11px;
+      color: #4a7a78;
+      text-decoration: none;
+      letter-spacing: 0.03em;
+      transition: color 0.12s;
+    }
+    .neighbor-list a::before { content: '> '; color: #1e5554; }
+    .neighbor-list a:hover { color: #77bfcf; }
+    .neighbor-list a:hover::before { color: #77bfcf; }
+
+    /* -- Responsive -- */
+    @media (max-width: 600px) {
+      #site { padding: 32px 24px 24px; overflow-y: auto; }
+      html, body { overflow: auto; }
+      .landing-nav { flex-direction: column; }
+      .nav-card { max-width: 100%; }
+      .landing-footer { flex-direction: column; gap: 16px; }
+      .neighbor-links { text-align: left; }
+      .neighbor-list { justify-content: flex-start; }
+    }
+  </style>
 </head>
 <body>
-  <script>window.location.replace('artwork.html');</script>
+  <div id="scanlines"></div>
+
+  <div id="boot">
+    <div id="boot-ascii"></div>
+    <div id="boot-terminal"></div>
+    <div id="boot-welcome"></div>
+    <span class="boot-skip" onclick="dismissBoot()">[ press any key to skip ]</span>
+  </div>
+
+  <div id="site">
+
+    <header class="landing-header">
+      <h1 class="landing-wordmark oil-text">coiled lamb</h1>
+      <p class="landing-tagline">artist &nbsp;&middot;&nbsp; figure drawing &nbsp;&middot;&nbsp; terminal aesthetics</p>
+    </header>
+
+    <nav class="landing-nav" aria-label="Site sections">
+      <a class="nav-card" href="artwork.html">
+        <span class="nav-card-label">Gallery</span>
+        <span class="nav-card-title">Artwork</span>
+        <span class="nav-card-desc">Figure drawing, hands, anatomy studies. Updated regularly.</span>
+        <span class="nav-card-arr">&rsaquo; enter</span>
+      </a>
+      <a class="nav-card" href="about.html">
+        <span class="nav-card-label">Info</span>
+        <span class="nav-card-title">About</span>
+        <span class="nav-card-desc">Who I am, what I'm into, where to find me.</span>
+        <span class="nav-card-arr">&rsaquo; enter</span>
+      </a>
+      <a class="nav-card" href="oilslick-lab.html">
+        <span class="nav-card-label">Experiment</span>
+        <span class="nav-card-title">Oilslick Lab</span>
+        <span class="nav-card-desc">Live-tunable fluid sim. Touch the background.</span>
+        <span class="nav-card-arr">&rsaquo; enter</span>
+      </a>
+    </nav>
+
+    <footer class="landing-footer">
+
+      <div class="button-shelf">
+        <span class="button-shelf-label">buttons</span>
+        <div class="button-row">
+          <a href="https://coiledlamb.neocities.org" title="coiled lamb">
+            <img src="button.svg" alt="coiled lamb" />
+          </a>
+          <!-- add neighbor buttons here -->
+          <!-- <a href="https://friend.neocities.org" target="_blank" rel="noopener"><img src="images/buttons/friend.gif" alt="friend" /></a> -->
+        </div>
+      </div>
+
+      <div class="webring-slot">
+        <span class="webring-slot-label">webring</span>
+        <div class="webring-strip">
+          <a href="#" title="previous site">&lsaquo; prev</a>
+          <span class="webring-name">[ ring name ]</span>
+          <a href="#" title="next site">next &rsaquo;</a>
+        </div>
+      </div>
+
+      <div class="neighbor-links">
+        <span class="neighbor-links-label">neighbors</span>
+        <div class="neighbor-list">
+          <!-- add friends' sites here -->
+          <a href="#" target="_blank" rel="noopener">example.neocities.org</a>
+          <a href="#" target="_blank" rel="noopener">another.neocities.org</a>
+        </div>
+      </div>
+
+    </footer>
+  </div>
+
+  <script src="boot.js"></script>
+  <script>
+    document.addEventListener('keydown', e => {
+      if (document.getElementById('boot').style.display !== 'none') dismissBoot();
+    });
+    startBoot();
+  </script>
 </body>
 </html>
