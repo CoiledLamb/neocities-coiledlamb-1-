@@ -236,6 +236,9 @@ function generateGallery() {
 
 // --------------------------
 // LIGHTBOX + COMMENTS
+// The lightbox uses position:fixed with a flex column inner container
+// so utterances sit below the image without displacing it sideways.
+//
 // utterances (https://utteranc.es) stores comments as
 // GitHub Issues on your repo, keyed by page URL.
 // Each image gets a unique URL via ?img=N so it gets
@@ -243,31 +246,60 @@ function generateGallery() {
 // --------------------------
 const UTTERANCES_REPO = 'CoiledLamb/neocities-coiledlamb-1-';
 
+// Ensure the lightbox has a centred inner column to hold image + comments.
+// The arrows and close button remain positioned absolutely over the overlay.
+function ensureLightboxInner() {
+  const lb = document.getElementById('lightbox');
+  let inner = lb.querySelector('.lb-inner');
+  if (inner) return inner;
+
+  // Move the img into a flex-column inner wrapper
+  inner = document.createElement('div');
+  inner.className = 'lb-inner';
+  inner.style.cssText = [
+    'display:flex',
+    'flex-direction:column',
+    'align-items:center',
+    'max-height:92vh',
+    'overflow-y:auto',
+    'padding:0 60px',   // horizontal room for the arrows
+    'box-sizing:border-box',
+  ].join(';');
+  inner.onclick = e => e.stopPropagation(); // don't close when clicking inner
+
+  const lbi = document.getElementById('lightbox-img');
+  lb.insertBefore(inner, lbi);
+  inner.appendChild(lbi);
+
+  return inner;
+}
+
 function buildCommentThread() {
   // Remove any previous thread
   const old = document.getElementById('utterances-wrap');
   if (old) old.remove();
 
+  const inner = ensureLightboxInner();
+
   const wrap = document.createElement('div');
   wrap.id = 'utterances-wrap';
   wrap.style.cssText = [
+    'width:100%',
     'max-width:660px',
-    'margin:24px auto 0',
-    'padding:0 4px'
+    'margin:20px auto 24px',
+    'padding:0 4px',
   ].join(';');
 
   const script = document.createElement('script');
   script.src             = 'https://utteranc.es/client.js';
   script.setAttribute('repo',            UTTERANCES_REPO);
-  script.setAttribute('issue-term',      'url');   // one issue per unique URL
+  script.setAttribute('issue-term',      'url');
   script.setAttribute('theme',           'dark-blue');
   script.setAttribute('crossorigin',     'anonymous');
   script.async = true;
   wrap.appendChild(script);
 
-  // Mount below the lightbox image
-  const lb = document.getElementById('lightbox');
-  lb.appendChild(wrap);
+  inner.appendChild(wrap);
 }
 
 function openLightbox(idx) {
