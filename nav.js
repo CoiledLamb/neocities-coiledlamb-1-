@@ -105,7 +105,6 @@
     replay.setAttribute('type', 'button');
     replay.setAttribute('aria-label', 'Replay opening sequence');
     replay.onclick = function () {
-      // force=true bypasses the first-visit localStorage check
       if (typeof window.startBoot === 'function') window.startBoot(true);
     };
     footer.appendChild(replay);
@@ -114,12 +113,21 @@
     return sidebar;
   }
 
+  // IDs that must remain direct children of <body> — never wrapped
+  const BODY_LEVEL_IDS = new Set(['boot', 'lightbox', 'scanlines', 'age-gate']);
+
   function injectNav() {
     const sidebar = buildSidebar();
     document.body.insertBefore(sidebar, document.body.firstChild);
+
+    // Wrap only content children — skip fixed overlays that must stay at body level
     const wrapper = document.createElement('div');
     wrapper.className = 'nav-offset';
-    Array.from(document.body.children).slice(1).forEach(c => wrapper.appendChild(c));
+    Array.from(document.body.children).slice(1).forEach(c => {
+      if (!BODY_LEVEL_IDS.has(c.id)) {
+        wrapper.appendChild(c);
+      }
+    });
     document.body.appendChild(wrapper);
   }
 

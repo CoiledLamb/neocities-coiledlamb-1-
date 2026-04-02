@@ -33,12 +33,12 @@
   animation: oil-border 4s linear infinite;
 }
 
-/* Scanlines */
+/* Scanlines — kept subtle so they don't compete with artwork */
 #scanlines {
   position: fixed; inset: 0;
   background: repeating-linear-gradient(
     to bottom, transparent 0px, transparent 2px,
-    rgba(0,0,0,0.10) 2px, rgba(0,0,0,0.10) 3px
+    rgba(0,0,0,0.045) 2px, rgba(0,0,0,0.045) 3px
   );
   pointer-events: none;
   z-index: 200;
