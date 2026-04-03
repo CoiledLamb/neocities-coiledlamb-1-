@@ -118,7 +118,140 @@
 /* Offset page content */
 .nav-offset { margin-left: 180px; }
 
-/* Responsive */
+/* ==============================================
+   MUSIC PLAYER WIDGET
+   ============================================== */
+
+.nav-player {
+  flex-shrink: 0;
+  border-top: 1px solid #1e5554;
+  padding: 10px 8px;
+  font-family: 'Source Code Pro', monospace;
+}
+
+.np-label {
+  font-size: 9px;
+  color: #3a9e8e;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.np-vis {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  margin-bottom: 6px;
+}
+
+.np-vis-bar {
+  background: #2a7a6e;
+  width: 3px;
+  height: 3px;
+  border-radius: 1px;
+  transition: height 0.1s;
+}
+
+.np-track-name {
+  font-size: 10px;
+  color: #a8f0e0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 14px;
+  margin-bottom: 1px;
+}
+
+.np-track-artist {
+  font-size: 9px;
+  color: #3a9e8e;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.np-status {
+  font-size: 9px;
+  color: #2a8a7e;
+  letter-spacing: 1px;
+  height: 11px;
+  margin-bottom: 4px;
+}
+
+.np-progress-wrap {
+  background: #0a2a2a;
+  height: 2px;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+.np-progress-fill {
+  background: #7fd8c8;
+  height: 2px;
+  width: 0%;
+  transition: width 0.3s linear;
+}
+
+.np-time {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #3a9e8e;
+  margin-bottom: 8px;
+}
+
+.np-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.np-btn {
+  background: none;
+  border: 1px solid #2a7a6e;
+  color: #7fd8c8;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 9px;
+  font-family: 'Source Code Pro', monospace;
+  letter-spacing: 1px;
+  transition: background 0.15s, color 0.15s;
+  border-radius: 1px;
+}
+.np-btn:hover { background: #2a7a6e; color: #c8f8f0; }
+.np-btn.active { background: #1a5a50; color: #a8f0e0; }
+.np-btn-play { padding: 3px 8px; font-size: 11px; }
+
+.np-tracklist-label {
+  font-size: 9px;
+  color: #3a9e8e;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.np-track-item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 0;
+  cursor: pointer;
+  border-bottom: 1px dotted #153535;
+}
+.np-track-item:last-child { border-bottom: none; }
+.np-track-item:hover .np-ti-name { color: #c8f8f0; }
+.np-track-item.playing .np-ti-name { color: #c8f8f0; }
+.np-track-item.playing .np-ti-idx { color: #a8f0e0; }
+
+.np-ti-idx { font-size: 9px; color: #2a6a5a; min-width: 14px; }
+.np-ti-name { font-size: 9px; color: #5ab8a8; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-ti-dur  { font-size: 9px; color: #2a6a5a; }
+
+/* Responsive — hide player in mobile top-bar */
 @media (max-width: 700px) {
   .nav-sidebar {
     position: fixed; top: 0; left: 0; right: 0;
@@ -141,7 +274,7 @@
   }
   .nav-children { flex-direction: row; padding: 0; }
   .nav-divider { width: 1px; height: 20px; margin: 0 6px; }
-  /* Footer hidden in mobile top-bar layout */
   .nav-footer { display: none; }
+  .nav-player { display: none; }
   .nav-offset { margin-left: 0; padding-top: 46px; }
 }

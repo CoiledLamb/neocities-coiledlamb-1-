@@ -26,6 +26,124 @@
     },
   ];
 
+  // ==============================================
+  // MUSIC PLAYER STATE
+  // ==============================================
+  const TRACKS = [
+    { name: "pilgrim's path", artist: 'craigory ham', src: '/audio/pilgrims-path.mp3', duration: '4:07' },
+    { name: 'stoic porridge',  artist: 'craigory ham', src: '/audio/stoic-porridge.mp3', duration: '5:29' },
+    { name: 'onward',          artist: 'craigory ham', src: '/audio/onward.mp3',         duration: '5:56' },
+    { name: 'drifter',         artist: 'duster',       src: '/audio/drifter.mp3',        duration: '3:41' },
+  ];
+
+  let npAudio    = new Audio();
+  let npIdx      = 0;
+  let npPlaying  = false;
+  let npLooping  = false;
+  let npVisTimer = null;
+  let npBars     = [];
+
+  // DOM refs populated during buildSidebar
+  let npEls = {};
+
+  function npFmt(s) {
+    if (isNaN(s)) return '0:00';
+    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return m + ':' + String(sec).padStart(2, '0');
+  }
+
+  function npSetStatus(t) { if (npEls.status) npEls.status.textContent = t; }
+
+  function npAnimBars(on) {
+    clearInterval(npVisTimer);
+    if (!on) { npBars.forEach(b => b.style.height = '3px'); return; }
+    npVisTimer = setInterval(() => {
+      npBars.forEach(b => { b.style.height = (3 + Math.random() * 10) + 'px'; });
+    }, 130);
+  }
+
+  function npRenderTL() {
+    if (!npEls.tracklist) return;
+    npEls.tracklist.innerHTML = '';
+    TRACKS.forEach((t, i) => {
+      const row = document.createElement('div');
+      row.className = 'np-track-item' + (i === npIdx ? ' playing' : '');
+      const idx  = document.createElement('span'); idx.className = 'np-ti-idx'; idx.textContent = String(i + 1).padStart(2, '0');
+      const name = document.createElement('span'); name.className = 'np-ti-name'; name.textContent = t.name;
+      const dur  = document.createElement('span'); dur.className  = 'np-ti-dur';  dur.textContent  = t.duration;
+      row.appendChild(idx); row.appendChild(name); row.appendChild(dur);
+      row.addEventListener('click', () => npLoad(i, true));
+      npEls.tracklist.appendChild(row);
+    });
+  }
+
+  function npLoad(idx, play) {
+    npIdx = idx;
+    const t = TRACKS[idx];
+    if (npEls.name)   npEls.name.textContent   = t.name;
+    if (npEls.artist) npEls.artist.textContent = t.artist;
+    if (npEls.dur)    npEls.dur.textContent    = t.duration;
+    if (npEls.fill)   npEls.fill.style.width   = '0%';
+    if (npEls.cur)    npEls.cur.textContent    = '0:00';
+    npAudio.pause();
+    npAudio = new Audio(t.src);
+    npAudio.loop = npLooping;
+    npAudio.addEventListener('timeupdate', npUpdateProg);
+    npAudio.addEventListener('ended', npOnEnd);
+    npAudio.addEventListener('error', () => npSetStatus('ERR: not found'));
+    npRenderTL();
+    if (play) npStart();
+    else {
+      npPlaying = false;
+      if (npEls.playBtn) npEls.playBtn.textContent = '▶';
+      npAnimBars(false);
+      npSetStatus('LOADED.....');
+    }
+  }
+
+  function npStart() {
+    npAudio.play().then(() => {
+      npPlaying = true;
+      if (npEls.playBtn) npEls.playBtn.textContent = '■';
+      npAnimBars(true);
+      npSetStatus('PLAYING....');
+    }).catch(() => npSetStatus('ERR: cannot play'));
+  }
+
+  function npToggle() {
+    if (npPlaying) {
+      npAudio.pause(); npPlaying = false;
+      if (npEls.playBtn) npEls.playBtn.textContent = '▶';
+      npAnimBars(false); npSetStatus('PAUSED.....');
+    } else { npStart(); }
+  }
+
+  function npPrev() { npLoad((npIdx - 1 + TRACKS.length) % TRACKS.length, npPlaying); }
+  function npNext() { npLoad((npIdx + 1) % TRACKS.length, npPlaying); }
+  function npOnEnd() { if (!npLooping) npNext(); }
+
+  function npToggleLoop() {
+    npLooping = !npLooping;
+    npAudio.loop = npLooping;
+    if (npEls.loopBtn) npEls.loopBtn.classList.toggle('active', npLooping);
+  }
+
+  function npUpdateProg() {
+    const p = npAudio.duration ? (npAudio.currentTime / npAudio.duration * 100) : 0;
+    if (npEls.fill) npEls.fill.style.width = p + '%';
+    if (npEls.cur)  npEls.cur.textContent  = npFmt(npAudio.currentTime);
+    if (npEls.dur && npAudio.duration) npEls.dur.textContent = npFmt(npAudio.duration);
+  }
+
+  function npSeek(e) {
+    if (!npAudio.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    npAudio.currentTime = ((e.clientX - rect.left) / rect.width) * npAudio.duration;
+  }
+
+  // ==============================================
+  // BUILD SIDEBAR
+  // ==============================================
   const active = window.NAV_ACTIVE || '';
 
   function buildSidebar() {
@@ -95,7 +213,87 @@
 
     sidebar.appendChild(links);
 
-    // Footer — replay button pinned to bottom
+    // ── Music player ──────────────────────────────
+    const player = document.createElement('div');
+    player.className = 'nav-player';
+
+    const plabel = document.createElement('div');
+    plabel.className = 'np-label';
+    plabel.textContent = '▌ now playing';
+    player.appendChild(plabel);
+
+    // Visualiser bars
+    const vis = document.createElement('div');
+    vis.className = 'np-vis';
+    for (let i = 0; i < 16; i++) {
+      const b = document.createElement('div');
+      b.className = 'np-vis-bar';
+      vis.appendChild(b);
+      npBars.push(b);
+    }
+    player.appendChild(vis);
+
+    // Track info
+    const nameEl   = document.createElement('div'); nameEl.className   = 'np-track-name';   nameEl.textContent = "pilgrim's path";
+    const artistEl = document.createElement('div'); artistEl.className = 'np-track-artist'; artistEl.textContent = 'craigory ham';
+    player.appendChild(nameEl);
+    player.appendChild(artistEl);
+
+    // Status
+    const statusEl = document.createElement('div'); statusEl.className = 'np-status'; statusEl.textContent = 'STOPPED....';
+    player.appendChild(statusEl);
+
+    // Progress bar
+    const progWrap = document.createElement('div'); progWrap.className = 'np-progress-wrap';
+    progWrap.addEventListener('click', npSeek);
+    const progFill = document.createElement('div'); progFill.className = 'np-progress-fill';
+    progWrap.appendChild(progFill);
+    player.appendChild(progWrap);
+
+    // Time display
+    const timeRow = document.createElement('div'); timeRow.className = 'np-time';
+    const curEl   = document.createElement('span'); curEl.textContent = '0:00';
+    const durEl   = document.createElement('span'); durEl.textContent = '4:07';
+    timeRow.appendChild(curEl); timeRow.appendChild(durEl);
+    player.appendChild(timeRow);
+
+    // Controls
+    const controls = document.createElement('div'); controls.className = 'np-controls';
+
+    const prevBtn = document.createElement('button'); prevBtn.className = 'np-btn'; prevBtn.textContent = '|◂';
+    prevBtn.setAttribute('type', 'button'); prevBtn.setAttribute('aria-label', 'Previous track');
+    prevBtn.addEventListener('click', npPrev);
+
+    const playBtn = document.createElement('button'); playBtn.className = 'np-btn np-btn-play'; playBtn.textContent = '▶';
+    playBtn.setAttribute('type', 'button'); playBtn.setAttribute('aria-label', 'Play/pause');
+    playBtn.addEventListener('click', npToggle);
+
+    const nextBtn = document.createElement('button'); nextBtn.className = 'np-btn'; nextBtn.textContent = '▸|';
+    nextBtn.setAttribute('type', 'button'); nextBtn.setAttribute('aria-label', 'Next track');
+    nextBtn.addEventListener('click', npNext);
+
+    const loopBtn = document.createElement('button'); loopBtn.className = 'np-btn'; loopBtn.textContent = '↺';
+    loopBtn.setAttribute('type', 'button'); loopBtn.setAttribute('aria-label', 'Toggle loop');
+    loopBtn.addEventListener('click', npToggleLoop);
+
+    controls.appendChild(prevBtn); controls.appendChild(playBtn);
+    controls.appendChild(nextBtn); controls.appendChild(loopBtn);
+    player.appendChild(controls);
+
+    // Tracklist
+    const tlLabel = document.createElement('div'); tlLabel.className = 'np-tracklist-label'; tlLabel.textContent = 'tracklist';
+    const tlEl    = document.createElement('div');
+    player.appendChild(tlLabel);
+    player.appendChild(tlEl);
+
+    sidebar.appendChild(player);
+
+    // Store DOM refs
+    npEls = { name: nameEl, artist: artistEl, status: statusEl,
+              fill: progFill, cur: curEl, dur: durEl,
+              playBtn, loopBtn, tracklist: tlEl };
+
+    // ── Footer — replay button ────────────────────
     const footer = document.createElement('div');
     footer.className = 'nav-footer';
 
@@ -114,27 +312,26 @@
   }
 
   // IDs that must stay as direct <body> children — never wrapped in .nav-offset
-  // (position:fixed elements break if their containing block gains a transform/offset)
   const BODY_LEVEL_IDS = new Set(['boot', 'lightbox', 'scanlines', 'age-gate']);
 
   function injectNav() {
     const sidebar = buildSidebar();
     document.body.insertBefore(sidebar, document.body.firstChild);
 
-    // Snapshot to a plain array first — iterating a live HTMLCollection while
-    // moving nodes out of it causes elements to be skipped.
     const children = Array.from(document.body.children);
-
-    const wrapper = document.createElement('div');
+    const wrapper  = document.createElement('div');
     wrapper.className = 'nav-offset';
 
     children.forEach(c => {
-      if (c === sidebar) return;                  // skip the sidebar we just inserted
-      if (BODY_LEVEL_IDS.has(c.id)) return;       // leave fixed overlays at body level
-      wrapper.appendChild(c);                     // moves the node into wrapper
+      if (c === sidebar) return;
+      if (BODY_LEVEL_IDS.has(c.id)) return;
+      wrapper.appendChild(c);
     });
 
     document.body.appendChild(wrapper);
+
+    // Initialise player to first track (no autoplay)
+    npRenderTL();
   }
 
   if (document.readyState === 'loading') {
