@@ -36,15 +36,18 @@
     { name: 'drifter',         artist: 'duster',       src: '/audio/drifter.mp3',        duration: '3:41' },
   ];
 
+  // Oilslick gradient stops — matches oil-text / oil keyframe exactly
+  const OIL_GRADIENT = 'linear-gradient(90deg,#40a4b9 0%,#77bfcf 18%,#9d78d4 38%,#da8bda 54%,#9d78d4 70%,#77bfcf 85%,#40a4b9 100%)';
+
   let npAudio    = new Audio();
   let npIdx      = 0;
   let npPlaying  = false;
   let npLooping  = false;
   let npVisTimer = null;
+  let npOilTimer = null;  // drives gradient position sweep
   let npBars     = [];
   let npVolume   = 1.0;
 
-  // DOM refs populated during buildSidebar
   let npEls = {};
 
   function npFmt(s) {
@@ -55,13 +58,61 @@
 
   function npSetStatus(t) { if (npEls.status) npEls.status.textContent = t; }
 
+  // Paint each bar with a slice of the oilslick gradient.
+  // barW + gap = 5px pitch. Total span = numBars * pitch.
+  // background-size = totalSpan so gradient stretches across all bars.
+  // background-position offsets each bar to its place in the sweep.
+  // offset is animated by shifting all positions in sync with the oil keyframe.
+  function npPaintBars(offset) {
+    const pitch   = 5;  // 3px bar + 2px gap
+    const total   = npBars.length * pitch;
+    npBars.forEach((b, i) => {
+      const pos = -(i * pitch) + offset;
+      b.style.background          = OIL_GRADIENT;
+      b.style.backgroundSize      = total + 'px 100%';
+      b.style.backgroundPosition  = pos + 'px 0';
+    });
+  }
+
+  function npClearBarPaint() {
+    npBars.forEach(b => {
+      b.style.background         = '';
+      b.style.backgroundSize     = '';
+      b.style.backgroundPosition = '';
+    });
+  }
+
   function npAnimBars(on) {
     clearInterval(npVisTimer);
+    clearInterval(npOilTimer);
     if (npEls.vis) npEls.vis.classList.toggle('np-vis-active', on);
-    if (!on) { npBars.forEach(b => b.style.height = '3px'); return; }
+
+    if (!on) {
+      npBars.forEach(b => b.style.height = '3px');
+      npClearBarPaint();
+      return;
+    }
+
+    // Animate bar heights
     npVisTimer = setInterval(() => {
       npBars.forEach(b => { b.style.height = (3 + Math.random() * 10) + 'px'; });
     }, 130);
+
+    // Animate oilslick sweep: oil keyframe = 0% → 200% over 4s
+    // We mirror that: offset goes from 0 to totalSpan*2 over 4000ms
+    const pitch     = 5;
+    const totalSpan = npBars.length * pitch;
+    const duration  = 4000;
+    let start = null;
+    function sweepFrame(ts) {
+      if (!start) start = ts;
+      const elapsed = (ts - start) % (duration);
+      // offset cycles 0 → totalSpan over 4s (matches background-size: 200% auto)
+      const offset = (elapsed / duration) * totalSpan;
+      npPaintBars(offset);
+      npOilTimer = requestAnimationFrame(sweepFrame);
+    }
+    npOilTimer = requestAnimationFrame(sweepFrame);
   }
 
   function npRenderTL() {
@@ -162,7 +213,6 @@
     sidebar.className = 'nav-sidebar';
     sidebar.setAttribute('aria-label', 'Site navigation');
 
-    // Logo block
     const logo = document.createElement('div');
     logo.className = 'nav-logo';
 
@@ -178,10 +228,8 @@
     sub.textContent = 'about';
     if (active === 'about') sub.style.color = '#e0eeec';
     logo.appendChild(sub);
-
     sidebar.appendChild(logo);
 
-    // Nav links (scrollable middle section)
     const links = document.createElement('div');
     links.className = 'nav-links';
 
@@ -191,15 +239,12 @@
         div.className = 'nav-divider';
         links.appendChild(div);
       }
-
       const li = document.createElement('div');
-
       const a = document.createElement('a');
       a.className = 'nav-parent' + (item.key === active ? ' active' : '');
       a.href = item.href;
       a.textContent = item.label;
       li.appendChild(a);
-
       if (item.children) {
         const childWrap = document.createElement('div');
         childWrap.className = 'nav-children';
@@ -218,15 +263,36 @@
         });
         li.appendChild(childWrap);
       }
-
       links.appendChild(li);
     });
-
     sidebar.appendChild(links);
 
     // ── Music player ──────────────────────────────
     const player = document.createElement('div');
     player.className = 'nav-player';
+
+    // Vertical volume slider — top-right corner, absolutely positioned
+    const volWrap = document.createElement('div');
+    volWrap.className = 'np-vol-wrap';
+
+    const volIcon = document.createElement('span');
+    volIcon.className = 'np-vol-icon';
+    volIcon.textContent = '\u266b';
+    volIcon.setAttribute('aria-hidden', 'true');
+
+    const volSlider = document.createElement('input');
+    volSlider.className = 'np-vol-slider';
+    volSlider.type  = 'range';
+    volSlider.min   = '0';
+    volSlider.max   = '1';
+    volSlider.step  = '0.05';
+    volSlider.value = '1';
+    volSlider.setAttribute('aria-label', 'Volume');
+    volSlider.addEventListener('input', () => npSetVolume(parseFloat(volSlider.value)));
+
+    volWrap.appendChild(volIcon);
+    volWrap.appendChild(volSlider);
+    player.appendChild(volWrap);
 
     const plabel = document.createElement('div');
     plabel.className = 'np-label';
@@ -244,31 +310,26 @@
     }
     player.appendChild(vis);
 
-    // Track info
     const nameEl   = document.createElement('div'); nameEl.className   = 'np-track-name';   nameEl.textContent = "pilgrim's path";
     const artistEl = document.createElement('div'); artistEl.className = 'np-track-artist'; artistEl.textContent = 'craigory ham';
     player.appendChild(nameEl);
     player.appendChild(artistEl);
 
-    // Status
     const statusEl = document.createElement('div'); statusEl.className = 'np-status'; statusEl.textContent = 'STOPPED....';
     player.appendChild(statusEl);
 
-    // Progress bar
     const progWrap = document.createElement('div'); progWrap.className = 'np-progress-wrap';
     progWrap.addEventListener('click', npSeek);
     const progFill = document.createElement('div'); progFill.className = 'np-progress-fill';
     progWrap.appendChild(progFill);
     player.appendChild(progWrap);
 
-    // Time display
     const timeRow = document.createElement('div'); timeRow.className = 'np-time';
     const curEl   = document.createElement('span'); curEl.textContent = '0:00';
     const durEl   = document.createElement('span'); durEl.textContent = '4:07';
     timeRow.appendChild(curEl); timeRow.appendChild(durEl);
     player.appendChild(timeRow);
 
-    // Controls row — transport buttons + volume inline
     const controls = document.createElement('div'); controls.className = 'np-controls';
 
     const prevBtn = document.createElement('button'); prevBtn.className = 'np-btn'; prevBtn.textContent = '|\u25c2';
@@ -287,27 +348,10 @@
     loopBtn.setAttribute('type', 'button'); loopBtn.setAttribute('aria-label', 'Toggle loop');
     loopBtn.addEventListener('click', npToggleLoop);
 
-    // Volume icon + slider — lives inside the controls row, slider flex-grows to fill
-    const volIcon = document.createElement('span'); volIcon.className = 'np-vol-icon';
-    volIcon.textContent = '\u266b';
-    volIcon.setAttribute('aria-hidden', 'true');
-
-    const volSlider = document.createElement('input');
-    volSlider.className = 'np-vol-slider';
-    volSlider.type  = 'range';
-    volSlider.min   = '0';
-    volSlider.max   = '1';
-    volSlider.step  = '0.05';
-    volSlider.value = '1';
-    volSlider.setAttribute('aria-label', 'Volume');
-    volSlider.addEventListener('input', () => npSetVolume(parseFloat(volSlider.value)));
-
     controls.appendChild(prevBtn); controls.appendChild(playBtn);
     controls.appendChild(nextBtn); controls.appendChild(loopBtn);
-    controls.appendChild(volIcon); controls.appendChild(volSlider);
     player.appendChild(controls);
 
-    // Tracklist
     const tlLabel = document.createElement('div'); tlLabel.className = 'np-tracklist-label'; tlLabel.textContent = 'tracklist';
     const tlEl    = document.createElement('div');
     player.appendChild(tlLabel);
@@ -315,15 +359,13 @@
 
     sidebar.appendChild(player);
 
-    // Store DOM refs
     npEls = { vis, name: nameEl, artist: artistEl, status: statusEl,
               fill: progFill, cur: curEl, dur: durEl,
               playBtn, loopBtn, volIcon, tracklist: tlEl };
 
-    // ── Footer — replay button ────────────────────
+    // ── Footer ─────────────────────────────────
     const footer = document.createElement('div');
     footer.className = 'nav-footer';
-
     const replay = document.createElement('button');
     replay.className = 'nav-replay';
     replay.textContent = '[ replay opening ]';
@@ -338,7 +380,6 @@
     return sidebar;
   }
 
-  // IDs that must stay as direct <body> children — never wrapped in .nav-offset
   const BODY_LEVEL_IDS = new Set(['boot', 'lightbox', 'scanlines', 'age-gate']);
 
   function injectNav() {
@@ -348,16 +389,12 @@
     const children = Array.from(document.body.children);
     const wrapper  = document.createElement('div');
     wrapper.className = 'nav-offset';
-
     children.forEach(c => {
       if (c === sidebar) return;
       if (BODY_LEVEL_IDS.has(c.id)) return;
       wrapper.appendChild(c);
     });
-
     document.body.appendChild(wrapper);
-
-    // Initialise player to first track (no autoplay)
     npRenderTL();
   }
 
