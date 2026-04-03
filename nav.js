@@ -42,6 +42,7 @@
   let npLooping  = false;
   let npVisTimer = null;
   let npBars     = [];
+  let npVolume   = 1.0;
 
   // DOM refs populated during buildSidebar
   let npEls = {};
@@ -56,6 +57,8 @@
 
   function npAnimBars(on) {
     clearInterval(npVisTimer);
+    // Toggle oilslick active class on the vis container
+    if (npEls.vis) npEls.vis.classList.toggle('np-vis-active', on);
     if (!on) { npBars.forEach(b => b.style.height = '3px'); return; }
     npVisTimer = setInterval(() => {
       npBars.forEach(b => { b.style.height = (3 + Math.random() * 10) + 'px'; });
@@ -87,7 +90,8 @@
     if (npEls.cur)    npEls.cur.textContent    = '0:00';
     npAudio.pause();
     npAudio = new Audio(t.src);
-    npAudio.loop = npLooping;
+    npAudio.loop   = npLooping;
+    npAudio.volume = npVolume;
     npAudio.addEventListener('timeupdate', npUpdateProg);
     npAudio.addEventListener('ended', npOnEnd);
     npAudio.addEventListener('error', () => npSetStatus('ERR: not found'));
@@ -95,7 +99,7 @@
     if (play) npStart();
     else {
       npPlaying = false;
-      if (npEls.playBtn) npEls.playBtn.textContent = '▶';
+      if (npEls.playBtn) npEls.playBtn.textContent = '\u25b6';
       npAnimBars(false);
       npSetStatus('LOADED.....');
     }
@@ -104,7 +108,7 @@
   function npStart() {
     npAudio.play().then(() => {
       npPlaying = true;
-      if (npEls.playBtn) npEls.playBtn.textContent = '■';
+      if (npEls.playBtn) npEls.playBtn.textContent = '\u25a0';
       npAnimBars(true);
       npSetStatus('PLAYING....');
     }).catch(() => npSetStatus('ERR: cannot play'));
@@ -113,7 +117,7 @@
   function npToggle() {
     if (npPlaying) {
       npAudio.pause(); npPlaying = false;
-      if (npEls.playBtn) npEls.playBtn.textContent = '▶';
+      if (npEls.playBtn) npEls.playBtn.textContent = '\u25b6';
       npAnimBars(false); npSetStatus('PAUSED.....');
     } else { npStart(); }
   }
@@ -126,6 +130,15 @@
     npLooping = !npLooping;
     npAudio.loop = npLooping;
     if (npEls.loopBtn) npEls.loopBtn.classList.toggle('active', npLooping);
+  }
+
+  function npSetVolume(v) {
+    npVolume = v;
+    npAudio.volume = v;
+    // Update icon: muted at 0, quiet below 0.5, loud above
+    if (npEls.volIcon) {
+      npEls.volIcon.textContent = v === 0 ? '\u2205' : v < 0.5 ? '\u266a' : '\u266b';
+    }
   }
 
   function npUpdateProg() {
@@ -219,10 +232,11 @@
 
     const plabel = document.createElement('div');
     plabel.className = 'np-label';
-    plabel.textContent = '▌ now playing';
+    plabel.textContent = '\u258c now playing';
     player.appendChild(plabel);
 
-    // Visualiser bars
+    // Visualiser bars — oilslick gradient lives on .np-vis container,
+    // bars are dark cutouts that reveal it as negative space
     const vis = document.createElement('div');
     vis.className = 'np-vis';
     for (let i = 0; i < 16; i++) {
@@ -257,28 +271,49 @@
     timeRow.appendChild(curEl); timeRow.appendChild(durEl);
     player.appendChild(timeRow);
 
-    // Controls
+    // Controls row
     const controls = document.createElement('div'); controls.className = 'np-controls';
 
-    const prevBtn = document.createElement('button'); prevBtn.className = 'np-btn'; prevBtn.textContent = '|◂';
+    const prevBtn = document.createElement('button'); prevBtn.className = 'np-btn'; prevBtn.textContent = '|\u25c2';
     prevBtn.setAttribute('type', 'button'); prevBtn.setAttribute('aria-label', 'Previous track');
     prevBtn.addEventListener('click', npPrev);
 
-    const playBtn = document.createElement('button'); playBtn.className = 'np-btn np-btn-play'; playBtn.textContent = '▶';
+    const playBtn = document.createElement('button'); playBtn.className = 'np-btn np-btn-play'; playBtn.textContent = '\u25b6';
     playBtn.setAttribute('type', 'button'); playBtn.setAttribute('aria-label', 'Play/pause');
     playBtn.addEventListener('click', npToggle);
 
-    const nextBtn = document.createElement('button'); nextBtn.className = 'np-btn'; nextBtn.textContent = '▸|';
+    const nextBtn = document.createElement('button'); nextBtn.className = 'np-btn'; nextBtn.textContent = '\u25b8|';
     nextBtn.setAttribute('type', 'button'); nextBtn.setAttribute('aria-label', 'Next track');
     nextBtn.addEventListener('click', npNext);
 
-    const loopBtn = document.createElement('button'); loopBtn.className = 'np-btn'; loopBtn.textContent = '↺';
+    const loopBtn = document.createElement('button'); loopBtn.className = 'np-btn'; loopBtn.textContent = '\u21ba';
     loopBtn.setAttribute('type', 'button'); loopBtn.setAttribute('aria-label', 'Toggle loop');
     loopBtn.addEventListener('click', npToggleLoop);
 
     controls.appendChild(prevBtn); controls.appendChild(playBtn);
     controls.appendChild(nextBtn); controls.appendChild(loopBtn);
     player.appendChild(controls);
+
+    // Volume row
+    const volRow = document.createElement('div'); volRow.className = 'np-volume';
+
+    const volIcon = document.createElement('span'); volIcon.className = 'np-vol-icon';
+    volIcon.textContent = '\u266b'; // musical notes — changes with level
+    volIcon.setAttribute('aria-hidden', 'true');
+
+    const volSlider = document.createElement('input');
+    volSlider.className = 'np-vol-slider';
+    volSlider.type  = 'range';
+    volSlider.min   = '0';
+    volSlider.max   = '1';
+    volSlider.step  = '0.05';
+    volSlider.value = '1';
+    volSlider.setAttribute('aria-label', 'Volume');
+    volSlider.addEventListener('input', () => npSetVolume(parseFloat(volSlider.value)));
+
+    volRow.appendChild(volIcon);
+    volRow.appendChild(volSlider);
+    player.appendChild(volRow);
 
     // Tracklist
     const tlLabel = document.createElement('div'); tlLabel.className = 'np-tracklist-label'; tlLabel.textContent = 'tracklist';
@@ -289,9 +324,9 @@
     sidebar.appendChild(player);
 
     // Store DOM refs
-    npEls = { name: nameEl, artist: artistEl, status: statusEl,
+    npEls = { vis, name: nameEl, artist: artistEl, status: statusEl,
               fill: progFill, cur: curEl, dur: durEl,
-              playBtn, loopBtn, tracklist: tlEl };
+              playBtn, loopBtn, volIcon, tracklist: tlEl };
 
     // ── Footer — replay button ────────────────────
     const footer = document.createElement('div');

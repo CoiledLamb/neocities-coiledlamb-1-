@@ -8,7 +8,7 @@
   height: 100vh; width: 180px;
   z-index: 100;
   display: flex; flex-direction: column;
-  padding: 20px 0 0;  /* bottom padding removed — footer handles it */
+  padding: 20px 0 0;
   box-sizing: border-box;
   background: #0b2e2d;
   border-right: 1px solid #1e5554;
@@ -43,14 +43,6 @@
   overflow-y: auto; flex: 1;
 }
 
-/*
-  Colour tiers:
-    parent  #c8deda  near-white section labels
-    child   #7aa8a6  mid-teal subordinate links
-  Active state:
-    parent  → oilslick border box, no arrow
-    child   → "> " cyan arrow prefix, no box
-*/
 .nav-parent {
   display: block;
   padding: 6px 10px;
@@ -97,7 +89,6 @@
   border-top: 1px solid #1e5554;
 }
 
-/* Replay opening button */
 .nav-replay {
   display: block;
   width: 100%;
@@ -137,20 +128,76 @@
   margin-bottom: 6px;
 }
 
+/* Oilslick visualiser — gradient lives on the container,
+   bars are transparent masks that reveal it beneath */
 .np-vis {
   display: flex;
   align-items: flex-end;
   gap: 2px;
   height: 14px;
   margin-bottom: 6px;
+  /* oilslick gradient, same stops + animation as oil-text */
+  background: linear-gradient(90deg,
+    #40a4b9 0%, #77bfcf 18%, #9d78d4 38%,
+    #da8bda 54%, #9d78d4 70%, #77bfcf 85%, #40a4b9 100%);
+  background-size: 200% auto;
+  animation: oil 4s linear infinite;
+  border-radius: 1px;
 }
 
 .np-vis-bar {
-  background: #2a7a6e;
+  /* Each bar is a solid block that masks its slice of the gradient */
+  flex-shrink: 0;
   width: 3px;
   height: 3px;
   border-radius: 1px;
+  /* Use the bar itself as an alpha mask: opaque where bar exists, transparent in gaps */
+  background: #0b2e2d;
   transition: height 0.1s;
+  /* The gap between bars shows the gradient; bars are dark cutouts in reverse */
+}
+
+/* Invert approach: make the vis container the gradient and
+   use a mask-image built from bar shapes via JS inline style.
+   Pure-CSS fallback: bars are teal, container has gradient overlay via mix-blend. */
+.np-vis-oil {
+  /* Applied by JS when playing — switches bars to transparent so gradient shows */
+  background: transparent !important;
+}
+.np-vis-oil .np-vis-bar {
+  background: transparent !important;
+  box-shadow: none;
+}
+
+/* Simpler approach that actually works cross-browser:
+   make each bar a solid semi-transparent overlay on gradient bg */
+.np-vis {
+  position: relative;
+  overflow: hidden;
+}
+
+/* When idle: dull bars. When playing: the gradient shines through via .np-vis-active */
+.np-vis:not(.np-vis-active) {
+  background: none;
+  animation: none;
+}
+.np-vis:not(.np-vis-active) .np-vis-bar {
+  background: #2a5a50;
+}
+
+/* Active: container has the oilslick gradient; bars are the dark sidebar bg colour
+   so they act as negative space — the gradient glows between and below them */
+.np-vis.np-vis-active {
+  background: linear-gradient(90deg,
+    #40a4b9 0%, #77bfcf 18%, #9d78d4 38%,
+    #da8bda 54%, #9d78d4 70%, #77bfcf 85%, #40a4b9 100%);
+  background-size: 200% auto;
+  animation: oil 4s linear infinite;
+  border-radius: 1px;
+  padding: 0 1px;
+}
+.np-vis.np-vis-active .np-vis-bar {
+  background: #0b2e2d;
 }
 
 .np-track-name {
@@ -207,7 +254,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .np-btn {
@@ -225,6 +272,53 @@
 .np-btn:hover { background: #2a7a6e; color: #c8f8f0; }
 .np-btn.active { background: #1a5a50; color: #a8f0e0; }
 .np-btn-play { padding: 3px 8px; font-size: 11px; }
+
+/* Volume row */
+.np-volume {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.np-vol-icon {
+  font-size: 9px;
+  color: #3a9e8e;
+  flex-shrink: 0;
+  user-select: none;
+  width: 10px;
+  text-align: center;
+}
+
+/* Range slider — teal track, teal thumb */
+.np-vol-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  border-radius: 1px;
+  background: #1e5554;
+  outline: none;
+  cursor: pointer;
+}
+.np-vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 7px; height: 7px;
+  border-radius: 1px;
+  background: #7fd8c8;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.np-vol-slider::-moz-range-thumb {
+  width: 7px; height: 7px;
+  border-radius: 1px;
+  background: #7fd8c8;
+  border: none;
+  cursor: pointer;
+}
+.np-vol-slider:hover::-webkit-slider-thumb { background: #a8f0e0; }
+.np-vol-slider:hover::-moz-range-thumb     { background: #a8f0e0; }
 
 .np-tracklist-label {
   font-size: 9px;
@@ -247,7 +341,7 @@
 .np-track-item.playing .np-ti-name { color: #c8f8f0; }
 .np-track-item.playing .np-ti-idx { color: #a8f0e0; }
 
-.np-ti-idx { font-size: 9px; color: #2a6a5a; min-width: 14px; }
+.np-ti-idx  { font-size: 9px; color: #2a6a5a; min-width: 14px; }
 .np-ti-name { font-size: 9px; color: #5ab8a8; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .np-ti-dur  { font-size: 9px; color: #2a6a5a; }
 
