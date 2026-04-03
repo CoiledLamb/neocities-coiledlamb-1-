@@ -27,19 +27,27 @@
   ];
 
   const TRACKS = [
-    { name: "pilgrim's path", artist: 'craigory ham', duration: '4:07' },
-    { name: 'stoic porridge',  artist: 'craigory ham', duration: '5:29' },
-    { name: 'onward',          artist: 'craigory ham', duration: '5:56' },
-    { name: 'drifter',         artist: 'duster',       duration: '3:41' },
+    { name: "pilgrim's path", artist: 'craigory ham', src: '/audio/pilgrims-path.mp3',  duration: '4:07' },
+    { name: 'stoic porridge',  artist: 'craigory ham', src: '/audio/stoic-porridge.mp3', duration: '5:29' },
+    { name: 'onward',          artist: 'craigory ham', src: '/audio/onward.mp3',          duration: '5:56' },
+    { name: 'drifter',         artist: 'duster',       src: '/audio/drifter.mp3',         duration: '3:41' },
   ];
 
   const OIL_GRADIENT = 'linear-gradient(90deg,#40a4b9 0%,#77bfcf 18%,#9d78d4 38%,#da8bda 54%,#9d78d4 70%,#77bfcf 85%,#40a4b9 100%)';
 
   // ==============================================
-  // SESSION STORAGE — persists volume across pages
+  // SESSION STORAGE — all player state persists
+  // across page navigations within the session
   // ==============================================
-  const SS_VOL  = 'cl_player_volume';
-  const SS_IDX  = 'cl_player_idx';
+  const SK = {
+    idx:      'cl_p_idx',
+    pos:      'cl_p_pos',
+    playing:  'cl_p_playing',
+    volume:   'cl_p_volume',
+    loop:     'cl_p_loop',    // 0=off 1=track 2=playlist
+    shuffle:  'cl_p_shuffle',
+    order:    'cl_p_order',   // JSON shuffle order array
+  };
 
   function ssGet(k, def) {
     try { const v = sessionStorage.getItem(k); return v !== null ? JSON.parse(v) : def; }
@@ -49,74 +57,84 @@
     try { sessionStorage.setItem(k, JSON.stringify(v)); } catch(e) {}
   }
 
-  // UI state — no audio here, everything is driven by frame messages
-  let uiIdx     = ssGet(SS_IDX, 0);
-  let uiPlaying = false;
-  let uiLooping = false;
-  let uiVolume  = ssGet(SS_VOL, 1.0);
+  // Restore persisted state
+  let npIdx     = ssGet(SK.idx,     0);
+  let npPos     = ssGet(SK.pos,     0);
+  let npResume  = ssGet(SK.playing, false);
+  let npVolume  = ssGet(SK.volume,  1.0);
+  let npLoop    = ssGet(SK.loop,    0);   // 0=off 1=track 2=playlist
+  let npShuffle = ssGet(SK.shuffle, false);
+  let npOrder   = ssGet(SK.order,   null); // shuffle order
 
-  let npBars    = [];
+  let npAudio    = new Audio();
+  let npPlaying  = false;
   let npVisTimer = null;
   let npOilTimer = null;
-  let npFrame    = null;   // <iframe> reference
+  let npBars     = [];
   let npEls      = {};
 
   // ==============================================
-  // IFRAME BRIDGE
+  // SHUFFLE ORDER
   // ==============================================
-  function cmd(obj) {
-    if (npFrame && npFrame.contentWindow) {
-      npFrame.contentWindow.postMessage(obj, '*');
+  function buildOrder() {
+    const a = TRACKS.map((_, i) => i);
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
     }
+    // ensure current track is first
+    const ci = a.indexOf(npIdx);
+    if (ci > 0) { [a[0], a[ci]] = [a[ci], a[0]]; }
+    npOrder = a;
+    ssSet(SK.order, npOrder);
   }
 
-  function onFrameMessage(e) {
-    const d = e.data;
-    if (!d || !d.evt) return;
+  function orderPos() {
+    if (!npOrder) buildOrder();
+    return npOrder.indexOf(npIdx);
+  }
 
-    if (d.evt === 'tick') {
-      if (npEls.cur)  npEls.cur.textContent  = d.cur;
-      if (npEls.dur && d.dur)  npEls.dur.textContent  = d.dur;
-      if (npEls.fill) npEls.fill.style.width = d.pct + '%';
-      return;
+  function nextIdx() {
+    if (npShuffle) {
+      if (!npOrder) buildOrder();
+      const pos = orderPos();
+      return npOrder[(pos + 1) % npOrder.length];
     }
+    return (npIdx + 1) % TRACKS.length;
+  }
 
-    if (d.evt === 'err') {
-      npSetStatus(d.msg); return;
+  function prevIdx() {
+    if (npShuffle) {
+      if (!npOrder) buildOrder();
+      const pos = orderPos();
+      return npOrder[(pos - 1 + npOrder.length) % npOrder.length];
     }
+    return (npIdx - 1 + TRACKS.length) % TRACKS.length;
+  }
 
-    if (d.evt === 'state') {
-      // Sync all UI to frame state
-      uiIdx     = d.idx;
-      uiPlaying = d.playing;
-      uiLooping = d.looping;
-      ssSet(SS_IDX, uiIdx);
+  // ==============================================
+  // UTILITIES
+  // ==============================================
+  function npFmt(s) {
+    if (isNaN(s) || s == null) return '0:00';
+    return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+  }
 
-      if (npEls.name)    npEls.name.textContent    = d.name;
-      if (npEls.artist)  npEls.artist.textContent  = d.artist;
-      if (npEls.dur)     npEls.dur.textContent     = d.duration;
-      if (npEls.fill)    npEls.fill.style.width    = d.pct + '%';
-      if (npEls.cur)     npEls.cur.textContent     = d.cur || '0:00';
-      if (npEls.playBtn) npEls.playBtn.textContent = d.playing ? '\u25a0' : '\u25b6';
-      if (npEls.loopBtn) npEls.loopBtn.classList.toggle('active', d.looping);
+  function npSetStatus(t) { if (npEls.status) npEls.status.textContent = t; }
 
-      npSetStatus(d.playing ? 'PLAYING....' : 'PAUSED.....');
-      npAnimBars(d.playing);
-      npRenderTL();
-    }
+  // Save current position every second during playback
+  function npSaveState() {
+    ssSet(SK.idx,     npIdx);
+    ssSet(SK.pos,     npAudio.currentTime || 0);
+    ssSet(SK.playing, npPlaying);
+    ssSet(SK.volume,  npVolume);
+    ssSet(SK.loop,    npLoop);
+    ssSet(SK.shuffle, npShuffle);
   }
 
   // ==============================================
   // VISUALISER
   // ==============================================
-  function npFmt(s) {
-    if (isNaN(s)) return '0:00';
-    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
-    return m + ':' + String(sec).padStart(2, '0');
-  }
-
-  function npSetStatus(t) { if (npEls.status) npEls.status.textContent = t; }
-
   function npPaintBars(offset) {
     const pitch = 5, total = npBars.length * pitch;
     npBars.forEach((b, i) => {
@@ -137,59 +155,168 @@
     cancelAnimationFrame(npOilTimer);
     if (npEls.vis) npEls.vis.classList.toggle('np-vis-active', on);
     if (!on) { npBars.forEach(b => b.style.height = '3px'); npClearBarPaint(); return; }
-
     npVisTimer = setInterval(() => {
       npBars.forEach(b => { b.style.height = (3 + Math.random() * 10) + 'px'; });
     }, 130);
-
-    const pitch = 5, totalSpan = npBars.length * pitch, duration = 4000;
-    let start = null;
-    function sweepFrame(ts) {
-      if (!start) start = ts;
-      const offset = ((ts - start) % duration / duration) * totalSpan;
-      npPaintBars(offset);
-      npOilTimer = requestAnimationFrame(sweepFrame);
+    const pitch = 5, totalSpan = npBars.length * pitch, dur = 4000;
+    let t0 = null;
+    function sweep(ts) {
+      if (!t0) t0 = ts;
+      npPaintBars(((ts - t0) % dur / dur) * totalSpan);
+      npOilTimer = requestAnimationFrame(sweep);
     }
-    npOilTimer = requestAnimationFrame(sweepFrame);
+    npOilTimer = requestAnimationFrame(sweep);
   }
 
   // ==============================================
-  // UI ACTIONS — just send commands to the frame
+  // LOOP BUTTON DISPLAY
+  // 0=off  1=track (↺¹)  2=playlist (↺)
   // ==============================================
-  function npToggle()     { cmd(uiPlaying ? { cmd: 'pause' } : { cmd: 'play' }); }
-  function npPrev()       { cmd({ cmd: 'prev' }); }
-  function npNext()       { cmd({ cmd: 'next' }); }
-  function npToggleLoop() { cmd({ cmd: 'loop', value: !uiLooping }); }
-
-  function npSetVolume(v) {
-    uiVolume = v;
-    ssSet(SS_VOL, v);
-    cmd({ cmd: 'volume', value: v });
-    if (npEls.volIcon) {
-      npEls.volIcon.textContent = v === 0 ? '\u2205' : v < 0.5 ? '\u266a' : '\u266b';
-    }
+  function npUpdateLoopBtn() {
+    if (!npEls.loopBtn) return;
+    const labels = ['\u21ba', '\u21ba\u00b9', '\u21ba'];
+    npEls.loopBtn.textContent = labels[npLoop];
+    npEls.loopBtn.classList.toggle('active', npLoop > 0);
+    npEls.loopBtn.title = ['no loop', 'loop track', 'loop playlist'][npLoop];
+    npAudio.loop = (npLoop === 1);
   }
 
-  function npSeek(e) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    cmd({ cmd: 'seek', ratio: (e.clientX - rect.left) / rect.width });
+  function npUpdateShuffleBtn() {
+    if (!npEls.shuffleBtn) return;
+    npEls.shuffleBtn.classList.toggle('active', npShuffle);
   }
 
-  function npLoadTrack(i) { cmd({ cmd: 'load', idx: i, play: true }); }
-
+  // ==============================================
+  // TRACKLIST
+  // ==============================================
   function npRenderTL() {
     if (!npEls.tracklist) return;
     npEls.tracklist.innerHTML = '';
     TRACKS.forEach((t, i) => {
       const row  = document.createElement('div');
-      row.className = 'np-track-item' + (i === uiIdx ? ' playing' : '');
-      const idx  = document.createElement('span'); idx.className  = 'np-ti-idx';  idx.textContent  = String(i + 1).padStart(2, '0');
-      const name = document.createElement('span'); name.className = 'np-ti-name'; name.textContent = t.name;
-      const dur  = document.createElement('span'); dur.className  = 'np-ti-dur';  dur.textContent  = t.duration;
-      row.appendChild(idx); row.appendChild(name); row.appendChild(dur);
-      row.addEventListener('click', () => npLoadTrack(i));
+      row.className = 'np-track-item' + (i === npIdx ? ' playing' : '');
+      const idxEl = document.createElement('span'); idxEl.className = 'np-ti-idx';  idxEl.textContent  = String(i + 1).padStart(2, '0');
+      const name  = document.createElement('span'); name.className  = 'np-ti-name'; name.textContent   = t.name;
+      const dur   = document.createElement('span'); dur.className   = 'np-ti-dur';  dur.textContent    = t.duration;
+      row.appendChild(idxEl); row.appendChild(name); row.appendChild(dur);
+      row.addEventListener('click', () => npLoad(i, true));
       npEls.tracklist.appendChild(row);
     });
+  }
+
+  // ==============================================
+  // AUDIO CONTROL
+  // ==============================================
+  function npLoad(idx, play, startPos) {
+    npIdx = idx;
+    const t = TRACKS[idx];
+    if (npEls.name)   npEls.name.textContent   = t.name;
+    if (npEls.artist) npEls.artist.textContent = t.artist;
+    if (npEls.dur)    npEls.dur.textContent    = t.duration;
+    if (npEls.fill)   npEls.fill.style.width   = '0%';
+    if (npEls.cur)    npEls.cur.textContent    = '0:00';
+    npAudio.pause();
+    npAudio = new Audio(t.src);
+    npAudio.volume = npVolume;
+    npAudio.loop   = (npLoop === 1);
+    npAudio.addEventListener('timeupdate', npOnTick);
+    npAudio.addEventListener('ended', npOnEnd);
+    npAudio.addEventListener('error', () => npSetStatus('ERR: not found'));
+    npRenderTL();
+    if (startPos) {
+      // seek after enough data loaded
+      npAudio.addEventListener('canplay', function seek() {
+        npAudio.currentTime = startPos;
+        npAudio.removeEventListener('canplay', seek);
+      }, { once: true });
+    }
+    if (play) npStart();
+    else {
+      npPlaying = false;
+      if (npEls.playBtn) npEls.playBtn.textContent = '\u25b6';
+      npAnimBars(false);
+      npSetStatus('STOPPED....');
+      npSaveState();
+    }
+  }
+
+  function npStart() {
+    npAudio.play().then(() => {
+      npPlaying = true;
+      if (npEls.playBtn) npEls.playBtn.textContent = '\u25a0';
+      npAnimBars(true);
+      npSetStatus('PLAYING....');
+      npSaveState();
+    }).catch(() => npSetStatus('ERR: cannot play'));
+  }
+
+  function npToggle() {
+    if (npPlaying) {
+      npAudio.pause(); npPlaying = false;
+      if (npEls.playBtn) npEls.playBtn.textContent = '\u25b6';
+      npAnimBars(false); npSetStatus('PAUSED.....');
+      npSaveState();
+    } else { npStart(); }
+  }
+
+  function npPrev() { npLoad(prevIdx(), npPlaying); }
+  function npNext() { npLoad(nextIdx(), npPlaying); }
+
+  function npOnEnd() {
+    if (npLoop === 1) return; // audio.loop handles it natively
+    if (npLoop === 2 || !npShuffle) {
+      // playlist loop or normal: advance to next
+      const ni = nextIdx();
+      const wrap = !npShuffle && ni === 0 && npLoop === 0;
+      if (wrap) { // end of playlist, no loop
+        npPlaying = false;
+        if (npEls.playBtn) npEls.playBtn.textContent = '\u25b6';
+        npAnimBars(false); npSetStatus('STOPPED....');
+        npSaveState();
+      } else {
+        npLoad(ni, true);
+      }
+    } else {
+      npLoad(nextIdx(), true);
+    }
+  }
+
+  function npCycleLoop() {
+    npLoop = (npLoop + 1) % 3;
+    ssSet(SK.loop, npLoop);
+    npUpdateLoopBtn();
+  }
+
+  function npToggleShuffle() {
+    npShuffle = !npShuffle;
+    ssSet(SK.shuffle, npShuffle);
+    if (npShuffle) buildOrder();
+    else { npOrder = null; ssSet(SK.order, null); }
+    npUpdateShuffleBtn();
+  }
+
+  function npSetVolume(v) {
+    npVolume = v;
+    npAudio.volume = v;
+    ssSet(SK.volume, v);
+    if (npEls.volIcon) {
+      npEls.volIcon.textContent = v === 0 ? '\u2205' : v < 0.5 ? '\u266a' : '\u266b';
+    }
+  }
+
+  function npOnTick() {
+    const p = npAudio.duration ? (npAudio.currentTime / npAudio.duration * 100) : 0;
+    if (npEls.fill) npEls.fill.style.width = p + '%';
+    if (npEls.cur)  npEls.cur.textContent  = npFmt(npAudio.currentTime);
+    if (npEls.dur && npAudio.duration) npEls.dur.textContent = npFmt(npAudio.duration);
+    // save position every ~2s (timeupdate fires ~4x/sec, throttle)
+    if (Math.round(npAudio.currentTime * 2) % 4 === 0) npSaveState();
+  }
+
+  function npSeek(e) {
+    if (!npAudio.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    npAudio.currentTime = ((e.clientX - rect.left) / rect.width) * npAudio.duration;
   }
 
   // ==============================================
@@ -240,24 +367,15 @@
     // ── Music player ──────────────────────────────
     const player = document.createElement('div'); player.className = 'nav-player';
 
-    // Hidden iframe — owns the <audio> element, persists across page navigations
-    const frame = document.createElement('iframe');
-    frame.src    = '/player-frame.html';
-    frame.style.cssText = 'position:absolute;width:0;height:0;border:none;pointer-events:none;';
-    frame.setAttribute('aria-hidden', 'true');
-    frame.setAttribute('tabindex', '-1');
-    player.appendChild(frame);
-    npFrame = frame;
-
     // Vol slider — top-right, absolutely positioned
     const volWrap = document.createElement('div'); volWrap.className = 'np-vol-wrap';
     const volIcon = document.createElement('span'); volIcon.className = 'np-vol-icon';
-    volIcon.textContent = uiVolume === 0 ? '\u2205' : uiVolume < 0.5 ? '\u266a' : '\u266b';
+    volIcon.textContent = npVolume === 0 ? '\u2205' : npVolume < 0.5 ? '\u266a' : '\u266b';
     volIcon.setAttribute('aria-hidden', 'true');
     const volSlider = document.createElement('input');
     volSlider.className = 'np-vol-slider'; volSlider.type = 'range';
     volSlider.min = '0'; volSlider.max = '1'; volSlider.step = '0.05';
-    volSlider.value = String(uiVolume);
+    volSlider.value = String(npVolume);
     volSlider.setAttribute('aria-label', 'Volume');
     volSlider.addEventListener('input', () => npSetVolume(parseFloat(volSlider.value)));
     volWrap.appendChild(volIcon); volWrap.appendChild(volSlider);
@@ -273,11 +391,11 @@
     }
     player.appendChild(vis);
 
-    const nameEl   = document.createElement('div'); nameEl.className   = 'np-track-name';   nameEl.textContent = TRACKS[uiIdx].name;
-    const artistEl = document.createElement('div'); artistEl.className = 'np-track-artist'; artistEl.textContent = TRACKS[uiIdx].artist;
+    const nameEl   = document.createElement('div'); nameEl.className   = 'np-track-name';   nameEl.textContent = TRACKS[npIdx].name;
+    const artistEl = document.createElement('div'); artistEl.className = 'np-track-artist'; artistEl.textContent = TRACKS[npIdx].artist;
     player.appendChild(nameEl); player.appendChild(artistEl);
 
-    const statusEl = document.createElement('div'); statusEl.className = 'np-status'; statusEl.textContent = 'LOADING....'; player.appendChild(statusEl);
+    const statusEl = document.createElement('div'); statusEl.className = 'np-status'; statusEl.textContent = 'STOPPED....'; player.appendChild(statusEl);
 
     const progWrap = document.createElement('div'); progWrap.className = 'np-progress-wrap';
     progWrap.addEventListener('click', npSeek);
@@ -285,20 +403,36 @@
     progWrap.appendChild(progFill); player.appendChild(progWrap);
 
     const timeRow = document.createElement('div'); timeRow.className = 'np-time';
-    const curEl = document.createElement('span'); curEl.textContent = '0:00';
-    const durEl = document.createElement('span'); durEl.textContent = TRACKS[uiIdx].duration;
+    const curEl = document.createElement('span'); curEl.textContent = npFmt(npPos);
+    const durEl = document.createElement('span'); durEl.textContent = TRACKS[npIdx].duration;
     timeRow.appendChild(curEl); timeRow.appendChild(durEl); player.appendChild(timeRow);
 
+    // Controls row
     const controls = document.createElement('div'); controls.className = 'np-controls';
+
+    const shuffleBtn = document.createElement('button'); shuffleBtn.className = 'np-btn'; shuffleBtn.textContent = '\u29e2';
+    shuffleBtn.setAttribute('type','button'); shuffleBtn.setAttribute('aria-label','Toggle shuffle');
+    shuffleBtn.addEventListener('click', npToggleShuffle);
+
     const prevBtn = document.createElement('button'); prevBtn.className = 'np-btn'; prevBtn.textContent = '|\u25c2';
-    prevBtn.setAttribute('type','button'); prevBtn.setAttribute('aria-label','Previous track'); prevBtn.addEventListener('click', npPrev);
+    prevBtn.setAttribute('type','button'); prevBtn.setAttribute('aria-label','Previous track');
+    prevBtn.addEventListener('click', npPrev);
+
     const playBtn = document.createElement('button'); playBtn.className = 'np-btn np-btn-play'; playBtn.textContent = '\u25b6';
-    playBtn.setAttribute('type','button'); playBtn.setAttribute('aria-label','Play/pause'); playBtn.addEventListener('click', npToggle);
+    playBtn.setAttribute('type','button'); playBtn.setAttribute('aria-label','Play/pause');
+    playBtn.addEventListener('click', npToggle);
+
     const nextBtn = document.createElement('button'); nextBtn.className = 'np-btn'; nextBtn.textContent = '\u25b8|';
-    nextBtn.setAttribute('type','button'); nextBtn.setAttribute('aria-label','Next track'); nextBtn.addEventListener('click', npNext);
+    nextBtn.setAttribute('type','button'); nextBtn.setAttribute('aria-label','Next track');
+    nextBtn.addEventListener('click', npNext);
+
     const loopBtn = document.createElement('button'); loopBtn.className = 'np-btn'; loopBtn.textContent = '\u21ba';
-    loopBtn.setAttribute('type','button'); loopBtn.setAttribute('aria-label','Toggle loop'); loopBtn.addEventListener('click', npToggleLoop);
-    controls.appendChild(prevBtn); controls.appendChild(playBtn); controls.appendChild(nextBtn); controls.appendChild(loopBtn);
+    loopBtn.setAttribute('type','button'); loopBtn.setAttribute('aria-label','Cycle loop mode');
+    loopBtn.addEventListener('click', npCycleLoop);
+
+    controls.appendChild(shuffleBtn); controls.appendChild(prevBtn);
+    controls.appendChild(playBtn);    controls.appendChild(nextBtn);
+    controls.appendChild(loopBtn);
     player.appendChild(controls);
 
     const tlLabel = document.createElement('div'); tlLabel.className = 'np-tracklist-label'; tlLabel.textContent = 'tracklist';
@@ -309,7 +443,7 @@
 
     npEls = { vis, name: nameEl, artist: artistEl, status: statusEl,
               fill: progFill, cur: curEl, dur: durEl,
-              playBtn, loopBtn, volIcon, tracklist: tlEl };
+              playBtn, loopBtn, shuffleBtn, volIcon, tracklist: tlEl };
 
     // ── Footer ─────────────────────────────────
     const footer = document.createElement('div'); footer.className = 'nav-footer';
@@ -335,16 +469,19 @@
     });
     document.body.appendChild(wrapper);
 
-    // Listen for messages from the player frame
-    window.addEventListener('message', onFrameMessage);
+    // Apply persisted UI state
+    npUpdateLoopBtn();
+    npUpdateShuffleBtn();
+    npRenderTL();
 
-    // Once the iframe loads, restore volume + request current state
-    npFrame.addEventListener('load', () => {
-      cmd({ cmd: 'volume', value: uiVolume });
-      cmd({ cmd: 'getState' });
-      npSetStatus('STOPPED....');
-      npRenderTL();
-    });
+    // Load the saved track and seek to saved position,
+    // then auto-play if it was playing before navigation
+    npLoad(npIdx, false, npPos > 1 ? npPos : 0);
+
+    if (npResume) {
+      // Small delay lets the audio element initialise before play()
+      setTimeout(() => npStart(), 300);
+    }
   }
 
   if (document.readyState === 'loading') {
