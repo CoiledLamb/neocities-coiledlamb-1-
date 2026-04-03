@@ -27,14 +27,13 @@
     }
     #site.visible { opacity: 1; }
 
-    /* override nav-offset on landing — sidebar is already part of flex layout */
     .nav-offset { margin-left: 0 !important; }
 
     /* ---- Main content area ---- */
     .landing-main {
       flex: 1;
       min-width: 0;
-      padding: 24px 24px 24px;
+      padding: 24px;
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -43,40 +42,17 @@
     }
 
     /* ---- Window chrome ---- */
-    .win {
-      border: 1px solid #1e5554;
-      border-radius: 2px;
-      background: #0f3b3a;
-    }
+    .win { border: 1px solid #1e5554; border-radius: 2px; background: #0f3b3a; }
     .win-bar {
-      background: #0b2e2d;
-      border-bottom: 1px solid #1e5554;
-      padding: 5px 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      background: #0b2e2d; border-bottom: 1px solid #1e5554;
+      padding: 5px 10px; display: flex; align-items: center; gap: 6px;
     }
-    .win-dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      border: 1px solid #1e5554;
-      flex-shrink: 0;
-    }
-    .win-title {
-      font-size: 10px;
-      color: #3a6a68;
-      letter-spacing: 0.10em;
-      text-transform: uppercase;
-      margin-left: 2px;
-    }
+    .win-dot { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #1e5554; flex-shrink: 0; }
+    .win-title { font-size: 10px; color: #3a6a68; letter-spacing: 0.10em; text-transform: uppercase; margin-left: 2px; }
     .win-body { padding: 14px 16px; }
 
-    /* ---- Top row: intro + status ---- */
-    .top-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
+    /* ---- Top row ---- */
+    .top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
     .intro-text { font-size: 11px; color: #7aa8a6; line-height: 1.75; }
     .intro-sig { font-size: 11px; color: #3a6a68; margin-top: 8px; }
@@ -84,86 +60,54 @@
 
     .status-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 5px; }
     .status-row:last-child { margin-bottom: 0; }
-    .status-key {
-      font-size: 9px; text-transform: uppercase;
-      letter-spacing: 0.10em; color: #2a5c5a;
-      width: 52px; flex-shrink: 0;
-    }
+    .status-key { font-size: 9px; text-transform: uppercase; letter-spacing: 0.10em; color: #2a5c5a; width: 52px; flex-shrink: 0; }
     .status-val { font-size: 11px; color: #7aa8a6; }
-    .status-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: #40a4b9; display: inline-block;
-      margin-right: 4px; vertical-align: middle;
-    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #40a4b9; display: inline-block; margin-right: 4px; vertical-align: middle; }
 
-    /* ---- Nav grid ---- */
-    .nav-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
+    /* ---- Nav grid — 2 rows x 3 cols ---- */
+    .nav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .nav-item {
-      background: rgba(11,46,45,0.55);
-      border: 1px solid #1e5554;
-      border-radius: 2px;
-      padding: 12px 10px 10px;
-      text-decoration: none;
-      color: inherit;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-      text-align: center;
+      background: rgba(11,46,45,0.55); border: 1px solid #1e5554; border-radius: 2px;
+      padding: 12px 10px 10px; text-decoration: none; color: inherit;
+      display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center;
       transition: border-color 0.15s;
     }
     .nav-item:hover { border-color: #40a4b9; }
+    .nav-item.placeholder { cursor: default; opacity: 0.4; }
+    .nav-item.placeholder:hover { border-color: #1e5554; }
     .nav-glyph { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; }
     .nav-label { font-size: 11px; color: #b1c9c3; }
     .nav-sub { font-size: 9px; color: #3a6a68; }
 
-    /* ---- Bottom row: updates + community ---- */
-    .bottom-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      align-items: start;
-    }
+    /* ---- Bottom row ---- */
+    .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 
-    .update-row {
-      display: flex; gap: 10px; align-items: baseline;
-      padding: 5px 0; border-bottom: 1px solid #0b2e2d;
-    }
+    .update-row { display: flex; gap: 10px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid #0b2e2d; }
     .update-row:last-child { border-bottom: none; }
     .update-date { font-size: 9px; color: #2a5c5a; white-space: nowrap; width: 50px; flex-shrink: 0; }
     .update-text { font-size: 11px; color: #7aa8a6; }
     .update-link { color: #4a7a78; text-decoration: none; }
     .update-link:hover { color: #77bfcf; }
 
-    /* ---- Right column stack ---- */
     .right-col { display: flex; flex-direction: column; gap: 14px; }
 
-    /* ---- Button grid ---- */
-    .btn-backing {
-      background: #0b2e2d;
-      border-radius: 2px;
-      padding: 10px;
+    /* ---- Button grid — no backing, sits directly in win-body ---- */
+    .btn-grid {
       display: grid;
       grid-template-columns: repeat(3, 88px);
       grid-template-rows: repeat(3, 31px);
       gap: 4px;
     }
     .btn88 {
-      width: 88px; height: 31px;
-      background: #0f3b3a; border: 1px solid #1e5554;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 1px;
+      width: 88px; height: 31px; background: #0b2e2d; border: 1px solid #1e5554;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+      text-decoration: none;
     }
     .btn88-bar { width: 88px; height: 3px; background: linear-gradient(90deg,#40a4b9,#77bfcf,#da8bda,#9d78d4); }
     .btn88-t1 { font-size: 5.5px; color: #e0eeec; letter-spacing: 0.8px; font-weight: 700; }
     .btn88-t2 { font-size: 4.5px; color: #7aa8a6; letter-spacing: 0.4px; }
     .btn88-ph {
-      width: 88px; height: 31px;
-      background: #0b2e2d; border: 1px dashed #1e5554;
+      width: 88px; height: 31px; background: #0b2e2d; border: 1px dashed #1e5554;
       display: flex; align-items: center; justify-content: center;
     }
     .btn88-ph span { font-size: 8px; color: #1e5554; }
@@ -185,7 +129,7 @@
       .nav-sidebar { position: static; width: 100%; height: auto; flex-direction: row; border-right: none; border-bottom: 1px solid #1e5554; }
       .landing-main { padding: 16px; overflow: visible; }
       .top-row, .bottom-row { grid-template-columns: 1fr; }
-      .btn-backing { grid-template-columns: repeat(3, 88px); overflow-x: auto; }
+      .btn-grid { overflow-x: auto; }
     }
   </style>
 </head>
@@ -250,6 +194,19 @@
               <span class="nav-label">Toys</span>
               <span class="nav-sub">lab &middot; experiments</span>
             </a>
+            <!-- placeholders — replace with new sections as the site grows -->
+            <div class="nav-item placeholder">
+              <div class="nav-glyph"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="4" y="4" width="18" height="18" rx="1" stroke="#1e5554" stroke-width="1.5" stroke-dasharray="3 2"/></svg></div>
+              <span class="nav-label" style="color:#2a5c5a;">—</span>
+            </div>
+            <div class="nav-item placeholder">
+              <div class="nav-glyph"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="4" y="4" width="18" height="18" rx="1" stroke="#1e5554" stroke-width="1.5" stroke-dasharray="3 2"/></svg></div>
+              <span class="nav-label" style="color:#2a5c5a;">—</span>
+            </div>
+            <div class="nav-item placeholder">
+              <div class="nav-glyph"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="4" y="4" width="18" height="18" rx="1" stroke="#1e5554" stroke-width="1.5" stroke-dasharray="3 2"/></svg></div>
+              <span class="nav-label" style="color:#2a5c5a;">—</span>
+            </div>
           </div>
         </div>
       </div>
@@ -267,10 +224,10 @@
           <div class="win">
             <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">buttons</span></div>
             <div class="win-body" style="padding:10px 12px;">
-              <div class="btn-backing">
+              <div class="btn-grid">
                 <!-- your button — swap src for button.png/gif when ready -->
-                <a href="https://coiledlamb.neocities.org"><div class="btn88"><div class="btn88-bar"></div><div class="btn88-t1">COILED LAMB</div><div class="btn88-t2">coiledlamb.neocities.org</div></div></a>
-                <!-- neighbor buttons — replace .btn88-ph with <a><img src="..." /></a> -->
+                <a class="btn88" href="https://coiledlamb.neocities.org"><div class="btn88-bar"></div><div class="btn88-t1">COILED LAMB</div><div class="btn88-t2">coiledlamb.neocities.org</div></a>
+                <!-- neighbor buttons — replace .btn88-ph with <a class="btn88"><img src="..." /></a> -->
                 <div class="btn88-ph"><span>88x31</span></div>
                 <div class="btn88-ph"><span>88x31</span></div>
                 <div class="btn88-ph"><span>88x31</span></div>
