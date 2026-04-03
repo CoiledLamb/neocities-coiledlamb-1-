@@ -7,10 +7,11 @@
   <meta name="description" content="coiled lamb — artist, figure drawing, terminal aesthetics." />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="boot.css" />
+  <link rel="stylesheet" href="nav.css" />
   <style>
     html, body {
       margin: 0; padding: 0;
-      background: #0b2e2d;
+      background: #155352;
       color: #b1c9c3;
       font-family: 'Source Code Pro', monospace;
       font-weight: 600;
@@ -23,157 +24,168 @@
       transition: opacity 0.7s ease;
       height: 100vh;
       display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 48px 56px 32px;
-      box-sizing: border-box;
     }
     #site.visible { opacity: 1; }
 
-    /* -- Header -- */
-    .landing-header { display: flex; flex-direction: column; gap: 6px; }
-    .landing-wordmark {
-      font-size: clamp(2.2rem, 5vw, 3.8rem);
-      font-weight: 700;
-      line-height: 1;
-      margin: 0;
-      letter-spacing: -0.01em;
-    }
-    .landing-tagline {
-      font-size: 12px;
-      color: #7aa8a6;
-      letter-spacing: 0.08em;
-      margin: 0;
+    /* override nav-offset on landing — sidebar is already part of flex layout */
+    .nav-offset { margin-left: 0 !important; }
+
+    /* ---- Main content area ---- */
+    .landing-main {
+      flex: 1;
+      min-width: 0;
+      padding: 24px 24px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      box-sizing: border-box;
     }
 
-    /* -- Navigation cards -- */
-    .landing-nav { display: flex; gap: 14px; flex-wrap: wrap; }
-    .nav-card {
-      flex: 1 1 180px;
-      min-width: 160px;
-      max-width: 280px;
+    /* ---- Window chrome ---- */
+    .win {
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      background: #0f3b3a;
+    }
+    .win-bar {
+      background: #0b2e2d;
+      border-bottom: 1px solid #1e5554;
+      padding: 5px 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .win-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      border: 1px solid #1e5554;
+      flex-shrink: 0;
+    }
+    .win-title {
+      font-size: 10px;
+      color: #3a6a68;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      margin-left: 2px;
+    }
+    .win-body { padding: 14px 16px; }
+
+    /* ---- Top row: intro + status ---- */
+    .top-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .intro-text { font-size: 11px; color: #7aa8a6; line-height: 1.75; }
+    .intro-sig { font-size: 11px; color: #3a6a68; margin-top: 8px; }
+    .intro-sig::before { content: '— '; }
+
+    .status-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 5px; }
+    .status-row:last-child { margin-bottom: 0; }
+    .status-key {
+      font-size: 9px; text-transform: uppercase;
+      letter-spacing: 0.10em; color: #2a5c5a;
+      width: 52px; flex-shrink: 0;
+    }
+    .status-val { font-size: 11px; color: #7aa8a6; }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #40a4b9; display: inline-block;
+      margin-right: 4px; vertical-align: middle;
+    }
+
+    /* ---- Nav grid ---- */
+    .nav-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .nav-item {
       background: rgba(11,46,45,0.55);
       border: 1px solid #1e5554;
       border-radius: 2px;
-      padding: 18px 20px;
+      padding: 12px 10px 10px;
       text-decoration: none;
       color: inherit;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .nav-card:hover {
-      background: rgba(11,46,45,0.80);
-      animation: oil-border 4s linear infinite;
-    }
-    .nav-card-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: #3a6a68;
-    }
-    .nav-card-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #e0eeec;
-      line-height: 1;
-    }
-    .nav-card-desc {
-      font-size: 11px;
-      color: #7aa8a6;
-      line-height: 1.5;
-      margin-top: 2px;
-    }
-    .nav-card-arr {
-      font-size: 11px;
-      color: #3a6a68;
-      margin-top: auto;
-      padding-top: 10px;
-      transition: color 0.15s;
-    }
-    .nav-card:hover .nav-card-arr { color: #77bfcf; }
-
-    /* -- Footer strip -- */
-    .landing-footer {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-
-    /* 88x31 buttons */
-    .button-shelf { display: flex; flex-direction: column; gap: 6px; }
-    .button-shelf-label {
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: #2a5c5a;
-    }
-    .button-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-end; }
-    .button-row a { display: block; line-height: 0; }
-    .button-row img {
-      width: 88px; height: 31px;
-      image-rendering: pixelated;
-      border: 1px solid #1e5554;
-      display: block;
-      transition: border-color 0.12s;
-    }
-    .button-row a:hover img { border-color: #40a4b9; }
-
-    /* Webring */
-    .webring-slot { display: flex; flex-direction: column; gap: 6px; }
-    .webring-slot-label {
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: #2a5c5a;
-    }
-    .webring-strip {
-      display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 11px;
-      color: #4a7a78;
+      gap: 5px;
+      text-align: center;
+      transition: border-color 0.15s;
     }
-    .webring-strip a {
-      color: #4a7a78;
-      text-decoration: none;
-      transition: color 0.12s;
-    }
-    .webring-strip a:hover { color: #77bfcf; }
-    .webring-name { font-size: 10px; color: #3a6a68; letter-spacing: 0.06em; }
+    .nav-item:hover { border-color: #40a4b9; }
+    .nav-glyph { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; }
+    .nav-label { font-size: 11px; color: #b1c9c3; }
+    .nav-sub { font-size: 9px; color: #3a6a68; }
 
-    /* Neighbor links */
-    .neighbor-links { display: flex; flex-direction: column; gap: 6px; text-align: right; }
-    .neighbor-links-label {
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: #2a5c5a;
+    /* ---- Bottom row: updates + community ---- */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      align-items: start;
     }
-    .neighbor-list { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: flex-end; }
-    .neighbor-list a {
-      font-size: 11px;
-      color: #4a7a78;
-      text-decoration: none;
-      letter-spacing: 0.03em;
-      transition: color 0.12s;
+
+    .update-row {
+      display: flex; gap: 10px; align-items: baseline;
+      padding: 5px 0; border-bottom: 1px solid #0b2e2d;
     }
+    .update-row:last-child { border-bottom: none; }
+    .update-date { font-size: 9px; color: #2a5c5a; white-space: nowrap; width: 50px; flex-shrink: 0; }
+    .update-text { font-size: 11px; color: #7aa8a6; }
+    .update-link { color: #4a7a78; text-decoration: none; }
+    .update-link:hover { color: #77bfcf; }
+
+    /* ---- Right column stack ---- */
+    .right-col { display: flex; flex-direction: column; gap: 14px; }
+
+    /* ---- Button grid ---- */
+    .btn-backing {
+      background: #0b2e2d;
+      border-radius: 2px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, 88px);
+      grid-template-rows: repeat(3, 31px);
+      gap: 4px;
+    }
+    .btn88 {
+      width: 88px; height: 31px;
+      background: #0f3b3a; border: 1px solid #1e5554;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1px;
+    }
+    .btn88-bar { width: 88px; height: 3px; background: linear-gradient(90deg,#40a4b9,#77bfcf,#da8bda,#9d78d4); }
+    .btn88-t1 { font-size: 5.5px; color: #e0eeec; letter-spacing: 0.8px; font-weight: 700; }
+    .btn88-t2 { font-size: 4.5px; color: #7aa8a6; letter-spacing: 0.4px; }
+    .btn88-ph {
+      width: 88px; height: 31px;
+      background: #0b2e2d; border: 1px dashed #1e5554;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn88-ph span { font-size: 8px; color: #1e5554; }
+
+    /* ---- Webring + neighbors ---- */
+    .webring-strip { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 10px; }
+    .webring-strip a { color: #4a7a78; text-decoration: none; }
+    .webring-strip a:hover { color: #77bfcf; }
+    .webring-name { font-size: 10px; color: #3a6a68; }
+    .neighbor-list { display: flex; flex-direction: column; gap: 4px; }
+    .neighbor-list a { font-size: 11px; color: #4a7a78; text-decoration: none; }
     .neighbor-list a::before { content: '> '; color: #1e5554; }
     .neighbor-list a:hover { color: #77bfcf; }
-    .neighbor-list a:hover::before { color: #77bfcf; }
 
-    /* -- Responsive -- */
-    @media (max-width: 600px) {
-      #site { padding: 32px 24px 24px; overflow-y: auto; }
+    /* ---- Responsive ---- */
+    @media (max-width: 700px) {
       html, body { overflow: auto; }
-      .landing-nav { flex-direction: column; }
-      .nav-card { max-width: 100%; }
-      .landing-footer { flex-direction: column; gap: 16px; }
-      .neighbor-links { text-align: left; }
-      .neighbor-list { justify-content: flex-start; }
+      #site { flex-direction: column; height: auto; overflow: visible; }
+      .nav-sidebar { position: static; width: 100%; height: auto; flex-direction: row; border-right: none; border-bottom: 1px solid #1e5554; }
+      .landing-main { padding: 16px; overflow: visible; }
+      .top-row, .bottom-row { grid-template-columns: 1fr; }
+      .btn-backing { grid-template-columns: repeat(3, 88px); overflow-x: auto; }
     }
   </style>
 </head>
@@ -188,65 +200,110 @@
   </div>
 
   <div id="site">
+    <script>window.NAV_ACTIVE = '';</script>
+    <script src="nav.js"></script>
 
-    <header class="landing-header">
-      <h1 class="landing-wordmark oil-text">coiled lamb</h1>
-      <p class="landing-tagline">artist &nbsp;&middot;&nbsp; figure drawing &nbsp;&middot;&nbsp; terminal aesthetics</p>
-    </header>
+    <div class="landing-main">
 
-    <nav class="landing-nav" aria-label="Site sections">
-      <a class="nav-card" href="artwork.html">
-        <span class="nav-card-label">Gallery</span>
-        <span class="nav-card-title">Artwork</span>
-        <span class="nav-card-desc">Figure drawing, hands, anatomy studies. Updated regularly.</span>
-        <span class="nav-card-arr">&rsaquo; enter</span>
-      </a>
-      <a class="nav-card" href="about.html">
-        <span class="nav-card-label">Info</span>
-        <span class="nav-card-title">About</span>
-        <span class="nav-card-desc">Who I am, what I'm into, where to find me.</span>
-        <span class="nav-card-arr">&rsaquo; enter</span>
-      </a>
-      <a class="nav-card" href="oilslick-lab.html">
-        <span class="nav-card-label">Experiment</span>
-        <span class="nav-card-title">Oilslick Lab</span>
-        <span class="nav-card-desc">Live-tunable fluid sim. Touch the background.</span>
-        <span class="nav-card-arr">&rsaquo; enter</span>
-      </a>
-    </nav>
+      <div class="top-row">
+        <div class="win">
+          <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">hello.txt</span></div>
+          <div class="win-body">
+            <div class="intro-text">
+              hey, i'm coiled lamb. artist, terminal enthusiast,
+              creature of habit. i draw figures and hands mostly.
+              sometimes i make websites that look like they belong
+              on a CRT. nice to meet you.
+            </div>
+            <div class="intro-sig">lamb</div>
+          </div>
+        </div>
 
-    <footer class="landing-footer">
-
-      <div class="button-shelf">
-        <span class="button-shelf-label">buttons</span>
-        <div class="button-row">
-          <a href="https://coiledlamb.neocities.org" title="coiled lamb">
-            <img src="button.svg" alt="coiled lamb" />
-          </a>
-          <!-- add neighbor buttons here -->
-          <!-- <a href="https://friend.neocities.org" target="_blank" rel="noopener"><img src="images/buttons/friend.gif" alt="friend" /></a> -->
+        <div class="win">
+          <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">status</span></div>
+          <div class="win-body">
+            <div class="status-row"><span class="status-key">site</span><span class="status-val"><span class="status-dot"></span>online</span></div>
+            <div class="status-row"><span class="status-key">updates</span><span class="status-val">—</span></div>
+            <div class="status-row"><span class="status-key">mood</span><span class="status-val">—</span></div>
+            <div class="status-row"><span class="status-key">drawing</span><span class="status-val">—</span></div>
+            <div class="status-row"><span class="status-key">note</span><span class="status-val">—</span></div>
+          </div>
         </div>
       </div>
 
-      <div class="webring-slot">
-        <span class="webring-slot-label">webring</span>
-        <div class="webring-strip">
-          <a href="#" title="previous site">&lsaquo; prev</a>
-          <span class="webring-name">[ ring name ]</span>
-          <a href="#" title="next site">next &rsaquo;</a>
+      <div class="win">
+        <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">navigate</span></div>
+        <div class="win-body">
+          <div class="nav-grid">
+            <a class="nav-item" href="artwork.html">
+              <div class="nav-glyph"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="2" y="4" width="22" height="18" rx="1" stroke="#77bfcf" stroke-width="1.5"/><rect x="5" y="8" width="6" height="6" rx="0.5" fill="#40a4b9" opacity="0.5"/><rect x="14" y="8" width="7" height="2" fill="#1e5554"/><rect x="14" y="12" width="4" height="2" fill="#1e5554"/><rect x="5" y="17" width="16" height="1.5" fill="#1e5554"/></svg></div>
+              <span class="nav-label">Artwork</span>
+              <span class="nav-sub">figures &middot; hands</span>
+            </a>
+            <a class="nav-item" href="about.html">
+              <div class="nav-glyph"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><circle cx="11" cy="10" r="5" stroke="#77bfcf" stroke-width="1.5"/><path d="M16 20c0-2.76-2.24-5-5-5s-5 2.24-5 5" stroke="#77bfcf" stroke-width="1.5" stroke-linecap="round"/><line x1="18" y1="9" x2="23" y2="9" stroke="#40a4b9" stroke-width="1.5" stroke-linecap="round"/><line x1="18" y1="13" x2="22" y2="13" stroke="#40a4b9" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+              <span class="nav-label">About</span>
+              <span class="nav-sub">info &middot; links</span>
+            </a>
+            <a class="nav-item" href="toys.html">
+              <div class="nav-glyph"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="3" y="3" width="9" height="9" rx="1" stroke="#77bfcf" stroke-width="1.5"/><rect x="14" y="3" width="9" height="9" rx="1" stroke="#9d78d4" stroke-width="1.5"/><rect x="3" y="14" width="9" height="9" rx="1" stroke="#9d78d4" stroke-width="1.5"/><rect x="14" y="14" width="9" height="9" rx="1" stroke="#77bfcf" stroke-width="1.5"/></svg></div>
+              <span class="nav-label">Toys</span>
+              <span class="nav-sub">lab &middot; experiments</span>
+            </a>
+          </div>
         </div>
       </div>
 
-      <div class="neighbor-links">
-        <span class="neighbor-links-label">neighbors</span>
-        <div class="neighbor-list">
-          <!-- add friends' sites here -->
-          <a href="#" target="_blank" rel="noopener">example.neocities.org</a>
-          <a href="#" target="_blank" rel="noopener">another.neocities.org</a>
+      <div class="bottom-row">
+        <div class="win">
+          <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">updates</span></div>
+          <div class="win-body">
+            <!-- add entries as: date | description + optional link -->
+            <div class="update-row"><span class="update-date">—</span><span class="update-text">—</span></div>
+          </div>
+        </div>
+
+        <div class="right-col">
+          <div class="win">
+            <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">buttons</span></div>
+            <div class="win-body" style="padding:10px 12px;">
+              <div class="btn-backing">
+                <!-- your button — swap src for button.png/gif when ready -->
+                <a href="https://coiledlamb.neocities.org"><div class="btn88"><div class="btn88-bar"></div><div class="btn88-t1">COILED LAMB</div><div class="btn88-t2">coiledlamb.neocities.org</div></div></a>
+                <!-- neighbor buttons — replace .btn88-ph with <a><img src="..." /></a> -->
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="win">
+            <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">webrings + neighbors</span></div>
+            <div class="win-body">
+              <!-- replace href="#" with actual webring prev/next URLs -->
+              <div class="webring-strip">
+                <a href="#">&lsaquo; prev</a>
+                <span class="webring-name">[ ring name ]</span>
+                <a href="#">next &rsaquo;</a>
+              </div>
+              <div class="neighbor-list">
+                <!-- add friends' sites here -->
+                <a href="#" target="_blank" rel="noopener">example.neocities.org</a>
+                <a href="#" target="_blank" rel="noopener">another.neocities.org</a>
+                <a href="#" target="_blank" rel="noopener">friend.neocities.org</a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-    </footer>
+    </div>
   </div>
 
   <script src="boot.js"></script>
