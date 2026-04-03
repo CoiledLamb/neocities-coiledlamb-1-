@@ -57,7 +57,6 @@
 
   function npAnimBars(on) {
     clearInterval(npVisTimer);
-    // Toggle oilslick active class on the vis container
     if (npEls.vis) npEls.vis.classList.toggle('np-vis-active', on);
     if (!on) { npBars.forEach(b => b.style.height = '3px'); return; }
     npVisTimer = setInterval(() => {
@@ -135,7 +134,6 @@
   function npSetVolume(v) {
     npVolume = v;
     npAudio.volume = v;
-    // Update icon: muted at 0, quiet below 0.5, loud above
     if (npEls.volIcon) {
       npEls.volIcon.textContent = v === 0 ? '\u2205' : v < 0.5 ? '\u266a' : '\u266b';
     }
@@ -235,8 +233,7 @@
     plabel.textContent = '\u258c now playing';
     player.appendChild(plabel);
 
-    // Visualiser bars — oilslick gradient lives on .np-vis container,
-    // bars are dark cutouts that reveal it as negative space
+    // Visualiser bars
     const vis = document.createElement('div');
     vis.className = 'np-vis';
     for (let i = 0; i < 16; i++) {
@@ -271,7 +268,7 @@
     timeRow.appendChild(curEl); timeRow.appendChild(durEl);
     player.appendChild(timeRow);
 
-    // Controls row
+    // Controls row — transport buttons + volume inline
     const controls = document.createElement('div'); controls.className = 'np-controls';
 
     const prevBtn = document.createElement('button'); prevBtn.className = 'np-btn'; prevBtn.textContent = '|\u25c2';
@@ -290,15 +287,9 @@
     loopBtn.setAttribute('type', 'button'); loopBtn.setAttribute('aria-label', 'Toggle loop');
     loopBtn.addEventListener('click', npToggleLoop);
 
-    controls.appendChild(prevBtn); controls.appendChild(playBtn);
-    controls.appendChild(nextBtn); controls.appendChild(loopBtn);
-    player.appendChild(controls);
-
-    // Volume row
-    const volRow = document.createElement('div'); volRow.className = 'np-volume';
-
+    // Volume icon + slider — lives inside the controls row, slider flex-grows to fill
     const volIcon = document.createElement('span'); volIcon.className = 'np-vol-icon';
-    volIcon.textContent = '\u266b'; // musical notes — changes with level
+    volIcon.textContent = '\u266b';
     volIcon.setAttribute('aria-hidden', 'true');
 
     const volSlider = document.createElement('input');
@@ -311,9 +302,10 @@
     volSlider.setAttribute('aria-label', 'Volume');
     volSlider.addEventListener('input', () => npSetVolume(parseFloat(volSlider.value)));
 
-    volRow.appendChild(volIcon);
-    volRow.appendChild(volSlider);
-    player.appendChild(volRow);
+    controls.appendChild(prevBtn); controls.appendChild(playBtn);
+    controls.appendChild(nextBtn); controls.appendChild(loopBtn);
+    controls.appendChild(volIcon); controls.appendChild(volSlider);
+    player.appendChild(controls);
 
     // Tracklist
     const tlLabel = document.createElement('div'); tlLabel.className = 'np-tracklist-label'; tlLabel.textContent = 'tracklist';
