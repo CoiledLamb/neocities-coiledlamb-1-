@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="boot.css" />
   <link rel="stylesheet" href="nav.css" />
   <style>
-    html, body { margin:0; background:#155352; color:#b1c9c3; font-family:'Source Code Pro',monospace; min-height:100vh; }
+    html, body { margin:0; background:#0f3b3a; color:#b1c9c3; font-family:'Source Code Pro',monospace; min-height:100vh; }
     #site { opacity:0; transition:opacity 0.7s ease; }
     #site.visible { opacity:1; }
     .artwork-page { padding:40px 40px 60px; box-sizing:border-box; }
@@ -105,6 +105,7 @@
   </div>
 
   <script src="boot.js"></script>
+  <script src="lattice.js"></script>
   <script>
     const PROCESS_INFO = { tablet:'—', programs:'—', sites:'—', notes:'—' };
     document.getElementById('proc-tablet').textContent   = PROCESS_INFO.tablet;
