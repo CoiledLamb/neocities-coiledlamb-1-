@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>blog admin — coiled lamb</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&display=swap');
+    @keyframes oil {
+      0%   { background-position: 0% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes oil-border {
+      0%   { border-color: #40a4b9; }
+      25%  { border-color: #77bfcf; }
+      50%  { border-color: #da8bda; }
+      75%  { border-color: #9d78d4; }
+      100% { border-color: #40a4b9; }
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: #0b2e2d;
+      color: #b1c9c3;
+      font-family: 'Source Code Pro', monospace;
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* scanlines */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(0,0,0,0.045) 2px, rgba(0,0,0,0.045) 3px);
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    .oil-text {
+      background: linear-gradient(90deg, #40a4b9 0%, #77bfcf 18%, #9d78d4 38%, #da8bda 54%, #9d78d4 70%, #77bfcf 85%, #40a4b9 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: oil 4s linear infinite;
+    }
+
+    /* ---- layout ---- */
+    #auth-screen, #main-screen {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 48px 40px 80px;
+    }
+
+    .screen-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      margin-bottom: 6px;
+    }
+    .screen-sub {
+      font-size: 11px;
+      color: #4a7a78;
+      letter-spacing: 0.06em;
+      margin-bottom: 36px;
+    }
+
+    /* ---- section labels ---- */
+    .section-label {
+      font-size: 10px;
+      color: #4a7a78;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #1e5554;
+      margin-bottom: 16px;
+    }
+
+    /* ---- glass card ---- */
+    .card {
+      background: rgba(11,46,45,0.7);
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    /* ---- form fields ---- */
+    label {
+      display: block;
+      font-size: 10px;
+      color: #4a7a78;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    input[type=text], input[type=password], textarea, select {
+      width: 100%;
+      background: #071e1d;
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      color: #c8deda;
+      font-family: 'Source Code Pro', monospace;
+      font-size: 12px;
+      padding: 8px 10px;
+      outline: none;
+      transition: border-color 0.12s;
+      margin-bottom: 16px;
+    }
+    input[type=text]:focus, input[type=password]:focus,
+    textarea:focus, select:focus {
+      border-color: #40a4b9;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+      line-height: 1.6;
+    }
+    .textarea-large { min-height: 260px; }
+
+    /* emoji picker row */
+    .emoji-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .emoji-opt {
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 6px;
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      background: none;
+      line-height: 1;
+      transition: border-color 0.12s;
+      user-select: none;
+    }
+    .emoji-opt:hover  { border-color: #40a4b9; }
+    .emoji-opt.active { animation: oil-border 4s linear infinite; }
+    #selected-emoji-display {
+      font-size: 22px;
+      padding: 4px 8px;
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      background: #071e1d;
+      min-width: 44px;
+      text-align: center;
+      cursor: pointer;
+    }
+    #custom-emoji-input {
+      width: auto;
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    /* tag toggles */
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .tag-toggle {
+      font-size: 10px;
+      color: #7aa8a6;
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      padding: 3px 9px;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      background: none;
+      font-family: 'Source Code Pro', monospace;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .tag-toggle:hover  { color: #c8deda; border-color: #2e6a68; }
+    .tag-toggle.active { color: #e0eeec; animation: oil-border 4s linear infinite; }
+
+    /* ---- buttons ---- */
+    .btn {
+      font-family: 'Source Code Pro', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 8px 18px;
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      background: none;
+      color: #7aa8a6;
+      cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .btn:hover { color: #e0eeec; border-color: #40a4b9; }
+    .btn:active { opacity: 0.7; }
+    .btn-primary { color: #40a4b9; border-color: #40a4b9; }
+    .btn-primary:hover { color: #e0eeec; }
+    .btn-danger  { color: #c86464; border-color: #6a2e2e; }
+    .btn-danger:hover  { color: #e0eeec; border-color: #c86464; }
+    .btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+
+    /* ---- status / log ---- */
+    #status-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #071e1d;
+      border-top: 1px solid #1e5554;
+      padding: 8px 40px;
+      font-size: 11px;
+      color: #4a7a78;
+      letter-spacing: 0.03em;
+      z-index: 100;
+    }
+    #status-bar.ok  { color: #5dcaa5; }
+    #status-bar.err { color: #c86464; }
+    #status-bar.busy { color: #da8bda; }
+
+    /* ---- feed list ---- */
+    .feed-list { display: flex; flex-direction: column; gap: 0; }
+    .feed-item {
+      display: grid;
+      grid-template-columns: 80px 1fr auto;
+      gap: 0 14px;
+      align-items: start;
+      padding: 12px 0;
+      border-bottom: 1px solid #1e5554;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .fi-meta { font-size: 10px; color: #4a7a78; line-height: 1.6; }
+    .fi-type {
+      font-size: 9px;
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      padding: 1px 5px;
+      letter-spacing: 0.04em;
+      color: #4a7a78;
+      display: inline-block;
+      margin-bottom: 3px;
+    }
+    .fi-body { min-width: 0; }
+    .fi-title { font-size: 12px; font-weight: 600; color: #c8deda; margin-bottom: 3px; }
+    .fi-excerpt { font-size: 11px; color: #7aa8a6; line-height: 1.5; }
+    .fi-tags { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .fi-tag { font-size: 10px; color: #4a7a78; border: 1px solid #1e5554; border-radius: 2px; padding: 1px 6px; }
+    .fi-actions { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
+    .fi-btn {
+      font-family: 'Source Code Pro', monospace;
+      font-size: 10px;
+      color: #4a7a78;
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      padding: 2px 8px;
+      background: none;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .fi-btn:hover { color: #c8deda; border-color: #2e6a68; }
+    .fi-btn.del:hover { color: #c86464; border-color: #6a2e2e; }
+
+    /* ---- modal overlay ---- */
+    #modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+    }
+    #modal-overlay.open { display: flex; }
+    #modal-box {
+      background: #0b2e2d;
+      border: 1px solid #1e5554;
+      border-radius: 2px;
+      padding: 28px;
+      width: 460px;
+      max-width: 94vw;
+    }
+    #modal-box .section-label { margin-bottom: 12px; }
+    #modal-msg { font-size: 12px; color: #7aa8a6; line-height: 1.6; margin-bottom: 20px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ====================== AUTH SCREEN ====================== -->
+<div id="auth-screen">
+  <div class="screen-title oil-text">blog admin</div>
+  <div class="screen-sub">local tool — never deployed</div>
+
+  <div class="section-label">github auth</div>
+  <div class="card">
+    <label>personal access token</label>
+    <input type="password" id="pat-input" placeholder="ghp_..." autocomplete="off" />
+    <div style="font-size:11px;color:#4a7a78;margin-top:-10px;margin-bottom:18px;line-height:1.7;">
+      needs <code style="color:#7aa8a6;">contents: read &amp; write</code> scope on
+      <code style="color:#7aa8a6;">CoiledLamb/neocities-coiledlamb-1-</code>.<br>
+      token is held in memory only — never written to disk or sent anywhere except github's API.
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="doAuth()">connect</button>
+      <span id="auth-hint" style="font-size:11px;color:#4a7a78;"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== MAIN SCREEN ====================== -->
+<div id="main-screen" class="hidden">
+
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;">
+    <div class="screen-title oil-text">blog admin</div>
+    <button class="btn" onclick="doLogout()" style="font-size:10px;">disconnect</button>
+  </div>
+  <div class="screen-sub" id="connected-as">connected</div>
+
+  <!-- ---- NEW ENTRY FORM ---- -->
+  <div class="section-label">new entry</div>
+  <div class="card">
+    <label>type</label>
+    <select id="entry-type" onchange="onTypeChange()">
+      <option value="post">post</option>
+      <option value="note">note</option>
+    </select>
+
+    <!-- POST fields -->
+    <div id="post-fields">
+      <label>title</label>
+      <input type="text" id="post-title" placeholder="your post title" />
+      <label>excerpt</label>
+      <textarea id="post-excerpt" placeholder="a sentence or two about what this post is about."></textarea>
+      <label>tags</label>
+      <div class="tag-row" id="tag-row">
+        <button class="tag-toggle" data-tag="process">process</button>
+        <button class="tag-toggle" data-tag="anatomy">anatomy</button>
+        <button class="tag-toggle" data-tag="tools">tools</button>
+        <button class="tag-toggle" data-tag="code">code</button>
+        <button class="tag-toggle" data-tag="thoughts">thoughts</button>
+        <button class="tag-toggle" data-tag="site">site</button>
+        <button class="tag-toggle" data-tag="wip">wip</button>
+      </div>
+      <label>post body (optional — links to posts/[slug].html)</label>
+      <textarea id="post-body" class="textarea-large" placeholder="full post content. leave blank if you're linking to a separate .html file."></textarea>
+      <label>link slug (optional — e.g. my-post → posts/my-post.html)</label>
+      <input type="text" id="post-slug" placeholder="my-post-slug" />
+    </div>
+
+    <!-- NOTE fields -->
+    <div id="note-fields" class="hidden">
+      <label>status emoji</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;">
+        <span id="selected-emoji-display" title="click to clear">🌱</span>
+        <input type="text" id="custom-emoji-input" placeholder="or type any emoji..." maxlength="8" oninput="onCustomEmoji()" style="flex:1;margin-bottom:0;" />
+      </div>
+      <div class="emoji-row" id="emoji-row">
+        <span class="emoji-opt active" data-emoji="🌱">🌱</span>
+        <span class="emoji-opt" data-emoji="🌧️">🌧️</span>
+        <span class="emoji-opt" data-emoji="☀️">☀️</span>
+        <span class="emoji-opt" data-emoji="🔧">🔧</span>
+        <span class="emoji-opt" data-emoji="✏️">✏️</span>
+        <span class="emoji-opt" data-emoji="📖">📖</span>
+        <span class="emoji-opt" data-emoji="🎵">🎵</span>
+        <span class="emoji-opt" data-emoji="😴">😴</span>
+        <span class="emoji-opt" data-emoji="🌙">🌙</span>
+        <span class="emoji-opt" data-emoji="⚡">⚡</span>
+        <span class="emoji-opt" data-emoji="🐑">🐑</span>
+        <span class="emoji-opt" data-emoji="🫠">🫠</span>
+      </div>
+      <label>note text</label>
+      <textarea id="note-text" placeholder="something short and half-formed."></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="doPost()">post →</button>
+      <button class="btn" onclick="clearForm()">clear</button>
+    </div>
+  </div>
+
+  <!-- ---- LIVE FEED ---- -->
+  <div class="section-label">current entries</div>
+  <div class="card">
+    <div class="feed-list" id="live-feed"></div>
+  </div>
+
+</div>
+
+<!-- ====================== EDIT MODAL ====================== -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <div class="section-label" id="modal-label">edit entry</div>
+    <div id="modal-msg"></div>
+    <div id="modal-fields"></div>
+    <div class="btn-row" style="margin-top:20px;">
+      <button class="btn btn-primary" onclick="doModalSave()">save →</button>
+      <button class="btn" onclick="closeModal()">cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== STATUS BAR ====================== -->
+<div id="status-bar">ready — not connected</div>
+
+<script>
+// ==========================================================
+// CONFIG
+// ==========================================================
+const OWNER  = 'CoiledLamb';
+const REPO   = 'neocities-coiledlamb-1-';
+const BRANCH = 'main';
+const FILE   = 'blog.html';
+const API    = 'https://api.github.com';
+
+// ==========================================================
+// STATE
+// ==========================================================
+let PAT         = null;   // held in memory only
+let currentSHA  = null;   // current blob SHA of blog.html
+let currentHTML = null;   // current raw HTML string
+let entries     = [];     // parsed entry objects
+let editTarget  = null;   // index being edited
+let selectedEmoji = '🌱';
+
+// ==========================================================
+// UTILITIES
+// ==========================================================
+function setStatus(msg, cls = '') {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = msg;
+  bar.className   = cls;
+}
+
+function headers() {
+  return {
+    'Authorization': `Bearer ${PAT}`,
+    'Accept':        'application/vnd.github+json',
+    'Content-Type':  'application/json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+}
+
+async function ghGet(path) {
+  const r = await fetch(`${API}${path}`, { headers: headers() });
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+async function ghPut(path, body) {
+  const r = await fetch(`${API}${path}`, {
+    method:  'PUT',
+    headers: headers(),
+    body:    JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.message || `${r.status} ${r.statusText}`);
+  }
+  return r.json();
+}
+
+function fmtDate(d = new Date()) {
+  const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  return { year: d.getFullYear(), mon: months[d.getMonth()], day: String(d.getDate()).padStart(2,'0') };
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ==========================================================
+// AUTH
+// ==========================================================
+async function doAuth() {
+  const val = document.getElementById('pat-input').value.trim();
+  if (!val) { setStatus('enter a token first', 'err'); return; }
+  setStatus('authenticating...', 'busy');
+  try {
+    PAT = val;
+    const user = await ghGet('/user');
+    document.getElementById('pat-input').value = '';
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('main-screen').classList.remove('hidden');
+    document.getElementById('connected-as').textContent =
+      `connected as ${user.login} — changes go to ${OWNER}/${REPO}/${FILE}`;
+    setStatus(`authenticated as ${user.login}`, 'ok');
+    await loadBlog();
+  } catch(e) {
+    PAT = null;
+    setStatus(`auth failed: ${e.message}`, 'err');
+    document.getElementById('auth-hint').textContent = 'check token scope and try again';
+  }
+}
+
+function doLogout() {
+  PAT = null; currentSHA = null; currentHTML = null; entries = [];
+  document.getElementById('main-screen').classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
+  setStatus('disconnected', '');
+}
+
+// ==========================================================
+// LOAD + PARSE blog.html
+// ==========================================================
+async function loadBlog() {
+  setStatus('fetching blog.html...', 'busy');
+  try {
+    const data = await ghGet(`/repos/${OWNER}/${REPO}/contents/${FILE}?ref=${BRANCH}`);
+    currentSHA  = data.sha;
+    currentHTML = atob(data.content.replace(/\n/g, ''));
+    entries     = parseEntries(currentHTML);
+    renderFeed();
+    setStatus(`loaded — ${entries.length} entries`, 'ok');
+  } catch(e) {
+    setStatus(`load failed: ${e.message}`, 'err');
+  }
+}
+
+// Parse every blog-post and blog-note inside #blog-feed
+function parseEntries(html) {
+  const dp     = new DOMParser();
+  const doc    = dp.parseFromString(html, 'text/html');
+  const feed   = doc.getElementById('blog-feed');
+  if (!feed) return [];
+  const out = [];
+  feed.querySelectorAll('.blog-post, .blog-note').forEach(el => {
+    const type = el.classList.contains('blog-post') ? 'post' : 'note';
+    if (type === 'post') {
+      const titleEl   = el.querySelector('.post-title');
+      const excerptEl = el.querySelector('.post-excerpt');
+      const dateEl    = el.querySelector('.feed-left');
+      const tags      = Array.from(el.querySelectorAll('.tag')).map(t => t.textContent.trim());
+      out.push({
+        type,
+        title:   titleEl   ? titleEl.textContent.trim()   : '',
+        href:    titleEl   ? (titleEl.getAttribute('href') || '') : '',
+        excerpt: excerptEl ? excerptEl.textContent.trim() : '',
+        date:    dateEl    ? dateEl.innerHTML.trim()       : '',
+        tags,
+        placeholder: titleEl ? titleEl.classList.contains('placeholder') : false,
+      });
+    } else {
+      const emojiEl = el.querySelector('.note-emoji');
+      const dateEl  = el.querySelector('.feed-left span:not(.note-emoji)');
+      const textEl  = el.querySelector('.note-text');
+      out.push({
+        type,
+        emoji: emojiEl ? emojiEl.textContent.trim() : '🌱',
+        date:  dateEl  ? dateEl.textContent.trim()  : '',
+        text:  textEl  ? textEl.textContent.trim()  : '',
+      });
+    }
+  });
+  return out;
+}
+
+// ==========================================================
+// RENDER FEED LIST
+// ==========================================================
+function renderFeed() {
+  const list = document.getElementById('live-feed');
+  if (entries.length === 0) {
+    list.innerHTML = '<div style="font-size:11px;color:#4a7a78;padding:12px 0;">no entries yet.</div>';
+    return;
+  }
+  list.innerHTML = entries.map((e, i) => {
+    if (e.type === 'post') {
+      const tagHtml = e.tags.map(t => `<span class="fi-tag">${escHtml(t)}</span>`).join('');
+      return `
+        <div class="feed-item">
+          <div class="fi-meta">
+            <span class="fi-type">post</span><br>
+            ${escHtml(e.date.replace('<br>', ' '))}
+          </div>
+          <div class="fi-body">
+            <div class="fi-title">${escHtml(e.title)}</div>
+            <div class="fi-excerpt">${escHtml(e.excerpt)}</div>
+            ${tagHtml ? `<div class="fi-tags">${tagHtml}</div>` : ''}
+          </div>
+          <div class="fi-actions">
+            <button class="fi-btn" onclick="editEntry(${i})">edit</button>
+            <button class="fi-btn del" onclick="deleteEntry(${i})">delete</button>
+          </div>
+        </div>`;
+    } else {
+      return `
+        <div class="feed-item">
+          <div class="fi-meta">
+            <span class="fi-type">note</span><br>
+            <span style="font-size:16px;">${e.emoji}</span><br>
+            ${escHtml(e.date)}
+          </div>
+          <div class="fi-body">
+            <div class="fi-excerpt">${escHtml(e.text)}</div>
+          </div>
+          <div class="fi-actions">
+            <button class="fi-btn" onclick="editEntry(${i})">edit</button>
+            <button class="fi-btn del" onclick="deleteEntry(${i})">delete</button>
+          </div>
+        </div>`;
+    }
+  }).join('');
+}
+
+// ==========================================================
+// WRITE blog.html — replaces the #blog-feed contents
+// ==========================================================
+function entriesToHtml(ents) {
+  if (ents.length === 0) return '\n        <!-- no entries yet -->\n      ';
+  return '\n' + ents.map((e, i) => {
+    if (e.type === 'post') {
+      const tagHtml = e.tags.map(t => `          <span class="tag">${escHtml(t)}</span>`).join('\n');
+      const titleTag = e.href
+        ? `<a href="${escHtml(e.href)}" class="post-title">${escHtml(e.title)}</a>`
+        : `<span class="post-title">${escHtml(e.title)}</span>`;
+      return `        <div class="blog-post" data-type="post">
+          <div class="feed-left">${e.date}</div>
+          <div class="feed-right">
+            ${titleTag}
+            <div class="post-excerpt">${escHtml(e.excerpt)}</div>
+            <div class="post-tags">\n${tagHtml}\n          </div>
+          </div>
+        </div>`;
+    } else {
+      const isFirst = (i === ents.findIndex(x => x.type === 'note'));
+      const idAttr  = isFirst ? ' id="latest-note"' : '';
+      return `        <div class="blog-note" data-type="note"${idAttr}>
+          <div class="feed-left note-left">
+            <span class="note-emoji">${e.emoji}</span>
+            <span>${escHtml(e.date)}</span>
+          </div>
+          <div class="note-text">${escHtml(e.text)}</div>
+        </div>`;
+    }
+  }).join('\n') + '\n      ';
+}
+
+function rebuildHtml() {
+  // Replace everything inside id="blog-feed" ... </div>\n    </div>
+  // Use a regex that matches the feed div's direct inner content
+  const feedOpen  = '<div class="blog-feed" id="blog-feed">';
+  const feedClose = '</div>\n    </div>\n  </div>';
+
+  const start = currentHTML.indexOf(feedOpen);
+  const end   = currentHTML.lastIndexOf(feedClose);
+  if (start === -1 || end === -1) throw new Error('could not locate #blog-feed in HTML — structure may have changed');
+
+  const before = currentHTML.slice(0, start + feedOpen.length);
+  const after  = currentHTML.slice(end);
+  return before + entriesToHtml(entries) + after;
+}
+
+async function commitBlog(msg) {
+  const newHTML  = rebuildHtml();
+  const encoded  = btoa(unescape(encodeURIComponent(newHTML)));
+  const result   = await ghPut(`/repos/${OWNER}/${REPO}/contents/${FILE}`, {
+    message: msg,
+    content: encoded,
+    sha:     currentSHA,
+    branch:  BRANCH,
+  });
+  currentSHA  = result.content.sha;
+  currentHTML = newHTML;
+}
+
+// ==========================================================
+// NEW ENTRY — POST
+// ==========================================================
+function onTypeChange() {
+  const t = document.getElementById('entry-type').value;
+  document.getElementById('post-fields').classList.toggle('hidden', t !== 'post');
+  document.getElementById('note-fields').classList.toggle('hidden', t !== 'note');
+}
+
+async function doPost() {
+  const type = document.getElementById('entry-type').value;
+  const { year, mon, day } = fmtDate();
+  const dateHtml = `${year}<br>${mon} ${day}`;
+
+  if (type === 'post') {
+    const title   = document.getElementById('post-title').value.trim();
+    const excerpt = document.getElementById('post-excerpt').value.trim();
+    const slug    = document.getElementById('post-slug').value.trim();
+    const tags    = Array.from(document.querySelectorAll('.tag-toggle.active')).map(b => b.dataset.tag);
+    if (!title) { setStatus('title is required', 'err'); return; }
+    const entry = { type: 'post', title, href: slug ? `posts/${slug}.html` : '', excerpt, date: dateHtml, tags, placeholder: false };
+    entries.unshift(entry);
+  } else {
+    const text = document.getElementById('note-text').value.trim();
+    if (!text) { setStatus('note text is required', 'err'); return; }
+    const entry = { type: 'note', emoji: selectedEmoji, date: `${mon} ${day}`, text };
+    // insert at top of notes, but after any posts that are already first? No — unshift everything, notes go to top
+    entries.unshift(entry);
+  }
+
+  setStatus('saving...', 'busy');
+  try {
+    await commitBlog(`blog: add ${type} — ${new Date().toISOString().slice(0,10)}`);
+    renderFeed();
+    clearForm();
+    setStatus(`${type} posted`, 'ok');
+  } catch(e) {
+    entries.shift(); // roll back
+    setStatus(`commit failed: ${e.message}`, 'err');
+  }
+}
+
+function clearForm() {
+  document.getElementById('post-title').value   = '';
+  document.getElementById('post-excerpt').value = '';
+  document.getElementById('post-body').value    = '';
+  document.getElementById('post-slug').value    = '';
+  document.getElementById('note-text').value    = '';
+  document.querySelectorAll('.tag-toggle').forEach(b => b.classList.remove('active'));
+  setSelectedEmoji('🌱');
+}
+
+// ==========================================================
+// EMOJI PICKER
+// ==========================================================
+function setSelectedEmoji(e) {
+  selectedEmoji = e;
+  document.getElementById('selected-emoji-display').textContent = e;
+  document.getElementById('custom-emoji-input').value = '';
+  document.querySelectorAll('.emoji-opt').forEach(el => {
+    el.classList.toggle('active', el.dataset.emoji === e);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.emoji-opt').forEach(el => {
+    el.addEventListener('click', () => setSelectedEmoji(el.dataset.emoji));
+  });
+  document.getElementById('selected-emoji-display').addEventListener('click', () => setSelectedEmoji('🌱'));
+  document.querySelectorAll('.tag-toggle').forEach(btn => {
+    btn.addEventListener('click', () => btn.classList.toggle('active'));
+  });
+});
+
+function onCustomEmoji() {
+  const v = document.getElementById('custom-emoji-input').value.trim();
+  if (v) {
+    selectedEmoji = v;
+    document.getElementById('selected-emoji-display').textContent = v;
+    document.querySelectorAll('.emoji-opt').forEach(el => el.classList.remove('active'));
+  }
+}
+
+// ==========================================================
+// DELETE
+// ==========================================================
+async function deleteEntry(i) {
+  const e = entries[i];
+  const label = e.type === 'post' ? `"${e.title}"` : `note: "${e.text.slice(0,40)}..."` ;
+  if (!confirm(`delete ${label}?`)) return;
+  const removed = entries.splice(i, 1);
+  setStatus('deleting...', 'busy');
+  try {
+    await commitBlog(`blog: delete ${e.type} — ${new Date().toISOString().slice(0,10)}`);
+    renderFeed();
+    setStatus('deleted', 'ok');
+  } catch(err) {
+    entries.splice(i, 0, ...removed);
+    setStatus(`delete failed: ${err.message}`, 'err');
+  }
+}
+
+// ==========================================================
+// EDIT MODAL
+// ==========================================================
+function editEntry(i) {
+  editTarget = i;
+  const e    = entries[i];
+  const box  = document.getElementById('modal-fields');
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('modal-label').textContent = `edit ${e.type}`;
+  document.getElementById('modal-msg').textContent   = e.type === 'note'
+    ? 'editing this note — first note in the list sets the front-page status emoji.'
+    : 'editing post — changes are committed immediately on save.';
+
+  if (e.type === 'post') {
+    const tagToggles = ['process','anatomy','tools','code','thoughts','site','wip'].map(t =>
+      `<button class="tag-toggle${e.tags.includes(t) ? ' active' : ''}" data-tag="${t}" onclick="this.classList.toggle('active')">${t}</button>`
+    ).join('');
+    box.innerHTML = `
+      <label>title</label>
+      <input type="text" id="edit-title" value="${escHtml(e.title)}" />
+      <label>excerpt</label>
+      <textarea id="edit-excerpt">${escHtml(e.excerpt)}</textarea>
+      <label>link slug</label>
+      <input type="text" id="edit-slug" value="${escHtml(e.href.replace('posts/','').replace('.html',''))}" />
+      <label>tags</label>
+      <div class="tag-row">${tagToggles}</div>
+    `;
+  } else {
+    const emojiOpts = ['🌱','🌧️','☀️','🔧','✏️','📖','🎵','😴','🌙','⚡','🐑','🫠'].map(em =>
+      `<span class="emoji-opt${e.emoji===em?' active':''}" onclick="setEditEmoji('${em}')">${em}</span>`
+    ).join('');
+    box.innerHTML = `
+      <label>emoji</label>
+      <div class="emoji-row" style="margin-bottom:12px;">${emojiOpts}</div>
+      <input type="text" id="edit-emoji-custom" placeholder="custom emoji" maxlength="8" oninput="onEditCustomEmoji()" style="margin-bottom:16px;" />
+      <label>note text</label>
+      <textarea id="edit-note-text">${escHtml(e.text)}</textarea>
+    `;
+  }
+}
+
+function setEditEmoji(em) {
+  document.querySelectorAll('#modal-fields .emoji-opt').forEach(el => el.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function onEditCustomEmoji() {
+  document.querySelectorAll('#modal-fields .emoji-opt').forEach(el => el.classList.remove('active'));
+}
+
+async function doModalSave() {
+  const e = entries[editTarget];
+  if (e.type === 'post') {
+    e.title   = document.getElementById('edit-title').value.trim();
+    e.excerpt = document.getElementById('edit-excerpt').value.trim();
+    const slug = document.getElementById('edit-slug').value.trim();
+    e.href    = slug ? `posts/${slug}.html` : '';
+    e.tags    = Array.from(document.querySelectorAll('#modal-fields .tag-toggle.active')).map(b => b.dataset.tag);
+  } else {
+    const custom = document.getElementById('edit-emoji-custom').value.trim();
+    const active = document.querySelector('#modal-fields .emoji-opt.active');
+    e.emoji = custom || (active ? active.dataset.emoji || active.textContent : e.emoji);
+    e.text  = document.getElementById('edit-note-text').value.trim();
+  }
+  closeModal();
+  setStatus('saving edit...', 'busy');
+  try {
+    await commitBlog(`blog: edit ${e.type} — ${new Date().toISOString().slice(0,10)}`);
+    renderFeed();
+    setStatus('saved', 'ok');
+  } catch(err) {
+    setStatus(`save failed: ${err.message}`, 'err');
+  }
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  editTarget = null;
+}
+
+// close modal on overlay click
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+// connect on enter in PAT field
+document.getElementById('pat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doAuth();
+});
+</script>
+</body>
+</html>

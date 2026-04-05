@@ -1,0 +1,6 @@
+# keep the admin folder itself tracked but ignore any local notes or secrets dropped in here
+*.key
+*.token
+*.secret
+notes.txt
+local.*
