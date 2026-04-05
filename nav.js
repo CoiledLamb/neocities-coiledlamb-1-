@@ -21,9 +21,8 @@
       label: 'Blog',
       href: 'blog.html',
       children: [
-        { key: 'blog-posts', label: 'posts', href: 'blog.html' },
-        { key: 'blog-notes', label: 'notes', href: 'blog.html' },
-        { key: 'blog-tags',  label: 'tags',  href: 'blog.html' },
+        { key: 'blog-posts', label: 'posts', href: 'blog.html?filter=post' },
+        { key: 'blog-notes', label: 'notes', href: 'blog.html?filter=note' },
       ]
     },
     {
@@ -54,9 +53,9 @@
     pos:      'cl_p_pos',
     playing:  'cl_p_playing',
     volume:   'cl_p_volume',
-    loop:     'cl_p_loop',    // 0=off 1=track 2=playlist
+    loop:     'cl_p_loop',
     shuffle:  'cl_p_shuffle',
-    order:    'cl_p_order',   // JSON shuffle order array
+    order:    'cl_p_order',
   };
 
   function ssGet(k, def) {
@@ -67,14 +66,13 @@
     try { sessionStorage.setItem(k, JSON.stringify(v)); } catch(e) {}
   }
 
-  // Restore persisted state
   let npIdx     = ssGet(SK.idx,     0);
   let npPos     = ssGet(SK.pos,     0);
   let npResume  = ssGet(SK.playing, false);
   let npVolume  = ssGet(SK.volume,  1.0);
-  let npLoop    = ssGet(SK.loop,    0);   // 0=off 1=track 2=playlist
+  let npLoop    = ssGet(SK.loop,    0);
   let npShuffle = ssGet(SK.shuffle, false);
-  let npOrder   = ssGet(SK.order,   null); // shuffle order
+  let npOrder   = ssGet(SK.order,   null);
 
   let npAudio    = new Audio();
   let npPlaying  = false;
@@ -83,16 +81,12 @@
   let npBars     = [];
   let npEls      = {};
 
-  // ==============================================
-  // SHUFFLE ORDER
-  // ==============================================
   function buildOrder() {
     const a = TRACKS.map((_, i) => i);
     for (let i = a.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [a[i], a[j]] = [a[j], a[i]];
     }
-    // ensure current track is first
     const ci = a.indexOf(npIdx);
     if (ci > 0) { [a[0], a[ci]] = [a[ci], a[0]]; }
     npOrder = a;
@@ -107,8 +101,7 @@
   function nextIdx() {
     if (npShuffle) {
       if (!npOrder) buildOrder();
-      const pos = orderPos();
-      return npOrder[(pos + 1) % npOrder.length];
+      return npOrder[(orderPos() + 1) % npOrder.length];
     }
     return (npIdx + 1) % TRACKS.length;
   }
@@ -116,15 +109,11 @@
   function prevIdx() {
     if (npShuffle) {
       if (!npOrder) buildOrder();
-      const pos = orderPos();
-      return npOrder[(pos - 1 + npOrder.length) % npOrder.length];
+      return npOrder[(orderPos() - 1 + npOrder.length) % npOrder.length];
     }
     return (npIdx - 1 + TRACKS.length) % TRACKS.length;
   }
 
-  // ==============================================
-  // UTILITIES
-  // ==============================================
   function npFmt(s) {
     if (isNaN(s) || s == null) return '0:00';
     return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
@@ -132,7 +121,6 @@
 
   function npSetStatus(t) { if (npEls.status) npEls.status.textContent = t; }
 
-  // Save current position every second during playback
   function npSaveState() {
     ssSet(SK.idx,     npIdx);
     ssSet(SK.pos,     npAudio.currentTime || 0);
@@ -142,9 +130,6 @@
     ssSet(SK.shuffle, npShuffle);
   }
 
-  // ==============================================
-  // VISUALISER
-  // ==============================================
   function npPaintBars(offset) {
     const pitch = 5, total = npBars.length * pitch;
     npBars.forEach((b, i) => {
@@ -178,10 +163,6 @@
     npOilTimer = requestAnimationFrame(sweep);
   }
 
-  // ==============================================
-  // LOOP BUTTON DISPLAY
-  // 0=off  1=track (↺¹)  2=playlist (↺)
-  // ==============================================
   function npUpdateLoopBtn() {
     if (!npEls.loopBtn) return;
     const labels = ['\u21ba', '\u21ba\u00b9', '\u21ba'];
@@ -196,9 +177,6 @@
     npEls.shuffleBtn.classList.toggle('active', npShuffle);
   }
 
-  // ==============================================
-  // TRACKLIST
-  // ==============================================
   function npRenderTL() {
     if (!npEls.tracklist) return;
     npEls.tracklist.innerHTML = '';
@@ -214,9 +192,6 @@
     });
   }
 
-  // ==============================================
-  // AUDIO CONTROL
-  // ==============================================
   function npLoad(idx, play, startPos) {
     npIdx = idx;
     const t = TRACKS[idx];
@@ -328,8 +303,14 @@
 
   // ==============================================
   // BUILD SIDEBAR
+  // Determine active child from NAV_ACTIVE or,
+  // for blog filter links, from the URL query param.
   // ==============================================
-  const active = window.NAV_ACTIVE || '';
+  const active      = window.NAV_ACTIVE || '';
+  const urlFilter   = new URLSearchParams(window.location.search).get('filter'); // 'post' | 'note' | null
+  // Map URL filter value to the corresponding nav child key
+  const filterToKey = { post: 'blog-posts', note: 'blog-notes' };
+  const activeChild = urlFilter ? (filterToKey[urlFilter] || '') : '';
 
   function buildSidebar() {
     const sidebar = document.createElement('nav');
@@ -351,14 +332,18 @@
       if (i > 0) { const d = document.createElement('div'); d.className = 'nav-divider'; links.appendChild(d); }
       const li = document.createElement('div');
       const a  = document.createElement('a');
-      a.className = 'nav-parent' + (item.key === active ? ' active' : '');
+      // Mark the parent active if it matches NAV_ACTIVE, or if we're on a
+      // filtered blog URL (active child implies active parent)
+      const parentActive = item.key === active || (activeChild && item.children && item.children.some(c => c.key === activeChild));
+      a.className = 'nav-parent' + (parentActive ? ' active' : '');
       a.href = item.href; a.textContent = item.label;
       li.appendChild(a);
       if (item.children) {
         const cw = document.createElement('div'); cw.className = 'nav-children';
         item.children.forEach(child => {
           const ca = document.createElement('a');
-          ca.className = 'nav-child' + (child.key === active ? ' active' : '');
+          const childActive = child.key === active || child.key === activeChild;
+          ca.className = 'nav-child' + (childActive ? ' active' : '');
           ca.href = child.href; ca.textContent = child.label;
           if (child.badge) {
             const b = document.createElement('span'); b.className = 'nav-badge'; b.textContent = child.badge; ca.appendChild(b);
@@ -446,7 +431,6 @@
 
     sidebar.appendChild(player);
 
-    // ── Footer ─────────────────────────────────
     const footer = document.createElement('div'); footer.className = 'nav-footer';
     const replay = document.createElement('button'); replay.className = 'nav-replay';
     replay.textContent = '[ replay opening ]'; replay.setAttribute('type','button');
@@ -473,12 +457,8 @@
     npUpdateLoopBtn();
     npUpdateShuffleBtn();
     npRenderTL();
-
     npLoad(npIdx, false, npPos > 1 ? npPos : 0);
-
-    if (npResume) {
-      setTimeout(() => npStart(), 300);
-    }
+    if (npResume) { setTimeout(() => npStart(), 300); }
   }
 
   if (document.readyState === 'loading') {

@@ -26,7 +26,7 @@
       <p class="page-subtitle">coiled lamb</p>
 
       <div class="blog-tabs">
-        <button class="blog-tab active" data-filter="all">all</button>
+        <button class="blog-tab" data-filter="all">all</button>
         <button class="blog-tab" data-filter="post">posts</button>
         <button class="blog-tab" data-filter="note">notes</button>
       </div>
@@ -100,17 +100,30 @@
     });
     startBoot();
 
-    // tab filter
-    document.querySelectorAll('.blog-tab').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.blog-tab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const filter = btn.dataset.filter;
-        document.querySelectorAll('#blog-feed > [data-type]').forEach(el => {
-          el.style.display = (filter === 'all' || el.dataset.type === filter) ? '' : 'none';
+    // Read ?filter= param and apply on load
+    (function () {
+      const param  = new URLSearchParams(window.location.search).get('filter'); // 'post' | 'note' | null
+      const filter = (param === 'post' || param === 'note') ? param : 'all';
+
+      function applyFilter(f) {
+        document.querySelectorAll('.blog-tab').forEach(b => {
+          b.classList.toggle('active', b.dataset.filter === f);
         });
+        document.querySelectorAll('#blog-feed > [data-type]').forEach(el => {
+          el.style.display = (f === 'all' || el.dataset.type === f) ? '' : 'none';
+        });
+      }
+
+      // Apply initial filter once DOM is ready
+      // (nav.js runs synchronously so DOM is already available here)
+      applyFilter(filter);
+
+      // Tab click handler — updates display but not URL
+      // (navigating away and back will restore the URL filter)
+      document.querySelectorAll('.blog-tab').forEach(btn => {
+        btn.addEventListener('click', () => applyFilter(btn.dataset.filter));
       });
-    });
+    })();
   </script>
 </body>
 </html>
