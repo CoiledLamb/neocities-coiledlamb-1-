@@ -17,6 +17,16 @@
       ]
     },
     {
+      key: 'blog',
+      label: 'Blog',
+      href: 'blog.html',
+      children: [
+        { key: 'blog-posts', label: 'posts', href: 'blog.html' },
+        { key: 'blog-notes', label: 'notes', href: 'blog.html' },
+        { key: 'blog-tags',  label: 'tags',  href: 'blog.html' },
+      ]
+    },
+    {
       key: 'toys',
       label: 'Toys',
       href: 'toys.html',
@@ -224,7 +234,6 @@
     npAudio.addEventListener('error', () => npSetStatus('ERR: not found'));
     npRenderTL();
     if (startPos) {
-      // seek after enough data loaded
       npAudio.addEventListener('canplay', function seek() {
         npAudio.currentTime = startPos;
         npAudio.removeEventListener('canplay', seek);
@@ -263,12 +272,11 @@
   function npNext() { npLoad(nextIdx(), npPlaying); }
 
   function npOnEnd() {
-    if (npLoop === 1) return; // audio.loop handles it natively
+    if (npLoop === 1) return;
     if (npLoop === 2 || !npShuffle) {
-      // playlist loop or normal: advance to next
       const ni = nextIdx();
       const wrap = !npShuffle && ni === 0 && npLoop === 0;
-      if (wrap) { // end of playlist, no loop
+      if (wrap) {
         npPlaying = false;
         if (npEls.playBtn) npEls.playBtn.textContent = '\u25b6';
         npAnimBars(false); npSetStatus('STOPPED....');
@@ -309,7 +317,6 @@
     if (npEls.fill) npEls.fill.style.width = p + '%';
     if (npEls.cur)  npEls.cur.textContent  = npFmt(npAudio.currentTime);
     if (npEls.dur && npAudio.duration) npEls.dur.textContent = npFmt(npAudio.duration);
-    // save position every ~2s (timeupdate fires ~4x/sec, throttle)
     if (Math.round(npAudio.currentTime * 2) % 4 === 0) npSaveState();
   }
 
@@ -367,7 +374,6 @@
     // ── Music player ──────────────────────────────
     const player = document.createElement('div'); player.className = 'nav-player';
 
-    // Vol slider — top-right, absolutely positioned
     const volWrap = document.createElement('div'); volWrap.className = 'np-vol-wrap';
     const volIcon = document.createElement('span'); volIcon.className = 'np-vol-icon';
     volIcon.textContent = npVolume === 0 ? '\u2205' : npVolume < 0.5 ? '\u266a' : '\u266b';
@@ -407,7 +413,6 @@
     const durEl = document.createElement('span'); durEl.textContent = TRACKS[npIdx].duration;
     timeRow.appendChild(curEl); timeRow.appendChild(durEl); player.appendChild(timeRow);
 
-    // Controls row
     const controls = document.createElement('div'); controls.className = 'np-controls';
 
     const shuffleBtn = document.createElement('button'); shuffleBtn.className = 'np-btn'; shuffleBtn.textContent = '\u29e2';
@@ -441,10 +446,6 @@
 
     sidebar.appendChild(player);
 
-    npEls = { vis, name: nameEl, artist: artistEl, status: statusEl,
-              fill: progFill, cur: curEl, dur: durEl,
-              playBtn, loopBtn, shuffleBtn, volIcon, tracklist: tlEl };
-
     // ── Footer ─────────────────────────────────
     const footer = document.createElement('div'); footer.className = 'nav-footer';
     const replay = document.createElement('button'); replay.className = 'nav-replay';
@@ -469,17 +470,13 @@
     });
     document.body.appendChild(wrapper);
 
-    // Apply persisted UI state
     npUpdateLoopBtn();
     npUpdateShuffleBtn();
     npRenderTL();
 
-    // Load the saved track and seek to saved position,
-    // then auto-play if it was playing before navigation
     npLoad(npIdx, false, npPos > 1 ? npPos : 0);
 
     if (npResume) {
-      // Small delay lets the audio element initialise before play()
       setTimeout(() => npStart(), 300);
     }
   }
