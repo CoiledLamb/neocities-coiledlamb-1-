@@ -12,8 +12,8 @@
     #site { opacity:0; transition:opacity 0.7s ease; }
     #site.visible { opacity:1; }
     .artwork-page { padding:40px 40px 60px; box-sizing:border-box; }
-    h1 { margin:0 0 6px; font-size:clamp(1.6rem,3vw,2.6rem); line-height:1; color:#e0eeec; }
-    .subtitle { font-size:12px; color:#7aa8a6; margin:0 0 30px; letter-spacing:0.05em; }
+    h1 { margin:0 0 6px; font-size:clamp(1.6rem,3vw,2.6rem); line-height:1; color:#e0eeec; text-transform:lowercase; }
+    .subtitle { font-size:12px; color:#7aa8a6; margin:0 0 30px; letter-spacing:0.05em; text-transform:lowercase; }
     .glass { background:rgba(11,46,45,0.55); border:1px solid #1e5554; border-radius:2px; }
     .section-label { font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:#3a6a68; margin:0 0 14px; }
     .lower-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -31,13 +31,13 @@
     .carousel-dots { display:flex; gap:6px; align-items:center; }
     .carousel-dot { width:5px; height:5px; border-radius:50%; background:#1e5554; cursor:pointer; transition:background 0.15s; }
     .carousel-dot.active { background:#77bfcf; }
-    .gallery-link { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; margin-bottom:7px; background:rgba(11,46,45,0.60); border:1px solid #1e5554; color:#b1c9c3; text-decoration:none; font-size:12px; border-radius:2px; transition:border-color 0.12s,color 0.12s; }
+    .gallery-link { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; margin-bottom:7px; background:rgba(11,46,45,0.60); border:1px solid #1e5554; color:#b1c9c3; text-decoration:none; font-size:12px; border-radius:2px; transition:border-color 0.12s,color 0.12s; text-transform:lowercase; }
     .gallery-link:hover { border-color:#40a4b9; color:#e0eeec; }
     .gallery-link .arr { color:#3a6a68; }
     .badge { font-size:9px; padding:2px 5px; background:rgba(157,120,212,0.12); border:1px solid rgba(157,120,212,0.28); color:rgba(218,139,218,0.80); border-radius:2px; margin-left:5px; }
     .process-row { margin-bottom:10px; }
     .proc-key { font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:#3a6a68; margin-bottom:2px; }
-    .proc-val { font-size:12px; color:#b1c9c3; }
+    .proc-val { font-size:12px; color:#b1c9c3; text-transform:lowercase; }
     #lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); justify-content:center; align-items:center; z-index:9999; }
     #lightbox-img { max-width:88vw; max-height:88vh; transition:opacity 0.2s; }
     .lb-arrow { position:absolute; top:50%; transform:translateY(-50%); font-size:44px; color:rgba(119,191,207,0.65); cursor:pointer; user-select:none; z-index:10000; padding:0 16px; transition:color 0.15s; }
