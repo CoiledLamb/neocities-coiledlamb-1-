@@ -19,7 +19,6 @@ html, body {
   max-width: 700px;
 }
 
-/* ---- Page title ---- */
 .page-title {
   font-size: clamp(1.4rem, 3vw, 2.2rem);
   font-weight: 700;
@@ -34,7 +33,6 @@ html, body {
   margin: 0 0 28px;
 }
 
-/* ---- Tabs ---- */
 .blog-tabs {
   display: flex;
   gap: 0;
@@ -62,7 +60,6 @@ html, body {
   border-bottom-color: #40a4b9;
 }
 
-/* ---- Section label ---- */
 .section-label {
   font-size: 10px;
   color: #4a7a78;
@@ -73,11 +70,7 @@ html, body {
   border-bottom: 1px solid #1e5554;
 }
 
-/* ---- Feed shared layout ---- */
-.blog-feed {
-  display: flex;
-  flex-direction: column;
-}
+.blog-feed { display: flex; flex-direction: column; }
 
 .blog-post,
 .blog-note {
@@ -89,11 +82,8 @@ html, body {
   border-bottom: 1px solid #1e5554;
 }
 
-.blog-feed > *:last-child {
-  border-bottom: none;
-}
+.blog-feed > *:last-child { border-bottom: none; }
 
-/* ---- Left column (date / note meta) ---- */
 .feed-left {
   font-size: 10px;
   color: #4a7a78;
@@ -102,19 +92,9 @@ html, body {
   line-height: 1.6;
 }
 
-.note-left {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding-top: 2px;
-}
+.note-left { display: flex; flex-direction: column; gap: 3px; padding-top: 2px; }
+.note-emoji { font-size: 14px; line-height: 1; }
 
-.note-emoji {
-  font-size: 14px;
-  line-height: 1;
-}
-
-/* ---- Post content ---- */
 .post-title {
   font-size: 13px;
   font-weight: 600;
@@ -137,13 +117,7 @@ html, body {
   letter-spacing: 0.02em;
 }
 
-/* ---- Tags ---- */
-.post-tags {
-  margin-top: 7px;
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-}
+.post-tags { margin-top: 7px; display: flex; gap: 5px; flex-wrap: wrap; }
 
 .tag {
   font-size: 10px;
@@ -155,12 +129,8 @@ html, body {
   cursor: pointer;
   transition: color 0.12s, border-color 0.12s;
 }
-.tag:hover {
-  color: #c8deda;
-  border-color: #2e6a68;
-}
+.tag:hover { color: #c8deda; border-color: #2e6a68; }
 
-/* ---- Note text ---- */
 .note-text {
   font-size: 12px;
   color: #a8c8c4;

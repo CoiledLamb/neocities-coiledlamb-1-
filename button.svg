@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 31">
+  <defs>
+    <linearGradient id="oil" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#40a4b9"/>
+      <stop offset="33%"  stop-color="#77bfcf"/>
+      <stop offset="60%"  stop-color="#da8bda"/>
+      <stop offset="80%"  stop-color="#9d78d4"/>
+      <stop offset="100%" stop-color="#40a4b9"/>
+    </linearGradient>
+  </defs>
+  <rect width="88" height="31" fill="#0b2e2d"/>
+  <rect x="0" y="0" width="88" height="3" fill="url(#oil)"/>
+  <text x="44" y="14" text-anchor="middle" dominant-baseline="middle"
+        font-family="monospace" font-size="6" font-weight="bold"
+        letter-spacing="1" fill="#e0eeec">COILED LAMB</text>
+  <text x="44" y="23" text-anchor="middle" dominant-baseline="middle"
+        font-family="monospace" font-size="5"
+        letter-spacing="0.5" fill="#7aa8a6">coiledlamb.neocities.org</text>
+  <rect width="88" height="31" fill="none" stroke="#1e5554" stroke-width="1"/>
+</svg>

@@ -127,7 +127,6 @@
   padding-right: 18px;
 }
 
-/* Vertical volume slider */
 .np-vol-wrap {
   position: absolute;
   top: 10px;
@@ -283,7 +282,6 @@
   margin-bottom: 4px;
 }
 
-/* Terminal-style thin scrollbar for tracklist */
 .np-tracklist {
   overflow-y: auto;
   max-height: 80px;

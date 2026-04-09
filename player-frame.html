@@ -9,24 +9,6 @@
 </head>
 <body>
 <script>
-// ==============================================
-// PLAYER FRAME — owns the <audio> element.
-// Communicates with the parent page via postMessage.
-//
-// Commands received from parent:
-//   { cmd: 'play'   }
-//   { cmd: 'pause'  }
-//   { cmd: 'load',    idx: Number, play: Boolean }
-//   { cmd: 'seek',    ratio: Number }
-//   { cmd: 'volume',  value: Number }
-//   { cmd: 'loop',    value: Boolean }
-//   { cmd: 'getState' }   // parent requests full state on load
-//
-// Events broadcast to parent:
-//   { evt: 'state', ...state }   // full state snapshot
-//   { evt: 'tick',  cur, pct }   // per-second progress update
-// ==============================================
-
 const TRACKS = [
   { name: "pilgrim's path", artist: 'craigory ham', src: '/audio/pilgrims-path.mp3', duration: '4:07' },
   { name: 'stoic porridge',  artist: 'craigory ham', src: '/audio/stoic-porridge.mp3', duration: '5:29' },
@@ -51,16 +33,10 @@ function broadcast(obj) {
 
 function state() {
   return {
-    evt:      'state',
-    idx,
-    playing,
-    looping,
-    volume,
-    name:     TRACKS[idx].name,
-    artist:   TRACKS[idx].artist,
-    duration: TRACKS[idx].duration,
-    cur:      fmt(audio.currentTime),
-    pct:      audio.duration ? (audio.currentTime / audio.duration * 100) : 0,
+    evt: 'state', idx, playing, looping, volume,
+    name: TRACKS[idx].name, artist: TRACKS[idx].artist, duration: TRACKS[idx].duration,
+    cur: fmt(audio.currentTime),
+    pct: audio.duration ? (audio.currentTime / audio.duration * 100) : 0,
   };
 }
 
@@ -78,10 +54,8 @@ function load(i, play) {
 }
 
 function start() {
-  audio.play().then(() => {
-    playing = true;
-    broadcast(state());
-  }).catch(() => broadcast({ evt: 'err', msg: 'ERR: cannot play' }));
+  audio.play().then(() => { playing = true; broadcast(state()); })
+    .catch(() => broadcast({ evt: 'err', msg: 'ERR: cannot play' }));
 }
 
 function onTick() {
@@ -94,52 +68,25 @@ function onTick() {
 }
 
 function onEnd() {
-  if (!looping) {
-    playing = false;
-    load((idx + 1) % TRACKS.length, true);
-  }
+  if (!looping) { playing = false; load((idx + 1) % TRACKS.length, true); }
 }
 
 window.addEventListener('message', e => {
   const d = e.data;
   if (!d || !d.cmd) return;
   switch (d.cmd) {
-    case 'play':
-      if (!playing) start();
-      break;
-    case 'pause':
-      audio.pause(); playing = false;
-      broadcast(state());
-      break;
-    case 'load':
-      load(d.idx, d.play);
-      break;
-    case 'seek':
-      if (audio.duration) audio.currentTime = d.ratio * audio.duration;
-      break;
-    case 'volume':
-      volume = d.value;
-      audio.volume = volume;
-      broadcast(state());
-      break;
-    case 'loop':
-      looping = d.value;
-      audio.loop = looping;
-      broadcast(state());
-      break;
-    case 'prev':
-      load((idx - 1 + TRACKS.length) % TRACKS.length, playing);
-      break;
-    case 'next':
-      load((idx + 1) % TRACKS.length, playing);
-      break;
-    case 'getState':
-      broadcast(state());
-      break;
+    case 'play':   if (!playing) start(); break;
+    case 'pause':  audio.pause(); playing = false; broadcast(state()); break;
+    case 'load':   load(d.idx, d.play); break;
+    case 'seek':   if (audio.duration) audio.currentTime = d.ratio * audio.duration; break;
+    case 'volume': volume = d.value; audio.volume = volume; broadcast(state()); break;
+    case 'loop':   looping = d.value; audio.loop = looping; broadcast(state()); break;
+    case 'prev':   load((idx - 1 + TRACKS.length) % TRACKS.length, playing); break;
+    case 'next':   load((idx + 1) % TRACKS.length, playing); break;
+    case 'getState': broadcast(state()); break;
   }
 });
 
-// Initialise with first track loaded but not playing
 load(0, false);
 </script>
 </body>
