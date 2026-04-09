@@ -15,31 +15,25 @@
       color: #b1c9c3;
       font-family: 'Source Code Pro', monospace;
       font-weight: 600;
-      /* removed overflow:hidden — was clipping content at short viewport heights */
     }
 
     #site {
       opacity: 0;
       transition: opacity 0.7s ease;
-      /* min-height instead of height so content can grow past viewport */
       min-height: 100vh;
-      display: flex;
     }
     #site.visible { opacity: 1; }
 
-    .nav-offset { margin-left: 0 !important; }
+    /* .nav-offset is NOT overridden here — let nav.js apply margin-left:180px
+       normally so content clears the fixed sidebar. */
 
     /* ---- Main content area ---- */
     .landing-main {
-      flex: 1;
-      min-width: 0;
       padding: 24px;
       display: flex;
       flex-direction: column;
       gap: 14px;
-      overflow-y: auto;
       box-sizing: border-box;
-      /* cap width so boxes don't stretch to fill huge monitors */
       max-width: 900px;
     }
 
@@ -58,7 +52,7 @@
 
     .intro-text { font-size: 11px; color: #7aa8a6; line-height: 1.75; }
     .intro-sig { font-size: 11px; color: #3a6a68; margin-top: 8px; }
-    .intro-sig::before { content: '— '; }
+    .intro-sig::before { content: '\2014 '; }
 
     .status-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 5px; }
     .status-row:last-child { margin-bottom: 0; }
@@ -66,7 +60,7 @@
     .status-val { font-size: 11px; color: #7aa8a6; }
     .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #40a4b9; display: inline-block; margin-right: 4px; vertical-align: middle; }
 
-    /* ---- Nav grid — 2 rows x 3 cols ---- */
+    /* ---- Nav grid \2014 2 rows x 3 cols ---- */
     .nav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .nav-item {
       background: rgba(11,46,45,0.55); border: 1px solid #1e5554; border-radius: 2px;
@@ -93,10 +87,9 @@
 
     .right-col { display: flex; flex-direction: column; gap: 14px; }
 
-    /* ---- Button grid — fixed-width 88x31 buttons ---- */
+    /* ---- Button grid ---- */
     .btn-grid-wrap {
       overflow-x: auto;
-      /* thin scrollbar so overflow is visible but unobtrusive */
       scrollbar-width: thin;
       scrollbar-color: #2a7a6e transparent;
     }
@@ -107,7 +100,6 @@
       grid-template-columns: repeat(3, 88px);
       grid-template-rows: repeat(3, 31px);
       gap: 4px;
-      /* min-content so grid doesn't stretch beyond its natural size */
       width: min-content;
     }
     .btn88 {
@@ -136,8 +128,6 @@
 
     /* ---- Responsive ---- */
     @media (max-width: 700px) {
-      #site { flex-direction: column; min-height: auto; }
-      .nav-sidebar { position: static; width: 100%; height: auto; flex-direction: row; border-right: none; border-bottom: 1px solid #1e5554; }
       .landing-main { padding: 16px; }
       .top-row, .bottom-row { grid-template-columns: 1fr; }
     }
@@ -177,10 +167,10 @@
           <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">status</span></div>
           <div class="win-body">
             <div class="status-row"><span class="status-key">site</span><span class="status-val"><span class="status-dot"></span>online</span></div>
-            <div class="status-row"><span class="status-key">updates</span><span class="status-val">—</span></div>
-            <div class="status-row"><span class="status-key">mood</span><span class="status-val">—</span></div>
-            <div class="status-row"><span class="status-key">drawing</span><span class="status-val">—</span></div>
-            <div class="status-row"><span class="status-key">note</span><span class="status-val">—</span></div>
+            <div class="status-row"><span class="status-key">updates</span><span class="status-val">&mdash;</span></div>
+            <div class="status-row"><span class="status-key">mood</span><span class="status-val">&mdash;</span></div>
+            <div class="status-row"><span class="status-key">drawing</span><span class="status-val">&mdash;</span></div>
+            <div class="status-row"><span class="status-key">note</span><span class="status-val">&mdash;</span></div>
           </div>
         </div>
       </div>
@@ -204,18 +194,17 @@
               <span class="nav-label">Toys</span>
               <span class="nav-sub">lab &middot; experiments</span>
             </a>
-            <!-- placeholders — replace with new sections as the site grows -->
             <div class="nav-item placeholder">
               <div class="nav-glyph"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="4" y="4" width="18" height="18" rx="1" stroke="#1e5554" stroke-width="1.5" stroke-dasharray="3 2"/></svg></div>
-              <span class="nav-label" style="color:#2a5c5a;">—</span>
+              <span class="nav-label" style="color:#2a5c5a;">&mdash;</span>
             </div>
             <div class="nav-item placeholder">
               <div class="nav-glyph"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="4" y="4" width="18" height="18" rx="1" stroke="#1e5554" stroke-width="1.5" stroke-dasharray="3 2"/></svg></div>
-              <span class="nav-label" style="color:#2a5c5a;">—</span>
+              <span class="nav-label" style="color:#2a5c5a;">&mdash;</span>
             </div>
             <div class="nav-item placeholder">
               <div class="nav-glyph"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="4" y="4" width="18" height="18" rx="1" stroke="#1e5554" stroke-width="1.5" stroke-dasharray="3 2"/></svg></div>
-              <span class="nav-label" style="color:#2a5c5a;">—</span>
+              <span class="nav-label" style="color:#2a5c5a;">&mdash;</span>
             </div>
           </div>
         </div>
@@ -225,8 +214,7 @@
         <div class="win">
           <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">updates</span></div>
           <div class="win-body">
-            <!-- add entries as: date | description + optional link -->
-            <div class="update-row"><span class="update-date">—</span><span class="update-text">—</span></div>
+            <div class="update-row"><span class="update-date">&mdash;</span><span class="update-text">&mdash;</span></div>
           </div>
         </div>
 
@@ -236,9 +224,7 @@
             <div class="win-body" style="padding:10px 12px;">
               <div class="btn-grid-wrap">
                 <div class="btn-grid">
-                  <!-- your button — swap src for button.png/gif when ready -->
                   <a class="btn88" href="https://coiledlamb.neocities.org"><div class="btn88-bar"></div><div class="btn88-t1">COILED LAMB</div><div class="btn88-t2">coiledlamb.neocities.org</div></a>
-                  <!-- neighbor buttons — replace .btn88-ph with <a class="btn88"><img src="..." /></a> -->
                   <div class="btn88-ph"><span>88x31</span></div>
                   <div class="btn88-ph"><span>88x31</span></div>
                   <div class="btn88-ph"><span>88x31</span></div>
@@ -255,14 +241,12 @@
           <div class="win">
             <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">webrings + neighbors</span></div>
             <div class="win-body">
-              <!-- replace href="#" with actual webring prev/next URLs -->
               <div class="webring-strip">
                 <a href="#">&lsaquo; prev</a>
                 <span class="webring-name">[ ring name ]</span>
                 <a href="#">next &rsaquo;</a>
               </div>
               <div class="neighbor-list">
-                <!-- add friends' sites here -->
                 <a href="#" target="_blank" rel="noopener">example.neocities.org</a>
                 <a href="#" target="_blank" rel="noopener">another.neocities.org</a>
                 <a href="#" target="_blank" rel="noopener">friend.neocities.org</a>
