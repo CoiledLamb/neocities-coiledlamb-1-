@@ -1,0 +1,170 @@
+/* ==============================================
+   BLOG PAGE STYLES — coiled lamb
+   ============================================== */
+
+html, body {
+  margin: 0;
+  background: #155352;
+  color: #b1c9c3;
+  font-family: 'Source Code Pro', monospace;
+  min-height: 100vh;
+}
+
+#site { opacity: 0; transition: opacity 0.7s ease; }
+#site.visible { opacity: 1; }
+
+.blog-page {
+  padding: 40px 40px 60px;
+  box-sizing: border-box;
+  max-width: 700px;
+}
+
+/* ---- Page title ---- */
+.page-title {
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  font-weight: 700;
+  line-height: 1;
+  margin: 0 0 4px;
+}
+
+.page-subtitle {
+  font-size: 11px;
+  color: #4a7a78;
+  letter-spacing: 0.06em;
+  margin: 0 0 28px;
+}
+
+/* ---- Tabs ---- */
+.blog-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #1e5554;
+}
+
+.blog-tab {
+  font-size: 11px;
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 600;
+  color: #4a7a78;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 6px 14px 7px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: color 0.12s;
+}
+.blog-tab:hover { color: #c8deda; }
+.blog-tab.active {
+  color: #e0eeec;
+  border-bottom-color: #40a4b9;
+}
+
+/* ---- Section label ---- */
+.section-label {
+  font-size: 10px;
+  color: #4a7a78;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #1e5554;
+}
+
+/* ---- Feed shared layout ---- */
+.blog-feed {
+  display: flex;
+  flex-direction: column;
+}
+
+.blog-post,
+.blog-note {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 0 16px;
+  align-items: start;
+  padding: 14px 0;
+  border-bottom: 1px solid #1e5554;
+}
+
+.blog-feed > *:last-child {
+  border-bottom: none;
+}
+
+/* ---- Left column (date / note meta) ---- */
+.feed-left {
+  font-size: 10px;
+  color: #4a7a78;
+  letter-spacing: 0.04em;
+  padding-top: 2px;
+  line-height: 1.6;
+}
+
+.note-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 2px;
+}
+
+.note-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ---- Post content ---- */
+.post-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c8deda;
+  letter-spacing: 0.02em;
+  margin-bottom: 5px;
+  display: block;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+.post-title:hover { color: #e0eeec; }
+.post-title.placeholder { cursor: default; color: #4a7a78; }
+.post-title.placeholder:hover { color: #4a7a78; }
+
+.post-excerpt {
+  font-size: 11px;
+  color: #7aa8a6;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Tags ---- */
+.post-tags {
+  margin-top: 7px;
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  font-size: 10px;
+  color: #7aa8a6;
+  border: 1px solid #1e5554;
+  border-radius: 2px;
+  padding: 1px 7px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+.tag:hover {
+  color: #c8deda;
+  border-color: #2e6a68;
+}
+
+/* ---- Note text ---- */
+.note-text {
+  font-size: 12px;
+  color: #a8c8c4;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  padding-top: 2px;
+}

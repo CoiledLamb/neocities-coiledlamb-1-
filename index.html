@@ -15,14 +15,14 @@
       color: #b1c9c3;
       font-family: 'Source Code Pro', monospace;
       font-weight: 600;
-      height: 100%;
-      overflow: hidden;
+      /* removed overflow:hidden — was clipping content at short viewport heights */
     }
 
     #site {
       opacity: 0;
       transition: opacity 0.7s ease;
-      height: 100vh;
+      /* min-height instead of height so content can grow past viewport */
+      min-height: 100vh;
       display: flex;
     }
     #site.visible { opacity: 1; }
@@ -39,6 +39,8 @@
       gap: 14px;
       overflow-y: auto;
       box-sizing: border-box;
+      /* cap width so boxes don't stretch to fill huge monitors */
+      max-width: 900px;
     }
 
     /* ---- Window chrome ---- */
@@ -91,12 +93,22 @@
 
     .right-col { display: flex; flex-direction: column; gap: 14px; }
 
-    /* ---- Button grid — no backing, sits directly in win-body ---- */
+    /* ---- Button grid — fixed-width 88x31 buttons ---- */
+    .btn-grid-wrap {
+      overflow-x: auto;
+      /* thin scrollbar so overflow is visible but unobtrusive */
+      scrollbar-width: thin;
+      scrollbar-color: #2a7a6e transparent;
+    }
+    .btn-grid-wrap::-webkit-scrollbar { height: 3px; }
+    .btn-grid-wrap::-webkit-scrollbar-thumb { background: #2a7a6e; border-radius: 1px; }
     .btn-grid {
       display: grid;
       grid-template-columns: repeat(3, 88px);
       grid-template-rows: repeat(3, 31px);
       gap: 4px;
+      /* min-content so grid doesn't stretch beyond its natural size */
+      width: min-content;
     }
     .btn88 {
       width: 88px; height: 31px; background: #0b2e2d; border: 1px solid #1e5554;
@@ -124,12 +136,10 @@
 
     /* ---- Responsive ---- */
     @media (max-width: 700px) {
-      html, body { overflow: auto; }
-      #site { flex-direction: column; height: auto; overflow: visible; }
+      #site { flex-direction: column; min-height: auto; }
       .nav-sidebar { position: static; width: 100%; height: auto; flex-direction: row; border-right: none; border-bottom: 1px solid #1e5554; }
-      .landing-main { padding: 16px; overflow: visible; }
+      .landing-main { padding: 16px; }
       .top-row, .bottom-row { grid-template-columns: 1fr; }
-      .btn-grid { overflow-x: auto; }
     }
   </style>
 </head>
@@ -224,18 +234,20 @@
           <div class="win">
             <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">buttons</span></div>
             <div class="win-body" style="padding:10px 12px;">
-              <div class="btn-grid">
-                <!-- your button — swap src for button.png/gif when ready -->
-                <a class="btn88" href="https://coiledlamb.neocities.org"><div class="btn88-bar"></div><div class="btn88-t1">COILED LAMB</div><div class="btn88-t2">coiledlamb.neocities.org</div></a>
-                <!-- neighbor buttons — replace .btn88-ph with <a class="btn88"><img src="..." /></a> -->
-                <div class="btn88-ph"><span>88x31</span></div>
-                <div class="btn88-ph"><span>88x31</span></div>
-                <div class="btn88-ph"><span>88x31</span></div>
-                <div class="btn88-ph"><span>88x31</span></div>
-                <div class="btn88-ph"><span>88x31</span></div>
-                <div class="btn88-ph"><span>88x31</span></div>
-                <div class="btn88-ph"><span>88x31</span></div>
-                <div class="btn88-ph"><span>88x31</span></div>
+              <div class="btn-grid-wrap">
+                <div class="btn-grid">
+                  <!-- your button — swap src for button.png/gif when ready -->
+                  <a class="btn88" href="https://coiledlamb.neocities.org"><div class="btn88-bar"></div><div class="btn88-t1">COILED LAMB</div><div class="btn88-t2">coiledlamb.neocities.org</div></a>
+                  <!-- neighbor buttons — replace .btn88-ph with <a class="btn88"><img src="..." /></a> -->
+                  <div class="btn88-ph"><span>88x31</span></div>
+                  <div class="btn88-ph"><span>88x31</span></div>
+                  <div class="btn88-ph"><span>88x31</span></div>
+                  <div class="btn88-ph"><span>88x31</span></div>
+                  <div class="btn88-ph"><span>88x31</span></div>
+                  <div class="btn88-ph"><span>88x31</span></div>
+                  <div class="btn88-ph"><span>88x31</span></div>
+                  <div class="btn88-ph"><span>88x31</span></div>
+                </div>
               </div>
             </div>
           </div>

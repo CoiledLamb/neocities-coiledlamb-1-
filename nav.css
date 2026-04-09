@@ -8,7 +8,7 @@
   height: 100vh; width: 180px;
   z-index: 100;
   display: flex; flex-direction: column;
-  padding: 20px 0 0;  /* bottom padding removed — footer handles it */
+  padding: 20px 0 0;
   box-sizing: border-box;
   background: #0b2e2d;
   border-right: 1px solid #1e5554;
@@ -36,21 +36,12 @@
 }
 .nav-logo-sub:hover { color: #e0eeec; }
 
-/* Scrollable nav links — flex:1 so footer is pushed to bottom */
 .nav-links {
   padding: 0 8px;
   display: flex; flex-direction: column;
   overflow-y: auto; flex: 1;
 }
 
-/*
-  Colour tiers:
-    parent  #c8deda  near-white section labels
-    child   #7aa8a6  mid-teal subordinate links
-  Active state:
-    parent  → oilslick border box, no arrow
-    child   → "> " cyan arrow prefix, no box
-*/
 .nav-parent {
   display: block;
   padding: 6px 10px;
@@ -90,14 +81,12 @@
 
 .nav-divider { height: 1px; background: #1e5554; margin: 8px 6px; }
 
-/* Footer — pinned to bottom of sidebar */
 .nav-footer {
   flex-shrink: 0;
   padding: 10px 8px 14px;
   border-top: 1px solid #1e5554;
 }
 
-/* Replay opening button */
 .nav-replay {
   display: block;
   width: 100%;
@@ -115,10 +104,214 @@
 }
 .nav-replay:hover { color: #7aa8a6; }
 
-/* Offset page content */
 .nav-offset { margin-left: 180px; }
 
-/* Responsive */
+/* ==============================================
+   MUSIC PLAYER WIDGET
+   ============================================== */
+
+.nav-player {
+  flex-shrink: 0;
+  position: relative;
+  border-top: 1px solid #1e5554;
+  padding: 10px 8px;
+  font-family: 'Source Code Pro', monospace;
+}
+
+.np-label {
+  font-size: 9px;
+  color: #3a9e8e;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  padding-right: 18px;
+}
+
+/* Vertical volume slider */
+.np-vol-wrap {
+  position: absolute;
+  top: 10px;
+  right: 4px;
+  width: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.np-vol-icon {
+  font-size: 8px;
+  color: #3a9e8e;
+  user-select: none;
+  line-height: 1;
+}
+
+.np-vol-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 52px;
+  height: 2px;
+  border-radius: 1px;
+  background: #1e5554;
+  outline: none;
+  cursor: pointer;
+  transform: rotate(-90deg);
+  transform-origin: center center;
+  margin: 25px 0;
+}
+.np-vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 6px; height: 6px;
+  border-radius: 1px;
+  background: #7fd8c8;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.np-vol-slider::-moz-range-thumb {
+  width: 6px; height: 6px;
+  border-radius: 1px;
+  background: #7fd8c8;
+  border: none;
+  cursor: pointer;
+}
+.np-vol-slider:hover::-webkit-slider-thumb { background: #a8f0e0; }
+.np-vol-slider:hover::-moz-range-thumb     { background: #a8f0e0; }
+
+.np-vis {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  margin-bottom: 6px;
+  padding-right: 18px;
+}
+
+.np-vis-bar {
+  flex-shrink: 0;
+  width: 3px;
+  height: 3px;
+  border-radius: 1px;
+  background: #2a5a50;
+  transition: height 0.1s;
+}
+
+.np-vis.np-vis-active .np-vis-bar {
+  transition: height 0.1s, background-position 0s;
+}
+
+.np-track-name {
+  font-size: 10px;
+  color: #a8f0e0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 14px;
+  margin-bottom: 1px;
+  padding-right: 18px;
+}
+
+.np-track-artist {
+  font-size: 9px;
+  color: #3a9e8e;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 18px;
+}
+
+.np-status {
+  font-size: 9px;
+  color: #2a8a7e;
+  letter-spacing: 1px;
+  height: 11px;
+  margin-bottom: 4px;
+}
+
+.np-progress-wrap {
+  background: #0a2a2a;
+  height: 2px;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+.np-progress-fill {
+  background: #7fd8c8;
+  height: 2px;
+  width: 0%;
+  transition: width 0.3s linear;
+}
+
+.np-time {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #3a9e8e;
+  margin-bottom: 8px;
+}
+
+.np-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.np-btn {
+  background: none;
+  border: 1px solid #2a7a6e;
+  color: #7fd8c8;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 9px;
+  font-family: 'Source Code Pro', monospace;
+  letter-spacing: 1px;
+  transition: background 0.15s, color 0.15s;
+  border-radius: 1px;
+}
+.np-btn:hover { background: #2a7a6e; color: #c8f8f0; }
+.np-btn.active { background: #1a5a50; color: #a8f0e0; }
+.np-btn-play { padding: 3px 8px; font-size: 11px; }
+
+.np-tracklist-label {
+  font-size: 9px;
+  color: #3a9e8e;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+/* Terminal-style thin scrollbar for tracklist */
+.np-tracklist {
+  overflow-y: auto;
+  max-height: 80px;
+  scrollbar-width: thin;
+  scrollbar-color: #2a7a6e transparent;
+}
+.np-tracklist::-webkit-scrollbar { width: 3px; }
+.np-tracklist::-webkit-scrollbar-track { background: transparent; }
+.np-tracklist::-webkit-scrollbar-thumb { background: #2a7a6e; border-radius: 1px; }
+.np-tracklist::-webkit-scrollbar-thumb:hover { background: #40a4b9; }
+
+.np-track-item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 0;
+  cursor: pointer;
+  border-bottom: 1px dotted #153535;
+}
+.np-track-item:last-child { border-bottom: none; }
+.np-track-item:hover .np-ti-name { color: #c8f8f0; }
+.np-track-item.playing .np-ti-name { color: #c8f8f0; }
+.np-track-item.playing .np-ti-idx { color: #a8f0e0; }
+
+.np-ti-idx  { font-size: 9px; color: #2a6a5a; min-width: 14px; }
+.np-ti-name { font-size: 9px; color: #5ab8a8; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-ti-dur  { font-size: 9px; color: #2a6a5a; }
+
 @media (max-width: 700px) {
   .nav-sidebar {
     position: fixed; top: 0; left: 0; right: 0;
@@ -141,7 +334,7 @@
   }
   .nav-children { flex-direction: row; padding: 0; }
   .nav-divider { width: 1px; height: 20px; margin: 0 6px; }
-  /* Footer hidden in mobile top-bar layout */
   .nav-footer { display: none; }
+  .nav-player { display: none; }
   .nav-offset { margin-left: 0; padding-top: 46px; }
 }
