@@ -45,8 +45,7 @@
   const OIL_GRADIENT = 'linear-gradient(90deg,#40a4b9 0%,#77bfcf 18%,#9d78d4 38%,#da8bda 54%,#9d78d4 70%,#77bfcf 85%,#40a4b9 100%)';
 
   // ==============================================
-  // SESSION STORAGE — all player state persists
-  // across page navigations within the session
+  // SESSION STORAGE
   // ==============================================
   const SK = {
     idx:      'cl_p_idx',
@@ -217,6 +216,7 @@
     if (play) npStart();
     else {
       npPlaying = false;
+      // FIX: show play icon (▶) when stopped, not stop square
       if (npEls.playBtn) npEls.playBtn.textContent = '\u25b6';
       npAnimBars(false);
       npSetStatus('STOPPED....');
@@ -227,7 +227,8 @@
   function npStart() {
     npAudio.play().then(() => {
       npPlaying = true;
-      if (npEls.playBtn) npEls.playBtn.textContent = '\u25a0';
+      // FIX: show pause icon (⏸) when playing, not stop square
+      if (npEls.playBtn) npEls.playBtn.textContent = '\u23f8';
       npAnimBars(true);
       npSetStatus('PLAYING....');
       npSaveState();
@@ -303,12 +304,9 @@
 
   // ==============================================
   // BUILD SIDEBAR
-  // Determine active child from NAV_ACTIVE or,
-  // for blog filter links, from the URL query param.
   // ==============================================
   const active      = window.NAV_ACTIVE || '';
-  const urlFilter   = new URLSearchParams(window.location.search).get('filter'); // 'post' | 'note' | null
-  // Map URL filter value to the corresponding nav child key
+  const urlFilter   = new URLSearchParams(window.location.search).get('filter');
   const filterToKey = { post: 'blog-posts', note: 'blog-notes' };
   const activeChild = urlFilter ? (filterToKey[urlFilter] || '') : '';
 
@@ -332,8 +330,6 @@
       if (i > 0) { const d = document.createElement('div'); d.className = 'nav-divider'; links.appendChild(d); }
       const li = document.createElement('div');
       const a  = document.createElement('a');
-      // Mark the parent active if it matches NAV_ACTIVE, or if we're on a
-      // filtered blog URL (active child implies active parent)
       const parentActive = item.key === active || (activeChild && item.children && item.children.some(c => c.key === activeChild));
       a.className = 'nav-parent' + (parentActive ? ' active' : '');
       a.href = item.href; a.textContent = item.label;
@@ -400,7 +396,8 @@
 
     const controls = document.createElement('div'); controls.className = 'np-controls';
 
-    const shuffleBtn = document.createElement('button'); shuffleBtn.className = 'np-btn'; shuffleBtn.textContent = '\u29e2';
+    // FIX: shuffle icon changed from ⧢ (\u29e2) to ⇄ (\u21c4) for legibility
+    const shuffleBtn = document.createElement('button'); shuffleBtn.className = 'np-btn'; shuffleBtn.textContent = '\u21c4';
     shuffleBtn.setAttribute('type','button'); shuffleBtn.setAttribute('aria-label','Toggle shuffle');
     shuffleBtn.addEventListener('click', npToggleShuffle);
 
@@ -426,8 +423,22 @@
     player.appendChild(controls);
 
     const tlLabel = document.createElement('div'); tlLabel.className = 'np-tracklist-label'; tlLabel.textContent = 'tracklist';
-    const tlEl = document.createElement('div');
+    // FIX: was never assigned to npEls.tracklist, so npRenderTL() always bailed early
+    const tlEl = document.createElement('div'); tlEl.className = 'np-tracklist';
+    npEls.tracklist = tlEl;
     player.appendChild(tlLabel); player.appendChild(tlEl);
+
+    npEls.vis       = vis;
+    npEls.name      = nameEl;
+    npEls.artist    = artistEl;
+    npEls.status    = statusEl;
+    npEls.fill      = progFill;
+    npEls.cur       = curEl;
+    npEls.dur       = durEl;
+    npEls.playBtn   = playBtn;
+    npEls.loopBtn   = loopBtn;
+    npEls.shuffleBtn = shuffleBtn;
+    npEls.volIcon   = volIcon;
 
     sidebar.appendChild(player);
 

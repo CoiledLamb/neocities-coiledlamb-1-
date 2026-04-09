@@ -112,7 +112,7 @@
 
 .nav-player {
   flex-shrink: 0;
-  position: relative;      /* anchor for abs-positioned vol slider */
+  position: relative;
   border-top: 1px solid #1e5554;
   padding: 10px 8px;
   font-family: 'Source Code Pro', monospace;
@@ -124,11 +124,10 @@
   letter-spacing: 2px;
   text-transform: uppercase;
   margin-bottom: 6px;
-  /* leave room on the right for the vol slider */
   padding-right: 18px;
 }
 
-/* Vertical volume slider — top-right corner of player */
+/* Vertical volume slider */
 .np-vol-wrap {
   position: absolute;
   top: 10px;
@@ -147,11 +146,10 @@
   line-height: 1;
 }
 
-/* Rotated range input — sits in a 14×52px footprint */
 .np-vol-slider {
   -webkit-appearance: none;
   appearance: none;
-  width: 52px;          /* becomes the height after rotation */
+  width: 52px;
   height: 2px;
   border-radius: 1px;
   background: #1e5554;
@@ -159,7 +157,6 @@
   cursor: pointer;
   transform: rotate(-90deg);
   transform-origin: center center;
-  /* compensate so the rotated element stays within its wrapper */
   margin: 25px 0;
 }
 .np-vol-slider::-webkit-slider-thumb {
@@ -181,16 +178,12 @@
 .np-vol-slider:hover::-webkit-slider-thumb { background: #a8f0e0; }
 .np-vol-slider:hover::-moz-range-thumb     { background: #a8f0e0; }
 
-/* Visualiser bars — each bar carries the full oilslick gradient,
-   background-position offset per bar via JS so they stitch into
-   one continuous sweep. No container gradient, no hacks. */
 .np-vis {
   display: flex;
   align-items: flex-end;
   gap: 2px;
   height: 14px;
   margin-bottom: 6px;
-  /* leave right gap so bars don't run under the vol slider */
   padding-right: 18px;
 }
 
@@ -199,14 +192,11 @@
   width: 3px;
   height: 3px;
   border-radius: 1px;
-  background: #2a5a50;   /* idle: flat teal */
+  background: #2a5a50;
   transition: height 0.1s;
 }
 
-/* When playing, JS adds .np-vis-active to the container.
-   Each bar already has its gradient + background-position set inline. */
 .np-vis.np-vis-active .np-vis-bar {
-  /* gradient is set inline by JS; just ensure transition stays */
   transition: height 0.1s, background-position 0s;
 }
 
@@ -292,6 +282,18 @@
   text-transform: uppercase;
   margin-bottom: 4px;
 }
+
+/* Terminal-style thin scrollbar for tracklist */
+.np-tracklist {
+  overflow-y: auto;
+  max-height: 80px;
+  scrollbar-width: thin;
+  scrollbar-color: #2a7a6e transparent;
+}
+.np-tracklist::-webkit-scrollbar { width: 3px; }
+.np-tracklist::-webkit-scrollbar-track { background: transparent; }
+.np-tracklist::-webkit-scrollbar-thumb { background: #2a7a6e; border-radius: 1px; }
+.np-tracklist::-webkit-scrollbar-thumb:hover { background: #40a4b9; }
 
 .np-track-item {
   display: flex;

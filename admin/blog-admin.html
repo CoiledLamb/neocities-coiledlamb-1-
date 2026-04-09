@@ -24,16 +24,12 @@
     input[type=text],input[type=password],textarea,select{width:100%;background:#071e1d;border:1px solid #1e5554;border-radius:2px;color:#c8deda;font-family:'Source Code Pro',monospace;font-size:12px;padding:8px 10px;outline:none;transition:border-color 0.12s;margin-bottom:16px}
     input[type=text]:focus,input[type=password]:focus,textarea:focus,select:focus{border-color:#40a4b9}
     textarea{resize:vertical;min-height:100px;line-height:1.6}
-
-    /* ── TABS ── */
     .tab-bar{display:flex;gap:0;border-bottom:1px solid #1e5554;margin-bottom:28px}
     .tab-btn{font-family:'Source Code Pro',monospace;font-size:11px;letter-spacing:0.06em;color:#4a7a78;background:none;border:none;border-bottom:2px solid transparent;padding:8px 20px;cursor:pointer;transition:color 0.12s,border-color 0.12s;margin-bottom:-1px}
     .tab-btn:hover{color:#c8deda}
     .tab-btn.active{color:#40a4b9;border-bottom-color:#40a4b9}
     .tab-panel{display:none}
     .tab-panel.active{display:block}
-
-    /* ── RICH TEXT TOOLBAR ── */
     .rte-wrap{margin-bottom:16px}
     .rte-toolbar{display:flex;gap:4px;flex-wrap:wrap;background:#071e1d;border:1px solid #1e5554;border-bottom:none;border-radius:2px 2px 0 0;padding:6px 8px}
     .rte-btn{font-family:'Source Code Pro',monospace;font-size:11px;color:#7aa8a6;background:none;border:1px solid #1e5554;border-radius:2px;padding:3px 8px;cursor:pointer;transition:color 0.12s,border-color 0.12s;line-height:1.4}
@@ -45,8 +41,6 @@
     .rte-editor i,.rte-editor em{font-style:italic}
     .rte-editor u{text-decoration:underline}
     .rte-editor a{color:#40a4b9}
-
-    /* ── EMOJI PICKER ── */
     .emoji-picker-wrap{position:relative;margin-bottom:16px}
     .emoji-trigger{display:flex;align-items:center;gap:10px;background:#071e1d;border:1px solid #1e5554;border-radius:2px;padding:7px 10px;cursor:pointer;transition:border-color 0.12s;user-select:none}
     .emoji-trigger:hover{border-color:#40a4b9}
@@ -65,8 +59,6 @@
     .emoji-custom-label{font-size:10px;color:#4a7a78;white-space:nowrap}
     .emoji-custom-input{flex:1;background:#0b2e2d;border:1px solid #1e5554;border-radius:2px;color:#c8deda;font-family:'Source Code Pro',monospace;font-size:13px;padding:4px 7px;outline:none;margin:0;width:auto}
     .emoji-custom-input:focus{border-color:#40a4b9}
-
-    /* ── TAGS ── */
     .tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
     .tag-toggle{position:relative;font-size:10px;color:#7aa8a6;border:1px solid #1e5554;border-radius:2px;padding:3px 9px;letter-spacing:0.04em;cursor:pointer;background:none;font-family:'Source Code Pro',monospace;transition:color 0.12s,border-color 0.12s;user-select:none}
     .tag-toggle:hover{color:#c8deda;border-color:#2e6a68}
@@ -80,8 +72,6 @@
     .tag-add-btn{font-family:'Source Code Pro',monospace;font-size:11px;color:#4a7a78;border:1px solid #1e5554;border-radius:2px;padding:4px 10px;background:none;cursor:pointer;white-space:nowrap;transition:color 0.12s,border-color 0.12s}
     .tag-add-btn:hover{color:#c8deda;border-color:#2e6a68}
     .tag-hint{font-size:10px;color:#3a5a58;margin-bottom:12px;line-height:1.5}
-
-    /* ── BUTTONS ── */
     .btn{font-family:'Source Code Pro',monospace;font-size:11px;font-weight:600;letter-spacing:0.04em;padding:8px 18px;border:1px solid #1e5554;border-radius:2px;background:none;color:#7aa8a6;cursor:pointer;transition:color 0.12s,border-color 0.12s}
     .btn:hover{color:#e0eeec;border-color:#40a4b9}
     .btn:active{opacity:0.7}
@@ -94,14 +84,10 @@
     .remember-row input[type=checkbox]{width:auto;margin:0;accent-color:#40a4b9;cursor:pointer}
     .remember-row label{margin:0;font-size:10px;color:#4a7a78;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
     .remember-note{font-size:10px;color:#3a5a58;margin-top:4px;line-height:1.5}
-
-    /* ── STATUS BAR ── */
     #status-bar{position:fixed;bottom:0;left:0;right:0;background:#071e1d;border-top:1px solid #1e5554;padding:8px 40px;font-size:11px;color:#4a7a78;letter-spacing:0.03em;z-index:100}
     #status-bar.ok{color:#5dcaa5}
     #status-bar.err{color:#c86464}
     #status-bar.busy{color:#da8bda}
-
-    /* ── BLOG FEED ── */
     .feed-list{display:flex;flex-direction:column;gap:0}
     .feed-item{display:grid;grid-template-columns:80px 1fr auto;gap:0 14px;align-items:start;padding:12px 0;border-bottom:1px solid #1e5554}
     .feed-item:last-child{border-bottom:none}
@@ -116,21 +102,15 @@
     .fi-btn{font-family:'Source Code Pro',monospace;font-size:10px;color:#4a7a78;border:1px solid #1e5554;border-radius:2px;padding:2px 8px;background:none;cursor:pointer;letter-spacing:0.03em;white-space:nowrap;transition:color 0.12s,border-color 0.12s}
     .fi-btn:hover{color:#c8deda;border-color:#2e6a68}
     .fi-btn.del:hover{color:#c86464;border-color:#6a2e2e}
-
-    /* ── GALLERY ADMIN ── */
     .gal-category-bar{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
     .gal-cat-btn{font-family:'Source Code Pro',monospace;font-size:10px;color:#4a7a78;border:1px solid #1e5554;border-radius:2px;padding:4px 12px;background:none;cursor:pointer;letter-spacing:0.05em;transition:color 0.12s,border-color 0.12s}
     .gal-cat-btn:hover{color:#c8deda;border-color:#2e6a68}
     .gal-cat-btn.active{color:#40a4b9;border-color:#40a4b9}
-
-    /* drop zone */
     .drop-zone{border:1px dashed #1e5554;border-radius:2px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color 0.12s,background 0.12s;margin-bottom:20px;position:relative}
     .drop-zone:hover,.drop-zone.drag-over{border-color:#40a4b9;background:rgba(64,164,185,0.04)}
     .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
     .drop-zone-label{font-size:11px;color:#4a7a78;line-height:1.8;pointer-events:none}
     .drop-zone-label strong{color:#7aa8a6}
-
-    /* upload queue */
     .upload-queue{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
     .uq-item{display:grid;grid-template-columns:56px 1fr auto;gap:0 12px;align-items:center;background:#071e1d;border:1px solid #1e5554;border-radius:2px;padding:10px 12px}
     .uq-thumb{width:48px;height:48px;object-fit:cover;border-radius:1px;border:1px solid #1e5554}
@@ -146,8 +126,6 @@
     .uq-status{font-size:10px;color:#da8bda;margin-top:4px}
     .uq-status.ok{color:#5dcaa5}
     .uq-status.err{color:#c86464}
-
-    /* gallery image list */
     .gal-list{display:flex;flex-direction:column;gap:0}
     .gal-item{display:grid;grid-template-columns:64px 1fr auto;gap:0 14px;align-items:start;padding:10px 0;border-bottom:1px solid #1e5554}
     .gal-item:last-child{border-bottom:none}
@@ -158,11 +136,7 @@
     .gal-tags{margin-top:4px;display:flex;flex-wrap:wrap;gap:3px}
     .gal-tag{font-size:9px;color:#4a7a78;border:1px solid #1e5554;border-radius:2px;padding:1px 5px}
     .gal-actions{display:flex;flex-direction:column;gap:5px;padding-top:2px}
-
-    /* spinner */
     .spinner{display:inline-block;width:12px;height:12px;border:2px solid #1e5554;border-top-color:#40a4b9;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
-
-    /* modal */
     #modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;align-items:center;justify-content:center}
     #modal-overlay.open{display:flex}
     #modal-box{background:#0b2e2d;border:1px solid #1e5554;border-radius:2px;padding:28px;width:520px;max-width:94vw;max-height:90vh;overflow-y:auto}
@@ -173,7 +147,6 @@
 </head>
 <body>
 
-<!-- ═══════════════════ AUTH ═══════════════════ -->
 <div id="auth-screen">
   <div class="screen-title oil-text">admin</div>
   <div class="screen-sub">local tool — never deployed</div>
@@ -182,7 +155,7 @@
     <label>neocities api key</label>
     <input type="password" id="nc-key-input" placeholder="your neocities API key" autocomplete="off" />
     <div style="font-size:11px;color:#4a7a78;margin-bottom:14px;line-height:1.7;">
-      find your key at <code style="color:#7aa8a6;">neocities.org/settings#api_key</code>. used to upload files and update gallery.json directly.
+      find your key at <code style="color:#7aa8a6;">neocities.org/settings#api_key</code>. used to upload &amp; delete files and update gallery.json.
     </div>
     <div class="section-label" style="margin-top:4px;">github auth</div>
     <label>personal access token</label>
@@ -199,7 +172,6 @@
   </div>
 </div>
 
-<!-- ═══════════════════ MAIN ═══════════════════ -->
 <div id="main-screen" class="hidden">
   <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;">
     <div class="screen-title oil-text">admin</div>
@@ -212,7 +184,6 @@
     <button class="tab-btn" onclick="switchTab('gallery')">gallery</button>
   </div>
 
-  <!-- ─────────── BLOG TAB ─────────── -->
   <div class="tab-panel active" id="tab-blog">
     <div class="section-label">new entry</div>
     <div class="card">
@@ -221,11 +192,9 @@
         <option value="post">post</option>
         <option value="note">note</option>
       </select>
-
       <div id="post-fields">
         <label>title</label>
         <input type="text" id="post-title" placeholder="your post title" />
-
         <label>excerpt / body</label>
         <div class="rte-wrap">
           <div class="rte-toolbar" id="rte-toolbar">
@@ -237,7 +206,6 @@
           </div>
           <div class="rte-editor" id="post-excerpt" contenteditable="true" spellcheck="true"></div>
         </div>
-
         <label>tags</label>
         <div class="tag-row" id="tag-row">
           <button class="tag-toggle" data-tag="process">process<span class="tag-remove">✕ remove</span></button>
@@ -253,11 +221,9 @@
           <button class="tag-add-btn" onclick="addCustomTag('tag-row','tag-new-input')">+ add</button>
         </div>
         <div class="tag-hint">click to toggle · right-click to remove from list</div>
-
         <label>link slug (optional)</label>
         <input type="text" id="post-slug" placeholder="my-post-slug" />
       </div>
-
       <div id="note-fields" class="hidden">
         <label>status emoji</label>
         <div class="emoji-picker-wrap" id="emoji-picker-wrap">
@@ -278,20 +244,17 @@
         <label>note text</label>
         <textarea id="note-text" placeholder="something short and half-formed."></textarea>
       </div>
-
       <div class="btn-row">
         <button class="btn btn-primary" onclick="doPost()">post →</button>
         <button class="btn" onclick="clearForm()">clear</button>
       </div>
     </div>
-
     <div class="section-label">current entries</div>
     <div class="card">
       <div class="feed-list" id="live-feed"></div>
     </div>
   </div>
 
-  <!-- ─────────── GALLERY TAB ─────────── -->
   <div class="tab-panel" id="tab-gallery">
     <div class="gal-category-bar" id="gal-cat-bar">
       <button class="gal-cat-btn active" data-cat="figures" onclick="setGalCat('figures')">figures</button>
@@ -299,7 +262,6 @@
       <button class="gal-cat-btn" data-cat="nsfw" onclick="setGalCat('nsfw')">nsfw</button>
       <button class="gal-cat-btn" data-cat="general" onclick="setGalCat('general')">general</button>
     </div>
-
     <div class="section-label">upload to <span id="gal-cat-label">figures</span></div>
     <div class="card">
       <div class="drop-zone" id="drop-zone"
@@ -316,7 +278,6 @@
         <button class="btn" onclick="clearQueue()">clear queue</button>
       </div>
     </div>
-
     <div class="section-label">existing images — <span id="gal-count">0</span></div>
     <div class="card">
       <div class="gal-list" id="gal-list"></div>
@@ -324,7 +285,6 @@
   </div>
 </div>
 
-<!-- ═══════════════════ MODAL ═══════════════════ -->
 <div id="modal-overlay">
   <div id="modal-box">
     <div class="section-label" id="modal-label">edit entry</div>
@@ -340,15 +300,11 @@
 <div id="status-bar">ready — not connected</div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-// CONSTANTS
-// ═══════════════════════════════════════════════════════
 const OWNER='CoiledLamb', REPO='neocities-coiledlamb-1-', BRANCH='main', BLOG_FILE='blog.html';
 const GH_API='https://api.github.com', LS_PAT='cl_blog_admin_pat', LS_NCKEY='cl_nc_key';
 const NC_API='https://neocities.org/api';
 const STD_TAGS=['process','anatomy','tools','code','thoughts','site','wip'];
 const GAL_CATEGORIES=['figures','hands','nsfw','general'];
-const GAL_STD_TAGS=['figure','sketch','study','hands','reference','nsfw','wip','detail','gesture','portrait'];
 
 const EMOJIS=[
   ['🌱','sprout'],['🌿','herb'],['🍃','leaves'],['🌾','sheaf'],['🌸','blossom'],
@@ -366,20 +322,14 @@ const EMOJIS=[
   ['🔍','search'],['📌','pin'],['🗒️','notepad'],['❤️','heart'],['🖤','black heart'],
 ];
 
-// ═══════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════
 let PAT=null, NC_KEY=null;
 let blogSHA=null, blogHTML=null, blogEntries=[];
 let galData={figures:[],hands:[],nsfw:[],general:[]};
 let currentCat='figures';
-let uploadQueue=[]; // [{file, objectUrl, webpBlob, date, display, tags}]
-let editTarget=null, editContext=null; // 'blog' | 'gallery'
+let uploadQueue=[];
+let editTarget=null, editContext=null;
 let selectedEmoji='🌱';
 
-// ═══════════════════════════════════════════════════════
-// UTILS
-// ═══════════════════════════════════════════════════════
 function setStatus(msg,cls=''){const b=document.getElementById('status-bar');b.textContent=msg;b.className=cls;}
 function ghHeaders(){return{'Authorization':`Bearer ${PAT}`,'Accept':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'};}
 async function ghGet(p){const r=await fetch(`${GH_API}${p}`,{headers:ghHeaders()});if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);return r.json();}
@@ -390,36 +340,24 @@ function fromB64(b64){const bin=atob(b64.replace(/\n/g,''));const b=new Uint8Arr
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function todayISO(){return new Date().toISOString().slice(0,10);}
 
-// ═══════════════════════════════════════════════════════
-// TABS
-// ═══════════════════════════════════════════════════════
 function switchTab(name){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.textContent===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id===`tab-${name}`));
   if(name==='gallery') loadGallery();
 }
 
-// ═══════════════════════════════════════════════════════
-// AUTH
-// ═══════════════════════════════════════════════════════
 async function doAuth(){
   const pat=document.getElementById('pat-input').value.trim();
   const nckey=document.getElementById('nc-key-input').value.trim();
   if(!pat&&!nckey){setStatus('enter at least one token','err');return;}
   setStatus('authenticating...','busy');
   try{
-    if(pat){
-      PAT=pat;
-      const user=await ghGet('/user');
-      document.getElementById('connected-as').textContent=`connected as ${user.login} — blog → ${OWNER}/${REPO}/${BLOG_FILE}`;
-    }
+    if(pat){PAT=pat;const user=await ghGet('/user');document.getElementById('connected-as').textContent=`connected as ${user.login} — blog → ${OWNER}/${REPO}/${BLOG_FILE}`;}
     if(nckey) NC_KEY=nckey;
     if(document.getElementById('remember-cb').checked){
       if(pat) localStorage.setItem(LS_PAT,pat);
       if(nckey) localStorage.setItem(LS_NCKEY,nckey);
-    } else {
-      localStorage.removeItem(LS_PAT); localStorage.removeItem(LS_NCKEY);
-    }
+    } else {localStorage.removeItem(LS_PAT);localStorage.removeItem(LS_NCKEY);}
     document.getElementById('pat-input').value='';
     document.getElementById('nc-key-input').value='';
     document.getElementById('auth-screen').classList.add('hidden');
@@ -429,82 +367,28 @@ async function doAuth(){
     if(NC_KEY) await loadGallery();
   }catch(e){PAT=null;NC_KEY=null;setStatus(`auth failed: ${e.message}`,'err');document.getElementById('auth-hint').textContent='check tokens and try again';}
 }
-function doLogout(){
-  PAT=null;NC_KEY=null;blogSHA=null;blogHTML=null;blogEntries=[];
-  document.getElementById('main-screen').classList.add('hidden');
-  document.getElementById('auth-screen').classList.remove('hidden');
-  setStatus('disconnected','');
-}
+function doLogout(){PAT=null;NC_KEY=null;blogSHA=null;blogHTML=null;blogEntries=[];document.getElementById('main-screen').classList.add('hidden');document.getElementById('auth-screen').classList.remove('hidden');setStatus('disconnected','');}
 
-// ═══════════════════════════════════════════════════════
-// RICH TEXT EDITOR
-// ═══════════════════════════════════════════════════════
-function rteCmd(cmd){
-  document.getElementById('post-excerpt').focus();
-  document.execCommand(cmd,false,null);
-  updateRteToolbarState();
-}
-function rteLink(){
-  const sel=window.getSelection();
-  if(!sel||sel.isCollapsed){alert('select some text first, then click link');return;}
-  const url=prompt('URL:');
-  if(url){document.execCommand('createLink',false,url);updateRteToolbarState();}
-}
-function updateRteToolbarState(){
-  const cmds=['bold','italic','underline'];
-  cmds.forEach(cmd=>{
-    const btn=document.querySelector(`#rte-toolbar .rte-btn[title="${cmd.charAt(0).toUpperCase()+cmd.slice(1)}"]`);
-    if(btn) btn.classList.toggle('active',document.queryCommandState(cmd));
-  });
-}
+function rteCmd(cmd){document.getElementById('post-excerpt').focus();document.execCommand(cmd,false,null);updateRteToolbarState();}
+function rteLink(){const sel=window.getSelection();if(!sel||sel.isCollapsed){alert('select some text first, then click link');return;}const url=prompt('URL:');if(url){document.execCommand('createLink',false,url);updateRteToolbarState();}}
+function updateRteToolbarState(){const cmds=['bold','italic','underline'];cmds.forEach(cmd=>{const btn=document.querySelector(`#rte-toolbar .rte-btn[title="${cmd.charAt(0).toUpperCase()+cmd.slice(1)}"]`);if(btn) btn.classList.toggle('active',document.queryCommandState(cmd));});}
 function getRteHtml(){return document.getElementById('post-excerpt').innerHTML.trim();}
 function setRteHtml(html){document.getElementById('post-excerpt').innerHTML=html;}
 
-// ═══════════════════════════════════════════════════════
-// TAG HELPERS
-// ═══════════════════════════════════════════════════════
 function bindTagEvents(btn){
   btn.addEventListener('click',e=>{if(btn.classList.contains('removing'))return;btn.classList.toggle('active');});
-  btn.addEventListener('contextmenu',e=>{
-    e.preventDefault();
-    const already=btn.classList.contains('removing');
-    btn.closest('.tag-row').querySelectorAll('.tag-toggle.removing').forEach(b=>b.classList.remove('removing'));
-    if(already)return;
-    btn.classList.add('removing');
-  });
+  btn.addEventListener('contextmenu',e=>{e.preventDefault();const already=btn.classList.contains('removing');btn.closest('.tag-row').querySelectorAll('.tag-toggle.removing').forEach(b=>b.classList.remove('removing'));if(already)return;btn.classList.add('removing');});
   const overlay=btn.querySelector('.tag-remove');
   if(overlay) overlay.addEventListener('click',e=>{e.stopPropagation();btn.remove();});
 }
 function addCustomTag(rowId,inputId){
-  const input=document.getElementById(inputId);
-  const val=input.value.trim().toLowerCase().replace(/\s+/g,'-');
-  if(!val)return;
-  input.value='';
-  const row=document.getElementById(rowId);
-  if(row.querySelector(`[data-tag="${val}"]`))return;
-  const btn=document.createElement('button');
-  btn.className='tag-toggle active';
-  btn.dataset.tag=val;
-  btn.innerHTML=`${esc(val)}<span class="tag-remove">✕ remove</span>`;
-  bindTagEvents(btn);
-  row.appendChild(btn);
+  const input=document.getElementById(inputId);const val=input.value.trim().toLowerCase().replace(/\s+/g,'-');if(!val)return;input.value='';
+  const row=document.getElementById(rowId);if(row.querySelector(`[data-tag="${val}"]`))return;
+  const btn=document.createElement('button');btn.className='tag-toggle active';btn.dataset.tag=val;btn.innerHTML=`${esc(val)}<span class="tag-remove">✕ remove</span>`;bindTagEvents(btn);row.appendChild(btn);
 }
-document.addEventListener('click',e=>{
-  if(!e.target.closest('.tag-toggle'))
-    document.querySelectorAll('.tag-toggle.removing').forEach(b=>b.classList.remove('removing'));
-});
+document.addEventListener('click',e=>{if(!e.target.closest('.tag-toggle'))document.querySelectorAll('.tag-toggle.removing').forEach(b=>b.classList.remove('removing'));});
 
-// ═══════════════════════════════════════════════════════
-// EMOJI
-// ═══════════════════════════════════════════════════════
-function buildEmojiGrid(filter=''){
-  const grid=document.getElementById('emoji-grid');if(!grid)return;
-  const q=filter.toLowerCase();
-  const list=q?EMOJIS.filter(([,n])=>n.includes(q)):EMOJIS;
-  grid.innerHTML=list.map(([em,name])=>
-    `<span class="emoji-opt${selectedEmoji===em?' active':''}" title="${name}" data-emoji="${em}" onclick="pickEmoji('${em}','${name}')">${em}</span>`
-  ).join('');
-}
+function buildEmojiGrid(filter=''){const grid=document.getElementById('emoji-grid');if(!grid)return;const q=filter.toLowerCase();const list=q?EMOJIS.filter(([,n])=>n.includes(q)):EMOJIS;grid.innerHTML=list.map(([em,name])=>`<span class="emoji-opt${selectedEmoji===em?' active':''}" title="${name}" data-emoji="${em}" onclick="pickEmoji('${em}','${name}')">${em}</span>`).join('');}
 function toggleEmojiDropdown(){const dd=document.getElementById('emoji-dropdown');dd.classList.toggle('open');if(dd.classList.contains('open'))setTimeout(()=>document.getElementById('emoji-search').focus(),50);}
 function closeEmojiDropdown(){const dd=document.getElementById('emoji-dropdown');if(dd)dd.classList.remove('open');}
 function filterEmojis(){buildEmojiGrid(document.getElementById('emoji-search').value);}
@@ -512,179 +396,34 @@ function pickEmoji(em,name){selectedEmoji=em;document.getElementById('emoji-trig
 function onCustomEmoji(){const v=document.getElementById('emoji-custom').value.trim();if(v){selectedEmoji=v;document.getElementById('emoji-trigger-icon').textContent=v;document.getElementById('emoji-trigger-label').textContent=`${v}  custom`;}}
 function setSelectedEmoji(em,name=''){selectedEmoji=em;document.getElementById('emoji-trigger-icon').textContent=em;document.getElementById('emoji-trigger-label').textContent=name?`${em}  ${name}`:em;document.getElementById('emoji-custom').value='';buildEmojiGrid();}
 
-// ═══════════════════════════════════════════════════════
-// BLOG — LOAD / PARSE / RENDER
-// ═══════════════════════════════════════════════════════
-async function loadBlog(){
-  setStatus('fetching blog.html...','busy');
-  try{
-    const data=await ghGet(`/repos/${OWNER}/${REPO}/contents/${BLOG_FILE}?ref=${BRANCH}`);
-    blogSHA=data.sha; blogHTML=fromB64(data.content);
-    blogEntries=parseEntries(blogHTML);
-    renderFeed();
-    setStatus(`loaded — ${blogEntries.length} blog entries`,'ok');
-  }catch(e){setStatus(`load failed: ${e.message}`,'err');}
-}
-function parseEntries(html){
-  const doc=new DOMParser().parseFromString(html,'text/html');
-  const feed=doc.getElementById('blog-feed');
-  if(!feed)return[];
-  const out=[];
-  feed.querySelectorAll('.blog-post,.blog-note').forEach(el=>{
-    const type=el.classList.contains('blog-post')?'post':'note';
-    if(type==='post'){
-      const te=el.querySelector('.post-title'),ee=el.querySelector('.post-excerpt'),de=el.querySelector('.feed-left');
-      out.push({type,title:te?te.textContent.trim():'',href:te?(te.getAttribute('href')||''):'',
-        excerpt:ee?ee.innerHTML.trim():'',date:de?de.innerHTML.trim():'',
-        tags:Array.from(el.querySelectorAll('.tag')).map(t=>t.textContent.trim()),
-        placeholder:te?te.classList.contains('placeholder'):false});
-    }else{
-      const eme=el.querySelector('.note-emoji'),de=el.querySelector('.feed-left span:not(.note-emoji)'),txe=el.querySelector('.note-text');
-      out.push({type,emoji:eme?eme.textContent.trim():'🌱',date:de?de.textContent.trim():'',text:txe?txe.textContent.trim():''});
-    }
-  });
-  return out;
-}
-function renderFeed(){
-  const list=document.getElementById('live-feed');
-  if(!blogEntries.length){list.innerHTML='<div style="font-size:11px;color:#4a7a78;padding:12px 0;">no entries yet.</div>';return;}
-  list.innerHTML=blogEntries.map((e,i)=>{
-    if(e.type==='post'){
-      const th=e.tags.map(t=>`<span class="fi-tag">${esc(t)}</span>`).join('');
-      return `<div class="feed-item">
-        <div class="fi-meta"><span class="fi-type">post</span><br>${esc(e.date.replace(/<br>/g,' '))}</div>
-        <div class="fi-body"><div class="fi-title">${esc(e.title)}</div><div class="fi-excerpt">${e.excerpt}</div>${th?`<div class="fi-tags">${th}</div>`:''}</div>
-        <div class="fi-actions"><button class="fi-btn" onclick="editEntry(${i})">edit</button><button class="fi-btn del" onclick="deleteBlogEntry(${i})">delete</button></div>
-      </div>`;
-    }else{
-      return `<div class="feed-item">
-        <div class="fi-meta"><span class="fi-type">note</span><br><span style="font-size:16px;">${e.emoji}</span><br>${esc(e.date)}</div>
-        <div class="fi-body"><div class="fi-excerpt">${esc(e.text)}</div></div>
-        <div class="fi-actions"><button class="fi-btn" onclick="editEntry(${i})">edit</button><button class="fi-btn del" onclick="deleteBlogEntry(${i})">delete</button></div>
-      </div>`;
-    }
-  }).join('');
-}
+async function loadBlog(){setStatus('fetching blog.html...','busy');try{const data=await ghGet(`/repos/${OWNER}/${REPO}/contents/${BLOG_FILE}?ref=${BRANCH}`);blogSHA=data.sha;blogHTML=fromB64(data.content);blogEntries=parseEntries(blogHTML);renderFeed();setStatus(`loaded — ${blogEntries.length} blog entries`,'ok');}catch(e){setStatus(`load failed: ${e.message}`,'err');}}
+function parseEntries(html){const doc=new DOMParser().parseFromString(html,'text/html');const feed=doc.getElementById('blog-feed');if(!feed)return[];const out=[];feed.querySelectorAll('.blog-post,.blog-note').forEach(el=>{const type=el.classList.contains('blog-post')?'post':'note';if(type==='post'){const te=el.querySelector('.post-title'),ee=el.querySelector('.post-excerpt'),de=el.querySelector('.feed-left');out.push({type,title:te?te.textContent.trim():'',href:te?(te.getAttribute('href')||''):'',excerpt:ee?ee.innerHTML.trim():'',date:de?de.innerHTML.trim():'',tags:Array.from(el.querySelectorAll('.tag')).map(t=>t.textContent.trim()),placeholder:te?te.classList.contains('placeholder'):false});}else{const eme=el.querySelector('.note-emoji'),de=el.querySelector('.feed-left span:not(.note-emoji)'),txe=el.querySelector('.note-text');out.push({type,emoji:eme?eme.textContent.trim():'🌱',date:de?de.textContent.trim():'',text:txe?txe.textContent.trim():''});}});return out;}
+function renderFeed(){const list=document.getElementById('live-feed');if(!blogEntries.length){list.innerHTML='<div style="font-size:11px;color:#4a7a78;padding:12px 0;">no entries yet.</div>';return;}list.innerHTML=blogEntries.map((e,i)=>{if(e.type==='post'){const th=e.tags.map(t=>`<span class="fi-tag">${esc(t)}</span>`).join('');return `<div class="feed-item"><div class="fi-meta"><span class="fi-type">post</span><br>${esc(e.date.replace(/<br>/g,' '))}</div><div class="fi-body"><div class="fi-title">${esc(e.title)}</div><div class="fi-excerpt">${e.excerpt}</div>${th?`<div class="fi-tags">${th}</div>`:''}</div><div class="fi-actions"><button class="fi-btn" onclick="editEntry(${i})">edit</button><button class="fi-btn del" onclick="deleteBlogEntry(${i})">delete</button></div></div>`;}else{return `<div class="feed-item"><div class="fi-meta"><span class="fi-type">note</span><br><span style="font-size:16px;">${e.emoji}</span><br>${esc(e.date)}</div><div class="fi-body"><div class="fi-excerpt">${esc(e.text)}</div></div><div class="fi-actions"><button class="fi-btn" onclick="editEntry(${i})">edit</button><button class="fi-btn del" onclick="deleteBlogEntry(${i})">delete</button></div></div>`;}}).join('');}
 
-// ═══════════════════════════════════════════════════════
-// BLOG — COMMIT
-// ═══════════════════════════════════════════════════════
-function entriesToHtml(ents){
-  if(!ents.length)return'\n        <!-- no entries yet -->\n      ';
-  return'\n'+ents.map((e,i)=>{
-    if(e.type==='post'){
-      const th=e.tags.map(t=>`          <span class="tag">${esc(t)}</span>`).join('\n');
-      const tt=e.href?`<a href="${esc(e.href)}" class="post-title">${esc(e.title)}</a>`:`<span class="post-title">${esc(e.title)}</span>`;
-      return `        <div class="blog-post" data-type="post">\n          <div class="feed-left">${e.date}</div>\n          <div class="feed-right">\n            ${tt}\n            <div class="post-excerpt">${e.excerpt}</div>\n            <div class="post-tags">\n${th}\n          </div>\n          </div>\n        </div>`;
-    }else{
-      const first=i===ents.findIndex(x=>x.type==='note');
-      return `        <div class="blog-note" data-type="note"${first?' id="latest-note"':''}>\n          <div class="feed-left note-left">\n            <span class="note-emoji">${e.emoji}</span>\n            <span>${esc(e.date)}</span>\n          </div>\n          <div class="note-text">${esc(e.text)}</div>\n        </div>`;
-    }
-  }).join('\n')+'\n      ';
-}
-function rebuildBlogHtml(){
-  const o='<div class="blog-feed" id="blog-feed">',c='</div>\n    </div>\n  </div>';
-  const s=blogHTML.indexOf(o),en=blogHTML.lastIndexOf(c);
-  if(s===-1||en===-1)throw new Error('could not locate #blog-feed — structure may have changed');
-  return blogHTML.slice(0,s+o.length)+entriesToHtml(blogEntries)+blogHTML.slice(en);
-}
-async function commitBlog(msg){
-  const nh=rebuildBlogHtml();
-  const r=await ghPut(`/repos/${OWNER}/${REPO}/contents/${BLOG_FILE}`,{message:msg,content:toB64(nh),sha:blogSHA,branch:BRANCH});
-  blogSHA=r.content.sha; blogHTML=nh;
-}
+function entriesToHtml(ents){if(!ents.length)return'\n        <!-- no entries yet -->\n      ';return'\n'+ents.map((e,i)=>{if(e.type==='post'){const th=e.tags.map(t=>`          <span class="tag">${esc(t)}</span>`).join('\n');const tt=e.href?`<a href="${esc(e.href)}" class="post-title">${esc(e.title)}</a>`:`<span class="post-title">${esc(e.title)}</span>`;return `        <div class="blog-post" data-type="post">\n          <div class="feed-left">${e.date}</div>\n          <div class="feed-right">\n            ${tt}\n            <div class="post-excerpt">${e.excerpt}</div>\n            <div class="post-tags">\n${th}\n          </div>\n          </div>\n        </div>`;}else{const first=i===ents.findIndex(x=>x.type==='note');return `        <div class="blog-note" data-type="note"${first?' id="latest-note"':''}>\n          <div class="feed-left note-left">\n            <span class="note-emoji">${e.emoji}</span>\n            <span>${esc(e.date)}</span>\n          </div>\n          <div class="note-text">${esc(e.text)}</div>\n        </div>`;}}).join('\n')+'\n      ';}
+function rebuildBlogHtml(){const o='<div class="blog-feed" id="blog-feed">',c='</div>\n    </div>\n  </div>';const s=blogHTML.indexOf(o),en=blogHTML.lastIndexOf(c);if(s===-1||en===-1)throw new Error('could not locate #blog-feed — structure may have changed');return blogHTML.slice(0,s+o.length)+entriesToHtml(blogEntries)+blogHTML.slice(en);}
+async function commitBlog(msg){const nh=rebuildBlogHtml();const r=await ghPut(`/repos/${OWNER}/${REPO}/contents/${BLOG_FILE}`,{message:msg,content:toB64(nh),sha:blogSHA,branch:BRANCH});blogSHA=r.content.sha;blogHTML=nh;}
 
-// ═══════════════════════════════════════════════════════
-// BLOG — POST / CLEAR / DELETE / EDIT
-// ═══════════════════════════════════════════════════════
 function onTypeChange(){const t=document.getElementById('entry-type').value;document.getElementById('post-fields').classList.toggle('hidden',t!=='post');document.getElementById('note-fields').classList.toggle('hidden',t!=='note');}
-
-async function doPost(){
-  const type=document.getElementById('entry-type').value;
-  const {year,mon,day}=fmtDate();
-  if(type==='post'){
-    const title=document.getElementById('post-title').value.trim();
-    const excerpt=getRteHtml();
-    const slug=document.getElementById('post-slug').value.trim();
-    const tags=Array.from(document.querySelectorAll('#tag-row .tag-toggle.active')).map(b=>b.dataset.tag);
-    if(!title){setStatus('title is required','err');return;}
-    blogEntries.unshift({type:'post',title,href:slug?`posts/${slug}.html`:'',excerpt,date:`${year}<br>${mon} ${day}`,tags,placeholder:false});
-  }else{
-    const text=document.getElementById('note-text').value.trim();
-    if(!text){setStatus('note text is required','err');return;}
-    blogEntries.unshift({type:'note',emoji:selectedEmoji,date:`${mon} ${day}`,text});
-  }
-  setStatus('saving...','busy');
-  try{
-    await commitBlog(`blog: add ${type} — ${todayISO()}`);
-    renderFeed(); clearForm(); setStatus(`${type} posted`,'ok');
-  }catch(e){blogEntries.shift();setStatus(`commit failed: ${e.message}`,'err');}
-}
-
-function clearForm(){
-  document.getElementById('post-title').value='';
-  setRteHtml('');
-  document.getElementById('post-slug').value='';
-  document.getElementById('note-text').value='';
-  document.getElementById('tag-new-input').value='';
-  const row=document.getElementById('tag-row');
-  row.innerHTML=STD_TAGS.map(t=>`<button class="tag-toggle" data-tag="${t}">${t}<span class="tag-remove">✕ remove</span></button>`).join('');
-  row.querySelectorAll('.tag-toggle').forEach(bindTagEvents);
-  setSelectedEmoji('🌱','sprout');
-}
-
-async function deleteBlogEntry(i){
-  const e=blogEntries[i];
-  if(!confirm(`delete ${e.type==='post'?`"${e.title}"`:`note: "${e.text.slice(0,40)}..."`}?`))return;
-  const removed=blogEntries.splice(i,1);
-  setStatus('deleting...','busy');
-  try{
-    await commitBlog(`blog: delete ${e.type} — ${todayISO()}`);
-    renderFeed(); setStatus('deleted','ok');
-  }catch(err){blogEntries.splice(i,0,...removed);setStatus(`delete failed: ${err.message}`,'err');}
-}
+async function doPost(){const type=document.getElementById('entry-type').value;const {year,mon,day}=fmtDate();if(type==='post'){const title=document.getElementById('post-title').value.trim();const excerpt=getRteHtml();const slug=document.getElementById('post-slug').value.trim();const tags=Array.from(document.querySelectorAll('#tag-row .tag-toggle.active')).map(b=>b.dataset.tag);if(!title){setStatus('title is required','err');return;}blogEntries.unshift({type:'post',title,href:slug?`posts/${slug}.html`:'',excerpt,date:`${year}<br>${mon} ${day}`,tags,placeholder:false});}else{const text=document.getElementById('note-text').value.trim();if(!text){setStatus('note text is required','err');return;}blogEntries.unshift({type:'note',emoji:selectedEmoji,date:`${mon} ${day}`,text});}setStatus('saving...','busy');try{await commitBlog(`blog: add ${type} — ${todayISO()}`);renderFeed();clearForm();setStatus(`${type} posted`,'ok');}catch(e){blogEntries.shift();setStatus(`commit failed: ${e.message}`,'err');}}
+function clearForm(){document.getElementById('post-title').value='';setRteHtml('');document.getElementById('post-slug').value='';document.getElementById('note-text').value='';document.getElementById('tag-new-input').value='';const row=document.getElementById('tag-row');row.innerHTML=STD_TAGS.map(t=>`<button class="tag-toggle" data-tag="${t}">${t}<span class="tag-remove">✕ remove</span></button>`).join('');row.querySelectorAll('.tag-toggle').forEach(bindTagEvents);setSelectedEmoji('🌱','sprout');}
+async function deleteBlogEntry(i){const e=blogEntries[i];if(!confirm(`delete ${e.type==='post'?`"${e.title}"`:`note: "${e.text.slice(0,40)}..."`}?`))return;const removed=blogEntries.splice(i,1);setStatus('deleting...','busy');try{await commitBlog(`blog: delete ${e.type} — ${todayISO()}`);renderFeed();setStatus('deleted','ok');}catch(err){blogEntries.splice(i,0,...removed);setStatus(`delete failed: ${err.message}`,'err');}}
 
 function editEntry(i){
-  editTarget=i; editContext='blog';
+  editTarget=i;editContext='blog';
   const e=blogEntries[i],box=document.getElementById('modal-fields');
   document.getElementById('modal-overlay').classList.add('open');
   document.getElementById('modal-label').textContent=`edit ${e.type}`;
-  document.getElementById('modal-msg').textContent=e.type==='note'
-    ?'editing this note — first note sets the front-page status.'
-    :'editing post — committed immediately on save.';
+  document.getElementById('modal-msg').textContent=e.type==='note'?'editing this note — first note sets the front-page status.':'editing post — committed immediately on save.';
   if(e.type==='post'){
     const allTags=[...new Set([...STD_TAGS,...e.tags])];
     const tt=allTags.map(t=>`<button class="tag-toggle${e.tags.includes(t)?' active':''}" data-tag="${t}">${esc(t)}<span class="tag-remove">✕ remove</span></button>`).join('');
-    box.innerHTML=`
-      <label>title</label><input type="text" id="edit-title" value="${esc(e.title)}" />
-      <label>excerpt / body</label>
-      <div class="rte-wrap">
-        <div class="rte-toolbar" id="edit-rte-toolbar">
-          <button class="rte-btn" title="Bold" onclick="rteCmd2('bold')"><b>B</b></button>
-          <button class="rte-btn" title="Italic" onclick="rteCmd2('italic')"><i>I</i></button>
-          <button class="rte-btn" title="Underline" onclick="rteCmd2('underline')"><u>U</u></button>
-          <button class="rte-btn" title="Link" onclick="rteLink2()">⌁ link</button>
-          <button class="rte-btn" onclick="rteCmd2('removeFormat')" style="color:#4a7a78;">✕ clear</button>
-        </div>
-        <div class="rte-editor" id="edit-excerpt" contenteditable="true" spellcheck="true">${e.excerpt}</div>
-      </div>
-      <label>link slug</label><input type="text" id="edit-slug" value="${esc(e.href.replace('posts/','').replace('.html',''))}" />
-      <label>tags</label>
-      <div class="tag-row" id="edit-tag-row">${tt}</div>
-      <div class="tag-add-row">
-        <input class="tag-add-input" id="edit-tag-input" type="text" placeholder="new tag..." maxlength="32" />
-        <button class="tag-add-btn" onclick="addCustomTag('edit-tag-row','edit-tag-input')">+ add</button>
-      </div>
-      <div class="tag-hint">click to toggle · right-click to remove from list</div>`;
+    box.innerHTML=`<label>title</label><input type="text" id="edit-title" value="${esc(e.title)}" /><label>excerpt / body</label><div class="rte-wrap"><div class="rte-toolbar" id="edit-rte-toolbar"><button class="rte-btn" title="Bold" onclick="rteCmd2('bold')"><b>B</b></button><button class="rte-btn" title="Italic" onclick="rteCmd2('italic')"><i>I</i></button><button class="rte-btn" title="Underline" onclick="rteCmd2('underline')"><u>U</u></button><button class="rte-btn" title="Link" onclick="rteLink2()">⌁ link</button><button class="rte-btn" onclick="rteCmd2('removeFormat')" style="color:#4a7a78;">✕ clear</button></div><div class="rte-editor" id="edit-excerpt" contenteditable="true" spellcheck="true">${e.excerpt}</div></div><label>link slug</label><input type="text" id="edit-slug" value="${esc(e.href.replace('posts/','').replace('.html',''))}" /><label>tags</label><div class="tag-row" id="edit-tag-row">${tt}</div><div class="tag-add-row"><input class="tag-add-input" id="edit-tag-input" type="text" placeholder="new tag..." maxlength="32" /><button class="tag-add-btn" onclick="addCustomTag('edit-tag-row','edit-tag-input')">+ add</button></div><div class="tag-hint">click to toggle · right-click to remove from list</div>`;
     box.querySelectorAll('.tag-toggle').forEach(bindTagEvents);
     document.getElementById('edit-tag-input').addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();addCustomTag('edit-tag-row','edit-tag-input');}});
   }else{
     const opts=EMOJIS.slice(0,24).map(([em,name])=>`<span class="emoji-opt${e.emoji===em?' active':''}" title="${name}" data-emoji="${em}" onclick="pickEditEmoji(this,'${em}')">${em}</span>`).join('');
-    box.innerHTML=`
-      <label>emoji</label>
-      <div class="emoji-grid" id="edit-emoji-grid" style="margin-bottom:10px;">${opts}</div>
-      <input class="emoji-custom-input" id="edit-emoji-custom" type="text" placeholder="or paste custom emoji" maxlength="8" oninput="onEditCustomEmoji()" style="width:100%;margin-bottom:16px;" />
-      <label>note text</label><textarea id="edit-note-text">${esc(e.text)}</textarea>`;
+    box.innerHTML=`<label>emoji</label><div class="emoji-grid" id="edit-emoji-grid" style="margin-bottom:10px;">${opts}</div><input class="emoji-custom-input" id="edit-emoji-custom" type="text" placeholder="or paste custom emoji" maxlength="8" oninput="onEditCustomEmoji()" style="width:100%;margin-bottom:16px;" /><label>note text</label><textarea id="edit-note-text">${esc(e.text)}</textarea>`;
   }
 }
 function rteCmd2(cmd){document.getElementById('edit-excerpt').focus();document.execCommand(cmd,false,null);}
@@ -695,95 +434,53 @@ function onEditCustomEmoji(){document.querySelectorAll('#edit-emoji-grid .emoji-
 async function doModalSave(){
   if(editContext==='blog'){
     const e=blogEntries[editTarget];
-    if(e.type==='post'){
-      e.title=document.getElementById('edit-title').value.trim();
-      e.excerpt=document.getElementById('edit-excerpt').innerHTML.trim();
-      const slug=document.getElementById('edit-slug').value.trim();
-      e.href=slug?`posts/${slug}.html`:'';
-      e.tags=Array.from(document.querySelectorAll('#edit-tag-row .tag-toggle.active')).map(b=>b.dataset.tag);
-    }else{
-      const custom=document.getElementById('edit-emoji-custom').value.trim();
-      const active=document.querySelector('#edit-emoji-grid .emoji-opt.active');
-      e.emoji=custom||(active?active.dataset.emoji||active.textContent:e.emoji);
-      e.text=document.getElementById('edit-note-text').value.trim();
-    }
-    closeModal();
-    setStatus('saving edit...','busy');
-    try{await commitBlog(`blog: edit ${e.type} — ${todayISO()}`);renderFeed();setStatus('saved','ok');}
-    catch(err){setStatus(`save failed: ${err.message}`,'err');}
+    if(e.type==='post'){e.title=document.getElementById('edit-title').value.trim();e.excerpt=document.getElementById('edit-excerpt').innerHTML.trim();const slug=document.getElementById('edit-slug').value.trim();e.href=slug?`posts/${slug}.html`:'';e.tags=Array.from(document.querySelectorAll('#edit-tag-row .tag-toggle.active')).map(b=>b.dataset.tag);}else{const custom=document.getElementById('edit-emoji-custom').value.trim();const active=document.querySelector('#edit-emoji-grid .emoji-opt.active');e.emoji=custom||(active?active.dataset.emoji||active.textContent:e.emoji);e.text=document.getElementById('edit-note-text').value.trim();}
+    closeModal();setStatus('saving edit...','busy');
+    try{await commitBlog(`blog: edit ${e.type} — ${todayISO()}`);renderFeed();setStatus('saved','ok');}catch(err){setStatus(`save failed: ${err.message}`,'err');}
   } else if(editContext==='gallery'){
     const entry=galData[currentCat][editTarget];
     entry.date=document.getElementById('edit-gal-date').value.trim();
     entry.display=document.getElementById('edit-gal-display').value.trim();
     entry.tags=document.getElementById('edit-gal-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
-    closeModal();
-    setStatus('saving gallery.json...','busy');
-    try{await commitGalleryJson(`gallery: edit metadata — ${entry.file}`);renderGalList();setStatus('saved','ok');}
-    catch(err){setStatus(`save failed: ${err.message}`,'err');}
+    closeModal();setStatus('saving gallery.json...','busy');
+    try{await commitGalleryJson(`gallery: edit metadata — ${entry.file}`);renderGalList();setStatus('saved','ok');}catch(err){setStatus(`save failed: ${err.message}`,'err');}
   }
 }
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');editTarget=null;editContext=null;}
 
-// ═══════════════════════════════════════════════════════
-// GALLERY — LOAD / RENDER
-// ═══════════════════════════════════════════════════════
 async function loadGallery(){
-  if(!NC_KEY&&!PAT){return;}
+  if(!NC_KEY&&!PAT)return;
   setStatus('loading gallery.json...','busy');
   try{
-    // fetch directly from the live site (not github) so we always get the art-pipeline version
     const r=await fetch('https://coiledlamb.neocities.org/gallery.json?_='+Date.now());
     if(!r.ok) throw new Error(`${r.status}`);
     galData=await r.json();
-    // ensure all categories exist
     GAL_CATEGORIES.forEach(c=>{if(!galData[c])galData[c]=[];});
     renderGalList();
     setStatus('gallery loaded','ok');
-  }catch(e){
-    setStatus(`gallery load failed: ${e.message}`,'err');
-  }
+  }catch(e){setStatus(`gallery load failed: ${e.message}`,'err');}
 }
 
-function setGalCat(cat){
-  currentCat=cat;
-  document.querySelectorAll('.gal-cat-btn').forEach(b=>b.classList.toggle('active',b.dataset.cat===cat));
-  document.getElementById('gal-cat-label').textContent=cat;
-  renderGalList();
-}
+function setGalCat(cat){currentCat=cat;document.querySelectorAll('.gal-cat-btn').forEach(b=>b.classList.toggle('active',b.dataset.cat===cat));document.getElementById('gal-cat-label').textContent=cat;renderGalList();}
 
 function renderGalList(){
   const list=document.getElementById('gal-list');
   const items=galData[currentCat]||[];
   document.getElementById('gal-count').textContent=items.length;
   if(!items.length){list.innerHTML='<div style="font-size:11px;color:#4a7a78;padding:12px 0;">no images in this category yet.</div>';return;}
-  // reverse so newest first
   const rev=[...items].reverse();
   list.innerHTML=rev.map((entry,ri)=>{
-    const i=items.length-1-ri; // original index
+    const i=items.length-1-ri;
     const file=typeof entry==='string'?entry:entry.file;
     const display=typeof entry==='object'?entry.display||file:file;
     const date=typeof entry==='object'?entry.date||'':'';
     const tags=typeof entry==='object'&&entry.tags?entry.tags:[];
     const url=`https://coiledlamb.neocities.org/${encodeURIComponent(file)}`;
     const tagsHtml=tags.map(t=>`<span class="gal-tag">${esc(t)}</span>`).join('');
-    return `<div class="gal-item">
-      <img class="gal-thumb" src="${url}" loading="lazy" onerror="this.style.opacity='0.2'" />
-      <div class="gal-info">
-        <div class="gal-filename">${esc(file)}</div>
-        <div class="gal-meta">${esc(display)}${date?' · '+esc(date):''}</div>
-        ${tagsHtml?`<div class="gal-tags">${tagsHtml}</div>`:''}
-      </div>
-      <div class="gal-actions">
-        <button class="fi-btn" onclick="editGalEntry(${i})">edit</button>
-        <button class="fi-btn del" onclick="deleteGalEntry(${i})">delete</button>
-      </div>
-    </div>`;
+    return `<div class="gal-item"><img class="gal-thumb" src="${url}" loading="lazy" onerror="this.style.opacity='0.2'" /><div class="gal-info"><div class="gal-filename">${esc(file)}</div><div class="gal-meta">${esc(display)}${date?' · '+esc(date):''}</div>${tagsHtml?`<div class="gal-tags">${tagsHtml}</div>`:''}</div><div class="gal-actions"><button class="fi-btn" onclick="editGalEntry(${i})">edit</button><button class="fi-btn del" onclick="deleteGalEntry(${i})">delete</button></div></div>`;
   }).join('');
 }
 
-// ═══════════════════════════════════════════════════════
-// GALLERY — UPLOAD
-// ═══════════════════════════════════════════════════════
 function onDragOver(e){e.preventDefault();document.getElementById('drop-zone').classList.add('drag-over');}
 function onDragLeave(e){document.getElementById('drop-zone').classList.remove('drag-over');}
 function onDrop(e){e.preventDefault();document.getElementById('drop-zone').classList.remove('drag-over');handleFiles(e.dataTransfer.files);}
@@ -794,73 +491,26 @@ function handleFiles(files){
     if(!f.type.startsWith('image/'))return;
     const obj=URL.createObjectURL(f);
     const today=new Date();
-    const mm=String(today.getMonth()+1).padStart(2,'0');
-    const dd=String(today.getDate()).padStart(2,'0');
-    const yy=String(today.getFullYear()).slice(2);
-    const dateStr=`${mm}${dd}${yy}`;
-    const displayStr=`${mm}/${dd}/${yy}`;
-    uploadQueue.push({file:f,objectUrl:obj,webpBlob:null,
-      suggestedName:`${currentCat} ${dateStr}.webp`,
-      date:displayStr,display:displayStr,tags:[]});
+    const mm=String(today.getMonth()+1).padStart(2,'0'),dd=String(today.getDate()).padStart(2,'0'),yy=String(today.getFullYear()).slice(2);
+    uploadQueue.push({file:f,objectUrl:obj,webpBlob:null,suggestedName:`${currentCat} ${mm}${dd}${yy}.webp`,date:`${mm}/${dd}/${yy}`,display:`${mm}/${dd}/${yy}`,tags:[]});
   });
   renderQueue();
 }
 
 function renderQueue(){
-  const container=document.getElementById('upload-queue');
-  const btnRow=document.getElementById('upload-btn-row');
+  const container=document.getElementById('upload-queue');const btnRow=document.getElementById('upload-btn-row');
   if(!uploadQueue.length){container.innerHTML='';btnRow.style.display='none';return;}
   btnRow.style.display='flex';
-  container.innerHTML=uploadQueue.map((item,i)=>`
-    <div class="uq-item" id="uq-${i}">
-      <img class="uq-thumb" src="${item.objectUrl}" />
-      <div class="uq-meta">
-        <div class="uq-name">${esc(item.file.name)}</div>
-        <div class="uq-fields">
-          <div class="uq-field">
-            <label>filename</label>
-            <input type="text" id="uq-name-${i}" value="${esc(item.suggestedName)}" style="width:200px;" />
-          </div>
-          <div class="uq-field">
-            <label>display</label>
-            <input type="text" id="uq-display-${i}" value="${esc(item.display)}" style="width:100px;" />
-          </div>
-          <div class="uq-field">
-            <label>tags (comma-sep)</label>
-            <input type="text" id="uq-tags-${i}" placeholder="sketch,study" style="width:160px;" />
-          </div>
-        </div>
-        <div class="uq-status" id="uq-status-${i}"></div>
-      </div>
-      <button class="uq-remove" onclick="removeFromQueue(${i})">✕</button>
-    </div>`).join('');
+  container.innerHTML=uploadQueue.map((item,i)=>`<div class="uq-item" id="uq-${i}"><img class="uq-thumb" src="${item.objectUrl}" /><div class="uq-meta"><div class="uq-name">${esc(item.file.name)}</div><div class="uq-fields"><div class="uq-field"><label>filename</label><input type="text" id="uq-name-${i}" value="${esc(item.suggestedName)}" style="width:200px;" /></div><div class="uq-field"><label>display</label><input type="text" id="uq-display-${i}" value="${esc(item.display)}" style="width:100px;" /></div><div class="uq-field"><label>tags (comma-sep)</label><input type="text" id="uq-tags-${i}" placeholder="sketch,study" style="width:160px;" /></div></div><div class="uq-status" id="uq-status-${i}"></div></div><button class="uq-remove" onclick="removeFromQueue(${i})">✕</button></div>`).join('');
 }
 
-function removeFromQueue(i){
-  URL.revokeObjectURL(uploadQueue[i].objectUrl);
-  uploadQueue.splice(i,1);
-  renderQueue();
-}
-function clearQueue(){
-  uploadQueue.forEach(item=>URL.revokeObjectURL(item.objectUrl));
-  uploadQueue=[];
-  renderQueue();
-}
+function removeFromQueue(i){URL.revokeObjectURL(uploadQueue[i].objectUrl);uploadQueue.splice(i,1);renderQueue();}
+function clearQueue(){uploadQueue.forEach(item=>URL.revokeObjectURL(item.objectUrl));uploadQueue=[];renderQueue();}
 
 async function fileToWebp(file){
   return new Promise((resolve,reject)=>{
     const img=new Image();
-    img.onload=()=>{
-      const canvas=document.createElement('canvas');
-      canvas.width=img.naturalWidth;
-      canvas.height=img.naturalHeight;
-      const ctx=canvas.getContext('2d');
-      ctx.drawImage(img,0,0);
-      canvas.toBlob(blob=>{
-        if(blob) resolve(blob);
-        else reject(new Error('toBlob failed'));
-      },'image/webp',0.92);
-    };
+    img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);canvas.toBlob(blob=>{if(blob)resolve(blob);else reject(new Error('toBlob failed'));},'image/webp',0.92);};
     img.onerror=reject;
     img.src=URL.createObjectURL(file);
   });
@@ -870,8 +520,7 @@ async function doUploadAll(){
   if(!NC_KEY){setStatus('neocities API key required for uploads','err');return;}
   setStatus('uploading...','busy');
   for(let i=0;i<uploadQueue.length;i++){
-    const item=uploadQueue[i];
-    const statusEl=document.getElementById(`uq-status-${i}`);
+    const item=uploadQueue[i];const statusEl=document.getElementById(`uq-status-${i}`);
     const fname=document.getElementById(`uq-name-${i}`).value.trim();
     const display=document.getElementById(`uq-display-${i}`).value.trim();
     const tagsRaw=document.getElementById(`uq-tags-${i}`).value.trim();
@@ -880,15 +529,10 @@ async function doUploadAll(){
     try{
       const webpBlob=item.file.type==='image/webp'?item.file:await fileToWebp(item.file);
       if(statusEl) statusEl.textContent='uploading...';
-      // upload to neocities via API
-      const form=new FormData();
-      form.append(fname,webpBlob,fname);
+      const form=new FormData();form.append(fname,webpBlob,fname);
       const r=await fetch(`${NC_API}/upload`,{method:'POST',headers:{'Authorization':`Basic ${btoa(`${NC_KEY}:`)}`},body:form});
       const json=await r.json();
       if(json.result!=='success') throw new Error(json.message||'upload failed');
-      // add to gallery data
-      const today=new Date();
-      const isoDate=today.toISOString().slice(0,10);
       galData[currentCat].push({file:fname,date:display,display,tags});
       if(statusEl){statusEl.textContent='✓ uploaded';statusEl.className='uq-status ok';}
     }catch(e){
@@ -896,20 +540,11 @@ async function doUploadAll(){
       setStatus(`upload failed for ${item.file.name}: ${e.message}`,'err');
     }
   }
-  // commit updated gallery.json
-  try{
-    await commitGalleryJson(`gallery: upload ${uploadQueue.length} image(s) to ${currentCat}`);
-    setStatus('all uploads done — gallery.json saved','ok');
-    clearQueue();
-    renderGalList();
-  }catch(e){setStatus(`gallery.json commit failed: ${e.message}`,'err');}
+  try{await commitGalleryJson(`gallery: upload ${uploadQueue.length} image(s) to ${currentCat}`);setStatus('all uploads done — gallery.json saved','ok');clearQueue();renderGalList();}catch(e){setStatus(`gallery.json commit failed: ${e.message}`,'err');}
 }
 
-// ═══════════════════════════════════════════════════════
-// GALLERY — EDIT / DELETE
-// ═══════════════════════════════════════════════════════
 function editGalEntry(i){
-  editTarget=i; editContext='gallery';
+  editTarget=i;editContext='gallery';
   const entry=galData[currentCat][i];
   const file=typeof entry==='string'?entry:entry.file;
   const display=typeof entry==='object'?entry.display||'':'';
@@ -918,43 +553,43 @@ function editGalEntry(i){
   document.getElementById('modal-overlay').classList.add('open');
   document.getElementById('modal-label').textContent='edit image metadata';
   document.getElementById('modal-msg').textContent=file;
-  document.getElementById('modal-fields').innerHTML=`
-    <label>display name</label>
-    <input type="text" id="edit-gal-display" value="${esc(display)}" />
-    <label>date string</label>
-    <input type="text" id="edit-gal-date" value="${esc(date)}" placeholder="04/25/24" />
-    <label>tags (comma-separated)</label>
-    <input type="text" id="edit-gal-tags" value="${esc(tags)}" placeholder="sketch, study, hands" />`;
+  document.getElementById('modal-fields').innerHTML=`<label>display name</label><input type="text" id="edit-gal-display" value="${esc(display)}" /><label>date string</label><input type="text" id="edit-gal-date" value="${esc(date)}" placeholder="04/25/24" /><label>tags (comma-separated)</label><input type="text" id="edit-gal-tags" value="${esc(tags)}" placeholder="sketch, study, hands" />`;
 }
 
 async function deleteGalEntry(i){
   const entry=galData[currentCat][i];
   const file=typeof entry==='string'?entry:entry.file;
-  if(!confirm(`delete "${file}" from gallery.json?\n\n(this removes it from the index — to also delete the file from Neocities you'll need to do that separately via the Neocities dashboard)`))return;
-  galData[currentCat].splice(i,1);
-  setStatus('saving...','busy');
+  // Two-step confirm: first ask what to do
+  const choice=confirm(`delete "${file}"?\n\n[OK] = remove from gallery index AND delete file from Neocities\n[Cancel] = abort`);
+  if(!choice)return;
+  const fullDelete=NC_KEY&&confirm(`also permanently delete the file from Neocities?\n\nOK = yes, delete file\nCancel = only remove from index`);
+  const removedEntry=galData[currentCat].splice(i,1)[0];
+  setStatus('deleting...','busy');
   try{
-    await commitGalleryJson(`gallery: remove ${file} from ${currentCat}`);
-    renderGalList(); setStatus('entry removed from gallery.json','ok');
+    // Delete the actual file from Neocities if requested
+    if(fullDelete){
+      const r=await fetch(`${NC_API}/delete`,{
+        method:'POST',
+        headers:{'Authorization':`Basic ${btoa(`${NC_KEY}:`)}`,'Content-Type':'application/x-www-form-urlencoded'},
+        body:new URLSearchParams({'filenames[]':file})
+      });
+      const json=await r.json();
+      if(json.result!=='success') throw new Error(`NC delete failed: ${json.message||r.status}`);
+    }
+    await commitGalleryJson(`gallery: delete ${file} from ${currentCat}`);
+    renderGalList();
+    setStatus(fullDelete?'file deleted from Neocities and removed from index':'removed from index','ok');
   }catch(e){
-    // restore
-    galData[currentCat].splice(i,0,entry);
-    setStatus(`failed: ${e.message}`,'err');
+    galData[currentCat].splice(i,0,removedEntry);
+    setStatus(`delete failed: ${e.message}`,'err');
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// GALLERY — COMMIT gallery.json via GitHub API
-// ═══════════════════════════════════════════════════════
 let galJsonSHA=null;
 async function commitGalleryJson(msg){
   if(!PAT) throw new Error('GitHub PAT required to update gallery.json');
-  // fetch current SHA if we don't have it
   if(!galJsonSHA){
-    try{
-      const info=await ghGet(`/repos/${OWNER}/${REPO}/contents/gallery.json?ref=${BRANCH}`);
-      galJsonSHA=info.sha;
-    }catch(e){galJsonSHA=undefined;}
+    try{const info=await ghGet(`/repos/${OWNER}/${REPO}/contents/gallery.json?ref=${BRANCH}`);galJsonSHA=info.sha;}catch(e){galJsonSHA=undefined;}
   }
   const body={message:msg,content:toB64(JSON.stringify(galData,null,2)),branch:BRANCH};
   if(galJsonSHA) body.sha=galJsonSHA;
@@ -962,12 +597,8 @@ async function commitGalleryJson(msg){
   galJsonSHA=r.content.sha;
 }
 
-// ═══════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
-  const savedPat=localStorage.getItem(LS_PAT);
-  const savedNcKey=localStorage.getItem(LS_NCKEY);
+  const savedPat=localStorage.getItem(LS_PAT);const savedNcKey=localStorage.getItem(LS_NCKEY);
   if(savedPat){document.getElementById('pat-input').value=savedPat;document.getElementById('remember-cb').checked=true;}
   if(savedNcKey){document.getElementById('nc-key-input').value=savedNcKey;document.getElementById('remember-cb').checked=true;}
   buildEmojiGrid();
