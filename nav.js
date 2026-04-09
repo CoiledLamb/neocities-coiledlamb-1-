@@ -309,7 +309,7 @@
 
     const logo  = document.createElement('div');  logo.className  = 'nav-logo';
     const title = document.createElement('a');    title.className = 'nav-logo-title oil-text';
-    title.href = 'artwork.html'; title.textContent = 'coiled lamb';
+    title.href = 'index.html'; title.textContent = 'coiled lamb';
     logo.appendChild(title);
     const sub = document.createElement('a'); sub.className = 'nav-logo-sub';
     sub.href = 'about.html'; sub.textContent = 'about';
