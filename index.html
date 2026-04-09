@@ -24,9 +24,6 @@
     }
     #site.visible { opacity: 1; }
 
-    /* .nav-offset is NOT overridden here — let nav.js apply margin-left:180px
-       normally so content clears the fixed sidebar. */
-
     /* ---- Main content area ---- */
     .landing-main {
       padding: 24px;
@@ -34,7 +31,7 @@
       flex-direction: column;
       gap: 14px;
       box-sizing: border-box;
-      max-width: 900px;
+      max-width: 960px;
     }
 
     /* ---- Window chrome ---- */
@@ -60,7 +57,7 @@
     .status-val { font-size: 11px; color: #7aa8a6; }
     .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #40a4b9; display: inline-block; margin-right: 4px; vertical-align: middle; }
 
-    /* ---- Nav grid \2014 2 rows x 3 cols ---- */
+    /* ---- Nav grid — 2 rows x 3 cols ---- */
     .nav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .nav-item {
       background: rgba(11,46,45,0.55); border: 1px solid #1e5554; border-radius: 2px;
@@ -87,20 +84,12 @@
 
     .right-col { display: flex; flex-direction: column; gap: 14px; }
 
-    /* ---- Button grid ---- */
-    .btn-grid-wrap {
-      overflow-x: auto;
-      scrollbar-width: thin;
-      scrollbar-color: #2a7a6e transparent;
-    }
-    .btn-grid-wrap::-webkit-scrollbar { height: 3px; }
-    .btn-grid-wrap::-webkit-scrollbar-thumb { background: #2a7a6e; border-radius: 1px; }
+    /* ---- Button grid — 4 cols x 3 rows, no scrollbar needed ---- */
     .btn-grid {
       display: grid;
-      grid-template-columns: repeat(3, 88px);
+      grid-template-columns: repeat(4, 88px);
       grid-template-rows: repeat(3, 31px);
       gap: 4px;
-      width: min-content;
     }
     .btn88 {
       width: 88px; height: 31px; background: #0b2e2d; border: 1px solid #1e5554;
@@ -116,11 +105,13 @@
     }
     .btn88-ph span { font-size: 8px; color: #1e5554; }
 
-    /* ---- Webring + neighbors ---- */
+    /* ---- Webring + neighbors (commented out until joined) ---- */
+    /*
     .webring-strip { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 10px; }
     .webring-strip a { color: #4a7a78; text-decoration: none; }
     .webring-strip a:hover { color: #77bfcf; }
     .webring-name { font-size: 10px; color: #3a6a68; }
+    */
     .neighbor-list { display: flex; flex-direction: column; gap: 4px; }
     .neighbor-list a { font-size: 11px; color: #4a7a78; text-decoration: none; }
     .neighbor-list a::before { content: '> '; color: #1e5554; }
@@ -130,6 +121,7 @@
     @media (max-width: 700px) {
       .landing-main { padding: 16px; }
       .top-row, .bottom-row { grid-template-columns: 1fr; }
+      .btn-grid { grid-template-columns: repeat(2, 88px); grid-template-rows: repeat(6, 31px); }
     }
   </style>
 </head>
@@ -194,6 +186,7 @@
               <span class="nav-label">Toys</span>
               <span class="nav-sub">lab &middot; experiments</span>
             </a>
+            <!-- placeholders — replace with new sections as the site grows -->
             <div class="nav-item placeholder">
               <div class="nav-glyph"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="4" y="4" width="18" height="18" rx="1" stroke="#1e5554" stroke-width="1.5" stroke-dasharray="3 2"/></svg></div>
               <span class="nav-label" style="color:#2a5c5a;">&mdash;</span>
@@ -214,7 +207,22 @@
         <div class="win">
           <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">updates</span></div>
           <div class="win-body">
-            <div class="update-row"><span class="update-date">&mdash;</span><span class="update-text">&mdash;</span></div>
+            <div class="update-row">
+              <span class="update-date">2026<br>apr 09</span>
+              <span class="update-text">site launched. added <a class="update-link" href="blog.html">blog</a>, music player, and gallery admin tool.</span>
+            </div>
+            <div class="update-row">
+              <span class="update-date">2026<br>apr 09</span>
+              <span class="update-text">fixed gallery deploy pipeline — live artwork no longer overwritten on push.</span>
+            </div>
+            <div class="update-row">
+              <span class="update-date">2026<br>apr 05</span>
+              <span class="update-text">blog admin polished: emoji picker, tag editor, token memory.</span>
+            </div>
+            <div class="update-row">
+              <span class="update-date">2026<br>apr 05</span>
+              <span class="update-text">local blog admin tool added for managing posts and notes.</span>
+            </div>
           </div>
         </div>
 
@@ -222,22 +230,27 @@
           <div class="win">
             <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">buttons</span></div>
             <div class="win-body" style="padding:10px 12px;">
-              <div class="btn-grid-wrap">
-                <div class="btn-grid">
-                  <a class="btn88" href="https://coiledlamb.neocities.org"><div class="btn88-bar"></div><div class="btn88-t1">COILED LAMB</div><div class="btn88-t2">coiledlamb.neocities.org</div></a>
-                  <div class="btn88-ph"><span>88x31</span></div>
-                  <div class="btn88-ph"><span>88x31</span></div>
-                  <div class="btn88-ph"><span>88x31</span></div>
-                  <div class="btn88-ph"><span>88x31</span></div>
-                  <div class="btn88-ph"><span>88x31</span></div>
-                  <div class="btn88-ph"><span>88x31</span></div>
-                  <div class="btn88-ph"><span>88x31</span></div>
-                  <div class="btn88-ph"><span>88x31</span></div>
-                </div>
+              <div class="btn-grid">
+                <!-- your button — swap src for button.png/gif when ready -->
+                <a class="btn88" href="https://coiledlamb.neocities.org"><div class="btn88-bar"></div><div class="btn88-t1">COILED LAMB</div><div class="btn88-t2">coiledlamb.neocities.org</div></a>
+                <!-- neighbor buttons — replace .btn88-ph with <a class="btn88"><img src="..." /></a> -->
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
+                <div class="btn88-ph"><span>88x31</span></div>
               </div>
             </div>
           </div>
 
+          <!--
+          WEBRINGS + NEIGHBORS — uncomment when you join a ring
           <div class="win">
             <div class="win-bar"><div class="win-dot"></div><div class="win-dot"></div><div class="win-dot"></div><span class="win-title">webrings + neighbors</span></div>
             <div class="win-body">
@@ -253,6 +266,8 @@
               </div>
             </div>
           </div>
+          -->
+
         </div>
       </div>
 
