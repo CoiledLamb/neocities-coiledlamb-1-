@@ -22,7 +22,7 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 | `nav.js` | injects shared sidebar nav + music player on every page |
 | `nav.css` | sidebar + player styles |
 | `gallery.js` | generic category gallery (lightbox, lazy load, month tabs, sort, utterances comments) |
-| `gallery.json` | data source for gallery — managed by art-pipeline, excluded from deploy |
+| `gallery.json` | data source for gallery — managed exclusively by art-pipeline, never in this repo |
 | `build_manifest.py` / `.bat` | generates `manifest.json` with all site files catalogued |
 | `boot.js` / `boot.css` | CRT boot/intro sequence |
 | `admin/blog-admin.html` | tabbed admin UI for blog + gallery management |
@@ -33,8 +33,8 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 | `player-frame.html` | music player iframe (legacy/standalone) |
 
 ### gallery system
-- `gallery.json` is generated and maintained by the **art-pipeline** (separate repo: `CoiledLamb/art-pipeline`). That pipeline watches an `incoming/` folder, converts PNGs to WebP, uploads images to Neocities, and updates `gallery.json` directly on Neocities.
-- The copy of `gallery.json` in this repo is a stub only (`{"figures":[],"hands":[],"nsfw":[],"general":[]}`). It is excluded from deploys via `protected_files` in the workflow so the pipeline's live version is never overwritten.
+- `gallery.json` is generated and maintained exclusively by the **art-pipeline** (separate repo: `CoiledLamb/art-pipeline`). That pipeline watches an `incoming/` folder, converts PNGs to WebP, uploads images to Neocities, and updates `gallery.json` directly on the live site.
+- `gallery.json` does **not** exist in this repo. The deploy workflow removes it before upload (`rm -f gallery.json`) so the action never touches the live version.
 - `gallery.js` reads `gallery.json` which has keys per category (`figures`, `hands`, `nsfw`, `general`).
 - Each entry is `{ file, date, display }` — the pipeline may gain a `tags` field in future (see next steps).
 - Filenames encode dates: `MMDDYY` or `MDDYY` pattern.
@@ -61,8 +61,17 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 
 - Deploys via GitHub Actions (`.github/workflows/deploy.yml`) on push to `main`.
 - Neocities API key stored as GitHub Actions secret `NEOCITIES_API_KEY`.
-- **`gallery.json` is protected from deploy overwrites** via `protected_files: gallery.json` in the workflow. This was a known bug (the old `exclude:` key was silently ignored by `bcomnes/deploy-to-neocities@v3` — the correct input is `protected_files`). Fixed 2026-04-09.
+- **`gallery.json` is protected from deploy overwrites** via a `rm -f gallery.json` step that runs on the Actions runner before the upload step. This means the file simply doesn't exist in the deploy directory when the action scans for files to upload, so it is never touched.
 - `build_manifest.py` should be run locally before pushing to regenerate `manifest.json` (or add it to CI).
+
+### gallery.json deploy fix — full history
+This bug went through several attempted fixes before being resolved:
+
+1. **`exclude: gallery.json`** — not a valid input for `bcomnes/deploy-to-neocities@v3`. Silently ignored. File still uploaded.
+2. **`protected_files: gallery.json`** — is a valid input, but only protects against *cleanup deletion* (when `cleanup: true`). The docs state explicitly: "Protected files can still be updated." Since the stub exists in the repo, the action's content-diff sees a difference and uploads it regardless.
+3. **`rm -f gallery.json` pre-deploy step** ✅ — removes the file from the runner's working directory before the action scans. The action never finds it, never uploads it. Verified with a live test push (baseline 40 figures / 8 hands → deploy → still 40 figures / 8 hands).
+
+**Blind spot to monitor:** `gallery.json` still exists as a resident file in the Neocities file manager (it was uploaded by the pipeline and lives on the server). This is correct and intentional — it's the live version. The only risk would be if `cleanup: true` were ever enabled in `deploy.yml`, which would then delete it as an orphan. Do not enable `cleanup: true` without re-examining this.
 
 ---
 
@@ -70,20 +79,20 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 
 **repo:** https://github.com/CoiledLamb/art-pipeline
 
-A local Node.js process that watches `incoming/<category>/` for new PNGs, converts them to WebP via `sharp`, uploads them to Neocities, and updates `gallery.json` on both the live site and in the pipeline repo.
+A local Node.js process that watches `incoming/<category>/` for new PNGs, converts them to WebP via `sharp`, uploads them to Neocities, and updates `gallery.json` on the live site.
 
 ### running
 
-The pipeline now runs as a **pm2 background daemon** — it starts automatically on login and restarts itself if it crashes. No manual invocation needed.
+The pipeline runs as a **pm2 background daemon** — starts automatically on login, restarts on crash. No manual invocation needed.
 
-**one-time setup (already done or do once on a new machine):**
+**one-time setup (already done, or repeat on a new machine):**
 ```bash
 npm install -g pm2
 cd /path/to/art-pipeline
 git pull
 npm run pm2:start
 pm2 save
-pm2 startup   # copy and run the printed command to enable autostart
+pm2 startup   # copy and run the printed command to enable autostart on login
 ```
 
 **day-to-day commands:**
@@ -113,9 +122,6 @@ Files dropped into `incoming/private/` are skipped. Duplicate detection checks b
 ---
 
 ## known bugs / remaining work
-
-### 🟡 gallery page shows "All (0)" despite populated gallery.json
-The live figures page reads `gallery.json` but shows 0 items. The JSON is correctly populated — this is a client-side issue in `gallery.js` (likely a fetch/parse or category-matching bug). **Not yet investigated.**
 
 ### 🟡 landing page alignment at certain resolutions
 Layout breaks at specific viewport widths — likely a `nav-offset` wrapper / sidebar width interaction. Fix: audit `nav.css` flex/grid rules, add responsive breakpoints.
@@ -179,8 +185,11 @@ A calendar-style view on `artwork.html` where each day cell shows a thumbnail fo
 **nav.css**
 - Tracklist container gets `.np-tracklist` class with `max-height: 80px`, `overflow-y: auto`, and a thin monochrome scrollbar (`scrollbar-width: thin`, 3px webkit thumb in `#2a7a6e`).
 
-**deploy workflow fix (critical)**
-- `gallery.json` was being overwritten on every deploy despite the `exclude: gallery.json` key in `deploy.yml`. Root cause: `exclude` is not a valid input for `bcomnes/deploy-to-neocities@v3`. The correct input is `protected_files`. Fixed by updating `deploy.yml`. Verified live with a test push.
+**deploy workflow fix (critical) — gallery.json wipe bug**
+- Three-attempt investigation. `exclude` (invalid input, silently ignored) → `protected_files` (valid but only guards cleanup, not upload) → `rm -f gallery.json` pre-deploy step (correct fix, verified live).
+- Root cause: `bcomnes/deploy-to-neocities@v3` uses content-aware diffing and will always upload any file present in `dist_dir` that differs from the live version. The only reliable solution is to ensure the file isn't in `dist_dir` at deploy time.
+- Verified: test push with baseline 40 figures / 8 hands → deploy completed → counts unchanged.
+- Blind spot noted: `gallery.json` lives in the Neocities file manager as a resident file (correct). Would be deleted as an orphan if `cleanup: true` were ever set. Don't enable cleanup without revisiting this.
 
 **art-pipeline: pm2 background daemon**
 - Added pm2 convenience scripts to `package.json`: `pm2:start`, `pm2:stop`, `pm2:restart`, `pm2:logs`, `pm2:status`.
