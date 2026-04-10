@@ -20,6 +20,7 @@ body {
   color: #e0eeec;
   margin: 0 0 4px;
   line-height: 1; font-weight: 700;
+  text-transform: lowercase;
 }
 
 .page-subtitle {
@@ -27,6 +28,7 @@ body {
   color: #7aa8a6;
   letter-spacing: 0.05em;
   margin: 0 0 24px;
+  text-transform: lowercase;
 }
 
 /* ---- Tabs ---- */
@@ -45,6 +47,7 @@ body {
   font-family: 'Source Code Pro', monospace; font-weight: 600;
   border-radius: 2px; letter-spacing: 0.04em;
   transition: border-color 0.12s, color 0.12s;
+  text-transform: lowercase;
 }
 .tab:hover { border-color: #40a4b9; color: #b1c9c3; }
 .tab.active { color: #e0eeec; animation: oil-border 4s linear infinite; }
@@ -79,6 +82,7 @@ body {
   font-size: 11px; color: #3a6a68;
   margin-top: 5px; padding-bottom: 6px;
   font-weight: 600;
+  text-transform: lowercase;
 }
 
 /* ---- Pagination ---- */

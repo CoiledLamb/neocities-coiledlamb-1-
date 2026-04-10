@@ -26,6 +26,7 @@
   font-size: 13px; font-weight: 600;
   letter-spacing: 0.04em;
   display: block; text-decoration: none;
+  text-transform: lowercase;
 }
 
 .nav-logo-sub {
@@ -33,6 +34,7 @@
   font-size: 11px; color: #7aa8a6;
   letter-spacing: 0.04em; text-decoration: none;
   transition: color 0.15s;
+  text-transform: lowercase;
 }
 .nav-logo-sub:hover { color: #e0eeec; }
 
@@ -49,6 +51,7 @@
   text-decoration: none; letter-spacing: 0.03em;
   border: 1px solid transparent; border-radius: 2px;
   transition: color 0.12s;
+  text-transform: lowercase;
 }
 .nav-parent:hover { color: #ffffff; }
 .nav-parent.active { animation: oil-border 4s linear infinite; }
@@ -64,6 +67,7 @@
   font-size: 11px; color: #7aa8a6;
   text-decoration: none; letter-spacing: 0.02em;
   border-radius: 2px; transition: color 0.12s;
+  text-transform: lowercase;
 }
 .nav-child::before { content: ''; display: inline; color: #77bfcf; }
 .nav-child:hover { color: #e0eeec; }
@@ -209,6 +213,7 @@
   min-height: 14px;
   margin-bottom: 1px;
   padding-right: 18px;
+  text-transform: lowercase;
 }
 
 .np-track-artist {
@@ -219,6 +224,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   padding-right: 18px;
+  text-transform: lowercase;
 }
 
 .np-status {
@@ -278,7 +284,7 @@
   font-size: 9px;
   color: #3a9e8e;
   letter-spacing: 2px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   margin-bottom: 4px;
 }
 
@@ -307,7 +313,7 @@
 .np-track-item.playing .np-ti-idx { color: #a8f0e0; }
 
 .np-ti-idx  { font-size: 9px; color: #2a6a5a; min-width: 14px; }
-.np-ti-name { font-size: 9px; color: #5ab8a8; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-ti-name { font-size: 9px; color: #5ab8a8; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: lowercase; }
 .np-ti-dur  { font-size: 9px; color: #2a6a5a; }
 
 @media (max-width: 700px) {
