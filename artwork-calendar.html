@@ -32,10 +32,13 @@
     .mo-btn-prev { border-radius:2px 0 0 2px; border-right:none; }
     .mo-btn-next { border-radius:0 2px 2px 0; border-left:none; }
     .mo-btn:hover { background:rgba(255,255,255,0.12); animation:oil-border 4s linear infinite; }
+    /* label sits flush between the two buttons — top/bottom border only so
+       the three elements share one continuous outline with no gap or overlap */
     .mo-label {
       font-size:11px; color:#b1c9c3; min-width:88px; text-align:center;
       text-transform:lowercase; cursor:pointer; padding:6px 14px;
-      border:none; background:none;
+      border-top:1px solid #1e5554; border-bottom:1px solid #1e5554;
+      border-left:none; border-right:none; background:none;
       user-select:none; white-space:nowrap; letter-spacing:0.04em;
       transition:color 0.15s;
     }
@@ -339,8 +342,6 @@
     else if (nsfwSession === 'false') nsfwSession = false;
     else nsfwSession = null;
 
-    // Read ?filter= param from URL so breadcrumb links from drawing pages
-    // land with the right tag pre-selected.
     const urlParams = new URLSearchParams(window.location.search);
     const urlFilter = urlParams.get('filter');
     let activeTag = (urlFilter && VALID_TAGS.includes(urlFilter)) ? urlFilter : 'all';
