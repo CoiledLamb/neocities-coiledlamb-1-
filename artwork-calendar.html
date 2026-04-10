@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coiled Lamb — Artwork Calendar</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="boot.css" />
+  <link rel="stylesheet" href="nav.css" />
+  <style>
+    html, body { margin:0; background:#155352; color:#b1c9c3; font-family:'Source Code Pro',monospace; min-height:100vh; }
+    #site { opacity:0; transition:opacity 0.7s ease; }
+    #site.visible { opacity:1; }
+
+    .cal-page { padding:32px 32px 60px; box-sizing:border-box; }
+    h1 { margin:0 0 4px; font-size:clamp(1.4rem,2.8vw,2.2rem); line-height:1; color:#e0eeec; text-transform:lowercase; font-weight:600; }
+    .subtitle { font-size:11px; color:#7aa8a6; margin:0 0 18px; letter-spacing:0.05em; text-transform:lowercase; }
+
+    .glass { background:rgba(11,46,45,0.55); border:1px solid #1e5554; border-radius:2px; }
+    .section-label { font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:#3a6a68; margin:0 0 10px; }
+
+    .ctrl-bar { display:flex; align-items:center; justify-content:space-between; padding:9px 13px; flex-wrap:wrap; gap:7px; }
+
+    .month-nav { display:inline-flex; align-items:stretch; position:relative; }
+    .mo-btn {
+      background:rgba(255,255,255,0.06); color:#b1c9c3;
+      font-family:'Source Code Pro',monospace; font-size:16px;
+      padding:0 12px; cursor:pointer; line-height:1;
+      border:1px solid #1e5554; transition:background 0.12s, border-color 0.12s;
+      display:flex; align-items:center;
+    }
+    .mo-btn-prev { border-radius:2px 0 0 2px; border-right:none; }
+    .mo-btn-next { border-radius:0 2px 2px 0; border-left:none; }
+    .mo-btn:hover { background:rgba(255,255,255,0.12); animation:oil-border 4s linear infinite; }
+    /* label sits flush between the two buttons — top/bottom border only so
+       the three elements share one continuous outline with no gap or overlap */
+    .mo-label {
+      font-size:11px; color:#b1c9c3; min-width:88px; text-align:center;
+      text-transform:lowercase; cursor:pointer; padding:6px 14px;
+      border-top:1px solid #1e5554; border-bottom:1px solid #1e5554;
+      border-left:none; border-right:none; background:none;
+      user-select:none; white-space:nowrap; letter-spacing:0.04em;
+      transition:color 0.15s;
+    }
+    .mo-label:hover { color:#e0eeec; }
+    .mo-label.open {
+      background:linear-gradient(90deg,#40a4b9 0%,#77bfcf 18%,#9d78d4 38%,#da8bda 54%,#9d78d4 70%,#77bfcf 85%,#40a4b9 100%);
+      background-size:200% auto;
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+      animation:oil 4s linear infinite;
+    }
+
+    .mo-dropdown {
+      position:absolute; top:calc(100% + 5px); left:50%; transform:translateX(-50%);
+      background:#0b2e2d; border:1px solid #1e5554; border-radius:2px;
+      z-index:50; width:160px; padding:7px 0 6px;
+    }
+    .mo-dropdown.hidden { display:none; }
+    .mo-month-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:2px; padding:0 7px 6px; }
+    .mo-month-btn {
+      background:none; border:1px solid transparent; border-radius:2px;
+      color:#7aa8a6; font-family:'Source Code Pro',monospace; font-size:10px;
+      padding:5px 2px; cursor:pointer; text-align:center; text-transform:lowercase;
+      transition:color 0.1s, border-color 0.1s;
+    }
+    .mo-month-btn:hover { color:#e0eeec; border-color:#1e5554; }
+    .mo-month-btn.active { color:#77bfcf; border-color:#40a4b9; }
+    .mo-year-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:5px 7px 2px; border-top:1px solid #1e5554; gap:4px;
+    }
+    .mo-yr-btn {
+      background:rgba(255,255,255,0.05); border:1px solid #1e5554; color:#7aa8a6;
+      font-family:'Source Code Pro',monospace; font-size:13px;
+      padding:1px 9px; cursor:pointer; border-radius:2px;
+      transition:background 0.1s, color 0.1s; line-height:1.6; flex-shrink:0;
+    }
+    .mo-yr-btn:hover { background:rgba(255,255,255,0.11); color:#e0eeec; }
+    .mo-year-lbl { font-size:11px; color:#b1c9c3; text-align:center; flex:1; letter-spacing:0.04em; }
+
+    .tag-row { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+    .tag-lbl { font-size:9px; color:#3a6a68; letter-spacing:0.08em; text-transform:uppercase; }
+    .tag {
+      font-size:10px; padding:2px 7px; border:1px solid #1e5554; border-radius:2px;
+      cursor:pointer; color:#7aa8a6; background:transparent; text-transform:lowercase;
+      transition:border-color 0.12s, color 0.12s;
+    }
+    .tag:hover { border-color:#40a4b9; color:#e0eeec; }
+    .tag.active { background:rgba(64,164,185,0.14); border-color:#40a4b9; color:#77bfcf; }
+    .tag.active.nsfw-tag { background:rgba(157,120,212,0.12); border-color:rgba(157,120,212,0.28); color:rgba(218,139,218,0.80); }
+    .tag-count { font-size:9px; color:#3a6a68; margin-left:2px; }
+    .tag.active .tag-count { color:#40a4b9; }
+    .tag.active.nsfw-tag .tag-count { color:rgba(218,139,218,0.80); }
+
+    .nsfw-toggle {
+      font-size:10px; color:#3a6a68; display:flex; align-items:center; gap:5px;
+      cursor:pointer; padding:2px 8px; background:rgba(255,255,255,0.04);
+      border:1px solid #1e5554; border-radius:2px; text-transform:lowercase;
+      transition:color 0.12s, border-color 0.12s;
+    }
+    .nsfw-toggle:hover { color:#7aa8a6; }
+    .nsfw-toggle.unlocked { border-color:rgba(157,120,212,0.28); color:rgba(218,139,218,0.80); }
+
+    .cal-header-row { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:4px 12px 3px; }
+    .cal-dow { font-size:9px; color:#3a6a68; letter-spacing:0.08em; text-align:center; text-transform:uppercase; }
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:0 12px 12px; }
+
+    .cal-cell {
+      min-height:64px; border:1px solid #1e5554; border-radius:2px; padding:3px;
+      position:relative; background:rgba(0,0,0,0.10); cursor:default; transition:border-color 0.1s;
+    }
+    .cal-cell.has-art { cursor:pointer; }
+    .cal-cell.has-art:hover { border-color:#40a4b9; }
+    .cal-cell.has-art:hover .cell-hover { opacity:1; }
+    .cal-cell.today { animation:oil-border 4s linear infinite; }
+    .cal-cell.other-month { opacity:0.22; }
+    .cal-cell.dim { opacity:0.16; }
+    .cell-day { font-size:9px; color:#3a6a68; line-height:1; margin-bottom:3px; }
+    .cal-cell.today .cell-day { color:#77bfcf; }
+
+    .thumb-single { width:100%; border-radius:1px; overflow:hidden; border:1px solid #1e5554; background:rgba(255,255,255,0.04); }
+    .thumb-single img, .thumb-grid-item img { display:block; width:100%; height:100%; object-fit:cover; }
+    .thumb-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px; }
+    .thumb-grid-item { aspect-ratio:1; border-radius:1px; overflow:hidden; border:1px solid #1e5554; background:rgba(255,255,255,0.04); }
+    .blurred { filter:blur(5px); }
+
+    .nsfw-overlay {
+      position:absolute; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; border-radius:2px; cursor:pointer; gap:2px;
+    }
+    .nsfw-overlay-label { font-size:9px; color:rgba(218,139,218,0.80); letter-spacing:0.08em; text-transform:lowercase; opacity:0; transition:opacity 0.15s; }
+    .nsfw-age-hint { font-size:8px; color:#3a6a68; letter-spacing:0.04em; opacity:0; transition:opacity 0.15s; }
+    .cal-cell:hover .nsfw-overlay-label, .cal-cell:hover .nsfw-age-hint { opacity:1; }
+
+    .count-badge {
+      position:absolute; top:3px; right:3px; background:#40a4b9; color:#0b2e2d;
+      font-size:8px; width:13px; height:13px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center; font-weight:600;
+    }
+    .cell-hover {
+      position:absolute; inset:0; background:rgba(0,0,0,0.62); display:flex;
+      align-items:flex-end; padding:4px; opacity:0; transition:opacity 0.12s;
+      border-radius:2px; pointer-events:none;
+    }
+    .cell-hover-label { font-size:8px; color:#e0eeec; line-height:1.35; }
+
+    .art-panel { display:none; margin:0 12px 10px; }
+    .art-panel.open { display:block; }
+    .art-panel-top {
+      background:rgba(0,0,0,0.28); padding:6px 11px; border-bottom:1px solid #1e5554;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .art-panel-url { font-size:10px; color:#3a6a68; letter-spacing:0.04em; }
+    .carousel-btn {
+      background:rgba(255,255,255,0.06); border:1px solid #1e5554; color:#b1c9c3;
+      font-family:'Source Code Pro',monospace; font-size:11px; padding:2px 8px;
+      cursor:pointer; border-radius:2px; line-height:1.6; transition:background 0.15s;
+      text-transform:lowercase;
+    }
+    .carousel-btn:hover { background:rgba(255,255,255,0.12); }
+    .art-panel-body { padding:11px; display:flex; gap:11px; }
+    .art-panel-img {
+      width:96px; height:96px; border-radius:1px; background:rgba(255,255,255,0.04);
+      flex-shrink:0; border:1px solid #1e5554; overflow:hidden;
+    }
+    .art-panel-img img { width:100%; height:100%; object-fit:cover; display:block; }
+    .art-panel-meta { flex:1; min-width:0; }
+    .art-panel-title { font-size:13px; font-weight:600; margin-bottom:3px; color:#e0eeec; text-transform:lowercase; }
+    .art-panel-date { font-size:10px; color:#3a6a68; margin-bottom:6px; letter-spacing:0.04em; }
+    .art-panel-spec { font-size:10px; color:#7aa8a6; margin-bottom:6px; line-height:1.7; text-transform:lowercase; }
+    .art-panel-tags { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px; }
+    .art-tag { font-size:10px; color:#7aa8a6; border:1px solid #1e5554; border-radius:2px; padding:1px 5px; text-transform:lowercase; }
+    .art-link {
+      display:inline-block; font-size:10px; color:#77bfcf;
+      background:rgba(255,255,255,0.04); border:1px solid #1e5554; border-radius:2px;
+      padding:2px 7px; cursor:pointer; margin-right:4px; text-decoration:none;
+      text-transform:lowercase; transition:border-color 0.12s, color 0.12s, background 0.12s;
+    }
+    .art-link:hover { border-color:#40a4b9; color:#e0eeec; background:rgba(255,255,255,0.09); }
+
+    .nsfw-gate-wrap { display:none; margin:0 12px 10px; }
+    .nsfw-gate {
+      min-height:200px; background:rgba(0,0,0,0.55);
+      display:flex; align-items:center; justify-content:center; border-radius:2px;
+    }
+    .nsfw-gate-card {
+      background:#0b2e2d; border:1px solid rgba(157,120,212,0.28);
+      border-radius:2px; padding:18px 20px; width:240px; text-align:center;
+    }
+    .nsfw-gate-title { font-size:12px; font-weight:600; color:#e0eeec; margin-bottom:5px; text-transform:lowercase; letter-spacing:0.06em; }
+    .nsfw-gate-sub { font-size:10px; color:#7aa8a6; line-height:1.7; margin-bottom:12px; text-transform:lowercase; }
+    .nsfw-gate-note { font-size:9px; color:#3a6a68; margin-top:9px; line-height:1.5; text-transform:lowercase; }
+    .gate-btn {
+      font-family:'Source Code Pro',monospace; font-size:10px; background:rgba(255,255,255,0.05);
+      border:1px solid #1e5554; border-radius:2px; padding:4px 12px; cursor:pointer;
+      text-transform:lowercase; transition:background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .gate-btn-yes { color:rgba(218,139,218,0.80); border-color:rgba(157,120,212,0.28); background:rgba(157,120,212,0.12); margin-right:6px; }
+    .gate-btn-yes:hover { background:rgba(157,120,212,0.22); }
+    .gate-btn-no { color:#3a6a68; }
+    .gate-btn-no:hover { color:#7aa8a6; }
+
+    .lower-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+    .panel { padding:13px 15px; }
+    .gallery-link {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:6px 9px; margin-bottom:5px; background:rgba(11,46,45,0.60);
+      border:1px solid #1e5554; color:#b1c9c3; text-decoration:none; font-size:11px;
+      border-radius:2px; transition:border-color 0.12s, color 0.12s; text-transform:lowercase;
+    }
+    .gallery-link:hover { border-color:#40a4b9; color:#e0eeec; }
+    .gallery-link .arr { color:#3a6a68; }
+    .badge { font-size:8px; padding:1px 4px; background:rgba(157,120,212,0.12); border:1px solid rgba(157,120,212,0.28); color:rgba(218,139,218,0.80); border-radius:2px; margin-left:4px; }
+    .stat-row { display:flex; justify-content:space-between; margin-bottom:4px; align-items:baseline; }
+    .stat-lbl { font-size:10px; color:#3a6a68; text-transform:lowercase; letter-spacing:0.04em; }
+    .stat-val { font-size:10px; color:#e0eeec; font-weight:600; }
+    .proc-key { font-size:9px; text-transform:uppercase; letter-spacing:0.08em; color:#3a6a68; margin-bottom:1px; }
+    .proc-val { font-size:11px; color:#b1c9c3; text-transform:lowercase; margin-bottom:7px; }
+
+    @media(max-width:640px) { .lower-grid { grid-template-columns:1fr; } .cal-page { padding:16px 12px 40px; } }
+  </style>
+</head>
+<body>
+  <div id="scanlines"></div>
+  <div id="boot">
+    <div id="boot-ascii"></div>
+    <div id="boot-terminal"></div>
+    <div id="boot-welcome"></div>
+    <span class="boot-skip" onclick="dismissBoot()">[ press any key to skip ]</span>
+  </div>
+
+  <div id="site">
+    <script>window.NAV_ACTIVE = 'artwork';</script>
+    <script src="nav.js?v=2"></script>
+
+    <div class="cal-page">
+      <h1>artwork</h1>
+      <p class="subtitle">figure drawing / hands / anatomy</p>
+
+      <div class="glass" style="margin-bottom:12px;">
+
+        <div class="ctrl-bar">
+          <div class="month-nav">
+            <button class="mo-btn mo-btn-prev" id="prev-mo">&#8249;</button>
+            <span class="mo-label" id="month-label">loading...</span>
+            <button class="mo-btn mo-btn-next" id="next-mo">&#8250;</button>
+            <div class="mo-dropdown hidden" id="mo-dropdown">
+              <div class="mo-month-grid" id="mo-month-grid"></div>
+              <div class="mo-year-row">
+                <button class="mo-yr-btn" id="yr-prev">&#8249;</button>
+                <span class="mo-year-lbl" id="mo-year-lbl">2026</span>
+                <button class="mo-yr-btn" id="yr-next">&#8250;</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tag-row">
+            <span class="tag-lbl">filter:</span>
+            <span class="tag" data-tag="all">all <span class="tag-count" id="tc-all"></span></span>
+            <span class="tag" data-tag="figures">figures <span class="tag-count" id="tc-figures"></span></span>
+            <span class="tag" data-tag="hands">hands <span class="tag-count" id="tc-hands"></span></span>
+            <span class="tag" data-tag="anatomy">anatomy <span class="tag-count" id="tc-anatomy"></span></span>
+            <span class="tag" data-tag="sketch">sketch <span class="tag-count" id="tc-sketch"></span></span>
+            <span class="tag nsfw-tag" data-tag="nsfw" id="nsfw-filter-tag">nsfw <span class="tag-count" id="tc-nsfw"></span></span>
+          </div>
+
+          <div class="nsfw-toggle" id="nsfw-toggle-btn">
+            <span id="nsfw-ico">&#9632;</span>
+            <span id="nsfw-lbl">nsfw hidden</span>
+          </div>
+        </div>
+
+        <div class="nsfw-gate-wrap" id="nsfw-gate-wrap">
+          <div class="nsfw-gate">
+            <div class="nsfw-gate-card">
+              <div class="nsfw-gate-title">18+ content</div>
+              <div class="nsfw-gate-sub">this section contains explicit artwork.<br>are you 18 or older?</div>
+              <button class="gate-btn gate-btn-yes" id="gate-yes">yes, i am 18+</button>
+              <button class="gate-btn gate-btn-no" id="gate-no">no</button>
+              <div class="nsfw-gate-note">remembered for this session only.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="art-panel glass" id="art-panel">
+          <div class="art-panel-top">
+            <span class="art-panel-url" id="panel-url">coiledlamb.neocities.org/art/-</span>
+            <button class="carousel-btn" id="close-panel">&#x2715; close</button>
+          </div>
+          <div class="art-panel-body">
+            <div class="art-panel-img" id="panel-img"></div>
+            <div class="art-panel-meta">
+              <div class="art-panel-title" id="panel-title">-</div>
+              <div class="art-panel-date" id="panel-date">-</div>
+              <div class="art-panel-spec" id="panel-spec">-</div>
+              <div class="art-panel-tags" id="panel-tags"></div>
+              <a class="art-link" id="panel-page-link" href="#">&#8594; view full page</a>
+              <a class="art-link" href="artwork-calendar.html">&#8592; back to calendar</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="cal-header-row">
+          <div class="cal-dow">sun</div><div class="cal-dow">mon</div><div class="cal-dow">tue</div>
+          <div class="cal-dow">wed</div><div class="cal-dow">thu</div><div class="cal-dow">fri</div><div class="cal-dow">sat</div>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+
+      <div class="lower-grid">
+        <div class="glass panel">
+          <p class="section-label">galleries</p>
+          <a class="gallery-link" href="figures.html"><span>figures</span><span class="arr">&#8250;</span></a>
+          <a class="gallery-link" href="hands.html"><span>hands</span><span class="arr">&#8250;</span></a>
+          <a class="gallery-link" href="nsfw.html"><span>nsfw <span class="badge">18+</span></span><span class="arr">&#8250;</span></a>
+          <div style="margin-top:11px; border-top:1px solid #1e5554; padding-top:10px;">
+            <div class="stat-row"><span class="stat-lbl">this month</span><span class="stat-val" id="s-month">-</span></div>
+            <div class="stat-row"><span class="stat-lbl">this year</span><span class="stat-val" id="s-year">-</span></div>
+            <div class="stat-row"><span class="stat-lbl">figures (month)</span><span class="stat-val" id="s-fig">-</span></div>
+            <div class="stat-row"><span class="stat-lbl">hands (month)</span><span class="stat-val" id="s-hands">-</span></div>
+          </div>
+        </div>
+        <div class="glass panel">
+          <p class="section-label">process &amp; tools</p>
+          <div class="proc-key">tablet</div><div class="proc-val">wacom cintiq 16"</div>
+          <div class="proc-key">program</div><div class="proc-val">clip studio paint 3.0</div>
+          <div class="proc-key">source</div><div class="proc-val">line of action</div>
+          <div class="proc-key">session type</div><div class="proc-val">class style, timed poses</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="boot.js"></script>
+  <script>
+    const PIECES = [];
+    const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    const VALID_TAGS = ['all','figures','hands','anatomy','sketch','nsfw'];
+
+    let nsfwSession = sessionStorage.getItem('nsfwOk');
+    if (nsfwSession === 'true') nsfwSession = true;
+    else if (nsfwSession === 'false') nsfwSession = false;
+    else nsfwSession = null;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlFilter = urlParams.get('filter');
+    let activeTag = (urlFilter && VALID_TAGS.includes(urlFilter)) ? urlFilter : 'all';
+
+    let currentMonth = new Date(); currentMonth.setDate(1);
+    let dropdownYear = currentMonth.getFullYear();
+    let dropdownOpen = false;
+
+    function isBlurred(p) { return p.nsfw && nsfwSession !== true; }
+    function countForYear(yr) { return PIECES.filter(p => new Date(p.date).getFullYear() === yr).length; }
+    function getMonthStr(d) { return d.toLocaleString('en-US', {month:'long', year:'numeric'}).toLowerCase(); }
+
+    function applyActiveTag() {
+      document.querySelectorAll('.tag').forEach(function(t) {
+        t.classList.toggle('active', t.dataset.tag === activeTag);
+      });
+    }
+
+    function updateTagCounts() {
+      const yr = currentMonth.getFullYear(), mo = currentMonth.getMonth();
+      const mp = PIECES.filter(p => { const d = new Date(p.date); return d.getFullYear()===yr && d.getMonth()===mo; });
+      VALID_TAGS.forEach(function(tag) {
+        const el = document.getElementById('tc-' + tag); if (!el) return;
+        const n = tag === 'all' ? mp.length : mp.filter(p => p.tags && p.tags.includes(tag)).length;
+        el.textContent = n > 0 ? '(' + n + ')' : '';
+      });
+    }
+
+    function buildCalendar() {
+      const grid = document.getElementById('cal-grid'); grid.innerHTML = '';
+      const yr = currentMonth.getFullYear(), mo = currentMonth.getMonth();
+      const firstDay = new Date(yr, mo, 1).getDay();
+      const daysInMonth = new Date(yr, mo+1, 0).getDate();
+      const daysInPrev = new Date(yr, mo, 0).getDate();
+      const t = new Date();
+      const todayStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+      const cells = [];
+      for (let i = firstDay-1; i >= 0; i--) cells.push({day: daysInPrev-i, cur: false});
+      for (let d = 1; d <= daysInMonth; d++) cells.push({day: d, cur: true});
+      while (cells.length % 7 !== 0) cells.push({day: cells.length - firstDay - daysInMonth + 1, cur: false});
+
+      let tot = 0, fig = 0, hands = 0;
+      cells.forEach(function(c) {
+        const cell = document.createElement('div');
+        cell.className = 'cal-cell' + (c.cur ? '' : ' other-month');
+        const ds = c.cur ? (yr + '-' + String(mo+1).padStart(2,'0') + '-' + String(c.day).padStart(2,'0')) : null;
+        if (ds === todayStr) cell.classList.add('today');
+        const dn = document.createElement('div'); dn.className = 'cell-day'; dn.textContent = c.day; cell.appendChild(dn);
+
+        if (c.cur && ds) {
+          const dayP = PIECES.filter(p => p.date === ds);
+          const filtered = activeTag === 'all' ? dayP : dayP.filter(p => p.tags && p.tags.includes(activeTag));
+          if (dayP.length > 0 && filtered.length === 0) cell.classList.add('dim');
+          if (filtered.length > 0) {
+            cell.classList.add('has-art');
+            const blurOnes = filtered.filter(p => isBlurred(p));
+            const clearOnes = filtered.filter(p => !isBlurred(p));
+            tot += filtered.length;
+            filtered.forEach(p => { if (p.tags && p.tags.includes('figures')) fig++; if (p.tags && p.tags.includes('hands')) hands++; });
+
+            if (filtered.length === 1) {
+              const tw = document.createElement('div'); tw.className = 'thumb-single';
+              if (isBlurred(filtered[0])) tw.classList.add('blurred');
+              const im = document.createElement('img'); im.src = '/images/' + filtered[0].category + '/' + filtered[0].file; im.alt = '';
+              tw.appendChild(im); cell.appendChild(tw);
+            } else {
+              const tg = document.createElement('div'); tg.className = 'thumb-grid';
+              filtered.slice(0,4).forEach(function(p) {
+                const ti = document.createElement('div'); ti.className = 'thumb-grid-item';
+                if (isBlurred(p)) ti.classList.add('blurred');
+                const im = document.createElement('img'); im.src = '/images/' + p.category + '/' + p.file; im.alt = '';
+                ti.appendChild(im); tg.appendChild(ti);
+              }); cell.appendChild(tg);
+            }
+            if (filtered.length > 1) {
+              const b = document.createElement('div'); b.className = 'count-badge'; b.textContent = filtered.length; cell.appendChild(b);
+            }
+            const hov = document.createElement('div'); hov.className = 'cell-hover';
+            if (clearOnes.length > 0) hov.innerHTML = '<div class="cell-hover-label">' + clearOnes.map(p => p.title || p.file).join('<br>') + '</div>';
+            cell.appendChild(hov);
+
+            if (blurOnes.length > 0) {
+              const ov = document.createElement('div'); ov.className = 'nsfw-overlay';
+              ov.innerHTML = '<div class="nsfw-overlay-label">nsfw 18+</div><div class="nsfw-age-hint">' + (nsfwSession === null ? 'click to verify age' : '') + '</div>';
+              ov.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (nsfwSession === null) showGate(blurOnes[0]);
+                else if (nsfwSession === true) openPanel(blurOnes[0]);
+              }); cell.appendChild(ov);
+            }
+            if (clearOnes.length > 0) cell.addEventListener('click', function() { openPanel(clearOnes[0]); });
+          }
+        }
+        grid.appendChild(cell);
+      });
+
+      document.getElementById('s-month').textContent = tot;
+      document.getElementById('s-year').textContent = countForYear(yr);
+      document.getElementById('s-fig').textContent = fig;
+      document.getElementById('s-hands').textContent = hands;
+      updateTagCounts();
+      if (dropdownOpen) buildDropdownGrid();
+    }
+
+    function buildDropdownGrid() {
+      const g = document.getElementById('mo-month-grid'); g.innerHTML = '';
+      MONTHS.forEach(function(m, i) {
+        const b = document.createElement('button'); b.className = 'mo-month-btn'; b.textContent = m;
+        if (dropdownYear === currentMonth.getFullYear() && i === currentMonth.getMonth()) b.classList.add('active');
+        b.addEventListener('click', function() {
+          currentMonth = new Date(dropdownYear, i, 1);
+          document.getElementById('month-label').textContent = getMonthStr(currentMonth);
+          closeDropdown(); buildCalendar();
+        });
+        g.appendChild(b);
+      });
+      document.getElementById('mo-year-lbl').textContent = dropdownYear;
+    }
+    function openDropdown() {
+      dropdownYear = currentMonth.getFullYear(); buildDropdownGrid();
+      document.getElementById('mo-dropdown').classList.remove('hidden');
+      document.getElementById('month-label').classList.add('open');
+      dropdownOpen = true;
+    }
+    function closeDropdown() {
+      document.getElementById('mo-dropdown').classList.add('hidden');
+      document.getElementById('month-label').classList.remove('open');
+      dropdownOpen = false;
+    }
+
+    document.getElementById('month-label').addEventListener('click', function() { dropdownOpen ? closeDropdown() : openDropdown(); });
+    document.getElementById('yr-prev').addEventListener('click', function() { dropdownYear--; buildDropdownGrid(); });
+    document.getElementById('yr-next').addEventListener('click', function() { dropdownYear++; buildDropdownGrid(); });
+    document.addEventListener('click', function(e) { if (dropdownOpen && !e.target.closest('.month-nav')) closeDropdown(); });
+    document.getElementById('prev-mo').addEventListener('click', function() {
+      currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth()-1, 1);
+      document.getElementById('month-label').textContent = getMonthStr(currentMonth);
+      buildCalendar();
+    });
+    document.getElementById('next-mo').addEventListener('click', function() {
+      currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth()+1, 1);
+      document.getElementById('month-label').textContent = getMonthStr(currentMonth);
+      buildCalendar();
+    });
+
+    function showGate(piece) {
+      const w = document.getElementById('nsfw-gate-wrap'); w.style.display = 'block';
+      w.dataset.pending = piece ? piece.slug : '';
+      w.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+    document.getElementById('gate-yes').addEventListener('click', function() {
+      nsfwSession = true; sessionStorage.setItem('nsfwOk', 'true');
+      document.getElementById('nsfw-gate-wrap').style.display = 'none';
+      updateToggle(); buildCalendar();
+      const pend = PIECES.find(p => p.slug === document.getElementById('nsfw-gate-wrap').dataset.pending);
+      if (pend) openPanel(pend);
+    });
+    document.getElementById('gate-no').addEventListener('click', function() {
+      nsfwSession = false; sessionStorage.setItem('nsfwOk', 'false');
+      document.getElementById('nsfw-gate-wrap').style.display = 'none';
+      updateToggle(); buildCalendar();
+    });
+    document.getElementById('nsfw-toggle-btn').addEventListener('click', function() {
+      if (nsfwSession === true) { nsfwSession = null; sessionStorage.removeItem('nsfwOk'); updateToggle(); buildCalendar(); }
+      else showGate(null);
+    });
+    function updateToggle() {
+      const btn = document.getElementById('nsfw-toggle-btn');
+      if (nsfwSession === true) { btn.classList.add('unlocked'); document.getElementById('nsfw-lbl').textContent = 'nsfw visible'; document.getElementById('nsfw-ico').textContent = '\u25cb'; }
+      else { btn.classList.remove('unlocked'); document.getElementById('nsfw-lbl').textContent = 'nsfw hidden'; document.getElementById('nsfw-ico').textContent = '\u25a0'; }
+      document.getElementById('nsfw-filter-tag').style.opacity = nsfwSession === true ? '1' : '0.45';
+    }
+
+    function openPanel(p) {
+      const panel = document.getElementById('art-panel'); panel.classList.add('open');
+      document.getElementById('panel-url').textContent = 'coiledlamb.neocities.org/art/' + (p.slug || p.file);
+      document.getElementById('panel-title').textContent = p.title || p.file;
+      document.getElementById('panel-date').textContent = p.display || p.date || '';
+      document.getElementById('panel-img').innerHTML = '<img src="/images/' + (p.category || 'general') + '/' + p.file + '" alt="" style="width:100%;height:100%;object-fit:cover;">';
+      const spec = ['cintiq 16" \u00b7 clip studio paint 3.0', 'source: ' + (p.source || '\u2014')];
+      if (p.session) spec.push('session: ' + p.session);
+      document.getElementById('panel-spec').innerHTML = spec.join('<br>');
+      document.getElementById('panel-tags').innerHTML = (p.tags || []).map(t => '<span class="art-tag">' + t + '</span>').join('');
+      const pageLink = document.getElementById('panel-page-link');
+      if (pageLink && p.slug) pageLink.href = 'art/' + p.slug + '.html';
+      panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+    document.getElementById('close-panel').addEventListener('click', function() { document.getElementById('art-panel').classList.remove('open'); });
+    document.querySelectorAll('.tag').forEach(function(t) {
+      t.addEventListener('click', function() {
+        document.querySelectorAll('.tag').forEach(x => x.classList.remove('active'));
+        t.classList.add('active'); activeTag = t.dataset.tag; buildCalendar();
+      });
+    });
+
+    async function loadGallery() {
+      try {
+        const res = await fetch('gallery.json', {cache:'no-store'});
+        const data = await res.json();
+        Object.entries(data).forEach(function([cat, items]) {
+          if (!Array.isArray(items)) return;
+          items.forEach(function(item) {
+            const file = typeof item === 'string' ? item : item.file;
+            const date = typeof item === 'object' ? (item.date || null) : null;
+            const display = typeof item === 'object' ? (item.display || null) : null;
+            const tags = typeof item === 'object' && item.tags ? item.tags : [cat];
+            const isNsfw = cat === 'nsfw' || (Array.isArray(tags) && tags.includes('nsfw'));
+            if (file) PIECES.push({
+              file, date, display,
+              slug: typeof item === 'object' && item.slug ? item.slug : file.replace('.webp',''),
+              title: typeof item === 'object' && item.title ? item.title : file.replace('.webp',''),
+              category: cat,
+              tags: isNsfw && !tags.includes('nsfw') ? [...tags, 'nsfw'] : tags,
+              nsfw: isNsfw,
+              source: typeof item === 'object' && item.source ? item.source : 'line of action',
+              session: typeof item === 'object' && item.session ? item.session : null,
+            });
+          });
+        });
+      } catch(_) {}
+      document.getElementById('month-label').textContent = getMonthStr(currentMonth);
+      applyActiveTag();
+      updateToggle();
+      buildCalendar();
+    }
+
+    document.addEventListener('keydown', function(e) { if (document.getElementById('boot').style.display !== 'none') dismissBoot(); });
+    loadGallery();
+    startBoot();
+  </script>
+</body>
+</html>
