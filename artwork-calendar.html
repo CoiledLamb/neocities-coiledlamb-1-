@@ -253,7 +253,7 @@
 
           <div class="tag-row">
             <span class="tag-lbl">filter:</span>
-            <span class="tag active" data-tag="all">all <span class="tag-count" id="tc-all"></span></span>
+            <span class="tag" data-tag="all">all <span class="tag-count" id="tc-all"></span></span>
             <span class="tag" data-tag="figures">figures <span class="tag-count" id="tc-figures"></span></span>
             <span class="tag" data-tag="hands">hands <span class="tag-count" id="tc-hands"></span></span>
             <span class="tag" data-tag="anatomy">anatomy <span class="tag-count" id="tc-anatomy"></span></span>
@@ -332,13 +332,19 @@
   <script>
     const PIECES = [];
     const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    const VALID_TAGS = ['all','figures','hands','anatomy','sketch','nsfw'];
 
     let nsfwSession = sessionStorage.getItem('nsfwOk');
     if (nsfwSession === 'true') nsfwSession = true;
     else if (nsfwSession === 'false') nsfwSession = false;
     else nsfwSession = null;
 
-    let activeTag = 'all';
+    // Read ?filter= param from URL so breadcrumb links from drawing pages
+    // land with the right tag pre-selected.
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlFilter = urlParams.get('filter');
+    let activeTag = (urlFilter && VALID_TAGS.includes(urlFilter)) ? urlFilter : 'all';
+
     let currentMonth = new Date(); currentMonth.setDate(1);
     let dropdownYear = currentMonth.getFullYear();
     let dropdownOpen = false;
@@ -347,10 +353,16 @@
     function countForYear(yr) { return PIECES.filter(p => new Date(p.date).getFullYear() === yr).length; }
     function getMonthStr(d) { return d.toLocaleString('en-US', {month:'long', year:'numeric'}).toLowerCase(); }
 
+    function applyActiveTag() {
+      document.querySelectorAll('.tag').forEach(function(t) {
+        t.classList.toggle('active', t.dataset.tag === activeTag);
+      });
+    }
+
     function updateTagCounts() {
       const yr = currentMonth.getFullYear(), mo = currentMonth.getMonth();
       const mp = PIECES.filter(p => { const d = new Date(p.date); return d.getFullYear()===yr && d.getMonth()===mo; });
-      ['all','figures','hands','anatomy','sketch','nsfw'].forEach(function(tag) {
+      VALID_TAGS.forEach(function(tag) {
         const el = document.getElementById('tc-' + tag); if (!el) return;
         const n = tag === 'all' ? mp.length : mp.filter(p => p.tags && p.tags.includes(tag)).length;
         el.textContent = n > 0 ? '(' + n + ')' : '';
@@ -506,7 +518,7 @@
       const panel = document.getElementById('art-panel'); panel.classList.add('open');
       document.getElementById('panel-url').textContent = 'coiledlamb.neocities.org/art/' + (p.slug || p.file);
       document.getElementById('panel-title').textContent = p.title || p.file;
-      document.getElementById('panel-date').textContent = p.date || '';
+      document.getElementById('panel-date').textContent = p.display || p.date || '';
       document.getElementById('panel-img').innerHTML = '<img src="/images/' + (p.category || 'general') + '/' + p.file + '" alt="" style="width:100%;height:100%;object-fit:cover;">';
       const spec = ['cintiq 16" \u00b7 clip studio paint 3.0', 'source: ' + (p.source || '\u2014')];
       if (p.session) spec.push('session: ' + p.session);
@@ -533,10 +545,11 @@
           items.forEach(function(item) {
             const file = typeof item === 'string' ? item : item.file;
             const date = typeof item === 'object' ? (item.date || null) : null;
+            const display = typeof item === 'object' ? (item.display || null) : null;
             const tags = typeof item === 'object' && item.tags ? item.tags : [cat];
             const isNsfw = cat === 'nsfw' || (Array.isArray(tags) && tags.includes('nsfw'));
             if (file) PIECES.push({
-              file, date,
+              file, date, display,
               slug: typeof item === 'object' && item.slug ? item.slug : file.replace('.webp',''),
               title: typeof item === 'object' && item.title ? item.title : file.replace('.webp',''),
               category: cat,
@@ -549,6 +562,7 @@
         });
       } catch(_) {}
       document.getElementById('month-label').textContent = getMonthStr(currentMonth);
+      applyActiveTag();
       updateToggle();
       buildCalendar();
     }
