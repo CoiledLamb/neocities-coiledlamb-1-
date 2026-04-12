@@ -1,6 +1,6 @@
 /* ==============================================
    GISCUS CUSTOM THEME — coiled lamb
-   Loaded via data-theme on the giscus script tag.
+   option 1: glass frame, count top-left, reactions off
    ============================================== */
 
 @keyframes oil-border {
@@ -11,6 +11,42 @@
   100% { border-color: #40a4b9; }
 }
 
+/* ---- CSS variables (Primer overrides) ---- */
+main {
+  --color-canvas-default: rgba(11,46,45,0.55);
+  --color-canvas-inset: rgba(11,46,45,0.65);
+  --color-canvas-subtle: rgba(11,46,45,0.4);
+  --color-canvas-overlay: #0b2e2d;
+  --color-fg-default: #c8deda;
+  --color-fg-muted: #7aa8a6;
+  --color-fg-subtle: #3a6a68;
+  --color-border-default: #1e5554;
+  --color-border-muted: #1e5554;
+  --color-btn-text: #c8deda;
+  --color-btn-bg: rgba(11,46,45,0.55);
+  --color-btn-border: #1e5554;
+  --color-btn-hover-bg: #2a7a6e;
+  --color-btn-hover-border: #40a4b9;
+  --color-btn-active-bg: #2a7a6e;
+  --color-btn-primary-text: #c8deda;
+  --color-btn-primary-bg: rgba(11,46,45,0.55);
+  --color-btn-primary-border: #1e5554;
+  --color-btn-primary-hover-bg: #2a7a6e;
+  --color-btn-primary-hover-border: #40a4b9;
+  --color-btn-selected-bg: rgba(11,46,45,0.65);
+  --color-segmented-control-bg: rgba(11,46,45,0.4);
+  --color-segmented-control-button-bg: rgba(11,46,45,0.55);
+  --color-segmented-control-button-selected-border: #1e5554;
+  --color-accent-fg: #77bfcf;
+  --color-accent-emphasis: #40a4b9;
+  --color-accent-muted: rgba(64,164,185,0.3);
+  --color-accent-subtle: rgba(64,164,185,0.1);
+  --color-neutral-muted: rgba(30,85,84,0.4);
+  --color-primer-shadow-inset: 0 0 #0000;
+  --color-social-reaction-bg-hover: rgba(11,46,45,0.7);
+  --color-social-reaction-bg-reacted-hover: rgba(64,164,185,0.15);
+}
+
 /* ---- Base ---- */
 body {
   background: transparent !important;
@@ -19,10 +55,124 @@ body {
   font-size: 13px !important;
 }
 
-/* ---- All text ---- */
-p, span, div, h1, h2, h3, h4, label, li, strong, em {
+/* ---- Hide reactions entirely ---- */
+.gsc-reactions {
+  display: none !important;
+}
+
+/* ---- Hide giscus's own header (we have our own "comments" label) ---- */
+.gsc-header {
+  display: none !important;
+}
+
+/* ---- Main comment box — glass frame ---- */
+.gsc-comment-box {
+  background: rgba(11,46,45,0.55) !important;
+  border: 1px solid #1e5554 !important;
+  border-radius: 2px !important;
+}
+
+/* ---- Tabs (Write / Preview) ---- */
+.gsc-comment-box-tabs {
+  border-bottom: 1px solid #1e5554 !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+[role="tab"] {
+  color: #3a6a68 !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 2px 2px 0 0 !important;
+  font-family: 'Source Code Pro', monospace !important;
+  font-size: 12px !important;
+}
+[role="tab"][aria-selected="true"] {
+  color: #c8deda !important;
+  background: rgba(11,46,45,0.65) !important;
+  border-color: #1e5554 !important;
+  border-bottom-color: transparent !important;
+}
+[role="tab"]:hover {
+  color: #c8deda !important;
+}
+
+/* ---- Textarea ---- */
+textarea {
+  background: rgba(11,46,45,0.65) !important;
+  border: 0 !important;
   color: #c8deda !important;
   font-family: 'Source Code Pro', monospace !important;
+  font-size: 13px !important;
+  outline: none !important;
+  box-shadow: none !important;
+  resize: vertical !important;
+}
+textarea::placeholder {
+  color: #3a6a68 !important;
+}
+textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.gsc-comment-box-main {
+  border: 1px solid #1e5554 !important;
+  border-radius: 2px !important;
+  overflow: hidden !important;
+}
+.gsc-comment-box-main:focus-within {
+  border-color: #40a4b9 !important;
+  animation: oil-border 4s linear infinite !important;
+}
+
+/* ---- Hide markdown toolbar bar ---- */
+.gsc-comment-box-bottom {
+  background: transparent !important;
+  border-top: 1px solid #1e5554 !important;
+}
+.gsc-comment-box-md-toolbar {
+  display: none !important;
+}
+
+/* ---- Footer row (comment count + sign-in button) ---- */
+.gsc-comments > .gsc-header {
+  display: flex !important;
+}
+.gsc-left-header {
+  color: #7aa8a6 !important;
+  font-size: 11px !important;
+  font-family: 'Source Code Pro', monospace !important;
+}
+
+/* ---- All buttons ---- */
+button, [role="button"], .btn {
+  background: rgba(11,46,45,0.55) !important;
+  border: 1px solid #1e5554 !important;
+  border-radius: 2px !important;
+  color: #c8deda !important;
+  font-family: 'Source Code Pro', monospace !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
+  transition: background 0.15s, border-color 0.15s !important;
+}
+button:hover, [role="button"]:hover, .btn:hover,
+button:active, [role="button"]:active, .btn:active {
+  background: #2a7a6e !important;
+  border-color: #40a4b9 !important;
+  animation: oil-border 4s linear infinite !important;
+  color: #c8deda !important;
+  box-shadow: none !important;
+}
+
+/* ---- Sign in button specifically ---- */
+.gsc-comment-box-bottom .btn {
+  background: rgba(11,46,45,0.55) !important;
+  border: 1px solid #1e5554 !important;
+  color: #c8deda !important;
+}
+
+/* ---- Octocat / GitHub SVG icons ---- */
+svg path {
+  fill: #7aa8a6 !important;
 }
 
 /* ---- Links ---- */
@@ -33,83 +183,9 @@ a:hover {
   color: #e0eeec !important;
 }
 
-/* ---- Inputs and textareas ---- */
-input, textarea {
-  background: rgba(11,46,45,0.65) !important;
-  border: 1px solid #1e5554 !important;
-  border-radius: 2px !important;
-  color: #c8deda !important;
-  font-family: 'Source Code Pro', monospace !important;
-  font-size: 13px !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-input::placeholder, textarea::placeholder {
-  color: #3a6a68 !important;
-}
-input:focus, textarea:focus {
-  border-color: #40a4b9 !important;
-  animation: oil-border 4s linear infinite !important;
-  box-shadow: none !important;
-}
-
-/* ---- All buttons ---- */
-button, [role="button"] {
-  background: rgba(11,46,45,0.55) !important;
-  border: 1px solid #1e5554 !important;
-  border-radius: 2px !important;
-  color: #c8deda !important;
-  font-family: 'Source Code Pro', monospace !important;
-  font-size: 13px !important;
-  box-shadow: none !important;
-  transition: background 0.15s, border-color 0.15s !important;
-  cursor: pointer !important;
-}
-button:hover, [role="button"]:hover,
-button:focus, [role="button"]:focus,
-button:active, [role="button"]:active {
-  background: #2a7a6e !important;
-  border-color: #40a4b9 !important;
-  animation: oil-border 4s linear infinite !important;
-  color: #c8deda !important;
-  box-shadow: none !important;
-}
-
-/* ---- SVG icons ---- */
-svg path {
-  fill: #7aa8a6 !important;
-}
-
-/* ---- Backgrounds ---- */
-div, section, article, main, header, footer, nav, aside, form {
-  background: transparent !important;
-}
-
 /* ---- Borders ---- */
 [class*="border"], hr {
   border-color: #1e5554 !important;
-}
-
-/* ---- Tabs (Write/Preview) ---- */
-[role="tab"] {
-  color: #7aa8a6 !important;
-  background: transparent !important;
-  border-color: #1e5554 !important;
-}
-[role="tab"][aria-selected="true"], [role="tab"]:hover {
-  color: #c8deda !important;
-  background: rgba(11,46,45,0.55) !important;
-}
-
-/* ---- Reactions ---- */
-.reaction-button {
-  background: rgba(11,46,45,0.55) !important;
-  border-color: #1e5554 !important;
-}
-
-/* ---- Comment header / meta ---- */
-.color-fg-muted, .color-fg-subtle {
-  color: #7aa8a6 !important;
 }
 
 /* ---- Code blocks inside comments ---- */
@@ -118,4 +194,9 @@ pre, code {
   border: 1px solid #1e5554 !important;
   color: #b1c9c3 !important;
   border-radius: 2px !important;
+}
+
+/* ---- Meta text ---- */
+.color-fg-muted, .color-fg-subtle, .text-sm {
+  color: #7aa8a6 !important;
 }
