@@ -1,0 +1,121 @@
+/* ==============================================
+   GISCUS CUSTOM THEME — coiled lamb
+   Loaded via data-theme on the giscus script tag.
+   ============================================== */
+
+@keyframes oil-border {
+  0%   { border-color: #40a4b9; }
+  25%  { border-color: #77bfcf; }
+  50%  { border-color: #da8bda; }
+  75%  { border-color: #9d78d4; }
+  100% { border-color: #40a4b9; }
+}
+
+/* ---- Base ---- */
+body {
+  background: transparent !important;
+  color: #c8deda !important;
+  font-family: 'Source Code Pro', monospace !important;
+  font-size: 13px !important;
+}
+
+/* ---- All text ---- */
+p, span, div, h1, h2, h3, h4, label, li, strong, em {
+  color: #c8deda !important;
+  font-family: 'Source Code Pro', monospace !important;
+}
+
+/* ---- Links ---- */
+a {
+  color: #77bfcf !important;
+}
+a:hover {
+  color: #e0eeec !important;
+}
+
+/* ---- Inputs and textareas ---- */
+input, textarea {
+  background: rgba(11,46,45,0.65) !important;
+  border: 1px solid #1e5554 !important;
+  border-radius: 2px !important;
+  color: #c8deda !important;
+  font-family: 'Source Code Pro', monospace !important;
+  font-size: 13px !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+input::placeholder, textarea::placeholder {
+  color: #3a6a68 !important;
+}
+input:focus, textarea:focus {
+  border-color: #40a4b9 !important;
+  animation: oil-border 4s linear infinite !important;
+  box-shadow: none !important;
+}
+
+/* ---- All buttons ---- */
+button, [role="button"] {
+  background: rgba(11,46,45,0.55) !important;
+  border: 1px solid #1e5554 !important;
+  border-radius: 2px !important;
+  color: #c8deda !important;
+  font-family: 'Source Code Pro', monospace !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
+  transition: background 0.15s, border-color 0.15s !important;
+  cursor: pointer !important;
+}
+button:hover, [role="button"]:hover,
+button:focus, [role="button"]:focus,
+button:active, [role="button"]:active {
+  background: #2a7a6e !important;
+  border-color: #40a4b9 !important;
+  animation: oil-border 4s linear infinite !important;
+  color: #c8deda !important;
+  box-shadow: none !important;
+}
+
+/* ---- SVG icons ---- */
+svg path {
+  fill: #7aa8a6 !important;
+}
+
+/* ---- Backgrounds ---- */
+div, section, article, main, header, footer, nav, aside, form {
+  background: transparent !important;
+}
+
+/* ---- Borders ---- */
+[class*="border"], hr {
+  border-color: #1e5554 !important;
+}
+
+/* ---- Tabs (Write/Preview) ---- */
+[role="tab"] {
+  color: #7aa8a6 !important;
+  background: transparent !important;
+  border-color: #1e5554 !important;
+}
+[role="tab"][aria-selected="true"], [role="tab"]:hover {
+  color: #c8deda !important;
+  background: rgba(11,46,45,0.55) !important;
+}
+
+/* ---- Reactions ---- */
+.reaction-button {
+  background: rgba(11,46,45,0.55) !important;
+  border-color: #1e5554 !important;
+}
+
+/* ---- Comment header / meta ---- */
+.color-fg-muted, .color-fg-subtle {
+  color: #7aa8a6 !important;
+}
+
+/* ---- Code blocks inside comments ---- */
+pre, code {
+  background: rgba(11,46,45,0.8) !important;
+  border: 1px solid #1e5554 !important;
+  color: #b1c9c3 !important;
+  border-radius: 2px !important;
+}
