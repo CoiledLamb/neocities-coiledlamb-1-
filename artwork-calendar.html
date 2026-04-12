@@ -32,8 +32,6 @@
     .mo-btn-prev { border-radius:2px 0 0 2px; border-right:none; }
     .mo-btn-next { border-radius:0 2px 2px 0; border-left:none; }
     .mo-btn:hover { background:rgba(255,255,255,0.12); animation:oil-border 4s linear infinite; }
-    /* label sits flush between the two buttons — top/bottom border only so
-       the three elements share one continuous outline with no gap or overlap */
     .mo-label {
       font-size:11px; color:#b1c9c3; min-width:88px; text-align:center;
       text-transform:lowercase; cursor:pointer; padding:6px 14px;
@@ -162,7 +160,9 @@
     .art-panel-img {
       width:96px; height:96px; border-radius:1px; background:rgba(255,255,255,0.04);
       flex-shrink:0; border:1px solid #1e5554; overflow:hidden;
+      cursor:pointer; transition:border-color 0.12s;
     }
+    .art-panel-img:hover { border-color:#40a4b9; }
     .art-panel-img img { width:100%; height:100%; object-fit:cover; display:block; }
     .art-panel-meta { flex:1; min-width:0; }
     .art-panel-title { font-size:13px; font-weight:600; margin-bottom:3px; color:#e0eeec; text-transform:lowercase; }
@@ -520,15 +520,28 @@
       document.getElementById('panel-url').textContent = 'coiledlamb.neocities.org/art/' + (p.slug || p.file);
       document.getElementById('panel-title').textContent = p.title || p.file;
       document.getElementById('panel-date').textContent = p.display || p.date || '';
-      document.getElementById('panel-img').innerHTML = '<img src="/images/' + (p.category || 'general') + '/' + p.file + '" alt="" style="width:100%;height:100%;object-fit:cover;">';
+
+      const pageUrl = p.slug ? 'art/' + p.slug + '.html' : null;
+      const imgEl = document.getElementById('panel-img');
+      imgEl.innerHTML = '<img src="/images/' + (p.category || 'general') + '/' + p.file + '" alt="" style="width:100%;height:100%;object-fit:cover;">';
+      // Clicking the thumbnail navigates directly to the art page
+      if (pageUrl) {
+        imgEl.onclick = function() { window.location.href = pageUrl; };
+        imgEl.title = 'view full page';
+      } else {
+        imgEl.onclick = null;
+        imgEl.title = '';
+      }
+
       const spec = ['cintiq 16" \u00b7 clip studio paint 3.0', 'source: ' + (p.source || '\u2014')];
       if (p.session) spec.push('session: ' + p.session);
       document.getElementById('panel-spec').innerHTML = spec.join('<br>');
       document.getElementById('panel-tags').innerHTML = (p.tags || []).map(t => '<span class="art-tag">' + t + '</span>').join('');
       const pageLink = document.getElementById('panel-page-link');
-      if (pageLink && p.slug) pageLink.href = 'art/' + p.slug + '.html';
+      if (pageLink && pageUrl) pageLink.href = pageUrl;
       panel.scrollIntoView({behavior:'smooth', block:'nearest'});
     }
+
     document.getElementById('close-panel').addEventListener('click', function() { document.getElementById('art-panel').classList.remove('open'); });
     document.querySelectorAll('.tag').forEach(function(t) {
       t.addEventListener('click', function() {
