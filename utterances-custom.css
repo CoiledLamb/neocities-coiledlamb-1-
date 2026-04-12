@@ -1,0 +1,139 @@
+/* ==============================================
+   UTTERANCES CUSTOM THEME — coiled lamb
+   Loaded via data-custom-css on the utterances
+   script tag in generated art pages.
+   ============================================== */
+
+@keyframes oil-border {
+  0%   { border-color: #40a4b9; }
+  25%  { border-color: #77bfcf; }
+  50%  { border-color: #da8bda; }
+  75%  { border-color: #9d78d4; }
+  100% { border-color: #40a4b9; }
+}
+
+/* Page / body */
+body {
+  background: transparent !important;
+  font-family: 'Source Code Pro', monospace !important;
+  color: #c8deda !important;
+}
+
+/* Main timeline wrapper */
+.timeline {
+  background: transparent !important;
+}
+
+/* Header bar (0 comments + sign-in button row) */
+.timeline-comment-header,
+.discussion-timeline-actions {
+  background: transparent !important;
+  border-color: #1e5554 !important;
+}
+
+/* Comment boxes */
+.timeline-comment,
+.timeline-comment-wrapper {
+  background: transparent !important;
+  border-color: #1e5554 !important;
+}
+
+/* Textarea / write area */
+.comment-form-textarea,
+.form-control {
+  background: rgba(11,46,45,0.65) !important;
+  border: 1px solid #1e5554 !important;
+  border-radius: 2px !important;
+  color: #c8deda !important;
+  font-family: 'Source Code Pro', monospace !important;
+  font-size: 13px !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.comment-form-textarea::placeholder,
+.form-control::placeholder {
+  color: #3a6a68 !important;
+}
+.comment-form-textarea:focus,
+.form-control:focus {
+  border-color: #40a4b9 !important;
+  animation: oil-border 4s linear infinite !important;
+  box-shadow: none !important;
+}
+
+/* Buttons — all variants */
+.btn,
+.btn-primary,
+.btn-outline {
+  background: rgba(11,46,45,0.55) !important;
+  border: 1px solid #1e5554 !important;
+  border-radius: 2px !important;
+  color: #c8deda !important;
+  font-family: 'Source Code Pro', monospace !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
+  transition: background 0.15s, border-color 0.15s !important;
+}
+.btn:hover,
+.btn-primary:hover,
+.btn-outline:hover,
+.btn:focus,
+.btn-primary:focus,
+.btn-outline:focus,
+.btn:active,
+.btn-primary:active,
+.btn-outline:active {
+  background: #2a7a6e !important;
+  border-color: #40a4b9 !important;
+  animation: oil-border 4s linear infinite !important;
+  color: #c8deda !important;
+  box-shadow: none !important;
+}
+
+/* Octocat / GitHub mark icon */
+.octicon-mark-github,
+.octicon {
+  fill: #7aa8a6 !important;
+  color: #7aa8a6 !important;
+}
+
+/* Links */
+a, a:visited {
+  color: #77bfcf !important;
+}
+a:hover {
+  color: #c8deda !important;
+}
+
+/* Comment count / meta text */
+.text-gray,
+.text-small,
+.no-underline {
+  color: #7aa8a6 !important;
+}
+
+/* Footer attribution */
+.d-flex.flex-items-center a,
+.utterances-note {
+  color: #3a6a68 !important;
+}
+
+/* Borders throughout */
+.border,
+.border-bottom,
+.border-top {
+  border-color: #1e5554 !important;
+}
+
+/* Tabs (write / preview) */
+.tabnav-tab {
+  color: #7aa8a6 !important;
+  background: transparent !important;
+  border-color: #1e5554 !important;
+}
+.tabnav-tab.selected,
+.tabnav-tab:hover {
+  color: #c8deda !important;
+  background: rgba(11,46,45,0.55) !important;
+  border-color: #1e5554 !important;
+}
