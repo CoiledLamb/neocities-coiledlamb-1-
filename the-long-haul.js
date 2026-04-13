@@ -45,7 +45,7 @@ const ZONE_TYPES = {
       { ch: '_',      cls: 'fc-rn', w: 3 },
       { ch: '\u00b7', cls: 'fc-fl', w: 2 },
     ],
-    pkgChance: 0.07, sandalChance: 0.02,
+    pkgChance: 0.07, sandalChance: 0.005,
   },
   scrub: {
     weight: 25, width: [8, 16],
@@ -56,7 +56,7 @@ const ZONE_TYPES = {
       { ch: '.', cls: 'fc-fl', w: 3 },
       { ch: '*', cls: 'fc-sw-plant', w: 1 },
     ],
-    pkgChance: 0.08, sandalChance: 0.05,
+    pkgChance: 0.08, sandalChance: 0.015,
   },
   wetlands: {
     weight: 12, width: [6, 14],
@@ -78,7 +78,7 @@ const ZONE_TYPES = {
       { ch: '[', cls: 'fc-sg', w: 1 },
       { ch: ']', cls: 'fc-sg', w: 1 },
     ],
-    pkgChance: 0.12, sandalChance: 0.02, risky: true,
+    pkgChance: 0.12, sandalChance: 0.005, risky: true,
   },
   depot_approach: {
     weight: 8, width: [6, 10],
@@ -159,13 +159,18 @@ const S = {
   },
 
   routeNodes: [
-    { id:'A',       label:'depot a',  x:0, y:0, known:true  },
-    { id:'?',       label:'???',      x:0, y:0, known:false },
-    { id:'B',       label:'depot b',  x:0, y:0, known:true  },
-    { id:'C',       label:'ruins',    x:0, y:0, known:false },
-    { id:'H',       label:'home',     x:0, y:0, known:true  },
-    { id:'\u00b7',  label:'waypoint', x:0, y:0, known:true  },
+    { id:'A',       label:'depot a',  x:0, y:0 },
+    { id:'?',       label:'???',      x:0, y:0 },
+    { id:'B',       label:'depot b',  x:0, y:0 },
+    { id:'C',       label:'ruins',    x:0, y:0 },
+    { id:'H',       label:'home',     x:0, y:0 },
+    { id:'\u00b7',  label:'waypoint', x:0, y:0 },
   ],
+  // v0.0.7 commit 3: progressive node identification (0=unknown, 1=signal, 2=tier seen, 3=visited)
+  // Starting state: porter knows their two anchors A (depot a) and H (home).
+  // All others start at stage 0 — even those previously default-known like B and ·.
+  // Migration path bumps existing 'known: true' to stage 3 to preserve player progress.
+  nodeStages: { 'A':3, '?':0, 'B':0, 'C':0, 'H':3, '\u00b7':0 },
   edges: [['A','?'],['?','B'],['B','C'],['C','H'],['H','\u00b7'],['\u00b7','A']],
   edgeIdx: 2, dotT: 0, worldPos: 0,
 
@@ -277,11 +282,57 @@ function checkDistMilestones() {
 }
 
 // ============================================================
+// IDENTIFICATION STAGES (v0.0.7 commit 3)
+// ============================================================
+// Stage progression rules (commit 3 implements 2 and 3):
+//   0 -> 1 : trust >=25 at adjacent depot (commit 4)
+//   *  -> 2 : walking an edge connected to this node
+//   *  -> 3 : arriving at the node itself
+function getNodeStage(id) {
+  return (S.nodeStages && typeof S.nodeStages[id] === 'number') ? S.nodeStages[id] : 0;
+}
+
+function setNodeStage(id, stage) {
+  if (!S.nodeStages) S.nodeStages = {};
+  const cur = getNodeStage(id);
+  if (stage > cur) {
+    S.nodeStages[id] = stage;
+    return true;
+  }
+  return false;
+}
+
+// Bump from/to of an edge to >= stage 2 (tier visible).
+// Called whenever the courier starts walking a new edge.
+function markEdgeAdjacent(fromId, toId) {
+  let changed = false;
+  if (setNodeStage(fromId, 2)) changed = true;
+  if (setNodeStage(toId,   2)) changed = true;
+  return changed;
+}
+
+// Returns the right display string for a node based on its stage.
+// Stage 0/1: "???". Stage 2: tier name. Stage 3: real label.
+function getDisplayLabel(id) {
+  const stage = getNodeStage(id);
+  if (stage >= 3) {
+    const node = S.routeNodes.find(n => n.id === id);
+    return node ? node.label : id;
+  }
+  if (stage >= 2) {
+    const settle = S.settlements[id];
+    return settle ? settle.tier : '???';
+  }
+  return '???';
+}
+
+// ============================================================
 // PERSISTENCE
 // ============================================================
 const SAVE_KEY     = 'tlh-save-v1';   // legacy
-const SAVE_KEY_V2  = 'tlh-save-v2';   // current
-const SAVE_VERSION = 2;
+const SAVE_KEY_V2  = 'tlh-save-v2';   // legacy (v0.0.7 commits 1-2)
+const SAVE_KEY_V3  = 'tlh-save-v3';   // current
+const SAVE_VERSION = 3;
 const AUTOSAVE_MS  = 30000;
 
 let _lastSaveAt = 0;
@@ -316,7 +367,8 @@ function buildSavePayload() {
       scrip: p.scrip, isLost: !!p.isLost, destId: p.destId,
     })),
     upgrades: { ...S.upgrades },
-    nodesKnown: S.routeNodes.reduce((acc, n) => { acc[n.id] = !!n.known; return acc; }, {}),
+    // v0.0.7 commit 3: nodeStages replaces nodesKnown
+    nodeStages: { ...S.nodeStages },
     settlements: Object.keys(S.settlements).reduce((acc, k) => {
       const s = S.settlements[k];
       acc[k] = { supply: s.supply, rebuild: s.rebuild };
@@ -333,7 +385,7 @@ function buildSavePayload() {
 function saveGame(silent) {
   try {
     const payload = buildSavePayload();
-    localStorage.setItem(SAVE_KEY_V2, JSON.stringify(payload));
+    localStorage.setItem(SAVE_KEY_V3, JSON.stringify(payload));
     _lastSaveAt = payload.savedAt;
     updateSaveStrip();
     if (!silent) addLog('<span class="log-ok">progress saved</span>');
@@ -346,8 +398,11 @@ function saveGame(silent) {
 
 function loadGame() {
   let raw;
-  // Try v2 first, fall back to v1 for migration
-  try { raw = localStorage.getItem(SAVE_KEY_V2); } catch (e) { return false; }
+  // Try v3 first (current), fall back to v2, then v1 for migration
+  try { raw = localStorage.getItem(SAVE_KEY_V3); } catch (e) { return false; }
+  if (!raw) {
+    try { raw = localStorage.getItem(SAVE_KEY_V2); } catch (e) { return false; }
+  }
   if (!raw) {
     try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
   }
@@ -355,8 +410,8 @@ function loadGame() {
   let data;
   try { data = JSON.parse(raw); } catch (e) { return false; }
   if (!data) return false;
-  // Accept v1 (migrate) or v2 (load directly)
-  if (data.version !== 1 && data.version !== SAVE_VERSION) return false;
+  // Accept v1, v2 (migrate), or v3 (load directly)
+  if (data.version !== 1 && data.version !== 2 && data.version !== SAVE_VERSION) return false;
 
   try {
     const p = data.progress || {};
@@ -393,9 +448,19 @@ function loadGame() {
       });
     }
 
-    if (data.nodesKnown && typeof data.nodesKnown === 'object') {
-      S.routeNodes.forEach(n => {
-        if (typeof data.nodesKnown[n.id] === 'boolean') n.known = data.nodesKnown[n.id];
+    // v0.0.7 commit 3: load nodeStages directly (v3) or migrate from nodesKnown (v1/v2)
+    if (data.nodeStages && typeof data.nodeStages === 'object') {
+      Object.keys(data.nodeStages).forEach(k => {
+        const v = data.nodeStages[k];
+        if (typeof v === 'number' && v >= 0 && v <= 3) {
+          S.nodeStages[k] = Math.floor(v);
+        }
+      });
+    } else if (data.nodesKnown && typeof data.nodesKnown === 'object') {
+      // Migration: known:true -> stage 3 (preserve player progress),
+      // known:false -> stage 0 (current default)
+      Object.keys(data.nodesKnown).forEach(k => {
+        if (data.nodesKnown[k] === true) S.nodeStages[k] = 3;
       });
     }
 
@@ -421,10 +486,11 @@ function loadGame() {
     _lastSaveAt = data.savedAt || 0;
     S.status = S.inventory.length > 0 ? 'carrying' : 'walking';
 
-    // Migration: if we loaded a v1 save, immediately re-save as v2 and drop v1
-    if (data.version === 1) {
+    // Migration: if we loaded an older save, immediately re-save as v3 and drop legacy keys
+    if (data.version !== SAVE_VERSION) {
       try {
         localStorage.removeItem(SAVE_KEY);
+        localStorage.removeItem(SAVE_KEY_V2);
         saveGame(true);
       } catch (e) {}
     }
@@ -436,6 +502,7 @@ function loadGame() {
 
 function wipeSave() {
   try {
+    localStorage.removeItem(SAVE_KEY_V3);
     localStorage.removeItem(SAVE_KEY_V2);
     localStorage.removeItem(SAVE_KEY); // also clear legacy
   } catch (e) {}
@@ -668,10 +735,11 @@ function tryDeliver(arrivedNodeId) {
     }
     if (settle) { settle.supply = Math.min(100, settle.supply + 3); settle.rebuild = Math.min(100, settle.rebuild + 1); }
     const node = S.routeNodes.find(n => n.id === arrivedNodeId);
-    if (node && !node.known) {
-      node.known = true;
+    if (node && getNodeStage(arrivedNodeId) < 3) {
+      setNodeStage(arrivedNodeId, 3);
       addLog(`discovered: <span class="log-hi">${node.label}</span>`);
       drawRouteMap();
+      renderSettlements();
       // v0.0.7
       postActivity('discovery', { nodeId: arrivedNodeId, label: node.label });
     }
@@ -723,7 +791,7 @@ function updateDestDrift() {
   const node  = S.routeNodes.find(n => n.id === toId);
   if (!node) return;
   const glyph = NODE_GLYPHS[toId] || `[${toId}]`;
-  const label = node.known ? node.label : '???';
+  const label = getDisplayLabel(toId);
   els.destDrift.innerHTML =
     `<span class="dest-glyph">${glyph.replace(/\n/g, '<br>')}</span>` +
     `<span class="dest-label">${label}</span>`;
@@ -775,33 +843,68 @@ function drawRouteMap() {
   svg.innerHTML = '';
   const ns = 'http://www.w3.org/2000/svg';
   const [fromId, toId] = currentEdge();
+
+  // Edges: brightness depends on the lower stage of the two endpoints.
+  // Both stage 3 -> bright. At least one stage 2+ -> medium. Any stage 0/1 -> dim.
   S.edges.forEach(([a, b]) => {
     const na = S.routeNodes.find(n => n.id === a), nb = S.routeNodes.find(n => n.id === b);
     if (!na || !nb) return;
+    const minStage = Math.min(getNodeStage(a), getNodeStage(b));
+    const stroke = minStage >= 3 ? '#2a5c5a'
+                 : minStage >= 2 ? '#1e5554'
+                 : '#132e2d';
     const line = document.createElementNS(ns, 'line');
     line.setAttribute('x1', na.x); line.setAttribute('y1', na.y);
     line.setAttribute('x2', nb.x); line.setAttribute('y2', nb.y);
-    line.setAttribute('stroke', na.known && nb.known ? '#2a5c5a' : '#132e2d');
+    line.setAttribute('stroke', stroke);
     line.setAttribute('stroke-width', '1');
     line.setAttribute('stroke-dasharray', '3 3');
     svg.appendChild(line);
   });
+
   S.routeNodes.forEach(n => {
     const isCurrent = (n.id === fromId || n.id === toId);
-    const g = document.createElementNS(ns, 'g'); g.style.cursor = 'pointer'; g.title = n.label;
+    const stage = getNodeStage(n.id);
+    const g = document.createElementNS(ns, 'g'); g.style.cursor = 'pointer';
+    g.setAttribute('class', 'route-node-g');
+    g.setAttribute('data-stage', String(stage));
+    g.setAttribute('data-id', n.id);
+    // Tooltip uses stage-aware label so hovering an unknown node says ??? not the real name
+    g.setAttribute('title', getDisplayLabel(n.id));
+
+    // Fill brightens with stage; current node always gets the dark current-fill bg
+    const fill = isCurrent ? '#0b2e2d'
+               : stage >= 3 ? '#1e5554'
+               : stage >= 2 ? '#1a3f3e'
+               : stage >= 1 ? '#142e2d'
+               : '#132e2d';
+    // Stroke brightens with stage; current node always gets the bright current-stroke
+    const stroke = isCurrent ? '#77bfcf'
+                 : stage >= 3 ? '#3a6a68'
+                 : stage >= 2 ? '#2f5e5c'
+                 : stage >= 1 ? '#244e4d'
+                 : '#1e5554';
     const c = document.createElementNS(ns, 'circle');
     c.setAttribute('cx', n.x); c.setAttribute('cy', n.y);
     c.setAttribute('r', isCurrent ? 7 : 5);
-    c.setAttribute('fill',   isCurrent ? '#0b2e2d' : n.known ? '#1e5554' : '#132e2d');
-    c.setAttribute('stroke', isCurrent ? '#77bfcf' : n.known ? '#3a6a68' : '#1e5554');
+    c.setAttribute('fill', fill);
+    c.setAttribute('stroke', stroke);
     c.setAttribute('stroke-width', isCurrent ? '1.5' : '1');
+
+    // Center character: '?' for stage 0, real letter (dimmed) for stage 1+, bright for current
     const t = document.createElementNS(ns, 'text');
     t.setAttribute('x', n.x); t.setAttribute('y', n.y + 4);
     t.setAttribute('text-anchor', 'middle');
     t.setAttribute('font-family', "'Source Code Pro',monospace");
     t.setAttribute('font-size', '8'); t.setAttribute('font-weight', '700');
-    t.setAttribute('fill', isCurrent ? '#77bfcf' : n.known ? '#4a7a78' : '#2a5c5a');
-    t.textContent = n.id;
+    t.setAttribute('fill', isCurrent ? '#77bfcf'
+                          : stage >= 3 ? '#4a7a78'
+                          : stage >= 2 ? '#3a6a68'
+                          : stage >= 1 ? '#2a5c5a'
+                          : '#2a5c5a');
+    t.textContent = (stage >= 1 || n.id === '?') ? n.id : '?';
+
+    // External label: hide entirely at stage 0, show stage-appropriate text otherwise
     const lx     = n.x > 70 ? n.x - 9 : n.x < 40 ? n.x + 9 : n.x;
     const anchor = n.x > 70 ? 'end'    : n.x < 40 ? 'start'  : 'middle';
     const ly     = n.y < 30 ? n.y - 9  : n.y > 165 ? n.y + 12 : n.y < 100 ? n.y - 9 : n.y + 13;
@@ -810,11 +913,17 @@ function drawRouteMap() {
     lbl.setAttribute('text-anchor', anchor);
     lbl.setAttribute('font-family', "'Source Code Pro',monospace");
     lbl.setAttribute('font-size', '7');
-    lbl.setAttribute('fill', isCurrent ? '#77bfcf' : n.known ? '#3a6a68' : '#1e5554');
-    lbl.textContent = n.label;
+    lbl.setAttribute('fill', isCurrent ? '#77bfcf'
+                            : stage >= 3 ? '#3a6a68'
+                            : stage >= 2 ? '#2a5c5a'
+                            : '#1e5554');
+    // Stage 0: blank (unknown node, no label clutter on map). Otherwise stage-aware label.
+    lbl.textContent = stage === 0 ? '' : getDisplayLabel(n.id);
+
     g.appendChild(c); g.appendChild(t); g.appendChild(lbl);
     svg.appendChild(g);
   });
+
   const dot = document.createElementNS(ns, 'circle');
   dot.setAttribute('id', 'routeDot'); dot.setAttribute('r', '3');
   dot.setAttribute('fill', '#e0eeec'); dot.setAttribute('stroke', '#77bfcf'); dot.setAttribute('stroke-width', '1');
@@ -921,14 +1030,19 @@ function buyUpgrade(id) {
 function renderSettlements() {
   if (!els.settlementsEl) return;
   els.settlementsEl.innerHTML = '';
-  S.routeNodes.filter(n => n.known && S.settlements[n.id])
-    .map(n => ({ id:n.id, ...S.settlements[n.id] }))
+  // v0.0.7 commit 3: show settlements at stage 2+ (tier visible).
+  // Stage 2 shows tier name + "(unconfirmed)" suffix, stage 3 shows full label.
+  S.routeNodes.filter(n => getNodeStage(n.id) >= 2 && S.settlements[n.id])
+    .map(n => ({ id:n.id, stage:getNodeStage(n.id), ...S.settlements[n.id] }))
     .forEach(s => {
       const div = document.createElement('div'); div.className = 'settle-item';
+      const name = s.stage >= 3 ? s.label : s.tier;
+      const subtitle = s.stage >= 3 ? s.tier : 'unconfirmed';
+      const quote = s.stage >= 3 ? s.quote : `"reports of a ${s.tier} along this route"`;
       div.innerHTML = `
-        <div class="settle-name">${s.label} <span>${s.tier}</span></div>
+        <div class="settle-name">${name} <span>${subtitle}</span></div>
         <div class="settle-bar"><div class="settle-fill ${s.rebuild>50?'b':'a'}" style="width:${Math.round(s.rebuild)}%"></div></div>
-        <div class="settle-quote">${s.quote}</div>`;
+        <div class="settle-quote">${quote}</div>`;
       els.settlementsEl.appendChild(div);
     });
 }
@@ -1037,8 +1151,7 @@ function renderCargoSlots(force) {
     d.className   = 'cslot '+(pkg?pkg.size:'e');
     d.textContent = pkg?pkg.size:'';
     if (pkg) {
-      const destNode  = S.routeNodes.find(n=>n.id===pkg.destId);
-      const destLabel = destNode?(destNode.known?destNode.label:'???'):'?';
+      const destLabel = getDisplayLabel(pkg.destId);
       const lostTag   = pkg.isLost?' [lost]':'';
       d.setAttribute('title', `[${pkg.size}] ${pkg.label}${lostTag}\n\u2192 ${destLabel}\n${pkg.scrip}\u00a2`);
       d.classList.add('has-tooltip');
@@ -1313,11 +1426,17 @@ function tick() {
     S.edgeIdx = (S.edgeIdx+1) % S.edges.length;
     const arrivedAt = S.edges[prevEdgeIdx][1];
     const node = S.routeNodes.find(n => n.id===arrivedAt);
-    if (node && !node.known) {
-      node.known=true;
+    // v0.0.7 commit 3: bare arrival -> stage 3 (full identification)
+    if (node && getNodeStage(arrivedAt) < 3) {
+      setNodeStage(arrivedAt, 3);
       addLog(`discovered: <span class="log-hi">${node.label}</span>`);
       // v0.0.7: broadcast discovery on bare arrival (no delivery case)
       postActivity('discovery', { nodeId: arrivedAt, label: node.label });
+    }
+    // v0.0.7 commit 3: starting a new edge bumps both endpoints to stage 2 (tier visible)
+    const [newFrom, newTo] = S.edges[S.edgeIdx];
+    if (markEdgeAdjacent(newFrom, newTo)) {
+      renderSettlements();
     }
     drawRouteMap();
     updateDestDrift();
@@ -1353,6 +1472,11 @@ function init() {
   buildWorld();
 
   const restored = loadGame();
+
+  // v0.0.7 commit 3: ensure the edge the player is currently on has both endpoints at stage 2+.
+  // This handles fresh starts and old saves where the player resumes mid-edge.
+  const [curFrom, curTo] = S.edges[S.edgeIdx];
+  markEdgeAdjacent(curFrom, curTo);
 
   S.worldPos = worldPosFromRoute();
 
