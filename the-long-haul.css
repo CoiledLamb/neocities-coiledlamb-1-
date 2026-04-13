@@ -2,6 +2,22 @@
    THE LONG HAUL — game stylesheet
    ============================================== */
 
+/* base — matches site-wide aesthetic from toys.html / style.css */
+html, body {
+  margin: 0;
+  background: #155352;
+  color: #b1c9c3;
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 600;
+  min-height: 100vh;
+}
+
+#site {
+  opacity: 0;
+  transition: opacity 0.7s ease;
+}
+#site.visible { opacity: 1; }
+
 .tlh-page {
   padding: 28px 28px 48px;
   box-sizing: border-box;
