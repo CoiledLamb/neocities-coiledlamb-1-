@@ -307,7 +307,7 @@ function worldPosFromRoute() {
 function renderFieldstrip() {
   const strip = els.fieldstrip;
   if (!strip) return;
-  const leftCell  = Math.floor(S.worldPos);
+  const leftCell    = Math.floor(S.worldPos);
   const renderCount = VIEWPORT_CELLS + 4;
   let html = '';
   for (let i = 0; i < renderCount; i++) {
@@ -355,6 +355,7 @@ function scanForPickup() {
     S.usedWeight += carried.kg;
     S.status = 'carrying';
     renderCourierStack();
+    renderCargoSlots(true);
     if (els.courierAt) els.courierAt.className = 'tlh-at bounce carry';
     const lostTag = carried.isLost ? ' <span class="log-wn">[lost pkg]</span>' : '';
     addLog(`picked up <span class="log-hi">[${carried.size}] ${carried.label}</span>${lostTag}`);
@@ -388,6 +389,7 @@ function tryDeliver(arrivedNodeId) {
     addLog(`delivered to <span class="log-hi">${settle ? settle.label : arrivedNodeId}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
   });
   renderCourierStack();
+  renderCargoSlots(true);
   if (S.inventory.length === 0) {
     S.status = 'walking';
     if (els.courierAt) els.courierAt.className = 'tlh-at bounce';
@@ -434,9 +436,10 @@ function updateDestDrift() {
   els.destDrift.innerHTML =
     `<span class="dest-glyph">${glyph.replace(/\n/g, '<br>')}</span>` +
     `<span class="dest-label">${label}</span>`;
+  // fix 2: restart animation starting from inside the visible viewport
   els.destDrift.style.animation = 'none';
   void els.destDrift.offsetHeight;
-  els.destDrift.style.animation = '';
+  els.destDrift.style.animation = 'destdrift 22s linear forwards';
 }
 
 // ============================================================
@@ -558,8 +561,7 @@ function resolveEls() {
     rainOverlay:  $('rainOverlay'),
     destDrift:    $('destDrift'),
     cargoSlots:   $('cargoSlots'),
-    cargoBar:     $('cargoBar'),
-    cargoWeight:  $('cargoWeight'),
+    weightSegs:   $('weightSegs'),
     bootsBar:     $('bootsBar'),
     bootsVal:     $('bootsVal'),
     autobuyBtn:   $('autobuyBtn'),
@@ -616,7 +618,7 @@ function buyUpgrade(id) {
   if (!def || S.upgrades[id] || S.scrip < def.cost) return;
   S.scrip -= def.cost; S.upgrades[id] = true; def.apply();
   addLog(`<span class="log-hi">${def.name}</span> purchased`);
-  renderUpgrades(); renderCargoSlots(); renderBoots(); updateHUD();
+  renderUpgrades(); renderCargoSlots(true); renderBoots(); updateHUD();
 }
 
 // ============================================================
@@ -642,9 +644,11 @@ function renderNetwork() {
   els.networkEl.innerHTML = S.networkFeed.map(f => `<div class="net-item">${f}</div>`).join('');
 }
 
+// 7l: proper real-time timestamp
 function tt() {
-  const m = Math.floor(S.ticks / 170);
-  const s = Math.floor((S.ticks % 170) / 170 * 60);
+  const totalSecs = Math.floor(S.ticks * TICK_MS / 1000);
+  const m = Math.floor(totalSecs / 60);
+  const s = totalSecs % 60;
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 function addLog(msg) {
@@ -652,7 +656,7 @@ function addLog(msg) {
   el.innerHTML = `<span class="log-ts">[${tt()}]</span> ${msg}`;
   els.logEl.insertBefore(el, els.logEl.firstChild);
   const all = els.logEl.querySelectorAll('.log-line');
-  if (all.length > 7) all[all.length-1].remove();
+  if (all.length > 14) all[all.length-1].remove(); // fix 5: was 7
 }
 
 // ============================================================
@@ -664,10 +668,21 @@ function updateHUD() {
   els.walked.textContent    = S.distKm + 'km';
   els.status.textContent    = S.status;
   els.status.style.color    = STATUS_COLORS[S.status] || '#b1c9c3';
+  renderUpgrades(); // fix 3: keep buttons enabled/disabled in sync with scrip
 }
 
-function renderCargoSlots() {
+// fix 4: track inventory state to avoid rebuilding DOM every tick (kills tooltip flicker)
+let _lastCargoKey = '';
+function cargoKey() {
+  return S.inventory.map(p => `${p.size}${p.destId}${p.scrip}`).join('|') + '|' + S.maxSlots + '|' + S.usedWeight;
+}
+
+function renderCargoSlots(force) {
   if (!els.cargoSlots) return;
+  const key = cargoKey();
+  if (!force && key === _lastCargoKey) return;
+  _lastCargoKey = key;
+
   els.cargoSlots.innerHTML = '';
   const used = [];
   S.inventory.forEach(pkg => { for (let i=0;i<pkg.slots;i++) used.push(pkg); });
@@ -685,15 +700,25 @@ function renderCargoSlots() {
     }
     els.cargoSlots.appendChild(d);
   }
-  const pct = S.maxWeight>0?Math.min(100,(S.usedWeight/S.maxWeight)*100):0;
-  els.cargoBar.style.width      = pct+'%';
-  els.cargoWeight.textContent   = S.usedWeight+'/'+S.maxWeight+'kg';
+
+  // weight pips — one per kg of capacity, colour-ramped teal→purple→pink
+  if (els.weightSegs) {
+    els.weightSegs.innerHTML = '';
+    const loadPct = S.usedWeight / S.maxWeight;
+    for (let i = 0; i < S.maxWeight; i++) {
+      const pip = document.createElement('div');
+      pip.className = i < S.usedWeight
+        ? (loadPct <= 0.5 ? 'wseg filled' : loadPct <= 0.8 ? 'wseg heavy' : 'wseg overloaded')
+        : 'wseg empty';
+      els.weightSegs.appendChild(pip);
+    }
+  }
 }
 
 function renderCourierStack() {
   if (!els.courierStack) return;
   els.courierStack.innerHTML = S.inventory.length === 0 ? '' :
-    S.inventory.map(p => `<span class="courier-pkg${p.isLost?' lost':''}">[ ${p.size}]</span>`).join('');
+    S.inventory.map(p => `<span class="courier-pkg${p.isLost?' lost':''}">[${p.size}]</span>`).join('');
 }
 
 function renderBoots() {
@@ -731,7 +756,7 @@ function renderStamina() {
   const canteenPct = Math.round((S.canteen/S.canteenMax)*100);
   if (els.drinkBtn) {
     els.drinkBtn.textContent = `drink (${canteenPct}%)`;
-    els.drinkBtn.disabled    = S.canteen<=0 || S.stamina>=S.staminaMax; // 7g fix
+    els.drinkBtn.disabled    = S.canteen<=0 || S.stamina>=S.staminaMax; // 7g
   }
   if (els.canteenBar) els.canteenBar.style.width = canteenPct+'%';
 }
@@ -760,16 +785,34 @@ function checkAutobuy() {
   }
 }
 
+// boot clip refill: prompt in log instead of silent auto-charge
+let _clipRefillPending = null;
+
 function refillBootClip(nodeId) {
   if (S.bootClipMax===0 || !['A','B','H'].includes(nodeId)) return;
   if (S.bootClipCount>=S.bootClipMax) return;
+  if (_clipRefillPending) return; // already waiting on a response
   const cost = (S.bootClipMax-S.bootClipCount)*15;
+  if (S.scrip < cost) return;
   const settle = S.settlements[nodeId];
-  if (S.scrip>=cost) {
-    S.scrip-=cost; S.bootClipCount=S.bootClipMax;
-    addLog(`boot clip refilled at <span class="log-hi">${settle?settle.label:nodeId}</span> (${cost}\u00a2)`);
-    renderBoots(); updateHUD();
-  }
+  _clipRefillPending = { nodeId, cost };
+  addLog(`<span class="log-wn">boot clip low</span> at <span class="log-hi">${settle?settle.label:nodeId}</span> \u2014 refill for ${cost}\u00a2? <button class="log-btn" id="clipRefillBtn">refill</button>`);
+  setTimeout(() => {
+    const btn = document.getElementById('clipRefillBtn');
+    if (btn) btn.addEventListener('click', confirmClipRefill);
+  }, 0);
+}
+
+function confirmClipRefill() {
+  if (!_clipRefillPending) return;
+  const { cost } = _clipRefillPending;
+  _clipRefillPending = null;
+  if (S.scrip < cost) { addLog('<span class="log-wn">not enough scrip</span>'); return; }
+  S.scrip -= cost; S.bootClipCount = S.bootClipMax;
+  addLog(`boot clip refilled (${cost}\u00a2)`);
+  renderBoots(); updateHUD();
+  const btn = document.getElementById('clipRefillBtn');
+  if (btn) btn.closest('.log-line').remove();
 }
 
 function toggleTieDown() {
@@ -852,7 +895,7 @@ function tick() {
     S.tripTimer--;
     if (S.tripTimer===0) {
       S.status = S.inventory.length>0?'carrying':'walking';
-      if (els.courierAt) { els.courierAt.className='tlh-at bounce'+(S.inventory.length>0?' carry':''); els.courierAt.style.animation=''; } // 7i
+      if (els.courierAt) { els.courierAt.className='tlh-at bounce'+(S.inventory.length>0?' carry':''); els.courierAt.style.animation=''; }
     }
     renderBoots(); renderStamina(); updateHUD(); return;
   }
@@ -881,7 +924,11 @@ function tick() {
     S.bootDurability=Math.max(0,S.bootDurability-bd);
 
     if (S.isRaining||S.inRiver) S.canteen=Math.min(S.canteenMax,S.canteen+0.4);
-    if (S.ticks%5===0) S.distKm=Math.round(S.ticks*0.035*speedMultiplier()*10)/10;
+
+    // 7k: distKm from actual route progress (edges completed + fraction)
+    if (S.ticks%5===0) {
+      S.distKm = Math.round((S.edgeIdx + S.dotT) * 4.2 * 10) / 10;
+    }
 
     maybeTrip();
     checkAutobuy();
@@ -916,7 +963,7 @@ function tick() {
   S.worldPos = worldPosFromRoute();
   renderFieldstrip();
 
-  // pkg respawns (every 10 ticks)
+  // pkg respawns (every 10 ticks to save cycles)
   if (S.ticks%10===0) tickPkgRespawns();
 
   // rain
@@ -942,7 +989,7 @@ function init() {
   buildRain(); setRain(false);
   layoutRouteNodes(); drawRouteMap(); updateDestDrift();
   renderUpgrades(); renderSettlements(); renderNetwork();
-  renderCargoSlots(); renderCourierStack(); renderBoots(); renderStamina();
+  renderCargoSlots(true); renderCourierStack(); renderBoots(); renderStamina();
   renderFieldstrip();
   updateHUD();
 

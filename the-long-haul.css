@@ -88,7 +88,7 @@ html, body {
   border-bottom: 1px solid #1e5554;
 }
 
-/* Layer 1 — terrain strip (JS-driven transform, no CSS animation) */
+/* Layer 1 — terrain strip (JS-driven, fix 1: max-content not 200%) */
 .tlh-fieldstrip {
   display: flex;
   align-items: flex-end;
@@ -96,7 +96,7 @@ html, body {
   white-space: nowrap;
   font-size: 12px;
   line-height: 1;
-  width: 200%;
+  width: max-content;
   padding-bottom: 8px;
   padding-left: 4px;
   position: relative;
@@ -104,24 +104,23 @@ html, body {
   will-change: transform;
 }
 
-/* Layer 2 — destination drift */
+/* Layer 2 — destination drift (fix 2: starts inside viewport) */
 .tlh-dest-drift {
   position: absolute;
-  right: -60px;
+  right: 12%;
   bottom: 8px;
   z-index: 2;
   text-align: center;
   font-family: 'Source Code Pro', monospace;
   pointer-events: none;
-  animation: destdrift 18s linear infinite;
   opacity: 0;
 }
 @keyframes destdrift {
-  0%   { right: -80px; opacity: 0; }
-  10%  { opacity: 0.22; }
-  80%  { opacity: 0.18; }
+  0%   { right: 12%; opacity: 0; }
+  8%   { opacity: 0.25; }
+  70%  { opacity: 0.20; }
   95%  { opacity: 0; }
-  100% { right: 30px; opacity: 0; }
+  100% { right: 80%; opacity: 0; }
 }
 .dest-glyph {
   display: block;
@@ -165,7 +164,7 @@ html, body {
   font-family: 'Source Code Pro', monospace;
 }
 
-/* courier package stack — all carried packages above @ */
+/* courier package stack */
 .tlh-courier-stack {
   display: flex;
   flex-direction: column;
@@ -189,7 +188,7 @@ html, body {
   color: #e0eeec;
   line-height: 1;
 }
-/* 7i: bounce driven by class on courierAt so whole stack animates together */
+/* 7i: bounce via class so stack + @ animate in sync */
 .tlh-at.bounce { animation: bounce 0.4s steps(1) infinite; }
 .tlh-at.carry  { color: #77bfcf; }
 .tlh-at.rest   { color: #4a7a78; }
@@ -237,7 +236,7 @@ html, body {
 }
 .tlh-row-label { color: #3a6a68; min-width: 36px; flex-shrink: 0; text-transform: lowercase; }
 
-/* cargo */
+/* cargo slots */
 .cargo-slots { display: flex; gap: 2px; flex-shrink: 0; }
 .cslot {
   width: 13px; height: 13px;
@@ -254,7 +253,7 @@ html, body {
 .cslot.l { background: #2a1a3a; color: #da8bda; border-color: #da8bda; }
 .cslot.e { background: transparent; }
 
-/* CSS-only tooltip on cargo slots */
+/* CSS-only cargo tooltip (fix 4: no DOM thrash = no flicker) */
 .cslot.has-tooltip { cursor: help; }
 .cslot.has-tooltip::after {
   content: attr(title);
@@ -281,15 +280,35 @@ html, body {
 }
 .cslot.has-tooltip:hover::after { opacity: 1; }
 
-.cargo-bar-wrap { flex: 1; height: 5px; background: #132e2d; border-radius: 1px; overflow: hidden; min-width: 30px; }
-.cargo-bar-fill {
-  height: 100%; border-radius: 1px;
-  background: linear-gradient(90deg, #40a4b9, #9d78d4);
-  background-size: 200% auto;
-  animation: oil 3s linear infinite;
-  transition: width 0.3s;
+/* weight pips — one per kg of max capacity, colour-ramped */
+.weight-segs { display: flex; gap: 2px; flex-shrink: 0; align-items: center; }
+.wseg {
+  width: 8px; height: 8px;
+  border-radius: 1px;
+  border: 1px solid #1e5554;
+  background: #132e2d;
+  flex-shrink: 0;
 }
-.cargo-weight { color: #b1c9c3; min-width: 40px; text-align: right; flex-shrink: 0; }
+.wseg.filled     { background: #4a7a78; border-color: #3a6a68; }
+.wseg.heavy      { background: #9d78d4; border-color: #7a58a4; }
+.wseg.overloaded { background: #da8bda; border-color: #a4589a; }
+.wseg.empty      { background: #132e2d; border-color: #1e5554; }
+
+/* inline log action button (boot clip refill prompt etc.) */
+.log-btn {
+  background: transparent;
+  border: 1px solid #3a6a68;
+  border-radius: 1px;
+  color: #77bfcf;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 8px; font-weight: 600;
+  padding: 1px 5px; cursor: pointer;
+  text-transform: lowercase;
+  transition: border-color 0.1s, color 0.1s;
+  vertical-align: middle;
+  margin-left: 3px;
+}
+.log-btn:hover { border-color: #77bfcf; }
 
 /* tie-down button */
 .tie-down-btn { flex-shrink: 0; }
@@ -301,7 +320,6 @@ html, body {
 .boots-bar-fill.bad  { background: #da8bda; }
 .boots-val { color: #b1c9c3; min-width: 30px; flex-shrink: 0; }
 
-/* clip badge */
 .clip-badge {
   font-size: 9px; color: #77bfcf;
   border: 1px solid #40a4b9;

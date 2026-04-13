@@ -27,7 +27,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.4</span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.5</span></p>
         </div>
 
         <div class="tlh-layout">
@@ -42,15 +42,11 @@
               <span class="tlh-porter-hint">saved locally</span>
             </div>
 
-            <!-- viewport: 3 layers — terrain / destination drift / rain / courier -->
+            <!-- viewport: terrain / destination drift / rain / courier -->
             <div class="tlh-viewport" id="viewport">
-              <!-- layer 1: terrain -->
               <div class="tlh-fieldstrip" id="fieldstrip"></div>
-              <!-- layer 2: destination drift (behind rain) -->
               <div class="tlh-dest-drift" id="destDrift"></div>
-              <!-- layer 3: weather -->
               <div class="tlh-rain" id="rainOverlay"></div>
-              <!-- layer 4: courier + cargo stack -->
               <div class="tlh-courier" id="courierWrap">
                 <div class="tlh-courier-stack" id="courierStack"></div>
                 <div class="tlh-at" id="courierAt">@</div>
@@ -69,8 +65,7 @@
             <div class="tlh-row cargo-row">
               <span class="tlh-row-label">cargo</span>
               <div class="cargo-slots" id="cargoSlots"></div>
-              <div class="cargo-bar-wrap"><div class="cargo-bar-fill" id="cargoBar"></div></div>
-              <span class="cargo-weight" id="cargoWeight">0/5kg</span>
+              <div class="weight-segs" id="weightSegs"></div>
               <button class="tie-down-btn boots-auto" id="tieDownBtn">tie-down: off</button>
             </div>
 
@@ -80,7 +75,7 @@
               <div class="boots-bar-wrap"><div class="boots-bar-fill" id="bootsBar" style="width:80%"></div></div>
               <span class="boots-val" id="bootsVal">80%</span>
               <span class="clip-badge" id="clipBadge" style="display:none">clip: 0/0</span>
-              <button class="buy-boots-btn boots-auto" id="buyBootsBtn">buy boots (15¢)</button>
+              <button class="buy-boots-btn boots-auto" id="buyBootsBtn">buy boots (15&#162;)</button>
               <button class="boots-auto" id="autobuyBtn">autobuy: off</button>
             </div>
 
@@ -101,25 +96,18 @@
 
             <!-- panels -->
             <div class="tlh-panels">
-
-              <!-- log -->
               <div class="tlh-panel" style="flex:1.5">
                 <div class="tlh-ptitle">// dispatch log</div>
                 <div id="logEl"></div>
               </div>
-
-              <!-- upgrades -->
               <div class="tlh-panel" style="flex:1.2">
                 <div class="tlh-ptitle">// upgrades</div>
                 <div id="upgradesEl"></div>
               </div>
-
-              <!-- settlements -->
               <div class="tlh-panel" style="flex:1">
                 <div class="tlh-ptitle">// settlements</div>
                 <div id="settlementsEl"></div>
               </div>
-
             </div>
 
           </div><!-- end shell -->
