@@ -1,5 +1,5 @@
 # coiledlamb.neocities.org — handoff doc
-_last updated: 2026-04-12_
+_last updated: 2026-04-13_
 
 ---
 
@@ -32,6 +32,9 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 | `utterances-custom.css` | legacy utterances theme — unused, can be deleted |
 | `figures.html`, `hands.html` | gallery pages (each sets `window.PAGE_CATEGORY` then loads `gallery.js`) |
 | `blog.html` / `blog.css` | blog page |
+| `the-long-haul.html` | The Long Haul game page |
+| `the-long-haul.css` | TLH game styles |
+| `the-long-haul.js` | TLH game logic (self-contained IIFE, all state in `S`) |
 
 ### gallery system
 - `gallery.json` is generated and maintained exclusively by the **art-pipeline** (separate repo: `CoiledLamb/art-pipeline`). That pipeline watches an `incoming/` folder, converts PNGs to WebP, uploads images to Neocities, and updates `gallery.json` directly on the live site.
@@ -66,6 +69,66 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 - Both tokens stored in localStorage if "remember" is checked.
 - **Blog tab**: create/edit/delete posts and notes. Rich text toolbar (bold, italic, underline, link). Emoji picker for note status. Tag toggle system with right-click-to-remove. Commits directly to `blog.html` via GitHub API.
 - **Gallery tab**: category picker (figures/hands/general). Drag-and-drop upload zone with client-side PNG→WebP conversion via `canvas.toBlob`. Per-file filename/display/tags fields before upload. Uploads to Neocities API, then commits updated `gallery.json` to GitHub. Edit metadata and delete (with optional full Neocities file deletion) for existing entries.
+
+---
+
+## the long haul — game architecture (v0.0.5)
+
+The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All mutable state is in the `S` object. No persistence between page loads except porter ID in localStorage.
+
+### branch status
+- Active development branch: `feature/the-long-haul`
+- **Not merged to main/live yet.** The user verifies by loading the HTML directly from the branch — bugs found are real branch bugs, not deployment issues.
+- Do NOT push to the repo unless explicitly asked. Changes are batched into version releases.
+
+### core loop
+- The courier walks a fixed circular route of 6 edges between 6 named nodes (A → ? → B → C → H → · → A).
+- `S.edgeIdx` (0–5) and `S.dotT` (0.0–1.0) track position on the route. `dotT` increments each tick by `0.006 × speedMultiplier()`. When it hits 1.0, edge advances and `tryDeliver()` fires.
+- Speed is modulated by stamina segment count and boot durability. `rebuildRoads` upgrade adds ×1.2.
+
+### world map
+- `buildWorld()` generates a flat array `worldCells[]` of exactly `CELLS_PER_EDGE × 6 = 1,560` cells at startup.
+- Each cell: `{ html, pkg, risky, edgeIdx }`.
+- `pkg` (if present): `{ size, label, kg, slots, scrip, isLost, destId, picked, respawnIn }`. `destId` is the far end of the cell's edge — stamped at generation, never changes.
+- Risky cells: edges leading to C or ? are flagged `risky: true`, applying a ×1.4 trip chance multiplier.
+- Scroll is JS-driven: `renderFieldstrip()` computes `worldPosFromRoute()` → `translateX(...)` on `.tlh-fieldstrip` every tick. No CSS animation. `width: max-content` on the strip element.
+
+### packages
+- Picked up by proximity scan in `scanForPickup()` — checks cells within `PKG_PICKUP_RANGE = 6` cells ahead of courier each tick.
+- On pickup: `pkg.picked = true`, package copied into `S.inventory` with `_worldCell` reference for respawn.
+- On node arrival: `tryDeliver(arrivedNodeId)` delivers all inventory items with matching `destId`.
+- After delivery: `pkg.respawnIn = PKG_RESPAWN_TICKS (800)` starts countdown. Every 10 ticks, `tickPkgRespawns()` decrements and eventually resets `picked = false`, capped at `PKG_MAX_PER_EDGE = 14` active per edge.
+
+### rendering
+- `renderCargoSlots(force)` has a dirty-check via `cargoKey()` — only rebuilds DOM when inventory changes. Pass `force=true` on pickup/delivery/upgrade to override. This prevents CSS tooltip flicker.
+- `updateHUD()` calls `renderUpgrades()` every tick so upgrade buttons stay in sync with scrip.
+- Weight display: `.weight-segs` pip row (one pip per kg of max capacity), colour-ramped teal → purple → pink. Rendered inside `renderCargoSlots`.
+- Courier stack: all carried packages shown as stacked `[s/m/l]` labels above `@`. Lost packages render pink.
+- Three viewport layers: terrain (z1) → destination drift (z2) → rain (z3) → courier (z10). Destination drift animates across the visible viewport on each edge change (`destdrift 22s linear forwards`, restarted via reflow trick).
+- Stamina: 4 segments (full/half/crit/empty) + optional 5th overboost segment (pulsing teal, shown after shelter rest).
+- Boot clip refill: on arrival at supply depots (A, B, H) with a deficit clip, a log prompt appears with an inline `[refill]` button. Does NOT auto-charge. `_clipRefillPending` state tracks one pending prompt at a time.
+- Log: 14-line cap, real-time MM:SS timestamp from `ticks × TICK_MS / 1000`.
+
+### porter ID
+- Format: `PTR-XXXX` (8 hex chars). Stored in localStorage key `tlh-porter-id`.
+- Legacy `TLH-XXXX` IDs are migrated on next load.
+
+### upgrade system
+- 9 upgrades in `UPGRADE_DEFS`. Bought with scrip. Some have prerequisites.
+- `bootClip1` (40¢): enables 1 spare boot slot. `bootClip2` (100¢, requires clip1): expands to 2.
+- `cargoSling` (+2 slots), `cargoPack` (+3 slots, requires sling), `cargoWeight` (+5kg).
+- `bootsT1` / `bootsT2`: reduce boot drain by ×0.75 / ×0.50 respectively.
+- `steadyFeet`: −30% trip chance, +15% catch chance.
+- `rebuildRoads`: ×1.2 speed multiplier.
+
+### status flow
+`walking` → (pickup) → `carrying` → (node arrival + delivery) → `walking`  
+`walking` → (exhausted) → `resting` → (timer) → `walking` (with +25% stamina overboost)  
+`walking/carrying` → (trip) → `tripped` → (timer) → previous status  
+Tie-down: when armed, intercepts one trip that would damage cargo, then disarms.
+
+### network panel
+Currently hardcoded flavor text in `S.networkFeed`. Not yet connected to any backend. Porter strip hint correctly reads "saved locally" — do not change to imply real multiplayer until backend exists.
 
 ---
 
@@ -116,6 +179,18 @@ A local Node.js process that watches `incoming/<category>/` for new PNGs, conver
 ### 🔴 firefox thumbnail click (calendar)
 The `imgEl.onclick = function() { window.location.href = pageUrl }` approach is blocked by Firefox's popup rules. Fix: replace with an `<a>` tag wrapping the panel image in `artwork-calendar.html` so navigation is always a real link.
 
+### 🟡 async multiplayer — TLH network panel (v0.0.6)
+Network panel currently shows hardcoded flavor text. Needs a lightweight backend:
+- Cloudflare Worker or small Supabase table.
+- `POST /activity` with porter ID + event type (delivery, distance, pkg found, node discovered).
+- `GET /feed` returning last N events from all porters.
+- `S.networkFeed` replaced with live-polled array, fetched every 30–60s via `fetch()`.
+- Rate-limit by porter ID server-side. No auth needed.
+- Only update porter strip hint to "others can see your contributions" once backend is real.
+
+### 🟡 music player additions (v0.0.6)
+User has new tracks to add to `nav.js`. Current tracks: pilgrim's path, stoic porridge, onward (craigory ham), drifter (duster).
+
 ### 🟡 giscus reactions (deferred)
 Reactions are currently hidden. Plan: replace GitHub's default emoji set with custom teal-palette symbols/ASCII via CSS `content` overrides. Options discussed: minimal symbols (`♥` `+1` etc.), counts-only, or CSS-filtered emoji. Revisit next session.
 
@@ -137,9 +212,64 @@ See Firefox fix above. Also: add `female`, `male`, `nudity` tags to tagging syst
 ### 🟡 Line of Action hotlink
 Hotlink to Line of Action with user's usual settings — need URL from user.
 
+### 🟣 TLH future game features (v0.0.7+, do not implement yet)
+- **Structures tab**: postboxes (store cargo), rainfall canopies (wait out rain + refill canteen), generators (battery recharge stub), lookout posts (see more/farther packages), ziplines (skip terrain between 2 points), shelters (home base), drone bays (carry cargo to destination). Built on paths between landmarks with limited slots. All degrade over time, upgradeable with field resources. Roads can move here too.
+- **New terrain types**: deserts (rare rain, faster stamina drain), rivers (difficult to wade, bridgeable), slopes/elevation/mountains (ladders/climbing anchors as purchasable consumables).
+- **Hot springs**: field stamina restore with wait time cost.
+- **Radio chatter**: periodic NPC lines that build with trust, giving world flavour and hinting at packages/dangers.
+
 ---
 
 ## session log
+
+### 2026-04-13
+
+**The Long Haul — v0.0.5 (feature/the-long-haul branch)**
+
+Full rewrite of terrain and delivery systems. All changes are on the feature branch, not yet merged to main.
+
+**persistent world map (7j)**
+- Replaced ephemeral `buildField()` + CSS scroll loop with a pre-generated `worldCells[]` array (1,560 cells, 260 per edge × 6 edges).
+- Scroll is now JS-driven via `translateX` on `.tlh-fieldstrip` each tick — no CSS animation. `width: max-content` on the strip element (was `200%`, causing grey area — fix 1).
+- `worldPosFromRoute()` converts `edgeIdx + dotT` to a world cell offset. Terrain only repeats after a full circuit.
+
+**world packages**
+- Packages exist as persistent objects inside `worldCells[]`. `destId` stamped at generation time = far end of their edge.
+- `scanForPickup()` replaces the old `advanceCycle()` pickup system — proximity-based, runs every tick.
+- `tryDeliver()` replaces old delivery cycle — fires on node arrival, delivers all inventory items bound for that node.
+- Picked packages respawn after `PKG_RESPAWN_TICKS` (800 ticks), capped at `PKG_MAX_PER_EDGE` (14) active per edge.
+
+**bug fixes**
+- Fix 1: `.tlh-fieldstrip` `width: 200%` → `width: max-content` (grey area at terrain edge).
+- Fix 2: destination drift keyframe rewritten to start at `right: 12%` inside visible viewport (was clipped off-screen).
+- Fix 3: `renderUpgrades()` added inside `updateHUD()` — shop buttons now enable as scrip accumulates (was stuck disabled forever after init).
+- Fix 4: `renderCargoSlots()` dirty-check via `cargoKey()` — only rebuilds DOM on inventory change, fixing tooltip flicker. Force-render on pickup/delivery/upgrade.
+- Fix 5: log line limit bumped from 7 to 14.
+- 7e: `RISKY_NODES` (previously unused) wired to `worldCells[].risky` flag; ruins/unknown edge cells apply ×1.4 trip chance multiplier.
+- 7g: drink button now correctly disables at `stamina >= staminaMax` (not the overboost ceiling).
+- 7i: courier `bounce` animation moved from `style.animation` inline to `.tlh-at.bounce` CSS class, syncing stack and `@` animation.
+- 7k: `distKm` now calculated from `(edgeIdx + dotT) × 4.2` (route-based km) instead of raw tick count.
+- 7l: `tt()` timestamp fixed to `Math.floor(ticks × TICK_MS / 1000)` real seconds.
+
+**UI additions (v0.0.4 → v0.0.5)**
+- Weight pips: replaced cargo bar + `0/5kg` text with a row of `wseg` squares (one per kg max), colour-ramped teal → purple → pink.
+- Boot clip refill: depot arrival with partial clip now logs a prompt with inline `[refill]` button instead of silent auto-charge.
+- Log inline action buttons: `.log-btn` CSS class for interactive prompts in log lines.
+- Destination drift layer: `.tlh-dest-drift` shows next node's ASCII glyph drifting across viewport, restarted on each edge change.
+- Carrier stack: all held packages shown above `@` as stacked `[s/m/l]` labels. Lost packages render pink.
+- Tie-down: button in cargo row arms a one-use cargo damage negation on next trip.
+- Cargo slot tooltips: CSS `::after` hover showing `[size] label → dest Xcent¢`.
+- Overboost: shelter rest sets stamina to 125% of max; 5th pulsing teal segment appears until overboost drains.
+- Porter ID migrated from `TLH-` to `PTR-` prefix.
+
+**what needs verifying before merging to main**
+- Terrain scroll fills viewport correctly with no grey area.
+- Destination drift is visible.
+- Packages appear in the world and are picked up by proximity.
+- Shop buttons enable after earning scrip.
+- Cargo tooltips don't flicker.
+- Log shows 14 lines.
+- Async multiplayer (network panel) still shows placeholder — not a bug, intentional for now.
 
 ### 2026-04-12
 
