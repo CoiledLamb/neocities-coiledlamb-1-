@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Long Haul — Coiled Lamb</title>
+  <link rel="stylesheet" href="boot.css" />
+  <link rel="stylesheet" href="nav.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="the-long-haul.css" />
+</head>
+<body>
+  <div id="scanlines"></div>
+  <div id="boot">
+    <div id="boot-ascii"></div>
+    <div id="boot-terminal"></div>
+    <div id="boot-welcome"></div>
+    <span class="boot-skip" onclick="dismissBoot()">[ press any key to skip ]</span>
+  </div>
+  <div id="site">
+    <script>window.NAV_ACTIVE = 'toys';</script>
+    <script src="nav.js?v=2"></script>
+    <div class="nav-offset">
+      <div class="tlh-page">
+
+        <div class="tlh-header">
+          <h1 class="tlh-title">the long haul</h1>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">perpetual beta</span></p>
+        </div>
+
+        <div class="tlh-layout">
+
+          <!-- LEFT: main game shell -->
+          <div class="tlh-shell" id="gameShell">
+
+            <!-- viewport -->
+            <div class="tlh-viewport" id="viewport">
+              <div class="tlh-fieldstrip" id="fieldstrip"></div>
+              <div class="tlh-rain" id="rainOverlay"></div>
+              <div class="tlh-courier" id="courierWrap">
+                <div class="tlh-pkg" id="courierPkg">[s]</div>
+                <div class="tlh-at" id="courierAt">@</div>
+              </div>
+              <div class="tlh-depot-scene" id="depotScene">
+ <span class="ds-roof">/\_/\</span>
+[_____]
+ | <span class="ds-id">B</span> |
+<span class="ds-name">depot b</span></div>
+            </div>
+
+            <!-- HUD row -->
+            <div class="tlh-hud">
+              <div class="tlh-hc"><span class="tlh-hl">delivered</span><span class="tlh-hv ac" id="hDelivered">0</span></div>
+              <div class="tlh-hc"><span class="tlh-hl">scrip</span><span class="tlh-hv" id="hScrip">0&#162;</span></div>
+              <div class="tlh-hc"><span class="tlh-hl">walked</span><span class="tlh-hv" id="hWalked">0km</span></div>
+              <div class="tlh-hc"><span class="tlh-hl">status</span><span class="tlh-hv status" id="hStatus">idle</span></div>
+            </div>
+
+            <!-- cargo row -->
+            <div class="tlh-row cargo-row">
+              <span class="tlh-row-label">cargo</span>
+              <div class="cargo-slots" id="cargoSlots"></div>
+              <div class="cargo-bar-wrap"><div class="cargo-bar-fill" id="cargoBar"></div></div>
+              <span class="cargo-weight" id="cargoWeight">0/5kg</span>
+            </div>
+
+            <!-- boots + stamina row -->
+            <div class="tlh-row boots-row">
+              <span class="tlh-row-label">boots</span>
+              <div class="boots-bar-wrap"><div class="boots-bar-fill" id="bootsBar" style="width:80%"></div></div>
+              <span class="boots-val" id="bootsVal">80%</span>
+              <span class="sandal-badge" id="sandalBadge">+0 sandal</span>
+              <button class="boots-auto" id="autobuyBtn">autobuy: off</button>
+            </div>
+            <div class="tlh-row stamina-row">
+              <span class="tlh-row-label">stamina</span>
+              <div class="stamina-segs" id="staminaSegs">
+                <div class="sseg full" id="sseg0"></div>
+                <div class="sseg full" id="sseg1"></div>
+                <div class="sseg full" id="sseg2"></div>
+                <div class="sseg full" id="sseg3"></div>
+              </div>
+              <button class="drink-btn" id="drinkBtn">drink water (100%)</button>
+              <span class="canteen-icon" title="canteen">&#9748;</span>
+            </div>
+
+            <!-- panels -->
+            <div class="tlh-panels">
+
+              <!-- log -->
+              <div class="tlh-panel" style="flex:1.5">
+                <div class="tlh-ptitle">// dispatch log</div>
+                <div id="logEl"></div>
+              </div>
+
+              <!-- upgrades -->
+              <div class="tlh-panel" style="flex:1.2">
+                <div class="tlh-ptitle">// upgrades</div>
+                <div id="upgradesEl"></div>
+              </div>
+
+              <!-- settlements -->
+              <div class="tlh-panel" style="flex:1">
+                <div class="tlh-ptitle">// settlements</div>
+                <div id="settlementsEl"></div>
+              </div>
+
+            </div>
+
+          </div><!-- end shell -->
+
+          <!-- RIGHT: route map + network -->
+          <div class="tlh-right">
+            <div class="tlh-route-panel">
+              <div class="tlh-ptitle">// route</div>
+              <svg id="routeSvg" width="100%" height="220" style="overflow:visible"></svg>
+            </div>
+            <div class="tlh-network-panel">
+              <div class="tlh-ptitle" style="color:#9d78d4">// network</div>
+              <div id="networkEl"></div>
+            </div>
+          </div>
+
+        </div><!-- end layout -->
+      </div><!-- end page -->
+    </div><!-- end nav-offset -->
+  </div><!-- end site -->
+
+  <script src="boot.js"></script>
+  <script src="the-long-haul.js"></script>
+  <script>
+    document.addEventListener('keydown', e => {
+      if (document.getElementById('boot').style.display !== 'none') dismissBoot();
+    });
+    startBoot();
+  </script>
+</body>
+</html>
