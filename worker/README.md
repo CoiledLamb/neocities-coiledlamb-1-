@@ -17,8 +17,10 @@ From this `worker/` directory:
 wrangler login
 
 # 2. Create the KV namespace that backs the feed.
-wrangler kv:namespace create FEED
+wrangler kv namespace create FEED
 ```
+
+> Note: older wrangler docs use `wrangler kv:namespace create FEED` (with a colon). Recent wrangler versions use a space. If one syntax errors with "Unknown arguments", try the other.
 
 The second command will print something like:
 
@@ -117,16 +119,16 @@ Live logs from a running worker:
 wrangler tail
 ```
 
-Inspect KV directly:
+Inspect KV directly (newer syntax uses spaces, older uses colons — try both if one errors):
 
 ```bash
-wrangler kv:key list --binding=FEED
-wrangler kv:key get "feed:recent" --binding=FEED
+wrangler kv key list --binding=FEED
+wrangler kv key get "feed:recent" --binding=FEED
 ```
 
 Wipe everything (use only if you want to nuke state):
 
 ```bash
-wrangler kv:key delete "feed:recent" --binding=FEED
-wrangler kv:key delete "census:active" --binding=FEED
+wrangler kv key delete "feed:recent" --binding=FEED
+wrangler kv key delete "census:active" --binding=FEED
 ```
