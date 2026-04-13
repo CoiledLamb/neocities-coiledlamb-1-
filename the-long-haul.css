@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — game stylesheet
-   v0.0.4
+   v0.0.5
    ============================================== */
 
 html, body {
@@ -88,7 +88,7 @@ html, body {
   border-bottom: 1px solid #1e5554;
 }
 
-/* Layer 1 — terrain strip */
+/* Layer 1 — terrain strip (JS-driven transform, no CSS animation) */
 .tlh-fieldstrip {
   display: flex;
   align-items: flex-end;
@@ -96,16 +96,12 @@ html, body {
   white-space: nowrap;
   font-size: 12px;
   line-height: 1;
-  animation: scrollfield 28s linear infinite;
   width: 200%;
   padding-bottom: 8px;
   padding-left: 4px;
   position: relative;
   z-index: 1;
-}
-@keyframes scrollfield {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  will-change: transform;
 }
 
 /* Layer 2 — destination drift */
@@ -193,9 +189,11 @@ html, body {
   color: #e0eeec;
   line-height: 1;
 }
-.tlh-at.carry { color: #77bfcf; }
-.tlh-at.rest  { color: #4a7a78; }
-.tlh-at.trip  { color: #da8bda; }
+/* 7i: bounce driven by class on courierAt so whole stack animates together */
+.tlh-at.bounce { animation: bounce 0.4s steps(1) infinite; }
+.tlh-at.carry  { color: #77bfcf; }
+.tlh-at.rest   { color: #4a7a78; }
+.tlh-at.trip   { color: #da8bda; }
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-3px); }
@@ -257,9 +255,7 @@ html, body {
 .cslot.e { background: transparent; }
 
 /* CSS-only tooltip on cargo slots */
-.cslot.has-tooltip {
-  cursor: help;
-}
+.cslot.has-tooltip { cursor: help; }
 .cslot.has-tooltip::after {
   content: attr(title);
   position: absolute;
@@ -283,9 +279,7 @@ html, body {
   min-width: 80px;
   text-align: left;
 }
-.cslot.has-tooltip:hover::after {
-  opacity: 1;
-}
+.cslot.has-tooltip:hover::after { opacity: 1; }
 
 .cargo-bar-wrap { flex: 1; height: 5px; background: #132e2d; border-radius: 1px; overflow: hidden; min-width: 30px; }
 .cargo-bar-fill {
@@ -343,7 +337,6 @@ html, body {
 .sseg.half      { background: #9d78d4; border-color: #7a58a4; }
 .sseg.empty     { background: #132e2d; border-color: #1e5554; }
 .sseg.crit      { background: #da8bda; border-color: #a4589a; }
-/* overboost segment — 5th seg, glowing teal */
 .sseg.overboost {
   background: #77bfcf;
   border-color: #40a4b9;
