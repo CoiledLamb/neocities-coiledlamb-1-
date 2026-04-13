@@ -20,20 +20,27 @@
     <span class="boot-skip" onclick="dismissBoot()">[ press any key to skip ]</span>
   </div>
   <div id="site">
-    <script>window.NAV_ACTIVE = 'toys';</script>
+    <script>window.NAV_ACTIVE = 'the-long-haul';</script>
     <script src="nav.js?v=2"></script>
     <div class="nav-offset">
       <div class="tlh-page">
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">perpetual beta</span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.3</span></p>
         </div>
 
         <div class="tlh-layout">
 
           <!-- LEFT: main game shell -->
           <div class="tlh-shell" id="gameShell">
+
+            <!-- porter ID strip -->
+            <div class="tlh-porter-strip">
+              <span class="tlh-porter-label">// porter id:</span>
+              <span class="tlh-porter-id" id="porterIdEl">&mdash;</span>
+              <span class="tlh-porter-hint">saved locally &mdash; others can see your contributions</span>
+            </div>
 
             <!-- viewport -->
             <div class="tlh-viewport" id="viewport">
@@ -43,11 +50,6 @@
                 <div class="tlh-pkg" id="courierPkg">[s]</div>
                 <div class="tlh-at" id="courierAt">@</div>
               </div>
-              <div class="tlh-depot-scene" id="depotScene">
- <span class="ds-roof">/\_/\</span>
-[_____]
- | <span class="ds-id">B</span> |
-<span class="ds-name">depot b</span></div>
             </div>
 
             <!-- HUD row -->
@@ -66,7 +68,7 @@
               <span class="cargo-weight" id="cargoWeight">0/5kg</span>
             </div>
 
-            <!-- boots + stamina row -->
+            <!-- boots row -->
             <div class="tlh-row boots-row">
               <span class="tlh-row-label">boots</span>
               <div class="boots-bar-wrap"><div class="boots-bar-fill" id="bootsBar" style="width:80%"></div></div>
@@ -74,6 +76,8 @@
               <span class="sandal-badge" id="sandalBadge">+0 sandal</span>
               <button class="boots-auto" id="autobuyBtn">autobuy: off</button>
             </div>
+
+            <!-- stamina row -->
             <div class="tlh-row stamina-row">
               <span class="tlh-row-label">stamina</span>
               <div class="stamina-segs" id="staminaSegs">
@@ -82,7 +86,9 @@
                 <div class="sseg full" id="sseg2"></div>
                 <div class="sseg full" id="sseg3"></div>
               </div>
-              <button class="drink-btn" id="drinkBtn">drink water (100%)</button>
+              <div class="canteen-bar-wrap"><div class="canteen-bar-fill" id="canteenBar"></div></div>
+              <button class="drink-btn" id="drinkBtn">drink (100%)</button>
+              <button class="boots-auto" id="autodrinkBtn">auto: off</button>
               <span class="canteen-icon" title="canteen">&#9748;</span>
             </div>
 

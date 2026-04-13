@@ -1,8 +1,8 @@
 /* ==============================================
    THE LONG HAUL — game stylesheet
+   v0.0.3
    ============================================== */
 
-/* base — matches site-wide aesthetic from toys.html / style.css */
 html, body {
   margin: 0;
   background: #155352;
@@ -12,10 +12,7 @@ html, body {
   min-height: 100vh;
 }
 
-#site {
-  opacity: 0;
-  transition: opacity 0.7s ease;
-}
+#site { opacity: 0; transition: opacity 0.7s ease; }
 #site.visible { opacity: 1; }
 
 .tlh-page {
@@ -40,7 +37,6 @@ html, body {
   margin: 0;
 }
 
-/* layout */
 .tlh-layout {
   display: grid;
   grid-template-columns: 1fr 140px;
@@ -48,13 +44,37 @@ html, body {
   align-items: start;
 }
 
-/* shell */
 .tlh-shell {
   border: 1px solid #1e5554;
   border-radius: 2px;
   overflow: hidden;
   animation: oil-border 4s linear infinite;
   background: #0d3533;
+}
+
+/* porter ID strip */
+.tlh-porter-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid #1e5554;
+  background: #0b2e2d;
+  font-size: 10px;
+  font-family: 'Source Code Pro', monospace;
+}
+.tlh-porter-label { color: #3a6a68; flex-shrink: 0; }
+.tlh-porter-id {
+  color: #77bfcf;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+.tlh-porter-hint {
+  color: #2a5c5a;
+  font-size: 9px;
+  margin-left: auto;
+  text-align: right;
 }
 
 /* viewport */
@@ -73,7 +93,7 @@ html, body {
   white-space: nowrap;
   font-size: 12px;
   line-height: 1;
-  animation: scrollfield 22s linear infinite;
+  animation: scrollfield 28s linear infinite;
   width: 200%;
   padding-bottom: 8px;
   padding-left: 4px;
@@ -83,13 +103,16 @@ html, body {
   100% { transform: translateX(-50%); }
 }
 
+/* field chars */
 .fc { display: inline-block; padding: 0 1px; user-select: none; font-family: 'Source Code Pro', monospace; }
-.fc-fl { color: #1e5554; }
-.fc-rn { color: #3a6a68; }
-.fc-sg { color: #4a7a78; }
-.fc-sw { color: #2a5c5a; }
-.fc-pk { color: #77bfcf; font-weight: 700; }
+.fc-fl       { color: #1e5554; }
+.fc-rn       { color: #3a6a68; }
+.fc-sg       { color: #4a7a78; }
+.fc-sw       { color: #2a5c5a; }
+.fc-pk       { color: #77bfcf; font-weight: 700; }
+.fc-pk-lost  { color: #da8bda; font-weight: 700; }
 .fc-sw-plant { color: #2a7a58; }
+.fc-depot    { color: #4a7a78; font-weight: 700; }
 
 /* rain */
 .tlh-rain { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -99,23 +122,6 @@ html, body {
   90%  { opacity: 0.3; }
   100% { transform: translateY(120px); opacity: 0; }
 }
-
-/* depot scene */
-.tlh-depot-scene {
-  position: absolute;
-  right: 10px;
-  bottom: 6px;
-  font-size: 11px;
-  line-height: 1.35;
-  white-space: pre;
-  text-align: center;
-  color: #4a7a78;
-  font-family: 'Source Code Pro', monospace;
-  font-weight: 700;
-}
-.ds-roof { color: #7aa8a6; }
-.ds-id   { color: #77bfcf; }
-.ds-name { color: #3a6a68; font-size: 10px; }
 
 /* courier */
 .tlh-courier {
@@ -162,7 +168,7 @@ html, body {
 .tlh-hv.ac { color: #77bfcf; }
 .tlh-hv.status { color: #da8bda; }
 
-/* generic row */
+/* rows */
 .tlh-row {
   display: flex;
   align-items: center;
@@ -191,8 +197,7 @@ html, body {
 .cslot.e { background: transparent; }
 .cargo-bar-wrap { flex: 1; height: 5px; background: #132e2d; border-radius: 1px; overflow: hidden; }
 .cargo-bar-fill {
-  height: 100%;
-  border-radius: 1px;
+  height: 100%; border-radius: 1px;
   background: linear-gradient(90deg, #40a4b9, #9d78d4);
   background-size: 200% auto;
   animation: oil 3s linear infinite;
@@ -240,6 +245,14 @@ html, body {
 .sseg.empty { background: #132e2d; border-color: #1e5554; }
 .sseg.crit  { background: #da8bda; border-color: #a4589a; }
 
+/* canteen bar */
+.canteen-bar-wrap { width: 36px; height: 4px; background: #132e2d; border-radius: 1px; overflow: hidden; flex-shrink: 0; }
+.canteen-bar-fill {
+  height: 100%; border-radius: 1px;
+  background: #40a4b9;
+  transition: width 0.4s;
+}
+
 .drink-btn {
   background: transparent;
   border: 1px solid #1e5554;
@@ -262,12 +275,12 @@ html, body {
 .tlh-panel:last-child { border-right: none; }
 .tlh-ptitle { font-size: 9px; color: #3a6a68; letter-spacing: 0.08em; text-transform: lowercase; margin-bottom: 5px; font-family: 'Source Code Pro', monospace; }
 
-/* log lines */
+/* log */
 .log-line { display: block; font-size: 10px; line-height: 1.7; color: #7aa8a6; font-family: 'Source Code Pro', monospace; }
-.log-ts  { color: #2a5c5a; }
-.log-hi  { color: #77bfcf; }
-.log-wn  { color: #da8bda; }
-.log-ok  { color: #4a7a78; }
+.log-ts { color: #2a5c5a; }
+.log-hi { color: #77bfcf; }
+.log-wn { color: #da8bda; }
+.log-ok { color: #4a7a78; }
 
 /* upgrades */
 .upg-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
@@ -300,7 +313,7 @@ html, body {
 .settle-fill.b { background: linear-gradient(90deg,#40a4b9,#9d78d4); animation: oil 3s linear infinite; background-size: 200% auto; }
 .settle-quote { font-size: 9px; color: #2a5c5a; margin-top: 3px; line-height: 1.4; }
 
-/* right column */
+/* right col */
 .tlh-right { display: flex; flex-direction: column; gap: 8px; }
 .tlh-route-panel,
 .tlh-network-panel {
@@ -309,7 +322,6 @@ html, body {
   background: #081f1e;
   padding: 8px;
 }
-.tlh-route-panel { flex: 1; }
 
 /* network */
 .net-item { font-size: 9px; color: #7aa8a6; line-height: 1.65; border-bottom: 1px solid #132e2d; padding: 2px 0; font-family: 'Source Code Pro', monospace; }

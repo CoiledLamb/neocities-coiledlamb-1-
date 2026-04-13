@@ -30,7 +30,8 @@
       label: 'Toys',
       href: 'toys.html',
       children: [
-        { key: 'oilslick', label: 'Oilslick Labs', href: 'oilslick-lab.html' },
+        { key: 'oilslick',      label: 'Oilslick Labs',  href: 'oilslick-lab.html'   },
+        { key: 'the-long-haul', label: 'The Long Haul',  href: 'the-long-haul.html'  },
       ]
     },
   ];
