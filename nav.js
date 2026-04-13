@@ -41,6 +41,11 @@
     { name: 'stoic porridge',  artist: 'craigory ham', src: '/audio/stoic-porridge.mp3', duration: '5:29' },
     { name: 'onward',          artist: 'craigory ham', src: '/audio/onward.mp3',          duration: '5:56' },
     { name: 'drifter',         artist: 'duster',       src: '/audio/drifter.mp3',         duration: '3:41' },
+    { name: '20190622',        artist: 'mac demarco',  src: '/audio/20190622.mp3',        duration: '0:00' },
+    { name: '20200107 2',      artist: 'mac demarco',  src: '/audio/20200107 2.mp3',      duration: '0:00' },
+    { name: '20200402',        artist: 'mac demarco',  src: '/audio/20200402.mp3',        duration: '0:00' },
+    { name: '20201228',        artist: 'mac demarco',  src: '/audio/20201228.mp3',        duration: '0:00' },
+    { name: '20210818',        artist: 'mac demarco',  src: '/audio/20210818.mp3',        duration: '0:00' },
   ];
 
   const OIL_GRADIENT = 'linear-gradient(90deg,#40a4b9 0%,#77bfcf 18%,#9d78d4 38%,#da8bda 54%,#9d78d4 70%,#77bfcf 85%,#40a4b9 100%)';
