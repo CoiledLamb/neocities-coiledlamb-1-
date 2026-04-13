@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.3
+   v0.0.4
    ============================================== */
 'use strict';
 (function () {
@@ -14,12 +14,16 @@ function getPorterId() {
     let id = localStorage.getItem(LS_KEY);
     if (!id) {
       const hex = () => Math.floor(Math.random() * 0x10000).toString(16).toUpperCase().padStart(4, '0');
-      id = 'TLH-' + hex() + hex();
+      id = 'PTR-' + hex() + hex();
+      localStorage.setItem(LS_KEY, id);
+    } else if (id.startsWith('TLH-')) {
+      // migrate legacy IDs
+      id = 'PTR-' + id.slice(4);
       localStorage.setItem(LS_KEY, id);
     }
     return id;
   } catch (e) {
-    return 'TLH-OFFLINE';
+    return 'PTR-OFFLINE';
   }
 }
 
@@ -43,18 +47,23 @@ const S = {
   usedSlots: 0,
   maxWeight: 5,
   usedWeight: 0,
-  inventory: [], // { size, label, kg, slots, scrip, isLost }
+  inventory: [], // { size, label, kg, slots, scrip, isLost, destId }
+
+  // tie-down cargo
+  tieDownActive: false,
 
   // boots
   bootDurability: 80,
   autobuyBoots: false,
-  sandalCount: 0,
+  bootClipCount: 0,    // spare boots in clip (0, 1, or 2)
+  bootClipMax: 0,      // 0 = no clip, 1 = clip1, 2 = clip2
   usingMakeshift: false,
 
-  // stamina: 0-400 (4 segs x 100)
+  // stamina: 0-400 (4 segs x 100); overboost can push to 500
   stamina: 400,
   staminaMax: 400,
-  prevStaminaSeg: 4, // track segment crossings for autodrink
+  staminaOverboost: false,
+  prevStaminaSeg: 4,
 
   // canteen
   canteen: 100,
@@ -70,6 +79,8 @@ const S = {
   upgrades: {
     bootsT1:     false,
     bootsT2:     false,
+    bootClip1:   false,
+    bootClip2:   false,
     cargoSling:  false,
     cargoPack:   false,
     cargoWeight: false,
@@ -100,8 +111,7 @@ const S = {
   edgeIdx: 2,   // start on B->C
   dotT: 0,
 
-  // delivery queue: packages waiting at each node
-  // filled by advanceCycle when porter arrives
+  // delivery queue
   pendingDelivery: null, // { pkg, destNodeId }
 
   networkFeed: [
@@ -128,17 +138,16 @@ const LOST_PKGS = [
   { size:'s', label:'old photo',    kg:1, slots:1, scrip:14, isLost:true },
 ];
 
-// nodes where packages are more dangerous / harder to find
 const RISKY_NODES = new Set(['C', '?']);
 
 const TICK_MS          = 350;
 const STAMINA_DRAIN    = 0.28;
 const BOOT_DRAIN       = 0.12;
-const TRIP_CHANCE_BASE = 0.006; // per tick when boots=0, stamina=0
-const CATCH_CHANCE_BASE= 0.35;  // max catch chance at full boots+stamina
+const TRIP_CHANCE_BASE = 0.006;
+const CATCH_CHANCE_BASE= 0.35;
 const REST_TICKS_MIN   = 43;
 const REST_TICKS_MAX   = 86;
-const EDGE_TICKS       = 18;    // ticks to traverse one edge
+const EDGE_TICKS       = 18;
 
 const STATUS_COLORS = {
   idle:       '#da8bda',
@@ -151,93 +160,80 @@ const STATUS_COLORS = {
 };
 
 // ============================================================
-// DOM REFS (resolved after DOMContentLoaded)
+// DOM REFS
 // ============================================================
 const $ = id => document.getElementById(id);
 let els = {};
 
 function resolveEls() {
   els = {
-    porterIdEl:   $('porterIdEl'),
-    delivered:    $('hDelivered'),
-    scrip:        $('hScrip'),
-    walked:       $('hWalked'),
-    status:       $('hStatus'),
-    courierAt:    $('courierAt'),
-    courierPkg:   $('courierPkg'),
-    fieldstrip:   $('fieldstrip'),
-    rainOverlay:  $('rainOverlay'),
-    cargoSlots:   $('cargoSlots'),
-    cargoBar:     $('cargoBar'),
-    cargoWeight:  $('cargoWeight'),
-    bootsBar:     $('bootsBar'),
-    bootsVal:     $('bootsVal'),
-    autobuyBtn:   $('autobuyBtn'),
-    sandalBadge:  $('sandalBadge'),
-    drinkBtn:     $('drinkBtn'),
-    autodrinkBtn: $('autodrinkBtn'),
-    canteenBar:   $('canteenBar'),
-    logEl:        $('logEl'),
-    upgradesEl:   $('upgradesEl'),
-    settlementsEl:$('settlementsEl'),
-    routeSvg:     $('routeSvg'),
-    networkEl:    $('networkEl'),
+    porterIdEl:     $('porterIdEl'),
+    delivered:      $('hDelivered'),
+    scrip:          $('hScrip'),
+    walked:         $('hWalked'),
+    status:         $('hStatus'),
+    courierAt:      $('courierAt'),
+    courierStack:   $('courierStack'),
+    fieldstrip:     $('fieldstrip'),
+    rainOverlay:    $('rainOverlay'),
+    destDrift:      $('destDrift'),
+    cargoSlots:     $('cargoSlots'),
+    cargoBar:       $('cargoBar'),
+    cargoWeight:    $('cargoWeight'),
+    bootsBar:       $('bootsBar'),
+    bootsVal:       $('bootsVal'),
+    autobuyBtn:     $('autobuyBtn'),
+    buyBootsBtn:    $('buyBootsBtn'),
+    clipBadge:      $('clipBadge'),
+    drinkBtn:       $('drinkBtn'),
+    autodrinkBtn:   $('autodrinkBtn'),
+    canteenBar:     $('canteenBar'),
+    tieDownBtn:     $('tieDownBtn'),
+    logEl:          $('logEl'),
+    upgradesEl:     $('upgradesEl'),
+    settlementsEl:  $('settlementsEl'),
+    routeSvg:       $('routeSvg'),
+    networkEl:      $('networkEl'),
   };
 }
 
 // ============================================================
 // TERRAIN: ZONE-BASED FIELD GENERATION
 // ============================================================
-// Zone types define character palettes and widths.
-// The strip is assembled from a sequence of zones so each
-// biome reads as a coherent stretch rather than noise.
-
 const ZONE_TYPES = {
   road: {
-    weight: 40,
-    width: [12, 22],
-    // flat packed-dirt road: dashes and dots
+    weight: 40, width: [12, 22],
     chars: [
       { ch: '-',  cls: 'fc-rn', w: 5 },
       { ch: '.',  cls: 'fc-fl', w: 4 },
       { ch: '_',  cls: 'fc-rn', w: 3 },
       { ch: '\u00b7', cls: 'fc-fl', w: 2 },
     ],
-    pkgChance: 0.04,
-    sandalChance: 0.01,
+    pkgChance: 0.04, sandalChance: 0.01,
   },
   scrub: {
-    weight: 25,
-    width: [8, 16],
-    // low scrubland: commas, backticks, apostrophes
+    weight: 25, width: [8, 16],
     chars: [
       { ch: ',',  cls: 'fc-fl', w: 5 },
       { ch: '`',  cls: 'fc-fl', w: 4 },
       { ch: "'",  cls: 'fc-fl', w: 4 },
       { ch: '.',  cls: 'fc-fl', w: 3 },
-      { ch: '*',  cls: 'fc-sw-plant', w: 1 }, // sandalweed in scrub
+      { ch: '*',  cls: 'fc-sw-plant', w: 1 },
     ],
-    pkgChance: 0.05,
-    sandalChance: 0.03,
+    pkgChance: 0.05, sandalChance: 0.03,
   },
   wetlands: {
-    weight: 12,
-    width: [6, 14],
-    // tilde-heavy, occasional reeds
+    weight: 12, width: [6, 14],
     chars: [
       { ch: '~',  cls: 'fc-sw', w: 8 },
       { ch: '|',  cls: 'fc-sg', w: 2 },
       { ch: '~',  cls: 'fc-sw', w: 6 },
       { ch: ',',  cls: 'fc-fl', w: 1 },
     ],
-    pkgChance: 0.02,
-    sandalChance: 0.00,
-    refillsCanteen: true,
+    pkgChance: 0.02, sandalChance: 0.00, refillsCanteen: true,
   },
   ruins: {
-    weight: 15,
-    width: [10, 20],
-    // structural debris: pipes, equals, hash, brackets
+    weight: 15, width: [10, 20],
     chars: [
       { ch: '=',  cls: 'fc-rn', w: 4 },
       { ch: '|',  cls: 'fc-sg', w: 3 },
@@ -246,22 +242,16 @@ const ZONE_TYPES = {
       { ch: '[',  cls: 'fc-sg', w: 1 },
       { ch: ']',  cls: 'fc-sg', w: 1 },
     ],
-    pkgChance: 0.09, // more packages in ruins
-    sandalChance: 0.01,
-    risky: true,
+    pkgChance: 0.09, sandalChance: 0.01, risky: true,
   },
   depot_approach: {
-    weight: 8,
-    width: [6, 10],
-    // cleared ground near a settlement
+    weight: 8, width: [6, 10],
     chars: [
       { ch: '.',  cls: 'fc-fl', w: 6 },
       { ch: '-',  cls: 'fc-rn', w: 3 },
       { ch: ',',  cls: 'fc-fl', w: 2 },
     ],
-    pkgChance: 0.08, // packages cluster near depots
-    sandalChance: 0.00,
-    isDepotApproach: true,
+    pkgChance: 0.08, sandalChance: 0.00, isDepotApproach: true,
   },
 };
 
@@ -286,23 +276,9 @@ function weightedCharPick(chars) {
   return chars[0];
 }
 
-function buildDepotScene(nodeId) {
-  // Returns an HTML string for a small depot ascii structure
-  const scenes = {
-    'A': ' /--\\ \n[_A_]\n |   |',
-    'B': ' /\_/\ \n[___]\n| B |',
-    'H': '  /\\  \n /  \ \n[HOME]',
-    '·': '  !  \n  |  \n====',
-  };
-  const scene = scenes[nodeId] || (' ??? ');
-  return scene.split('\n').map((l, i) =>
-    `<span class="ds-line${i === 0 ? ' ds-roof' : i === 2 ? ' ds-base' : ''}">${l}</span>`
-  ).join('\n');
-}
-
 function buildField() {
   let h = '';
-  const TARGET_CHARS = 600; // long enough that seam takes >40s to cycle
+  const TARGET_CHARS = 600;
   let count = 0;
 
   while (count < TARGET_CHARS) {
@@ -311,9 +287,7 @@ function buildField() {
     const [minW, maxW] = zone.width;
     const zoneLen = minW + Math.floor(Math.random() * (maxW - minW));
 
-    // optionally inject a depot scene block into depot_approach zones
     if (zone.isDepotApproach && Math.random() < 0.4) {
-      // small gap then depot ascii, then gap
       h += `<span class="fc fc-fl">   </span>`;
       h += `<span class="fc fc-depot"> [=] </span>`;
       h += `<span class="fc fc-fl">   </span>`;
@@ -323,7 +297,6 @@ function buildField() {
     for (let i = 0; i < zoneLen && count < TARGET_CHARS; i++) {
       const r = Math.random();
 
-      // package spawn — weighted by zone
       if (r < zone.pkgChance && (count % 8 === 0)) {
         const isLost = Math.random() < 0.15;
         const pkgSize = Math.random() < 0.6 ? 's' : Math.random() < 0.7 ? 'm' : 'l';
@@ -334,7 +307,6 @@ function buildField() {
         continue;
       }
 
-      // sandalweed spawn
       if (r < zone.pkgChance + zone.sandalChance) {
         h += `<span class="fc fc-sw-plant" title="sandalweed"> * </span>`;
         count += 3;
@@ -342,25 +314,51 @@ function buildField() {
         continue;
       }
 
-      // normal terrain char
       const c = weightedCharPick(zone.chars);
       h += `<span class="fc ${c.cls}"> ${c.ch} </span>`;
       count += 3;
     }
 
-    // zone separator: a small gap
     h += `<span class="fc fc-fl">  </span>`;
     count += 2;
   }
 
-  // duplicate for seamless loop
   els.fieldstrip.innerHTML = h + h;
+}
+
+// ============================================================
+// DESTINATION DRIFT
+// ============================================================
+const NODE_GLYPHS = {
+  'A': '/--\\\n[_A_]',
+  'B': '/\\_/\\\n[_B_]',
+  'H': ' /\\ \n[HOME]',
+  'C': '=====\n[RNS]',
+  '?': ' ??? \n[ ? ]',
+  '·': '  !  \n =·= ',
+};
+
+function updateDestDrift() {
+  if (!els.destDrift) return;
+  const [, toId] = currentEdge();
+  const node = S.routeNodes.find(n => n.id === toId);
+  if (!node) return;
+  const glyph = NODE_GLYPHS[toId] || `[${toId}]`;
+  const label = node.known ? node.label : '???';
+  els.destDrift.innerHTML =
+    `<span class="dest-glyph">${glyph.replace(/\n/g, '<br>')}</span>` +
+    `<span class="dest-label">${label}</span>`;
+  // restart drift animation by triggering reflow
+  els.destDrift.style.animation = 'none';
+  void els.destDrift.offsetHeight;
+  els.destDrift.style.animation = '';
 }
 
 // ============================================================
 // RAIN
 // ============================================================
 function buildRain() {
+  if (!els.rainOverlay) return;
   els.rainOverlay.innerHTML = '';
   for (let i = 0; i < 18; i++) {
     const d = document.createElement('span');
@@ -377,7 +375,7 @@ function buildRain() {
 
 function setRain(on) {
   S.isRaining = on;
-  els.rainOverlay.style.display = on ? 'block' : 'none';
+  if (els.rainOverlay) els.rainOverlay.style.display = on ? 'block' : 'none';
   if (on) {
     S.canteen = Math.min(S.canteenMax, S.canteen + 30);
     addLog('<span class="log-wn">rain begins — canteen refilling</span>');
@@ -411,6 +409,7 @@ function currentEdge() {
 
 function drawRouteMap() {
   const svg = els.routeSvg;
+  if (!svg) return;
   svg.innerHTML = '';
   const ns = 'http://www.w3.org/2000/svg';
   const [fromId, toId] = currentEdge();
@@ -497,6 +496,16 @@ const UPGRADE_DEFS = [
     apply: () => {},
   },
   {
+    id: 'bootClip1', name: 'boot clip', desc: 'carry 1 spare pair of boots',
+    cost: 40, requires: null,
+    apply: () => { S.bootClipMax = 1; S.bootClipCount = 1; },
+  },
+  {
+    id: 'bootClip2', name: 'extended clip', desc: 'carry 2 spare pairs of boots',
+    cost: 100, requires: 'bootClip1',
+    apply: () => { S.bootClipMax = 2; if (S.bootClipCount < 2) S.bootClipCount = Math.min(2, S.bootClipCount + 1); },
+  },
+  {
     id: 'steadyFeet', name: 'steady feet', desc: '-30% trip chance, +15% catch',
     cost: 120, requires: null,
     apply: () => {},
@@ -524,6 +533,7 @@ const UPGRADE_DEFS = [
 ];
 
 function renderUpgrades() {
+  if (!els.upgradesEl) return;
   els.upgradesEl.innerHTML = '';
   UPGRADE_DEFS.forEach(def => {
     const purchased = S.upgrades[def.id];
@@ -559,6 +569,7 @@ function buyUpgrade(id) {
   addLog(`<span class="log-hi">${def.name}</span> purchased`);
   renderUpgrades();
   renderCargoSlots();
+  renderBoots();
   updateHUD();
 }
 
@@ -566,8 +577,8 @@ function buyUpgrade(id) {
 // SETTLEMENTS
 // ============================================================
 function renderSettlements() {
+  if (!els.settlementsEl) return;
   els.settlementsEl.innerHTML = '';
-  // only show known settlements
   const known = S.routeNodes
     .filter(n => n.known && S.settlements[n.id])
     .map(n => ({ id: n.id, ...S.settlements[n.id] }));
@@ -587,6 +598,7 @@ function renderSettlements() {
 // NETWORK FEED
 // ============================================================
 function renderNetwork() {
+  if (!els.networkEl) return;
   els.networkEl.innerHTML = S.networkFeed
     .map(f => `<div class="net-item">${f}</div>`).join('');
 }
@@ -620,46 +632,96 @@ function updateHUD() {
 }
 
 function renderCargoSlots() {
+  if (!els.cargoSlots) return;
   els.cargoSlots.innerHTML = '';
   const used = [];
-  S.inventory.forEach(pkg => { for (let i = 0; i < pkg.slots; i++) used.push(pkg.size); });
+  S.inventory.forEach(pkg => { for (let i = 0; i < pkg.slots; i++) used.push(pkg); });
+
   for (let i = 0; i < S.maxSlots; i++) {
+    const pkg = used[i] || null;
     const d = document.createElement('div');
-    d.className = 'cslot ' + (used[i] || 'e');
-    d.textContent = used[i] || '';
+    d.className = 'cslot ' + (pkg ? pkg.size : 'e');
+    d.textContent = pkg ? pkg.size : '';
+
+    if (pkg) {
+      const destNode = S.routeNodes.find(n => n.id === pkg.destId);
+      const destLabel = destNode ? (destNode.known ? destNode.label : '???') : '?';
+      const lostTag = pkg.isLost ? ' [lost]' : '';
+      d.setAttribute('title', `[${pkg.size}] ${pkg.label}${lostTag}\n\u2192 ${destLabel}\n${pkg.scrip}\u00a2`);
+      d.classList.add('has-tooltip');
+    }
     els.cargoSlots.appendChild(d);
   }
+
   const pct = S.maxWeight > 0 ? Math.min(100, (S.usedWeight / S.maxWeight) * 100) : 0;
   els.cargoBar.style.width = pct + '%';
   els.cargoWeight.textContent = S.usedWeight + '/' + S.maxWeight + 'kg';
 }
 
+function renderCourierStack() {
+  if (!els.courierStack) return;
+  if (S.inventory.length === 0) {
+    els.courierStack.innerHTML = '';
+    return;
+  }
+  els.courierStack.innerHTML = S.inventory
+    .map(pkg => {
+      const cls = pkg.isLost ? 'courier-pkg lost' : 'courier-pkg';
+      return `<span class="${cls}">[${pkg.size}]</span>`;
+    })
+    .join('');
+}
+
 function renderBoots() {
   const d = Math.round(S.bootDurability);
-  els.bootsVal.textContent = d + '%';
-  els.bootsBar.style.width = d + '%';
-  const cls = d > 50 ? '' : d > 25 ? ' worn' : ' bad';
-  els.bootsBar.className = 'boots-bar-fill' + cls;
-  els.sandalBadge.textContent = '+' + S.sandalCount + ' sandal';
+  if (els.bootsVal) els.bootsVal.textContent = d + '%';
+  if (els.bootsBar) {
+    els.bootsBar.style.width = d + '%';
+    const cls = d > 50 ? '' : d > 25 ? ' worn' : ' bad';
+    els.bootsBar.className = 'boots-bar-fill' + cls;
+  }
+  if (els.clipBadge) {
+    if (S.bootClipMax > 0) {
+      els.clipBadge.textContent = `clip: ${S.bootClipCount}/${S.bootClipMax}`;
+      els.clipBadge.style.display = 'inline';
+    } else {
+      els.clipBadge.style.display = 'none';
+    }
+  }
+  if (els.buyBootsBtn) {
+    els.buyBootsBtn.disabled = S.scrip < 15;
+  }
 }
 
 function staminaSegCount() {
-  return Math.min(4, Math.ceil(S.stamina / (S.staminaMax / 4)));
+  const effective = Math.min(S.stamina, S.staminaMax);
+  return Math.min(4, Math.ceil(effective / (S.staminaMax / 4)));
 }
 
 function renderStamina() {
   const perSeg = S.staminaMax / 4;
+  const displayStamina = Math.min(S.stamina, S.staminaMax);
+
   for (let i = 0; i < 4; i++) {
     const seg = document.getElementById('sseg' + i);
     if (!seg) continue;
     const floor = i * perSeg;
     const ceil  = (i + 1) * perSeg;
-    if (S.stamina >= ceil)       seg.className = 'sseg full';
-    else if (S.stamina > floor)  seg.className = 'sseg ' + ((S.stamina - floor) / perSeg > 0.5 ? 'half' : 'crit');
-    else                         seg.className = 'sseg empty';
+    if (displayStamina >= ceil)       seg.className = 'sseg full';
+    else if (displayStamina > floor)  seg.className = 'sseg ' + ((displayStamina - floor) / perSeg > 0.5 ? 'half' : 'crit');
+    else                              seg.className = 'sseg empty';
   }
 
-  // autodrink: fire when a full segment just emptied
+  const overSeg = document.getElementById('sseg4');
+  if (overSeg) {
+    if (S.staminaOverboost && S.stamina > S.staminaMax) {
+      overSeg.className = 'sseg overboost';
+      overSeg.style.display = 'block';
+    } else {
+      overSeg.style.display = 'none';
+    }
+  }
+
   const nowSegs = staminaSegCount();
   if (S.autodrink && nowSegs < S.prevStaminaSeg && S.canteen > 0) {
     drinkWater();
@@ -667,37 +729,86 @@ function renderStamina() {
   S.prevStaminaSeg = nowSegs;
 
   const canteenPct = Math.round((S.canteen / S.canteenMax) * 100);
-  els.drinkBtn.textContent = `drink (${canteenPct}%)`;
-  els.drinkBtn.disabled = S.canteen <= 0 || S.stamina >= S.staminaMax;
-  els.canteenBar.style.width = canteenPct + '%';
+  if (els.drinkBtn) {
+    els.drinkBtn.textContent = `drink (${canteenPct}%)`;
+    els.drinkBtn.disabled = S.canteen <= 0 || S.stamina >= S.staminaMax * 1.25;
+  }
+  if (els.canteenBar) els.canteenBar.style.width = canteenPct + '%';
 }
 
 // ============================================================
-// AUTOBUY BOOTS
+// BOOTS PURCHASE
+// ============================================================
+function buyBoots() {
+  if (S.scrip < 15) return;
+  S.scrip -= 15;
+  S.bootDurability = 100;
+  S.usingMakeshift = false;
+  addLog('purchased new <span class="log-hi">boots</span> (15¢)');
+  renderBoots();
+  updateHUD();
+}
+
+// ============================================================
+// AUTOBUY / BOOT CLIP
 // ============================================================
 function checkAutobuy() {
   if (!S.autobuyBoots) return;
+
+  if (S.bootDurability <= 0 && S.bootClipCount > 0) {
+    S.bootClipCount--;
+    S.bootDurability = 100;
+    S.usingMakeshift = false;
+    addLog('<span class="log-hi">boot clip</span>: spare pair auto-equipped');
+    renderBoots();
+    return;
+  }
+
   if (S.bootDurability <= 20 && S.scrip >= 15) {
     S.scrip -= 15;
     S.bootDurability = 100;
     S.usingMakeshift = false;
     addLog('autobuy: new <span class="log-hi">boots</span> purchased (15¢)');
     updateHUD();
-  } else if (S.bootDurability <= 5 && S.sandalCount > 0) {
-    S.sandalCount--;
-    S.bootDurability = Math.min(100, S.bootDurability + 40);
-    S.usingMakeshift = true;
-    addLog('<span class="log-wn">makeshift sandals equipped</span>');
   }
+}
+
+function refillBootClip(nodeId) {
+  if (S.bootClipMax === 0) return;
+  const settle = S.settlements[nodeId];
+  if (!settle) return;
+  const isSupplyNode = ['A','B','H'].includes(nodeId);
+  if (isSupplyNode && S.bootClipCount < S.bootClipMax) {
+    const cost = (S.bootClipMax - S.bootClipCount) * 15;
+    if (S.scrip >= cost) {
+      S.scrip -= cost;
+      S.bootClipCount = S.bootClipMax;
+      addLog(`boot clip refilled at <span class="log-hi">${settle.label}</span> (${cost}¢)`);
+      renderBoots();
+      updateHUD();
+    }
+  }
+}
+
+// ============================================================
+// TIE-DOWN
+// ============================================================
+function toggleTieDown() {
+  S.tieDownActive = !S.tieDownActive;
+  if (els.tieDownBtn) {
+    els.tieDownBtn.textContent = 'tie-down: ' + (S.tieDownActive ? 'on' : 'off');
+    els.tieDownBtn.classList.toggle('on', S.tieDownActive);
+  }
+  if (S.tieDownActive) addLog('cargo <span class="log-hi">tied down</span> — next stumble negated');
 }
 
 // ============================================================
 // TRIP / CATCH LOGIC
 // ============================================================
 function tripChance() {
-  const bootFail     = (100 - S.bootDurability) / 100;
-  const segsLost     = 4 - staminaSegCount();
-  const staminaMult  = 1 + segsLost * 0.5;
+  const bootFail    = (100 - S.bootDurability) / 100;
+  const segsLost    = 4 - staminaSegCount();
+  const staminaMult = 1 + segsLost * 0.5;
   let chance = TRIP_CHANCE_BASE * bootFail * staminaMult;
   if (S.upgrades.steadyFeet) chance *= 0.70;
   return chance;
@@ -705,7 +816,7 @@ function tripChance() {
 
 function catchChance() {
   const bootFactor    = S.bootDurability / 100;
-  const staminaFactor = S.stamina / S.staminaMax;
+  const staminaFactor = Math.min(S.stamina, S.staminaMax) / S.staminaMax;
   let chance = CATCH_CHANCE_BASE * ((bootFactor + staminaFactor) / 2);
   if (S.upgrades.steadyFeet) chance += 0.15;
   return Math.min(0.85, chance);
@@ -715,13 +826,26 @@ function maybeTrip() {
   if (S.status !== 'walking' && S.status !== 'carrying') return;
   if (Math.random() >= tripChance()) return;
 
-  // trip roll fired — check catch
   if (Math.random() < catchChance()) {
     addLog('stumbled on debris — <span class="log-ok">caught yourself</span>');
     return;
   }
 
-  // actual fall
+  if (S.tieDownActive && S.inventory.length > 0) {
+    S.tieDownActive = false;
+    if (els.tieDownBtn) {
+      els.tieDownBtn.textContent = 'tie-down: off';
+      els.tieDownBtn.classList.remove('on');
+    }
+    addLog('<span class="log-wn">tripped!</span> tie-down held — <span class="log-ok">cargo protected</span>. re-arm to use again');
+    S.bootDurability = Math.max(0, S.bootDurability - 5);
+    S.status = 'tripped';
+    S.tripTimer = 6;
+    els.courierAt.className = 'tlh-at trip';
+    els.courierAt.style.animation = 'trip 0.4s ease 3';
+    return;
+  }
+
   S.status = 'tripped';
   S.tripTimer = 6;
   S.bootDurability = Math.max(0, S.bootDurability - 5);
@@ -749,30 +873,28 @@ function speedMultiplier() {
 // ============================================================
 // DELIVERY CYCLE
 // ============================================================
-let edgeTicker = 0;   // counts ticks within current edge
-let cyclePhase = 'pickup'; // pickup | transit | deliver | return
+let edgeTicker = 0;
+let cyclePhase = 'pickup';
 
 function advanceCycle() {
   if (cyclePhase === 'pickup') {
-    // pick a package (85% NPC, 15% lost player pkg)
     const pool = Math.random() < 0.15 ? LOST_PKGS : NPC_PKGS;
     const candidates = pool.filter(p =>
       p.slots <= (S.maxSlots - S.usedSlots) &&
       p.kg    <= (S.maxWeight - S.usedWeight)
     );
-    if (candidates.length === 0) return; // can't carry anything; try next tick
+    if (candidates.length === 0) return;
 
     const def = candidates[Math.floor(Math.random() * candidates.length)];
     const pkg = { ...def };
-    // destination: the node at the far end of the current edge
     const destId = currentEdge()[1];
+    pkg.destId = destId;
     S.pendingDelivery = { pkg, destId };
     S.inventory.push(pkg);
     S.usedSlots  += pkg.slots;
     S.usedWeight += pkg.kg;
     S.status = 'carrying';
-    els.courierPkg.textContent = `[${pkg.size}]`;
-    els.courierPkg.style.visibility = 'visible';
+    renderCourierStack();
     els.courierAt.className = 'tlh-at carry';
     els.courierAt.style.animation = 'bounce 0.4s steps(1) infinite';
     const lostTag = pkg.isLost ? ' <span class="log-wn">[lost pkg]</span>' : '';
@@ -793,13 +915,11 @@ function advanceCycle() {
       S.inventory.splice(S.inventory.indexOf(pkg), 1);
       S.pendingDelivery = null;
 
-      // credit the destination settlement
       const settle = S.settlements[destId];
       if (settle) {
         settle.supply  = Math.min(100, settle.supply  + 3);
         settle.rebuild = Math.min(100, settle.rebuild + 1);
       }
-      // reveal node if unknown
       const node = S.routeNodes.find(n => n.id === destId);
       if (node && !node.known) {
         node.known = true;
@@ -807,8 +927,8 @@ function advanceCycle() {
         drawRouteMap();
       }
 
+      renderCourierStack();
       if (S.inventory.length === 0) {
-        els.courierPkg.style.visibility = 'hidden';
         els.courierAt.className = 'tlh-at';
       }
       S.status = 'returning';
@@ -823,18 +943,17 @@ function advanceCycle() {
     els.courierAt.style.animation = 'bounce 0.4s steps(1) infinite';
     cyclePhase = 'pickup';
   }
-
-  renderUpgrades();
+  // NOTE: renderUpgrades NOT called here — only called from buyUpgrade
 }
 
 // ============================================================
 // DRINK WATER
 // ============================================================
 function drinkWater() {
-  if (S.canteen <= 0 || S.stamina >= S.staminaMax) return;
-  const staminaNeeded  = S.staminaMax - S.stamina;
+  if (S.canteen <= 0 || S.stamina >= S.staminaMax * 1.25) return;
+  const staminaNeeded   = S.staminaMax - S.stamina;
   const staminaRestored = Math.min(staminaNeeded, (S.canteen / S.canteenMax) * S.staminaMax);
-  const canteenUsed    = (staminaRestored / S.staminaMax) * S.canteenMax;
+  const canteenUsed     = (staminaRestored / S.staminaMax) * S.canteenMax;
   S.stamina  = Math.min(S.staminaMax, S.stamina + staminaRestored);
   S.canteen  = Math.max(0, S.canteen - canteenUsed);
   addLog(`drank from canteen — <span class="log-hi">+${Math.round(staminaRestored / S.staminaMax * 100)}% stamina</span>`);
@@ -846,7 +965,6 @@ function drinkWater() {
 function tick() {
   S.ticks++;
 
-  // --- trip recovery ---
   if (S.tripTimer > 0) {
     S.tripTimer--;
     if (S.tripTimer === 0) {
@@ -858,14 +976,14 @@ function tick() {
     return;
   }
 
-  // --- resting ---
   if (S.status === 'resting') {
     S.restTimer--;
     if (S.restTimer <= 0) {
-      S.stamina = S.staminaMax;
-      S.canteen = Math.min(S.canteenMax, S.canteen + 20); // shelter top-up
+      S.stamina = S.staminaMax * 1.25;
+      S.staminaOverboost = true;
+      S.canteen = Math.min(S.canteenMax, S.canteen + 20);
       S.status = 'walking';
-      addLog('rested at shelter — <span class="log-hi">stamina fully restored</span>');
+      addLog('rested at shelter — <span class="log-hi">stamina restored +25% overboost</span>');
       els.courierAt.className = 'tlh-at';
       els.courierAt.style.animation = 'bounce 0.4s steps(1) infinite';
     }
@@ -873,9 +991,11 @@ function tick() {
     return;
   }
 
-  // --- walking / carrying ---
   if (S.status === 'walking' || S.status === 'carrying') {
     S.stamina = Math.max(0, S.stamina - STAMINA_DRAIN);
+    if (S.staminaOverboost && S.stamina <= S.staminaMax) {
+      S.staminaOverboost = false;
+    }
 
     let bootDrain = BOOT_DRAIN;
     if (S.upgrades.bootsT1) bootDrain *= 0.75;
@@ -895,7 +1015,6 @@ function tick() {
     maybeTrip();
     checkAutobuy();
 
-    // low-stamina auto-rest at shelter node
     if (S.stamina < 50 && S.status === 'walking' && Math.random() < 0.03) {
       S.status = 'resting';
       S.restTimer = REST_TICKS_MIN + Math.floor(Math.random() * (REST_TICKS_MAX - REST_TICKS_MIN));
@@ -905,26 +1024,24 @@ function tick() {
     }
   }
 
-  // --- edge / route dot ---
   S.dotT += 0.006 * speedMultiplier();
   if (S.dotT >= 1) {
     S.dotT = 0;
     S.edgeIdx = (S.edgeIdx + 1) % S.edges.length;
-    // mark destination node as known when we arrive
-    const arrivedAt = currentEdge()[0]; // we just finished previous edge, now at its "to" node
+    const arrivedAt = currentEdge()[0];
     const node = S.routeNodes.find(n => n.id === arrivedAt);
     if (node && !node.known) {
       node.known = true;
       addLog(`discovered: <span class="log-hi">${node.label}</span>`);
     }
     drawRouteMap();
-    // advance delivery cycle on arrival
+    updateDestDrift();
+    refillBootClip(arrivedAt);
     advanceCycle();
   } else {
     updateRouteDot();
   }
 
-  // --- edge-based delivery cycle (mid-edge pickup) ---
   edgeTicker++;
   if (edgeTicker >= EDGE_TICKS) {
     edgeTicker = 0;
@@ -932,7 +1049,6 @@ function tick() {
     else if (cyclePhase === 'transit') advanceCycle();
   }
 
-  // --- rain ---
   if (S.rainTimer > 0) {
     S.rainTimer--;
   } else if (Math.random() < 0.003) {
@@ -952,7 +1068,6 @@ function tick() {
 function init() {
   resolveEls();
 
-  // porter ID
   const porterId = getPorterId();
   if (els.porterIdEl) els.porterIdEl.textContent = porterId;
 
@@ -961,10 +1076,12 @@ function init() {
   setRain(false);
   layoutRouteNodes();
   drawRouteMap();
+  updateDestDrift();
   renderUpgrades();
   renderSettlements();
   renderNetwork();
   renderCargoSlots();
+  renderCourierStack();
   renderBoots();
   renderStamina();
   updateHUD();
@@ -979,6 +1096,8 @@ function init() {
     els.autobuyBtn.classList.toggle('on', S.autobuyBoots);
   });
 
+  els.buyBootsBtn.addEventListener('click', buyBoots);
+
   els.drinkBtn.addEventListener('click', drinkWater);
 
   els.autodrinkBtn.addEventListener('click', () => {
@@ -986,6 +1105,8 @@ function init() {
     els.autodrinkBtn.textContent = 'auto: ' + (S.autodrink ? 'on' : 'off');
     els.autodrinkBtn.classList.toggle('on', S.autodrink);
   });
+
+  els.tieDownBtn.addEventListener('click', toggleTieDown);
 
   setInterval(tick, TICK_MS);
 }

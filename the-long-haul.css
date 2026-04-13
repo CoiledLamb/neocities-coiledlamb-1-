@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — game stylesheet
-   v0.0.3
+   v0.0.4
    ============================================== */
 
 html, body {
@@ -77,7 +77,9 @@ html, body {
   text-align: right;
 }
 
-/* viewport */
+/* ============================================================
+   VIEWPORT — 3 layers
+   ============================================================ */
 .tlh-viewport {
   height: 110px;
   background: #081f1e;
@@ -86,6 +88,7 @@ html, body {
   border-bottom: 1px solid #1e5554;
 }
 
+/* Layer 1 — terrain strip */
 .tlh-fieldstrip {
   display: flex;
   align-items: flex-end;
@@ -97,25 +100,58 @@ html, body {
   width: 200%;
   padding-bottom: 8px;
   padding-left: 4px;
+  position: relative;
+  z-index: 1;
 }
 @keyframes scrollfield {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 
-/* field chars */
-.fc { display: inline-block; padding: 0 1px; user-select: none; font-family: 'Source Code Pro', monospace; }
-.fc-fl       { color: #1e5554; }
-.fc-rn       { color: #3a6a68; }
-.fc-sg       { color: #4a7a78; }
-.fc-sw       { color: #2a5c5a; }
-.fc-pk       { color: #77bfcf; font-weight: 700; }
-.fc-pk-lost  { color: #da8bda; font-weight: 700; }
-.fc-sw-plant { color: #2a7a58; }
-.fc-depot    { color: #4a7a78; font-weight: 700; }
+/* Layer 2 — destination drift */
+.tlh-dest-drift {
+  position: absolute;
+  right: -60px;
+  bottom: 8px;
+  z-index: 2;
+  text-align: center;
+  font-family: 'Source Code Pro', monospace;
+  pointer-events: none;
+  animation: destdrift 18s linear infinite;
+  opacity: 0;
+}
+@keyframes destdrift {
+  0%   { right: -80px; opacity: 0; }
+  10%  { opacity: 0.22; }
+  80%  { opacity: 0.18; }
+  95%  { opacity: 0; }
+  100% { right: 30px; opacity: 0; }
+}
+.dest-glyph {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #2a5c5a;
+  line-height: 1.3;
+  letter-spacing: 0.05em;
+}
+.dest-label {
+  display: block;
+  font-size: 8px;
+  color: #1e5554;
+  margin-top: 2px;
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+}
 
-/* rain */
-.tlh-rain { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* Layer 3 — rain */
+.tlh-rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 3;
+}
 @keyframes raindrop {
   0%   { transform: translateY(-10px); opacity: 0; }
   15%  { opacity: 0.5; }
@@ -123,23 +159,34 @@ html, body {
   100% { transform: translateY(120px); opacity: 0; }
 }
 
-/* courier */
+/* Layer 4 — courier */
 .tlh-courier {
   position: absolute;
   left: 70px;
-  bottom: 14px;
+  bottom: 8px;
   z-index: 10;
   text-align: center;
   font-family: 'Source Code Pro', monospace;
 }
-.tlh-pkg {
-  font-size: 10px;
-  color: #77bfcf;
-  font-weight: 700;
-  line-height: 1;
-  margin-bottom: 1px;
-  visibility: hidden;
+
+/* courier package stack — all carried packages above @ */
+.tlh-courier-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin-bottom: 2px;
+  animation: bounce 0.4s steps(1) infinite;
 }
+.courier-pkg {
+  font-size: 10px;
+  font-weight: 700;
+  color: #77bfcf;
+  line-height: 1;
+  font-family: 'Source Code Pro', monospace;
+}
+.courier-pkg.lost { color: #da8bda; }
+
 .tlh-at {
   font-size: 16px;
   font-weight: 700;
@@ -159,6 +206,17 @@ html, body {
   75%     { transform: rotate(-15deg); }
 }
 
+/* field chars */
+.fc { display: inline-block; padding: 0 1px; user-select: none; font-family: 'Source Code Pro', monospace; }
+.fc-fl       { color: #1e5554; }
+.fc-rn       { color: #3a6a68; }
+.fc-sg       { color: #4a7a78; }
+.fc-sw       { color: #2a5c5a; }
+.fc-pk       { color: #77bfcf; font-weight: 700; }
+.fc-pk-lost  { color: #da8bda; font-weight: 700; }
+.fc-sw-plant { color: #2a7a58; }
+.fc-depot    { color: #4a7a78; font-weight: 700; }
+
 /* HUD */
 .tlh-hud { display: flex; border-bottom: 1px solid #1e5554; }
 .tlh-hc  { flex: 1; padding: 5px 8px; border-right: 1px solid #1e5554; }
@@ -177,6 +235,7 @@ html, body {
   border-bottom: 1px solid #1e5554;
   font-size: 10px;
   font-family: 'Source Code Pro', monospace;
+  flex-wrap: wrap;
 }
 .tlh-row-label { color: #3a6a68; min-width: 36px; flex-shrink: 0; text-transform: lowercase; }
 
@@ -190,12 +249,45 @@ html, body {
   display: flex; align-items: center; justify-content: center;
   color: #3a6a68;
   font-family: 'Source Code Pro', monospace;
+  position: relative;
 }
 .cslot.s { background: #1e5554; color: #77bfcf; border-color: #40a4b9; }
 .cslot.m { background: #1a3040; color: #9d78d4; border-color: #9d78d4; }
 .cslot.l { background: #2a1a3a; color: #da8bda; border-color: #da8bda; }
 .cslot.e { background: transparent; }
-.cargo-bar-wrap { flex: 1; height: 5px; background: #132e2d; border-radius: 1px; overflow: hidden; }
+
+/* CSS-only tooltip on cargo slots */
+.cslot.has-tooltip {
+  cursor: help;
+}
+.cslot.has-tooltip::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0b2e2d;
+  border: 1px solid #40a4b9;
+  color: #b1c9c3;
+  font-size: 8px;
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 600;
+  white-space: pre;
+  padding: 4px 7px;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.1s;
+  line-height: 1.6;
+  min-width: 80px;
+  text-align: left;
+}
+.cslot.has-tooltip:hover::after {
+  opacity: 1;
+}
+
+.cargo-bar-wrap { flex: 1; height: 5px; background: #132e2d; border-radius: 1px; overflow: hidden; min-width: 30px; }
 .cargo-bar-fill {
   height: 100%; border-radius: 1px;
   background: linear-gradient(90deg, #40a4b9, #9d78d4);
@@ -205,18 +297,24 @@ html, body {
 }
 .cargo-weight { color: #b1c9c3; min-width: 40px; text-align: right; flex-shrink: 0; }
 
+/* tie-down button */
+.tie-down-btn { flex-shrink: 0; }
+
 /* boots */
 .boots-bar-wrap { flex: 1; height: 4px; background: #132e2d; border-radius: 1px; overflow: hidden; }
 .boots-bar-fill { height: 100%; border-radius: 1px; transition: width 0.5s, background-color 0.5s; background: #4a7a78; }
 .boots-bar-fill.worn { background: #9d78d4; }
 .boots-bar-fill.bad  { background: #da8bda; }
 .boots-val { color: #b1c9c3; min-width: 30px; flex-shrink: 0; }
-.sandal-badge {
-  font-size: 9px; color: #4a7a78;
-  border: 1px solid #1e5554;
+
+/* clip badge */
+.clip-badge {
+  font-size: 9px; color: #77bfcf;
+  border: 1px solid #40a4b9;
   border-radius: 1px; padding: 1px 5px;
   flex-shrink: 0;
 }
+
 .boots-auto {
   background: transparent;
   border: 1px dashed #1e5554;
@@ -230,6 +328,7 @@ html, body {
   flex-shrink: 0;
 }
 .boots-auto.on { color: #77bfcf; border-color: #40a4b9; }
+.boots-auto:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
 /* stamina */
 .stamina-segs { display: flex; gap: 3px; flex-shrink: 0; }
@@ -240,13 +339,31 @@ html, body {
   background: #132e2d;
   transition: background 0.3s, border-color 0.3s;
 }
-.sseg.full  { background: #4a7a78; border-color: #3a6a68; }
-.sseg.half  { background: #9d78d4; border-color: #7a58a4; }
-.sseg.empty { background: #132e2d; border-color: #1e5554; }
-.sseg.crit  { background: #da8bda; border-color: #a4589a; }
+.sseg.full      { background: #4a7a78; border-color: #3a6a68; }
+.sseg.half      { background: #9d78d4; border-color: #7a58a4; }
+.sseg.empty     { background: #132e2d; border-color: #1e5554; }
+.sseg.crit      { background: #da8bda; border-color: #a4589a; }
+/* overboost segment — 5th seg, glowing teal */
+.sseg.overboost {
+  background: #77bfcf;
+  border-color: #40a4b9;
+  animation: overboost-pulse 1.2s ease-in-out infinite;
+  width: 14px;
+}
+@keyframes overboost-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
 
-/* canteen bar */
-.canteen-bar-wrap { width: 36px; height: 4px; background: #132e2d; border-radius: 1px; overflow: hidden; flex-shrink: 0; }
+/* canteen bar — slim context indicator */
+.canteen-bar-wrap {
+  width: 28px; height: 3px;
+  background: #132e2d;
+  border-radius: 1px;
+  overflow: hidden;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
 .canteen-bar-fill {
   height: 100%; border-radius: 1px;
   background: #40a4b9;
@@ -267,7 +384,6 @@ html, body {
 }
 .drink-btn:hover { border-color: #40a4b9; color: #b1c9c3; }
 .drink-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
-.canteen-icon { font-size: 12px; color: #3a6a68; flex-shrink: 0; }
 
 /* panels */
 .tlh-panels { display: flex; min-height: 120px; }

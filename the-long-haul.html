@@ -27,7 +27,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.3</span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.4</span></p>
         </div>
 
         <div class="tlh-layout">
@@ -39,15 +39,20 @@
             <div class="tlh-porter-strip">
               <span class="tlh-porter-label">// porter id:</span>
               <span class="tlh-porter-id" id="porterIdEl">&mdash;</span>
-              <span class="tlh-porter-hint">saved locally &mdash; others can see your contributions</span>
+              <span class="tlh-porter-hint">saved locally</span>
             </div>
 
-            <!-- viewport -->
+            <!-- viewport: 3 layers — terrain / destination drift / rain / courier -->
             <div class="tlh-viewport" id="viewport">
+              <!-- layer 1: terrain -->
               <div class="tlh-fieldstrip" id="fieldstrip"></div>
+              <!-- layer 2: destination drift (behind rain) -->
+              <div class="tlh-dest-drift" id="destDrift"></div>
+              <!-- layer 3: weather -->
               <div class="tlh-rain" id="rainOverlay"></div>
+              <!-- layer 4: courier + cargo stack -->
               <div class="tlh-courier" id="courierWrap">
-                <div class="tlh-pkg" id="courierPkg">[s]</div>
+                <div class="tlh-courier-stack" id="courierStack"></div>
                 <div class="tlh-at" id="courierAt">@</div>
               </div>
             </div>
@@ -66,6 +71,7 @@
               <div class="cargo-slots" id="cargoSlots"></div>
               <div class="cargo-bar-wrap"><div class="cargo-bar-fill" id="cargoBar"></div></div>
               <span class="cargo-weight" id="cargoWeight">0/5kg</span>
+              <button class="tie-down-btn boots-auto" id="tieDownBtn">tie-down: off</button>
             </div>
 
             <!-- boots row -->
@@ -73,7 +79,8 @@
               <span class="tlh-row-label">boots</span>
               <div class="boots-bar-wrap"><div class="boots-bar-fill" id="bootsBar" style="width:80%"></div></div>
               <span class="boots-val" id="bootsVal">80%</span>
-              <span class="sandal-badge" id="sandalBadge">+0 sandal</span>
+              <span class="clip-badge" id="clipBadge" style="display:none">clip: 0/0</span>
+              <button class="buy-boots-btn boots-auto" id="buyBootsBtn">buy boots (15¢)</button>
               <button class="boots-auto" id="autobuyBtn">autobuy: off</button>
             </div>
 
@@ -85,11 +92,11 @@
                 <div class="sseg full" id="sseg1"></div>
                 <div class="sseg full" id="sseg2"></div>
                 <div class="sseg full" id="sseg3"></div>
+                <div class="sseg" id="sseg4" style="display:none"></div>
               </div>
-              <div class="canteen-bar-wrap"><div class="canteen-bar-fill" id="canteenBar"></div></div>
+              <div class="canteen-bar-wrap" title="canteen"><div class="canteen-bar-fill" id="canteenBar"></div></div>
               <button class="drink-btn" id="drinkBtn">drink (100%)</button>
               <button class="boots-auto" id="autodrinkBtn">auto: off</button>
-              <span class="canteen-icon" title="canteen">&#9748;</span>
             </div>
 
             <!-- panels -->
