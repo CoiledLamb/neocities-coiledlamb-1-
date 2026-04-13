@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.5
+   v0.0.6
    ============================================== */
 'use strict';
 (function () {
@@ -216,6 +216,192 @@ const S = {
 };
 
 // ============================================================
+// PERSISTENCE
+// ============================================================
+const SAVE_KEY     = 'tlh-save-v1';
+const SAVE_VERSION = 1;
+const AUTOSAVE_MS  = 30000;
+
+let _lastSaveAt = 0;        // epoch ms of most recent save
+let _wipeArmed  = false;    // two-click wipe state
+let _wipeTimer  = null;
+
+function buildSavePayload() {
+  return {
+    version: SAVE_VERSION,
+    savedAt: Date.now(),
+    progress: {
+      delivered:      S.delivered,
+      scrip:          S.scrip,
+      distKm:         S.distKm,
+      ticks:          S.ticks,
+      maxSlots:       S.maxSlots,
+      maxWeight:      S.maxWeight,
+      bootDurability: S.bootDurability,
+      bootClipCount:  S.bootClipCount,
+      bootClipMax:    S.bootClipMax,
+      usingMakeshift: S.usingMakeshift,
+      stamina:          S.stamina,
+      staminaOverboost: S.staminaOverboost,
+      canteen:          S.canteen,
+      autobuyBoots:   S.autobuyBoots,
+      autodrink:      S.autodrink,
+    },
+    position: {
+      edgeIdx: S.edgeIdx,
+      dotT:    S.dotT,
+    },
+    // Strip _worldCell — old indices won't line up against the freshly
+    // built world. In-flight pkgs become "untracked" (tiny respawn leak,
+    // but harmless and self-correcting once delivered).
+    inventory: S.inventory.map(p => ({
+      size: p.size, label: p.label, kg: p.kg, slots: p.slots,
+      scrip: p.scrip, isLost: !!p.isLost, destId: p.destId,
+    })),
+    upgrades: { ...S.upgrades },
+    nodesKnown: S.routeNodes.reduce((acc, n) => { acc[n.id] = !!n.known; return acc; }, {}),
+    settlements: Object.keys(S.settlements).reduce((acc, k) => {
+      const s = S.settlements[k];
+      acc[k] = { supply: s.supply, rebuild: s.rebuild };
+      return acc;
+    }, {}),
+  };
+}
+
+function saveGame(silent) {
+  try {
+    const payload = buildSavePayload();
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    _lastSaveAt = payload.savedAt;
+    updateSaveStrip();
+    if (!silent) addLog('<span class="log-ok">progress saved</span>');
+    return true;
+  } catch (e) {
+    if (!silent) addLog('<span class="log-wn">save failed: ' + (e && e.message ? e.message : 'storage error') + '</span>');
+    return false;
+  }
+}
+
+function loadGame() {
+  let raw;
+  try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+  if (!raw) return false;
+  let data;
+  try { data = JSON.parse(raw); } catch (e) { return false; }
+  if (!data || data.version !== SAVE_VERSION) return false;
+
+  try {
+    const p = data.progress || {};
+    if (typeof p.delivered      === 'number') S.delivered      = p.delivered;
+    if (typeof p.scrip          === 'number') S.scrip          = p.scrip;
+    if (typeof p.distKm         === 'number') S.distKm         = p.distKm;
+    if (typeof p.ticks          === 'number') S.ticks          = p.ticks;
+    if (typeof p.maxSlots       === 'number') S.maxSlots       = p.maxSlots;
+    if (typeof p.maxWeight      === 'number') S.maxWeight      = p.maxWeight;
+    if (typeof p.bootDurability === 'number') S.bootDurability = p.bootDurability;
+    if (typeof p.bootClipCount  === 'number') S.bootClipCount  = p.bootClipCount;
+    if (typeof p.bootClipMax    === 'number') S.bootClipMax    = p.bootClipMax;
+    if (typeof p.usingMakeshift === 'boolean') S.usingMakeshift = p.usingMakeshift;
+    if (typeof p.stamina          === 'number') S.stamina        = p.stamina;
+    if (typeof p.staminaOverboost === 'boolean') S.staminaOverboost = p.staminaOverboost;
+    if (typeof p.canteen          === 'number') S.canteen        = p.canteen;
+    if (typeof p.autobuyBoots   === 'boolean') S.autobuyBoots   = p.autobuyBoots;
+    if (typeof p.autodrink      === 'boolean') S.autodrink      = p.autodrink;
+
+    const pos = data.position || {};
+    if (typeof pos.edgeIdx === 'number' && pos.edgeIdx >= 0 && pos.edgeIdx < S.edges.length) S.edgeIdx = pos.edgeIdx;
+    if (typeof pos.dotT === 'number' && pos.dotT >= 0 && pos.dotT < 1) S.dotT = pos.dotT;
+
+    if (Array.isArray(data.inventory)) {
+      S.inventory = data.inventory.map(p => ({ ...p }));
+      S.usedSlots  = S.inventory.reduce((sum, p) => sum + (p.slots || 0), 0);
+      S.usedWeight = S.inventory.reduce((sum, p) => sum + (p.kg || 0), 0);
+    }
+
+    if (data.upgrades && typeof data.upgrades === 'object') {
+      // Trust saved values; do NOT re-run apply() (would double stat bonuses
+      // since maxSlots/maxWeight/clip are already saved/restored above).
+      Object.keys(S.upgrades).forEach(k => {
+        if (typeof data.upgrades[k] === 'boolean') S.upgrades[k] = data.upgrades[k];
+      });
+    }
+
+    if (data.nodesKnown && typeof data.nodesKnown === 'object') {
+      S.routeNodes.forEach(n => {
+        if (typeof data.nodesKnown[n.id] === 'boolean') n.known = data.nodesKnown[n.id];
+      });
+    }
+
+    if (data.settlements && typeof data.settlements === 'object') {
+      Object.keys(data.settlements).forEach(k => {
+        if (S.settlements[k] && typeof data.settlements[k].supply === 'number') {
+          S.settlements[k].supply  = data.settlements[k].supply;
+          S.settlements[k].rebuild = data.settlements[k].rebuild;
+        }
+      });
+    }
+
+    _lastSaveAt = data.savedAt || 0;
+
+    // Coerce status — if loaded inventory is non-empty, courier is carrying
+    S.status = S.inventory.length > 0 ? 'carrying' : 'walking';
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function wipeSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  _lastSaveAt = 0;
+  updateSaveStrip();
+}
+
+function fmtAgo(ms) {
+  if (!_lastSaveAt) return 'no save yet';
+  const secs = Math.floor((Date.now() - _lastSaveAt) / 1000);
+  if (secs < 5)   return 'just now';
+  if (secs < 60)  return secs + 's ago';
+  const mins = Math.floor(secs / 60);
+  if (mins < 60)  return mins + 'm ago';
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return hours + 'h ago';
+  return Math.floor(hours / 24) + 'd ago';
+}
+
+function updateSaveStrip() {
+  if (!els.saveAgo) return;
+  els.saveAgo.textContent = fmtAgo();
+}
+
+function armWipe() {
+  if (_wipeArmed) {
+    // Confirmed
+    clearTimeout(_wipeTimer);
+    _wipeArmed = false;
+    wipeSave();
+    if (els.wipeBtn) {
+      els.wipeBtn.textContent = 'wipe save';
+      els.wipeBtn.classList.remove('armed');
+    }
+    addLog('<span class="log-wn">save wiped</span> — reload to start fresh');
+    return;
+  }
+  _wipeArmed = true;
+  if (els.wipeBtn) {
+    els.wipeBtn.textContent = 'click again to confirm';
+    els.wipeBtn.classList.add('armed');
+  }
+  _wipeTimer = setTimeout(() => {
+    _wipeArmed = false;
+    if (els.wipeBtn) {
+      els.wipeBtn.textContent = 'wipe save';
+      els.wipeBtn.classList.remove('armed');
+    }
+  }, 4000);
+}
+
+// ============================================================
 // WORLD CELLS
 // Each cell: { html, pkg, risky, edgeIdx }
 // pkg (if present): { size, label, kg, slots, scrip, isLost, destId, picked, respawnIn }
@@ -375,7 +561,7 @@ function tryDeliver(arrivedNodeId) {
     S.usedSlots  -= pkg.slots;
     S.usedWeight -= pkg.kg;
     S.inventory.splice(S.inventory.indexOf(pkg), 1);
-    if (pkg._worldCell !== undefined && worldCells[pkg._worldCell]) {
+    if (pkg._worldCell !== undefined && worldCells[pkg._worldCell] && worldCells[pkg._worldCell].pkg) {
       worldCells[pkg._worldCell].pkg.respawnIn = PKG_RESPAWN_TICKS;
     }
     const settle = S.settlements[arrivedNodeId];
@@ -576,6 +762,9 @@ function resolveEls() {
     settlementsEl:$('settlementsEl'),
     routeSvg:     $('routeSvg'),
     networkEl:    $('networkEl'),
+    saveBtn:      $('saveBtn'),
+    wipeBtn:      $('wipeBtn'),
+    saveAgo:      $('saveAgo'),
   };
 }
 
@@ -652,6 +841,7 @@ function tt() {
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 function addLog(msg) {
+  if (!els.logEl) return;
   const el = document.createElement('span'); el.className = 'log-line';
   el.innerHTML = `<span class="log-ts">[${tt()}]</span> ${msg}`;
   els.logEl.insertBefore(el, els.logEl.firstChild);
@@ -970,6 +1160,9 @@ function tick() {
   if (S.rainTimer>0) S.rainTimer--;
   else if (Math.random()<0.003) { setRain(!S.isRaining); S.rainTimer=40+Math.floor(Math.random()*60); }
 
+  // save strip "ago" tick (cheap, every ~3s)
+  if (S.ticks % 9 === 0) updateSaveStrip();
+
   renderBoots(); renderStamina(); renderCargoSlots(); updateHUD();
 }
 
@@ -983,7 +1176,12 @@ function init() {
   const porterId = getPorterId();
   if (els.porterIdEl) els.porterIdEl.textContent = porterId;
 
+  // Build the world FIRST (procedural, fresh each load by design),
+  // THEN restore save state on top of it.
   buildWorld();
+
+  const restored = loadGame();
+
   S.worldPos = worldPosFromRoute();
 
   buildRain(); setRain(false);
@@ -992,11 +1190,19 @@ function init() {
   renderCargoSlots(true); renderCourierStack(); renderBoots(); renderStamina();
   renderFieldstrip();
   updateHUD();
+  updateSaveStrip();
 
-  addLog(`porter <span class="log-hi">${porterId}</span> online at <span class="log-hi">depot a</span>`);
+  if (restored) {
+    addLog(`porter <span class="log-hi">${porterId}</span> back online \u2014 <span class="log-ok">save restored</span>`);
+  } else {
+    addLog(`porter <span class="log-hi">${porterId}</span> online at <span class="log-hi">depot a</span>`);
+  }
 
   // 7i: bounce via CSS class
-  if (els.courierAt) { els.courierAt.className='tlh-at bounce'; els.courierAt.style.animation=''; }
+  if (els.courierAt) {
+    els.courierAt.className = 'tlh-at bounce' + (S.inventory.length > 0 ? ' carry' : '');
+    els.courierAt.style.animation = '';
+  }
 
   els.autobuyBtn.addEventListener('click', () => {
     S.autobuyBoots=!S.autobuyBoots;
@@ -1011,6 +1217,27 @@ function init() {
     els.autodrinkBtn.classList.toggle('on',S.autodrink);
   });
   els.tieDownBtn.addEventListener('click', toggleTieDown);
+
+  // Restore toggle button visual state from loaded prefs
+  if (S.autobuyBoots && els.autobuyBtn) {
+    els.autobuyBtn.textContent = 'autobuy: on';
+    els.autobuyBtn.classList.add('on');
+  }
+  if (S.autodrink && els.autodrinkBtn) {
+    els.autodrinkBtn.textContent = 'auto: on';
+    els.autodrinkBtn.classList.add('on');
+  }
+
+  // Save strip controls
+  if (els.saveBtn) els.saveBtn.addEventListener('click', () => saveGame(false));
+  if (els.wipeBtn) els.wipeBtn.addEventListener('click', armWipe);
+
+  // Autosave triggers
+  setInterval(() => saveGame(true), AUTOSAVE_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveGame(true);
+  });
+  window.addEventListener('beforeunload', () => saveGame(true));
 
   setInterval(tick, TICK_MS);
 }

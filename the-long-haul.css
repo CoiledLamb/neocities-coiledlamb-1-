@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — game stylesheet
-   v0.0.5
+   v0.0.6
    ============================================== */
 
 html, body {
@@ -439,6 +439,47 @@ html, body {
 .settle-fill.a { background: #4a7a78; }
 .settle-fill.b { background: linear-gradient(90deg,#40a4b9,#9d78d4); animation: oil 3s linear infinite; background-size: 200% auto; }
 .settle-quote { font-size: 9px; color: #2a5c5a; margin-top: 3px; line-height: 1.4; }
+
+/* save strip — mirrors porter strip aesthetic at top */
+.tlh-save-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-top: 1px solid #1e5554;
+  background: #0b2e2d;
+  font-size: 10px;
+  font-family: 'Source Code Pro', monospace;
+}
+.tlh-save-label { color: #3a6a68; flex-shrink: 0; }
+.tlh-save-ago {
+  color: #2a5c5a;
+  font-size: 9px;
+  margin-left: auto;
+  text-align: right;
+}
+.tlh-save-ago span { color: #3a6a68; }
+
+.save-btn {
+  background: transparent;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  color: #7aa8a6;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; font-weight: 600;
+  padding: 2px 8px; cursor: pointer;
+  text-transform: lowercase;
+  transition: border-color 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.save-btn:hover { border-color: #40a4b9; color: #b1c9c3; }
+.save-btn.wipe { color: #7a4a78; border-color: #2a1a3a; }
+.save-btn.wipe:hover { border-color: #9d78d4; color: #b1c9c3; }
+.save-btn.wipe.armed {
+  color: #da8bda;
+  border-color: #da8bda;
+  animation: overboost-pulse 1.2s ease-in-out infinite;
+}
 
 /* right col */
 .tlh-right { display: flex; flex-direction: column; gap: 8px; }
