@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — game stylesheet
-   v0.0.6
+   v0.0.7
    ============================================== */
 
 html, body {
@@ -496,6 +496,9 @@ html, body {
 .net-item:last-child { border-bottom: none; }
 .net-hi { color: #da8bda; }
 .net-ac { color: #77bfcf; }
+/* v0.0.7: status states for empty/connecting feed and census header */
+.net-item.net-quiet { color: #2a5c5a; font-style: italic; }
+.net-item.net-census { color: #4a7a78; font-size: 9px; padding-bottom: 4px; margin-bottom: 2px; border-bottom: 1px solid #1e5554; }
 
 @media (max-width: 700px) {
   .tlh-layout { grid-template-columns: 1fr; }
