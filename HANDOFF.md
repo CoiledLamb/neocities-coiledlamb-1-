@@ -35,6 +35,9 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 | `the-long-haul.html` | The Long Haul game page |
 | `the-long-haul.css` | TLH game styles |
 | `the-long-haul.js` | TLH game logic (self-contained IIFE, all state in `S`) |
+| `worker/index.js` | Cloudflare Worker for TLH multiplayer feed (deployed separately) |
+| `worker/wrangler.toml` | Worker config, KV namespace binding |
+| `worker/README.md` | Worker deploy notes |
 
 ### gallery system
 - `gallery.json` is generated and maintained exclusively by the **art-pipeline** (separate repo: `CoiledLamb/art-pipeline`). That pipeline watches an `incoming/` folder, converts PNGs to WebP, uploads images to Neocities, and updates `gallery.json` directly on the live site.
@@ -75,53 +78,123 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 
 ---
 
-## the long haul — game architecture (v0.0.6)
+## the long haul — game architecture (v0.0.7 in progress)
 
-The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All mutable state is in the `S` object. Persistent save state lives in `localStorage` under `tlh-save-v1`.
+The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All mutable state is in the `S` object. Persistent save state lives in `localStorage`.
 
 ### branch status
 - Active development branch: `feature/the-long-haul`
 - **Not merged to main/live yet.** The user verifies by loading the HTML directly from the branch — bugs found are real branch bugs, not deployment issues.
-- Push convention: full version drops (e.g. v0.0.5 → v0.0.6) get pushed to the feature branch when ready. Small bugfixes are batched between version drops and pushed together. Site-wide changes (like adding the music tracks to `nav.js`) can be pushed to `main` separately, as long as they don't expose unfinished TLH-specific work.
+- Push convention: full version drops (e.g. v0.0.5 → v0.0.6 → v0.0.7) get pushed to the feature branch when ready. Small bugfixes are batched between version drops and pushed together. Site-wide changes (like adding the music tracks to `nav.js`) can be pushed to `main` separately, as long as they don't expose unfinished TLH-specific work.
+
+### v0.0.7 — multi-system bundle (in progress)
+
+The v0.0.7 bundle interlocks **four systems** that mutually reinforce each other. The decision was made to ship them together rather than piecemeal because they only feel right when present together. Implementation broken into 6 commits.
+
+**Four systems:**
+1. **Async multiplayer backend** (Cloudflare Worker + KV) — ✅ shipped commits 1-2
+2. **Progressive node identification** (??? → signal → tier → full label) — ✅ shipped commit 3
+3. **Trust meter with NPCs** — ⏳ commit 4
+4. **Settlement quote evolution** — ⏳ commit 6
+
+**Commit progress:**
+- ✅ **Commit 1** (`c9a57b9` + `8f7940f`) — Worker + wrangler.toml + README. Deployed live to `https://coiledlamb.tlh-feed.workers.dev`. KV namespace `c7bdbec95cd6476f9c87abf55c03fdcb`.
+- ✅ **Commit 2** (`6d3d56d` HTML, `4020307` CSS, `fc2820c` JS) — Game-side wiring: `postActivity`, `pollFeed`, census header, `no signal` / `connecting to feed...` fallbacks, milestone broadcasts, save schema v1 → v2.
+- ✅ **Commit 3a** (`c751caf`) — Bugfix batch: viewport fill (VIEWPORT_CELLS 64→90 + dynamic render count), pickup loop fixes (PKG_PICKUP_RANGE 6→8, PKG_RESPAWN_TICKS 800→500, per-zone pkgChance bumps, scanForPickup `continue` instead of `break` on too-big pkg), sandalweed mechanic (cells flagged `sandal:true`, harvest into `S.sandalweedCount`, auto-equip when boots fail with `bootDurability=30` + `usingMakeshift=true`, on-demand `#sandalBadge` in boots row).
+- ✅ **Commit 3** (`0fb8322`) — Identification stages 0/1/2/3, save schema v2 → v3 (`nodeStages` replaces `nodesKnown`), route map render rewritten to be stage-aware, `getDisplayLabel(id)` helper threading through dest drift / settlements panel / cargo tooltip, sandalweed dial-back (scrub 0.05→0.015, road 0.02→0.005, ruins 0.02→0.005). Also: identification stage 1 (signal) wiring exists but no triggers fire it yet — that comes in commit 4 with trust.
+- ⏳ **Commit 4** — NPCs at depots A, B, H. Trust meter (0-100) per NPC. Trust thresholds: 25 (identification hints — fires stage 1), 50 (warnings: rain/trip/stamina), 75 (package previews on connected edges), 100 (rest at depot like shelter + bonus scrip). New channels panel + radio chatter system. ~120 NPC dialogue lines (Claude drafts).
+- ⏳ **Commit 5** — Lost cargo recovery loop (Tier 1 multiplayer feature deferred from earlier scope).
+- ⏳ **Commit 6** — Settlement quote evolution (3 stages × 6 settlements = 18 quotes, Claude drafts) + final UI polish.
+
+### multiplayer (Cloudflare Worker — `worker/index.js`)
+- Worker URL: `https://coiledlamb.tlh-feed.workers.dev`
+- KV namespace ID: `c7bdbec95cd6476f9c87abf55c03fdcb`
+- Endpoints: `POST /activity`, `GET /feed?since=`, `POST /lost`, `GET /lost/:porterId`, `GET /` (info).
+- Allowed event types: `delivery`, `milestone`, `discovery`, `lost_drop`, `lost_recovered`, `trust_unlock`.
+- Rate limit: 5 events/60s per porter, silent drop.
+- Feed cap 200 events. Census 24h auto-prune. LOST_CAP 20 per porter FIFO.
+- CORS open.
+
+### multiplayer (game-side)
+- Constants in `MULTIPLAYER` block: `FEED_URL`, `POLL_MS = 60000`, `FEED_DISPLAY_CAP = 8`.
+- `postActivity(type, data)` — fire-and-forget POST with `keepalive:true`, silent failure (no log spam).
+- `pollFeed()` — incremental fetch via `?since=`, dedupes by `timestamp|porterId|type`, trims to display cap.
+- `startPolling`/`stopPolling` tied to `visibilitychange` listener (only polls while tab visible).
+- `shortPorterId()` truncates `PTR-XXXXYYYY` → `PTR-XXXX` for compact display.
+- `checkDistMilestones()` broadcasts at [10, 25, 50, 100, 250, 500, 1000]km, deduped via `S.milestonesHit`.
+- Broadcasts: `delivery` + `discovery` on `tryDeliver()`, `discovery` on bare arrival in `tick()`, `milestone` from `checkDistMilestones()`.
+- Self events filtered out of feed display (you don't see your own activity in the network panel).
+
+### identification stages (commit 3)
+- `S.nodeStages` is the single source of truth. Object keyed by node id (`A`, `?`, `B`, `C`, `H`, `·`), values are integers 0-3.
+- Stages: 0 = unknown, 1 = signal detected (trust-driven, commit 4), 2 = tier visible (you walked an adjacent edge), 3 = visited.
+- Starting state: `A` and `H` at stage 3 (porter's anchors), all others at 0.
+- Helpers:
+  - `getNodeStage(id)` — returns 0 if absent
+  - `setNodeStage(id, stage)` — ratchet-only, only increases
+  - `markEdgeAdjacent(from, to)` — bumps both endpoints to ≥ 2, returns true if anything changed
+  - `getDisplayLabel(id)` — returns `???` for stage 0/1, tier name for stage 2, real label for stage 3
+- Triggers in `tick()`: when an edge transition completes, both new endpoints get bumped to stage 2; bare arrival sets stage 3. Also runs in `tryDeliver` for the delivered-to node.
+- Triggered on `init()` for the current edge so resumed saves render correctly.
+- Render: `drawRouteMap` uses stage-aware fills, strokes, and labels. Stage 0 nodes show `?` in circle and have *no* external label. Stage 1+ shows real letter (dimmed). Stage 2 shows tier. Stage 3 shows full label. Edges dim/medium/bright based on min endpoint stage. Tooltips also stage-aware.
+- `renderSettlements` filters on `getNodeStage(id) >= 2`. Stage 2 entries show tier as title with "unconfirmed" subtitle and a generic `"reports of a [tier] along this route"` quote. Stage 3 shows the canonical entry.
+- `routeNodes[].known` field has been removed entirely.
+- The `?` node has no special handling — its tier is `unknown` so stage 2 displays "unknown" (slightly weird but harmless), stage 3 displays `???` (matches current behavior). Will be revisited in commit 6 when settlement quotes evolve.
 
 ### core loop
 - The courier walks a fixed circular route of 6 edges between 6 named nodes (A → ? → B → C → H → · → A).
 - `S.edgeIdx` (0–5) and `S.dotT` (0.0–1.0) track position on the route. `dotT` increments each tick by `0.006 × speedMultiplier()`. When it hits 1.0, edge advances and `tryDeliver()` fires.
-- Speed is modulated by stamina segment count and boot durability. `rebuildRoads` upgrade adds ×1.2.
+- Speed is modulated by stamina segment count and boot durability. `rebuildRoads` upgrade adds ×1.2 (planned for replacement — see pending bugs).
 
 ### world map
 - `buildWorld()` generates a flat array `worldCells[]` of exactly `CELLS_PER_EDGE × 6 = 1,560` cells at startup. World is regenerated fresh each page load — never persisted.
-- Each cell: `{ html, pkg, risky, edgeIdx }`.
+- Each cell: `{ html, pkg, sandal, risky, edgeIdx }`.
 - `pkg` (if present): `{ size, label, kg, slots, scrip, isLost, destId, picked, respawnIn }`. `destId` is the far end of the cell's edge — stamped at generation, never changes.
+- `sandal: true` flag marks harvestable sandalweed cells (added in commit 3a).
 - Risky cells: edges leading to C or ? are flagged `risky: true`, applying a ×1.4 trip chance multiplier.
-- Scroll is JS-driven: `renderFieldstrip()` computes `worldPosFromRoute()` → `translateX(...)` on `.tlh-fieldstrip` every tick. No CSS animation. `width: max-content` on the strip element.
+- Scroll is JS-driven: `renderFieldstrip()` computes `worldPosFromRoute()` → `translateX(...)` on `.tlh-fieldstrip` every tick. No CSS animation. `width: max-content` on the strip element. Render count is dynamically sized to actual viewport width (commit 3a).
 
 ### packages
-- Picked up by proximity scan in `scanForPickup()` — checks cells within `PKG_PICKUP_RANGE = 6` cells ahead of courier each tick.
+- Picked up by proximity scan in `scanForPickup()` — checks cells within `PKG_PICKUP_RANGE = 8` cells ahead of courier each tick.
+- Bug-2-aware: `continue` instead of `break` when a package won't fit, so a smaller pkg further ahead can still be picked up.
 - On pickup: `pkg.picked = true`, package copied into `S.inventory` with `_worldCell` reference for respawn.
 - On node arrival: `tryDeliver(arrivedNodeId)` delivers all inventory items with matching `destId`.
-- After delivery: `pkg.respawnIn = PKG_RESPAWN_TICKS (800)` starts countdown. Every 10 ticks, `tickPkgRespawns()` decrements and eventually resets `picked = false`, capped at `PKG_MAX_PER_EDGE = 14` active per edge.
+- After delivery: `pkg.respawnIn = PKG_RESPAWN_TICKS (500)` starts countdown. Every 10 ticks, `tickPkgRespawns()` decrements and eventually resets `picked = false`, capped at `PKG_MAX_PER_EDGE = 18` active per edge.
 
-### persistence (v0.0.6)
-- Save key: `localStorage['tlh-save-v1']`. Versioned schema — bump `SAVE_VERSION` to invalidate old saves gracefully (load returns false, fresh start).
-- **Saved**: progress (delivered, scrip, distKm, ticks, capacities, boots/clip, stamina/canteen, autobuy/autodrink toggles), position (edgeIdx, dotT), inventory (with `_worldCell` stripped — see note below), upgrades, node-known flags, settlement supply/rebuild.
-- **NOT saved**: `worldCells[]` (regenerated each load — saves are tiny as a result), package respawn timers, log lines, rain state, tie-down (one-use), pending boot clip refill prompt.
+### sandalweeds (commit 3a)
+- Spawn in scrub (most), road (rare), ruins (rare). Wetlands and depot approaches: never.
+- Current rates (commit 3 dial-back): scrub 0.015, road 0.005, ruins 0.005. **Note:** user reports these may STILL be too high — pending dial-back next session, likely with hard cap.
+- Harvest: `scanForPickup` detects `cell.sandal`, increments `S.sandalweedCount`, wipes the `*` from terrain, no slot/weight cost.
+- Auto-equip when boots fail: `checkAutobuy` priority order is clip > sandalweed > scrip purchase. Sandalweed equips regardless of `autobuyBoots` toggle — it's a free fallback.
+- Equipped sandalweed: `bootDurability = 30`, `usingMakeshift = true` (1.3x boot drain).
+- UI: on-demand `#sandalBadge` element (`* N`) rendered in boots row after the clip badge.
+
+### persistence (v0.0.7 commit 3 — schema v3)
+- Save key: `localStorage['tlh-save-v3']`. Versioned schema (`SAVE_VERSION = 3`).
+- Loader tries v3 → v2 → v1 in order. Migration on load: legacy keys removed, save re-written as v3.
+- v1 → v3 migration: `nodesKnown[id] === true` becomes stage 3 (preserves player progress), else stage 0.
+- v2 → v3 migration: same; v2 had `nodesKnown` too.
+- **Saved fields**: progress (delivered, scrip, distKm, ticks, capacities, boots/clip, `sandalweedCount`, stamina/canteen, autobuy/autodrink toggles), position (edgeIdx, dotT), inventory (with `_worldCell` stripped), upgrades, `nodeStages`, settlement supply/rebuild, multiplayer (`milestonesHit`, `lastFeedTimestamp`).
+- **NOT saved**: `worldCells[]` (regenerated each load — saves are tiny as a result), package respawn timers, log lines, rain state, tie-down (one-use), pending boot clip refill prompt, `networkFeed` / `networkCensus` / `networkConnected` (transient — refetched on poll).
 - **Why `_worldCell` is stripped**: world is fresh each load, old indices don't line up. In-flight inventory loses its respawn link — package delivers fine, but its world cell never gets a respawn timer set. Tiny self-correcting leak. Not a real bug.
 - **Upgrade restoration**: load does NOT re-run `apply()` on saved upgrades. Saved values for `maxSlots`, `maxWeight`, `bootClipMax/Count` are trusted as-is. Re-running `apply()` would double the bonuses (e.g. `cargoSling` adds +2 slots, but the saved `maxSlots` already includes that +2).
 - **Save triggers**: 30s autosave interval, `visibilitychange` to hidden, `beforeunload`, manual `[save]` button.
 - **Wipe save**: two-click confirm pattern. First click arms the button (turns pink, pulses, label changes to "click again to confirm"). 4-second timeout reverts. Second click within window wipes. Does NOT wipe `tlh-porter-id` — that's intentional, porter ID is identity, not progress.
+  - **⚠️ KNOWN BUG (v0.0.7):** wipe save *appears* not to work. Suspected cause: in-memory `S` is not reset to defaults after wipe, and the 30s autosave timer fires soon after and writes a fresh save with the surviving state. Fix on next session: also reset `S` and reload the page programmatically. See "v0.0.7 next-session bug list" below.
 - **No offline progression yet**. Resume-where-you-left-off only. Offline progression is a real balance feature that needs its own version when ready.
 
 ### rendering
-- `renderCargoSlots(force)` has a dirty-check via `cargoKey()` — only rebuilds DOM when inventory changes. Pass `force=true` on pickup/delivery/upgrade to override. This prevents CSS tooltip flicker.
+- `renderCargoSlots(force)` has a dirty-check via `cargoKey()` — only rebuilds DOM when inventory changes. Pass `force=true` on pickup/delivery/upgrade to override. This prevents CSS tooltip flicker. Tooltip uses `getDisplayLabel(pkg.destId)` so packages headed to unknown nodes show `→ ???`.
 - `updateHUD()` calls `renderUpgrades()` every tick so upgrade buttons stay in sync with scrip.
 - Weight display: `.weight-segs` pip row (one pip per kg of max capacity), colour-ramped teal → purple → pink. Rendered inside `renderCargoSlots`.
 - Courier stack: all carried packages shown as stacked `[s/m/l]` labels above `@`. Lost packages render pink.
-- Three viewport layers: terrain (z1) → destination drift (z2) → rain (z3) → courier (z10). Destination drift animates across the visible viewport on each edge change (`destdrift 22s linear forwards`, restarted via reflow trick).
+- Three viewport layers: terrain (z1) → destination drift (z2) → rain (z3) → courier (z10). Destination drift animates across the visible viewport on each edge change (`destdrift 22s linear forwards`, restarted via reflow trick). Drift label uses `getDisplayLabel()`.
 - Stamina: 4 segments (full/half/crit/empty) + optional 5th overboost segment (pulsing teal, shown after shelter rest).
 - Boot clip refill: on arrival at supply depots (A, B, H) with a deficit clip, a log prompt appears with an inline `[refill]` button. Does NOT auto-charge. `_clipRefillPending` state tracks one pending prompt at a time.
 - Save strip: thin row below the panels mirroring porter strip aesthetic. `[save]` `[wipe save]` `last save: X ago`. "Ago" text refreshes every ~3s via the tick loop.
 - Log: 14-line cap, real-time MM:SS timestamp from `ticks × TICK_MS / 1000`. Note: timestamp continues from saved `ticks` value across reload (intentional — feels like one continuous session).
+- Network panel: connected-state-aware. Shows `connecting to feed...` until first poll completes, then census header (`X others online today`) followed by event lines. Empty case shows `no signal`. Self-events filtered out.
+- Porter strip hint: `connecting to feed...` → `connected to feed` once first poll succeeds.
 
 ### porter ID
 - Format: `PTR-XXXX` (8 hex chars). Stored in localStorage key `tlh-porter-id`.
@@ -134,7 +207,7 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - `cargoSling` (+2 slots), `cargoPack` (+3 slots, requires sling), `cargoWeight` (+5kg).
 - `bootsT1` / `bootsT2`: reduce boot drain by ×0.75 / ×0.50 respectively.
 - `steadyFeet`: −30% trip chance, +15% catch chance.
-- `rebuildRoads`: ×1.2 speed multiplier.
+- `rebuildRoads`: ×1.2 speed multiplier. **Planned for replacement** with `efficientConsumption` next session — see "v0.0.7 next-session bug list" below.
 
 ### status flow
 `walking` → (pickup) → `carrying` → (node arrival + delivery) → `walking`  
@@ -142,8 +215,97 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 `walking/carrying` → (trip) → `tripped` → (timer) → previous status  
 Tie-down: when armed, intercepts one trip that would damage cargo, then disarms.
 
-### network panel
-Currently hardcoded flavor text in `S.networkFeed`. Not yet connected to any backend. Porter strip hint correctly reads "saved locally" — do not change to imply real multiplayer until backend exists. Backend design is fleshed out below — see "async multiplayer plan."
+---
+
+## v0.0.7 next-session bug list
+
+User flagged these on 2026-04-13 EOD, to be addressed in the next session before continuing with commit 4 (NPCs/trust). Capturing here so design is settled and implementation is direct next time.
+
+### 1. Wipe save broken
+- **Symptom**: clicking wipe save twice doesn't actually clear progress. User can't start fresh to verify upcoming trust system from a clean slate.
+- **Suspected cause**: `wipeSave()` removes the localStorage keys, but in-memory `S` retains its state. The 30s autosave interval (or any later save trigger like `visibilitychange`) then writes the surviving state back to v3 key. To the user it looks like nothing happened.
+- **Fix plan**:
+  - After confirmed wipe, reset `S` to fresh defaults (or simply `location.reload()` after a 200ms delay so the user sees the "save wiped" log line).
+  - Belt-and-suspenders: also clear `S.milestonesHit`, `S.lastFeedTimestamp`, `S.sandalweedCount`, etc. — anything the autosave would re-write.
+  - `location.reload()` is probably cleanest and matches user expectation of "start fresh."
+
+### 2. Sandalweed cap + upgrade
+- **Symptom**: even after commit 3 dial-back (scrub 0.05 → 0.015), sandalweeds still feel too common. Also no inventory cap means a long-running save hoards them indefinitely.
+- **Fix plan**:
+  - Add `SANDAL_CAP_BASE = 5` and `SANDAL_CAP_UPGRADED = 25` constants.
+  - In `scanForPickup`: if `S.sandalweedCount >= cap`, leave the `*` standing (don't harvest). User can come back for it later if they burn through stock.
+  - New upgrade: `sandalSatchel` (~60¢, no prereq) — raises cap from 5 to 25.
+  - Further dial-back: scrub 0.015 → 0.008, road 0.005 → 0.002, ruins 0.005 → 0.002. Plus the cap means even at higher rates the player's experience is "rare resource I sometimes top up" rather than "constant interrupting harvest log spam."
+  - UI: badge in boots row should show `* N/cap` so player knows when full.
+
+### 3. Faster stamina drain + replace `rebuildRoads` with `efficientConsumption`
+- **Symptom**: stamina depletes too slowly; canteen barely matters. `rebuildRoads` is a flat passive that doesn't create interesting decisions.
+- **Fix plan**:
+  - Bump `STAMINA_DRAIN` from 0.28 → ~0.40 (50% faster). Verify rest cycle still feels right at this rate.
+  - Replace `rebuildRoads` upgrade definition entirely:
+    - Old: `name:'rebuild roads', desc:'passively faster travel', cost:200, apply:()=>{}` (the multiplier check in `speedMultiplier()` reads `S.upgrades.rebuildRoads`)
+    - New: `name:'efficient consumption', desc:'-40% canteen drain per drink', cost:120, apply:()=>{}` — id stays `rebuildRoads` so old saves don't lose the boolean (it just becomes a no-op on speed and instead reduces canteen drain).
+    - **Better**: use a new id `efficientConsumption` and add a one-shot migration that maps old `rebuildRoads:true` → `efficientConsumption:true`. Cleaner. The speed multiplier loses its `× 1.2` term entirely.
+  - In `drinkWater()`: when `S.upgrades.efficientConsumption`, the canteen cost line `S.canteen -= (rest/S.staminaMax) * S.canteenMax` becomes `S.canteen -= (rest/S.staminaMax) * S.canteenMax * 0.6`. Stamina restored stays the same.
+  - **Open question**: is the perk too strong if drinks become 40% cheaper AND stamina drains faster (more drinks needed)? Math: faster drain means more drinks, each drink drains less canteen, net canteen consumption per km may end up similar to current. Should playtest before bumping further.
+
+### 4. Dispatch log stretches to bottom
+- **Symptom**: dispatch log panel is short, leaves dead space below it. User wants log to fill remaining vertical room in the shell.
+- **Fix plan** (CSS only):
+  - Make `.tlh-shell` a `display: flex; flex-direction: column`.
+  - The viewport, hud, rows, and save strip stay at their natural sizes.
+  - `.tlh-panels` gets `flex: 1; min-height: 0;` so it expands to fill remaining height.
+  - Inside `.tlh-panels`, each `.tlh-panel` already flexes 1.5/1.2/1. Add `min-height: 0` to allow children to shrink.
+  - Inside the dispatch log panel specifically, `#logEl` gets `height: 100%; overflow-y: auto`. Same for upgrades and settlements.
+- **Risk**: this may interact with the right-column route/network panels. Need to confirm `.tlh-layout` grid alignment still works. Currently `align-items: start` so the right column can be shorter than the left — that's fine, but the right column should probably also `align-self: stretch` so the route/network panels can occupy full height too.
+
+### 5. Consistent custom scrollbars (upgrades, settlements, dispatch log)
+- **Comes for free with #4** if we're already adding `overflow-y: auto` to each panel's content.
+- **Style plan**: webkit scrollbar styling, narrow width (~6px), rounded thumb, terminal palette. Probably:
+  ```css
+  .tlh-panel ::-webkit-scrollbar { width: 6px; }
+  .tlh-panel ::-webkit-scrollbar-track { background: #0b2e2d; }
+  .tlh-panel ::-webkit-scrollbar-thumb { background: #2a5c5a; border-radius: 3px; }
+  .tlh-panel ::-webkit-scrollbar-thumb:hover { background: #3a6a68; }
+  ```
+- Also add Firefox: `scrollbar-width: thin; scrollbar-color: #2a5c5a #0b2e2d;` on the panels.
+
+### 6. Sticky gun (the meaty one)
+- **Concept**: equipment item that extends pickup radius from a reduced base. Has ammo. Refills only at home shelter (H). Takes a small cargo slot by default; upgrade frees the slot via dedicated holster.
+- **Design decisions to settle next session**:
+  - **Acquisition**: (a) purchasable upgrade (~150¢, simple), (b) NPC trust reward (thematic, gates trust system), (c) random "lost" cargo drop. Lean toward (b) — would tie sticky gun to trust 50 with the home shelter NPC as a "you've earned my workshop access" moment. But (a) is fastest and unblocks playtest. Probably ship as (a) for commit 4, plan to make it (b) when commit 4 NPCs are wired.
+  - **Base pickup radius reduction**: `PKG_PICKUP_RANGE` from 8 → 6 (with gun: ~16). Going below 6 brings back the cargo-runs-out problems we just fixed.
+  - **Ammo capacity**: 8 shots feels right. Roughly enough for one pass through 1-2 edges before refill.
+  - **Refill behavior**: on arrival at H, instantly refill. Log line `home: sticky gun refilled (8/8)`. No prompt — automatic since H is the home base.
+- **State additions**:
+  - `S.stickyGun` — `null` if not owned, else `{ ammo, ammoMax, holstered }`
+  - On purchase: set `{ ammo: 8, ammoMax: 8, holstered: false }`
+  - When `!holstered`, takes 1 slot of cargo capacity (`S.usedSlots++` semantically, or track separately)
+- **Pickup flow** (in `scanForPickup`):
+  - If `S.stickyGun && S.stickyGun.ammo > 0`, scan range = `STICKY_RANGE` (16). Else scan range = `PKG_PICKUP_RANGE` (6).
+  - When picking up beyond base range: decrement ammo, store `S.lastStickyShot = { fromCi: courierCell, toCi: pickupCi, ts: Date.now() }` for visualization.
+- **Visualization**:
+  - New SVG overlay element in viewport, absolute positioned over fieldstrip.
+  - When `S.lastStickyShot` is set and within last 400ms, draw a line from courier cell (always at `COURIER_CELL`) to pickup cell (offset = `pickupCi - leftCell` cells × `cellPxWidth`).
+  - Line color: bright cyan `#77bfcf`, fading via opacity over 400ms. Then clear `S.lastStickyShot`.
+  - Render hook: piggyback on `renderFieldstrip` (already runs every tick).
+- **Refill at H**: in `tick()`'s edge-arrival block, if `arrivedAt === 'H' && S.stickyGun && S.stickyGun.ammo < S.stickyGun.ammoMax`, set `ammo = ammoMax`, log message.
+- **Holster upgrade**: new `UPGRADE_DEFS` entry — `stickyHolster` (~80¢, requires owning sticky gun somehow — probably check `!!S.stickyGun` in the `requires` field, which means the requires field needs to be either a string upgrade id OR a function. Easiest: just always show the upgrade and disable until gun is owned via `reqMet = !!S.stickyGun`).
+  - Apply: `S.stickyGun.holstered = true`. Frees up the cargo slot.
+- **UI**: small badge in cargo or boots row showing `gun: N/M` with ammo state. Color-code: cyan when full, purple when low (≤2), pink when empty.
+- **Cargo slot accounting**: this is the trickiest part. Currently `S.usedSlots` is computed from inventory. With sticky gun taking a slot, either:
+  - (a) Reserve a slot in `S.maxSlots` calculation: effective slots = `S.maxSlots - (S.stickyGun && !S.stickyGun.holstered ? 1 : 0)`. Cleanest.
+  - (b) Push a fake "gun" item into inventory. Hacky but visually clear in the slot row.
+  - Lean (a). Keep inventory pure cargo, derive effective max in `scanForPickup`'s capacity check and in `renderCargoSlots`'s loop bound.
+
+### priority order for next session
+1. Wipe save fix (blocks everything else — user can't reset to verify)
+2. Stamina drain bump + `rebuildRoads` → `efficientConsumption` (small, satisfying, affects feel immediately)
+3. Sandalweed cap + further dial-back (small, addresses lingering complaint)
+4. Dispatch log + scrollbars (CSS only, low risk)
+5. Sticky gun (meaty, save it for last so smaller fixes don't get blocked by it)
+
+After all 6 ship, then resume the v0.0.7 commit chain at commit 4 (NPCs/trust).
 
 ---
 
@@ -193,25 +355,24 @@ A local Node.js process that watches `incoming/<category>/` for new PNGs, conver
 
 Designed to fit the game's actual shape: each player has their own procedural world; multiplayer is **a presence layer**, not shared world state. Reference frames: Death Stranding likes/structures, Dark Souls bloodstains/messages, Animal Crossing villager letters. Other players are *implied* and *felt*, not *present*.
 
-### platform decision
+### platform decision (✅ deployed)
 - **Cloudflare Worker + KV** (free tier covers it forever for personal-site traffic).
 - Schema is generic: every event is `{ type, porterId, timestamp, data }` where `type` is any string and `data` is any JSON. Worker is a generic event bus; new game systems just teach themselves to broadcast/consume the event types they care about. Means we don't need backend changes when structures/NPCs/etc arrive.
-- Pattern: **broadcast-on-action, consume-on-poll**. POST /activity once per relevant event. Client polls /feed every 45–60s while tab is visible.
+- Pattern: **broadcast-on-action, consume-on-poll**. POST /activity once per relevant event. Client polls /feed every 60s while tab is visible.
 - Rate-limit per porter ID via a second KV key with TTL.
+- **Live**: `https://coiledlamb.tlh-feed.workers.dev`
 
-### v0.0.6 scope (Tier 1) — what to actually ship
-1. **Activity log**: real deliveries, distance milestones, node discoveries from other porters in the network panel.
-2. **Porter census**: real "X others online today" count derived from unique porter IDs seen in last 24h.
-3. **Lost cargo recovery loop**: when porter A trips and damages a `[lost]` package, the next time a `[lost]` package spawns in porter B's world it has a ~25% chance to be stamped with porter A's ID and original label. Pickup log shows "recovered [s] worn journal — last seen with PTR-7F2A-9C01." Delivery gives small scrip bonus AND broadcasts back to porter A's feed.
-4. **Echo events**: other porters discovering nodes show up in your feed as hints ("PTR-?? scouted: ruins") — a nudge that a place exists without spoiling it. This pairs with the progressive node identification system planned for the terrain rework (see Tier 2 below).
-
-After Tier 1 ships: update porter strip hint from "saved locally" to "others can see your contributions" (or similar).
+### Tier 1 status (v0.0.7)
+- ✅ Activity log (delivery, milestone, discovery events broadcasting and rendering)
+- ✅ Porter census (real "X others online today" from `census` field of /feed response)
+- ⏳ Lost cargo recovery loop — deferred to commit 5
+- ⏳ Echo events partial reveals — wired into stage 1 identification, fires once trust system in commit 4 enables it
 
 ### v0.0.7+ scope (Tier 2) — fits with structures
 - **Structure stewardship**: structures (canopies, lookouts, ziplines, etc.) get stamped with builder porter ID. Tooltip reads "built by PTR-7F2A — repaired 4 times." Using/repairing someone else's structure broadcasts a thank-you event to their feed. Mutual maintenance without direct interaction.
 - **Postbox dead-drops**: porter A loads a package into a postbox at depot B with destination = depot H. Package data goes to KV. Porter B encounters that postbox in their game, picks up the package, delivers it. Both porters get scrip + feed events. First true cooperative interaction.
 - **Structure naming**: 1-line names propagate ("birdcry overlook", "the long drink"). Tiny content contribution, makes the world feel made-by-people.
-- **Roads as collective infrastructure**: `rebuildRoads` upgrade broadcasts edge-being-rebuilt; other porters who see it in their feed get a small temporary speed boost (+5%) on that edge for an hour.
+- **Roads as collective infrastructure**: `rebuildRoads` upgrade broadcasts edge-being-rebuilt (note: pending replacement with `efficientConsumption` — this Tier 2 hook may need redesign).
 - **Ziplines as gifts**: appearing in another porter's world gives them free use for a window before normal procgen would surface it. Builder gets thank-you + tiny scrip kickback per use.
 
 ### v0.0.7+ scope (Tier 3) — fits with radio chatter NPCs
@@ -223,34 +384,21 @@ After Tier 1 ships: update porter strip hint from "saved locally" to "others can
 - **Daily delivery boards**: community contracts where X total porters across all worlds delivering a kind of package in 24h triggers a small reward for everyone.
 - **Memorial events**: porters who don't post activity for 90 days get their lost cargo and unrepaired structures pink-tinted with a "last seen" note. Doesn't punish (they can return any time), creates a melancholy archeology layer.
 
-### KV schema (anticipated)
-- `feed:recent` — last ~200 events, all porters (single JSON blob).
-- `census:active` — set of porter IDs seen in last 24h (derived/cached).
-- `lost:{porterId}` — list of lost packages this porter has dropped (recovery system).
-- `structures:{regionKey}` — structures built at procgen-stable positions, shared (Tier 2).
-- `postbox:{boxId}` — actual carriable packages awaiting pickup (Tier 2).
-- `radio:queue` — pending player radio messages (Tier 3).
-- `rate:{porterId}` — per-porter rate limit counter, TTL ~60s.
-
-Total expected state for hundreds of active porters: ~50KB. KV free tier handles this trivially.
-
-### what user needs to do when ready to implement
-- Sign up for a free Cloudflare account (no credit card needed for free tier).
-- Install `wrangler` CLI.
-- Claude writes the Worker code; user runs `wrangler deploy` and provides the URL.
-- Worker source lives in this repo as `worker/` folder for transparency, even though deployed separately.
-
-### display sub-decisions still pending
-- Polling rate: 45–60s while visible? Or only fetch on load + on each delivery?
-- Broadcast scope: every delivery? Or only milestones (every 10 deliveries, every km, first time hitting a node)? Per-delivery means a busy player floods the feed for everyone else; milestones might read better.
-- Display style: replace hardcoded flavor lines wholesale? Or interleave real events with flavor when feed is quiet?
+### KV schema (current + anticipated)
+- ✅ `feed:recent` — last 200 events, all porters (single JSON blob).
+- ✅ `census:active` — set of porter IDs seen in last 24h.
+- ✅ `lost:{porterId}` — list of lost packages this porter has dropped (recovery system). Endpoints exist; recovery loop pending in commit 5.
+- ✅ `rate:{porterId}` — per-porter rate limit counter, TTL ~60s.
+- ⏳ `structures:{regionKey}` — structures built at procgen-stable positions, shared (Tier 2).
+- ⏳ `postbox:{boxId}` — actual carriable packages awaiting pickup (Tier 2).
+- ⏳ `radio:queue` — pending player radio messages (Tier 3).
 
 ---
 
 ## pending work
 
-### 🟡 async multiplayer — TLH backend (v0.0.6 next)
-See "async multiplayer plan" section above for full design. Next step: user creates Cloudflare account + installs `wrangler`, then Claude writes the Worker. Tier 1 (activity log, census, lost cargo recovery, echo events) is the v0.0.6 scope.
+### 🔴 v0.0.7 next-session bug list
+See dedicated section above. Six items: wipe save fix, sandalweed cap, stamina drain + perk swap, dispatch log layout, custom scrollbars, sticky gun. Priority-ordered.
 
 ### 🔴 firefox thumbnail click (calendar)
 The `imgEl.onclick = function() { window.location.href = pageUrl }` approach is blocked by Firefox's popup rules. Fix: replace with an `<a>` tag wrapping the panel image in `artwork-calendar.html` so navigation is always a real link.
@@ -276,7 +424,7 @@ See Firefox fix above. Also: add `female`, `male`, `nudity` tags to tagging syst
 ### 🟡 Line of Action hotlink
 Hotlink to Line of Action with user's usual settings — need URL from user.
 
-### 🟣 TLH future game features (v0.0.7+, do not implement yet)
+### 🟣 TLH future game features (v0.0.7+ post-commit-6, do not implement yet)
 
 **Structures tab**: postboxes (store cargo), rainfall canopies (wait out rain + refill canteen), generators (battery recharge stub), lookout posts (see more/farther packages), ziplines (skip terrain between 2 points), shelters (home base), drone bays (carry cargo to destination). Built on paths between landmarks with limited slots. All degrade over time, upgradeable with field resources. Roads can move here too. Multiplayer integration per Tier 2 of multiplayer plan.
 
@@ -284,23 +432,56 @@ Hotlink to Line of Action with user's usual settings — need URL from user.
 
 **Bigger map**: with terrain expansion, the route should grow beyond 6 nodes. Currently the ring is small enough to see everything in 5 minutes; bigger map = real frontier.
 
-**Progressive node identification** (couples with bigger map and trust system):
-- Every node starts as `???` instead of being pre-known.
-- Identification has *degrees*: `???` → `signal detected` (heard about via radio chatter or another porter's echo event) → `outpost?` (seen from a lookout post) → `depot b` (visited in person).
-- This gives lookout posts a real reason to exist beyond "see further" and ties cleanly into the trust/radio system.
-- Multiplayer hook: other porters' identifications broadcast partial reveals to your map. You see "signal detected: edge ?→B" but not the full label until you visit yourself. Echo events from Tier 1 multiplayer become the mechanic for partial reveals, not just flavor.
-- Settlement `quote` field gets a payoff: quotes get *more specific* as identification deepens. Early quote is rumor, late quote is firsthand.
-- Note: currently you can't actually identify the `???` node — once visited, it stays unnamed. This system fixes that as a side effect.
-
 **Hot springs**: field stamina restore with wait time cost.
-
-**Radio chatter**: periodic NPC lines that build with trust, giving world flavour and hinting at packages/dangers. Multiplayer integration per Tier 3 of multiplayer plan.
 
 ---
 
 ## session log
 
-### 2026-04-13 (later)
+### 2026-04-13 (latest — v0.0.7 commits 1-3 + bug list)
+
+**The Long Haul — v0.0.7 commits 1, 2, 3a, 3 (feature/the-long-haul branch)**
+
+Major session. Shipped four commits implementing the multiplayer backend, game-side wiring, a bug batch, and the identification stage system. Ended with a six-item bug list for next session before continuing to commit 4.
+
+**Commit 1: Cloudflare Worker** (`c9a57b9` + `8f7940f` for KV syntax fix)
+- Created `worker/index.js`, `worker/wrangler.toml`, `worker/README.md`.
+- Endpoints: `POST /activity`, `GET /feed?since=`, `POST /lost`, `GET /lost/:porterId`, `GET /` info.
+- KV namespace `c7bdbec95cd6476f9c87abf55c03fdcb`. Allowed event types: delivery, milestone, discovery, lost_drop, lost_recovered, trust_unlock.
+- Rate limit 5 events/60s per porter, silent drop. Feed cap 200, census 24h auto-prune, LOST_CAP 20 per porter FIFO. CORS open.
+- User deployed to `https://coiledlamb.tlh-feed.workers.dev`.
+
+**Commit 2: game-side wiring** (`6d3d56d` HTML, `4020307` CSS, `fc2820c` JS)
+- New `MULTIPLAYER` block with `postActivity`, `pollFeed`, `startPolling`/`stopPolling`, `shortPorterId`, `checkDistMilestones`.
+- Broadcasts on delivery, discovery, distance milestones (deduped via `S.milestonesHit`).
+- Network panel rewritten: census header at top, real polled events, `no signal` / `connecting to feed...` fallbacks, self-events filtered.
+- Save schema bumped v1 → v2: new `multiplayer` field with `milestonesHit` and `lastFeedTimestamp`. v1 saves auto-migrate on load.
+- Porter strip hint: `connecting to feed...` → `connected to feed` once first poll succeeds.
+- `wipeSave` clears both v1 and v2 keys.
+- HTML subtitle bumped to v0.0.7. CSS additions: `.net-quiet` (italic dim) and `.net-census` (separator) classes.
+- User VERIFIED via screenshot — porter PTR-82F71BB8 with 9 deliveries, "connected to feed", census working.
+
+**Commit 3a: bugfix batch** (`c751caf`)
+- Bug 1 (empty terrain right of courier): `VIEWPORT_CELLS` 64→90, `renderFieldstrip` dynamically sizes renderCount to actual viewport width.
+- Bug 2 (cargo can run out): `PKG_PICKUP_RANGE` 6→8, `PKG_MAX_PER_EDGE` 14→18, `PKG_RESPAWN_TICKS` 800→500. Per-zone pkgChance bumped: road 0.04→0.07, scrub 0.05→0.08, wetlands 0.02→0.04, ruins 0.09→0.12, depot_approach 0.08→0.10. `scanForPickup` uses continue+return so a smaller pkg further ahead can still be picked up.
+- Bug 3 (sandalweeds non-functional): cells flagged `sandal:true`. `scanForPickup` harvests them, wipes `*` from terrain, no slot/weight cost. New `S.sandalweedCount` persisted in save. `checkAutobuy`: priority clip > sandalweed > scrip. Sandalweed equips regardless of autobuy toggle (free fallback) — sets `bootDurability=30`, `usingMakeshift=true`. `renderBoots` creates on-demand `#sandalBadge` (`* N`) inserted after clipBadge.
+
+**Commit 3: identification stages + sandalweed dial-back** (`0fb8322`)
+- Save schema bumped v2 → v3: `nodeStages` (integer 0-3 per id) replaces `nodesKnown` (boolean). New `SAVE_KEY_V3 = 'tlh-save-v3'`. Loader tries v3 → v2 → v1 in order. Migration: `nodesKnown[id] === true` becomes stage 3, else stage 0.
+- New helpers in IDENTIFICATION STAGES block: `getNodeStage`, `setNodeStage` (ratchet-only), `markEdgeAdjacent`, `getDisplayLabel`.
+- Stage progression: walking an edge bumps both endpoints to ≥2; bare arrival sets 3. Same on `tryDeliver` for delivered-to node. `init()` also bumps current edge endpoints on load.
+- `drawRouteMap` rewritten with stage-aware fills/strokes/labels: stage 0 nodes show `?` in circle and have NO external label; stage 1+ shows real letter (dimmed); stage 2 shows tier; stage 3 shows full label. Edges dim/medium/bright based on min endpoint stage. Tooltips also stage-aware.
+- `renderSettlements` filters on stage ≥ 2. Stage 2 entries show tier as title with "unconfirmed" subtitle and a generic `"reports of a [tier] along this route"` quote. Stage 3 shows the canonical entry.
+- `renderCargoSlots` tooltip and `updateDestDrift` use `getDisplayLabel`.
+- `routeNodes[].known` field removed; `nodeStages` is single source of truth.
+- Sandalweed dial-back: scrub 0.05 → 0.015, road 0.02 → 0.005, ruins 0.02 → 0.005 (~70% reduction). User reports still too common — see next-session bug list.
+
+**End-of-session bug list captured**
+- User asked to pause v0.0.7 commit chain (was about to start commit 4 NPCs/trust).
+- Six items flagged: wipe save broken, sandalweed cap+upgrade, stamina drain+perk swap, dispatch log layout, custom scrollbars, sticky gun.
+- Full design captured in "v0.0.7 next-session bug list" section above. Priority-ordered. Sticky gun is meaty enough to deserve its own commit; others can batch.
+
+### 2026-04-13 (mid-day)
 
 **The Long Haul — v0.0.6 (feature/the-long-haul branch)**
 
@@ -317,25 +498,15 @@ Two systems landed in this session: music tracks added to the shared player, and
 **persistence / autosave (TLH v0.0.6)**
 - New `PERSISTENCE` block in `the-long-haul.js` (~140 lines): `buildSavePayload`, `saveGame`, `loadGame`, `wipeSave`, `armWipe`, `fmtAgo`, `updateSaveStrip`.
 - Save key `tlh-save-v1` with versioned schema (`SAVE_VERSION = 1`). Old/malformed/wrong-version saves are discarded gracefully on load — fresh start.
-- Saves: progress (delivered, scrip, distKm, ticks, capacities, boots, stamina, canteen, toggle states), position (edgeIdx, dotT), inventory (with `_worldCell` stripped), upgrades, node-known flags, settlement supply/rebuild values.
-- Does NOT save: `worldCells[]` (regenerated each load), package respawn timers, log lines, rain state, tie-down armed state. World is intentionally fresh each session by design.
-- Autosave triggers: 30s interval, `visibilitychange` to hidden, `beforeunload`, manual button.
-- New save strip below panels: `// session: [save] [wipe save] last save: X ago`. Mirrors porter strip aesthetic. "Ago" text updates every ~3s via tick loop.
-- Wipe save: two-click confirm pattern. First click arms button (turns pink, pulses via `overboost-pulse` keyframe, label changes). 4-second timeout reverts. Second click within window wipes. Wipe does NOT clear porter ID.
-- Critical detail: load does NOT re-run upgrade `apply()` callbacks. Saved values for `maxSlots`, `maxWeight`, `bootClipMax/Count` are trusted as-is. Re-running `apply()` would double-grant stat bonuses.
-- Init flow: `buildWorld()` first (always fresh), then `loadGame()` overlays saved state on top. If save was restored, log shows "back online — save restored" instead of the regular "online at depot a" line. Toggle button visual state restored from saved prefs.
+- Saves: progress, position, inventory, upgrades, node-known flags, settlement supply/rebuild values.
+- New save strip below panels: `// session: [save] [wipe save] last save: X ago`. Mirrors porter strip aesthetic.
+- Wipe save: two-click confirm pattern. (Note: discovered to be broken in v0.0.7 testing — see bug list.)
+- Critical detail: load does NOT re-run upgrade `apply()` callbacks.
 
-**multiplayer planning (no code yet)**
+**multiplayer planning (no code yet at this point)**
 - Discussed multiplayer extensively. Settled on Cloudflare Worker + KV as the platform.
 - Designed framework: presence layer, not shared world. Generic event bus schema (`{type, porterId, timestamp, data}`) so future game systems just plug in.
-- Scoped 4 tiers (v0.0.6 = activity log + census + lost cargo recovery + echo events; v0.0.7+ = structure stewardship + postbox dead-drops; etc.). Full plan captured above in "async multiplayer plan" section.
-
-**bugs / things to verify after pulling v0.0.6**
-- Persistence: save/load round-trip preserves scrip, position, upgrades correctly.
-- Cargo capacity bonuses (e.g. `cargoSling`) don't double after reload.
-- Save strip layout looks right at narrow widths (mirrors porter strip behavior).
-- Mac demarco tracks all play; especially watch `20200107 2.mp3` for the filename-with-space edge case.
-- Wipe save button pulses pink when armed; reverts after 4s; wipes successfully on second click.
+- Scoped 4 tiers (v0.0.7 = activity log + census + lost cargo recovery + echo events; later = structure stewardship + postbox dead-drops; etc.). Full plan captured above in "async multiplayer plan" section.
 
 ### 2026-04-13 (earlier)
 
@@ -352,7 +523,7 @@ Full rewrite of terrain and delivery systems. All changes are on the feature bra
 - Packages exist as persistent objects inside `worldCells[]`. `destId` stamped at generation time = far end of their edge.
 - `scanForPickup()` replaces the old `advanceCycle()` pickup system — proximity-based, runs every tick.
 - `tryDeliver()` replaces old delivery cycle — fires on node arrival, delivers all inventory items bound for that node.
-- Picked packages respawn after `PKG_RESPAWN_TICKS` (800 ticks), capped at `PKG_MAX_PER_EDGE` (14) active per edge.
+- Picked packages respawn after `PKG_RESPAWN_TICKS`, capped at `PKG_MAX_PER_EDGE` active per edge.
 
 **bug fixes**
 - Fix 1: `.tlh-fieldstrip` `width: 200%` → `width: max-content` (grey area at terrain edge).
@@ -367,24 +538,7 @@ Full rewrite of terrain and delivery systems. All changes are on the feature bra
 - 7l: `tt()` timestamp fixed to `Math.floor(ticks × TICK_MS / 1000)` real seconds.
 
 **UI additions (v0.0.4 → v0.0.5)**
-- Weight pips: replaced cargo bar + `0/5kg` text with a row of `wseg` squares (one per kg max), colour-ramped teal → purple → pink.
-- Boot clip refill: depot arrival with partial clip now logs a prompt with inline `[refill]` button instead of silent auto-charge.
-- Log inline action buttons: `.log-btn` CSS class for interactive prompts in log lines.
-- Destination drift layer: `.tlh-dest-drift` shows next node's ASCII glyph drifting across viewport, restarted on each edge change.
-- Carrier stack: all held packages shown above `@` as stacked `[s/m/l]` labels. Lost packages render pink.
-- Tie-down: button in cargo row arms a one-use cargo damage negation on next trip.
-- Cargo slot tooltips: CSS `::after` hover showing `[size] label → dest Xcent¢`.
-- Overboost: shelter rest sets stamina to 125% of max; 5th pulsing teal segment appears until overboost drains.
-- Porter ID migrated from `TLH-` to `PTR-` prefix.
-
-**what needs verifying before merging to main**
-- Terrain scroll fills viewport correctly with no grey area.
-- Destination drift is visible.
-- Packages appear in the world and are picked up by proximity.
-- Shop buttons enable after earning scrip.
-- Cargo tooltips don't flicker.
-- Log shows 14 lines.
-- Async multiplayer (network panel) still shows placeholder — not a bug, intentional for now.
+- Weight pips, boot clip refill, log inline action buttons, destination drift layer, carrier stack, tie-down, cargo slot tooltips, overboost segment, porter ID migrated TLH→PTR.
 
 ### 2026-04-12
 
