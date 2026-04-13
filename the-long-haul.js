@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.6
+   v0.0.7
    ============================================== */
 'use strict';
 (function () {
@@ -29,16 +29,13 @@ function getPorterId() {
 // ============================================================
 // WORLD MAP CONSTANTS
 // ============================================================
-const CELLS_PER_EDGE   = 260;  // terrain cells per route leg
-const VIEWPORT_CELLS   = 64;   // cells visible at once
-const COURIER_CELL     = 16;   // courier sits at this offset within viewport
-const PKG_PICKUP_RANGE = 6;    // cells ahead of courier to scan
-const PKG_MAX_PER_EDGE = 14;   // active package cap per edge
-const PKG_RESPAWN_TICKS = 800; // ticks before picked pkg respawns
+const CELLS_PER_EDGE   = 260;
+const VIEWPORT_CELLS   = 64;
+const COURIER_CELL     = 16;
+const PKG_PICKUP_RANGE = 6;
+const PKG_MAX_PER_EDGE = 14;
+const PKG_RESPAWN_TICKS = 800;
 
-// ============================================================
-// ZONE TYPES
-// ============================================================
 const ZONE_TYPES = {
   road: {
     weight: 40, width: [12, 22],
@@ -94,12 +91,8 @@ const ZONE_TYPES = {
   },
 };
 
-// Edges leading into risky destinations get a trip chance bonus (7e)
 const RISKY_EDGE_DEST = new Set(['C', '?']);
 
-// ============================================================
-// CONSTANTS
-// ============================================================
 const NPC_PKGS = [
   { size:'s', label:'medicine',  kg:1, slots:1, scrip:12 },
   { size:'s', label:'seeds',     kg:1, slots:1, scrip:10 },
@@ -132,56 +125,27 @@ const STATUS_COLORS = {
   tripped:    '#da8bda',
 };
 
+// v0.0.7: distance milestones (km) — broadcast once each per save
+const DIST_MILESTONES = [10, 25, 50, 100, 250, 500, 1000];
+
 // ============================================================
 // STATE
 // ============================================================
 const S = {
-  delivered: 0,
-  scrip: 0,
-  distKm: 0,
-  ticks: 0,
-
-  status: 'walking',
-  restTimer: 0,
-  tripTimer: 0,
-
-  maxSlots: 6,
-  usedSlots: 0,
-  maxWeight: 5,
-  usedWeight: 0,
-  inventory: [],
-
+  delivered: 0, scrip: 0, distKm: 0, ticks: 0,
+  status: 'walking', restTimer: 0, tripTimer: 0,
+  maxSlots: 6, usedSlots: 0, maxWeight: 5, usedWeight: 0, inventory: [],
   tieDownActive: false,
-
-  bootDurability: 80,
-  autobuyBoots: false,
-  bootClipCount: 0,
-  bootClipMax: 0,
-  usingMakeshift: false,
-
-  stamina: 400,
-  staminaMax: 400,
-  staminaOverboost: false,
-  prevStaminaSeg: 4,
-
-  canteen: 100,
-  canteenMax: 100,
-  autodrink: false,
-
-  isRaining: false,
-  rainTimer: 0,
-  inRiver: false,
+  bootDurability: 80, autobuyBoots: false, bootClipCount: 0, bootClipMax: 0, usingMakeshift: false,
+  stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
+  canteen: 100, canteenMax: 100, autodrink: false,
+  isRaining: false, rainTimer: 0, inRiver: false,
 
   upgrades: {
-    bootsT1:     false,
-    bootsT2:     false,
-    bootClip1:   false,
-    bootClip2:   false,
-    cargoSling:  false,
-    cargoPack:   false,
-    cargoWeight: false,
-    rebuildRoads:false,
-    steadyFeet:  false,
+    bootsT1: false, bootsT2: false,
+    bootClip1: false, bootClip2: false,
+    cargoSling: false, cargoPack: false, cargoWeight: false,
+    rebuildRoads: false, steadyFeet: false,
   },
 
   settlements: {
@@ -202,28 +166,125 @@ const S = {
     { id:'\u00b7',  label:'waypoint', x:0, y:0, known:true  },
   ],
   edges: [['A','?'],['?','B'],['B','C'],['C','H'],['H','\u00b7'],['\u00b7','A']],
-  edgeIdx: 2,
-  dotT: 0,
-  worldPos: 0,
+  edgeIdx: 2, dotT: 0, worldPos: 0,
 
   pendingDelivery: null,
 
-  networkFeed: [
-    '<span class="net-hi">visitor</span> rebuilt 3m of north road',
-    'lost pkg recovered: <span class="net-ac">[m] tools</span>',
-    '<span class="net-hi">2 others</span> online today',
-  ],
+  // v0.0.7: live multiplayer state (replaces old hardcoded networkFeed)
+  networkFeed: [],          // array of event objects from /feed
+  networkCensus: 0,         // active porters in last 24h
+  networkConnected: false,  // true once first successful poll completes
+  milestonesHit: [],        // distance milestones already broadcast (km values)
+  lastFeedTimestamp: 0,     // for incremental polling via ?since=
 };
+
+// ============================================================
+// MULTIPLAYER (v0.0.7)
+// ============================================================
+const FEED_URL    = 'https://coiledlamb.tlh-feed.workers.dev';
+const POLL_MS     = 60000;
+const FEED_DISPLAY_CAP = 8;
+
+let _porterIdCached = null;
+let _pollTimer      = null;
+
+function getCachedPorterId() {
+  if (!_porterIdCached) _porterIdCached = getPorterId();
+  return _porterIdCached;
+}
+
+// Best-effort fire-and-forget. Failures are silent — don't pollute the log
+// with network errors; the multiplayer layer is non-essential to gameplay.
+function postActivity(type, data) {
+  const porterId = getCachedPorterId();
+  if (porterId === 'PTR-OFFLINE') return;
+  try {
+    fetch(FEED_URL + '/activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ porterId, type, data: data || {} }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+// Poll for new events. Uses ?since= for incremental fetch.
+async function pollFeed() {
+  try {
+    const url = FEED_URL + '/feed' + (S.lastFeedTimestamp ? ('?since=' + S.lastFeedTimestamp) : '');
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || !Array.isArray(data.events)) return;
+
+    S.networkConnected = true;
+    S.networkCensus    = data.census || 0;
+
+    // Merge new events, dedupe by timestamp+porterId+type
+    const seen = new Set(S.networkFeed.map(e => `${e.timestamp}|${e.porterId}|${e.type}`));
+    data.events.forEach(e => {
+      const key = `${e.timestamp}|${e.porterId}|${e.type}`;
+      if (!seen.has(key)) {
+        S.networkFeed.push(e);
+        seen.add(key);
+        if (e.timestamp > S.lastFeedTimestamp) S.lastFeedTimestamp = e.timestamp;
+      }
+    });
+
+    // Trim to display cap
+    S.networkFeed.sort((a, b) => a.timestamp - b.timestamp);
+    if (S.networkFeed.length > FEED_DISPLAY_CAP) {
+      S.networkFeed = S.networkFeed.slice(-FEED_DISPLAY_CAP);
+    }
+
+    renderNetwork();
+  } catch (e) {
+    // Silent
+  }
+}
+
+function startPolling() {
+  if (_pollTimer) return;
+  pollFeed();
+  _pollTimer = setInterval(pollFeed, POLL_MS);
+}
+
+function stopPolling() {
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+
+// Compact PTR-XXXXYYYY -> PTR-XXXX, leave PTR-XXXX-YYYY alone
+function shortPorterId(id) {
+  if (!id || typeof id !== 'string') return 'PTR-????';
+  const parts = id.split('-');
+  if (parts.length === 2 && parts[1].length > 4) {
+    return parts[0] + '-' + parts[1].slice(0, 4);
+  }
+  return id;
+}
+
+// Distance milestone check — broadcast once per threshold per save
+function checkDistMilestones() {
+  const km = Math.floor(S.distKm);
+  for (const m of DIST_MILESTONES) {
+    if (km >= m && !S.milestonesHit.includes(m)) {
+      S.milestonesHit.push(m);
+      postActivity('milestone', { kind: 'distance', value: m });
+      addLog(`milestone: <span class="log-hi">${m}km walked</span>`);
+    }
+  }
+}
 
 // ============================================================
 // PERSISTENCE
 // ============================================================
-const SAVE_KEY     = 'tlh-save-v1';
-const SAVE_VERSION = 1;
+const SAVE_KEY     = 'tlh-save-v1';   // legacy
+const SAVE_KEY_V2  = 'tlh-save-v2';   // current
+const SAVE_VERSION = 2;
 const AUTOSAVE_MS  = 30000;
 
-let _lastSaveAt = 0;        // epoch ms of most recent save
-let _wipeArmed  = false;    // two-click wipe state
+let _lastSaveAt = 0;
+let _wipeArmed  = false;
 let _wipeTimer  = null;
 
 function buildSavePayload() {
@@ -247,13 +308,7 @@ function buildSavePayload() {
       autobuyBoots:   S.autobuyBoots,
       autodrink:      S.autodrink,
     },
-    position: {
-      edgeIdx: S.edgeIdx,
-      dotT:    S.dotT,
-    },
-    // Strip _worldCell — old indices won't line up against the freshly
-    // built world. In-flight pkgs become "untracked" (tiny respawn leak,
-    // but harmless and self-correcting once delivered).
+    position: { edgeIdx: S.edgeIdx, dotT: S.dotT },
     inventory: S.inventory.map(p => ({
       size: p.size, label: p.label, kg: p.kg, slots: p.slots,
       scrip: p.scrip, isLost: !!p.isLost, destId: p.destId,
@@ -265,13 +320,18 @@ function buildSavePayload() {
       acc[k] = { supply: s.supply, rebuild: s.rebuild };
       return acc;
     }, {}),
+    // v0.0.7 additions
+    multiplayer: {
+      milestonesHit:     [...S.milestonesHit],
+      lastFeedTimestamp: S.lastFeedTimestamp,
+    },
   };
 }
 
 function saveGame(silent) {
   try {
     const payload = buildSavePayload();
-    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    localStorage.setItem(SAVE_KEY_V2, JSON.stringify(payload));
     _lastSaveAt = payload.savedAt;
     updateSaveStrip();
     if (!silent) addLog('<span class="log-ok">progress saved</span>');
@@ -284,11 +344,17 @@ function saveGame(silent) {
 
 function loadGame() {
   let raw;
-  try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+  // Try v2 first, fall back to v1 for migration
+  try { raw = localStorage.getItem(SAVE_KEY_V2); } catch (e) { return false; }
+  if (!raw) {
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+  }
   if (!raw) return false;
   let data;
   try { data = JSON.parse(raw); } catch (e) { return false; }
-  if (!data || data.version !== SAVE_VERSION) return false;
+  if (!data) return false;
+  // Accept v1 (migrate) or v2 (load directly)
+  if (data.version !== 1 && data.version !== SAVE_VERSION) return false;
 
   try {
     const p = data.progress || {};
@@ -319,8 +385,6 @@ function loadGame() {
     }
 
     if (data.upgrades && typeof data.upgrades === 'object') {
-      // Trust saved values; do NOT re-run apply() (would double stat bonuses
-      // since maxSlots/maxWeight/clip are already saved/restored above).
       Object.keys(S.upgrades).forEach(k => {
         if (typeof data.upgrades[k] === 'boolean') S.upgrades[k] = data.upgrades[k];
       });
@@ -341,10 +405,26 @@ function loadGame() {
       });
     }
 
-    _lastSaveAt = data.savedAt || 0;
+    // v0.0.7 multiplayer fields (absent in v1 saves)
+    if (data.multiplayer && typeof data.multiplayer === 'object') {
+      if (Array.isArray(data.multiplayer.milestonesHit)) {
+        S.milestonesHit = data.multiplayer.milestonesHit.filter(m => typeof m === 'number');
+      }
+      if (typeof data.multiplayer.lastFeedTimestamp === 'number') {
+        S.lastFeedTimestamp = data.multiplayer.lastFeedTimestamp;
+      }
+    }
 
-    // Coerce status — if loaded inventory is non-empty, courier is carrying
+    _lastSaveAt = data.savedAt || 0;
     S.status = S.inventory.length > 0 ? 'carrying' : 'walking';
+
+    // Migration: if we loaded a v1 save, immediately re-save as v2 and drop v1
+    if (data.version === 1) {
+      try {
+        localStorage.removeItem(SAVE_KEY);
+        saveGame(true);
+      } catch (e) {}
+    }
     return true;
   } catch (e) {
     return false;
@@ -352,7 +432,10 @@ function loadGame() {
 }
 
 function wipeSave() {
-  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  try {
+    localStorage.removeItem(SAVE_KEY_V2);
+    localStorage.removeItem(SAVE_KEY); // also clear legacy
+  } catch (e) {}
   _lastSaveAt = 0;
   updateSaveStrip();
 }
@@ -376,7 +459,6 @@ function updateSaveStrip() {
 
 function armWipe() {
   if (_wipeArmed) {
-    // Confirmed
     clearTimeout(_wipeTimer);
     _wipeArmed = false;
     wipeSave();
@@ -403,8 +485,6 @@ function armWipe() {
 
 // ============================================================
 // WORLD CELLS
-// Each cell: { html, pkg, risky, edgeIdx }
-// pkg (if present): { size, label, kg, slots, scrip, isLost, destId, picked, respawnIn }
 // ============================================================
 let worldCells = [];
 const TOTAL_CELLS = CELLS_PER_EDGE * 6;
@@ -471,7 +551,7 @@ function buildWorld() {
 }
 
 // ============================================================
-// WORLD SCROLL — JS-driven transform, no CSS animation
+// WORLD SCROLL
 // ============================================================
 let cellPxWidth = 12;
 
@@ -517,7 +597,7 @@ function renderFieldstrip() {
 }
 
 // ============================================================
-// PACKAGE PICKUP — proximity scan ahead of courier
+// PACKAGE PICKUP
 // ============================================================
 function scanForPickup() {
   if (S.status !== 'walking' && S.status !== 'carrying') return;
@@ -550,11 +630,13 @@ function scanForPickup() {
 }
 
 // ============================================================
-// PACKAGE DELIVERY — called on node arrival
+// PACKAGE DELIVERY
 // ============================================================
 function tryDeliver(arrivedNodeId) {
   const toDeliver = S.inventory.filter(p => p.destId === arrivedNodeId);
   if (toDeliver.length === 0) return;
+  const settle = S.settlements[arrivedNodeId];
+  const destLabel = settle ? settle.label : arrivedNodeId;
   toDeliver.forEach(pkg => {
     S.scrip      += pkg.scrip;
     S.delivered  += 1;
@@ -564,15 +646,18 @@ function tryDeliver(arrivedNodeId) {
     if (pkg._worldCell !== undefined && worldCells[pkg._worldCell] && worldCells[pkg._worldCell].pkg) {
       worldCells[pkg._worldCell].pkg.respawnIn = PKG_RESPAWN_TICKS;
     }
-    const settle = S.settlements[arrivedNodeId];
     if (settle) { settle.supply = Math.min(100, settle.supply + 3); settle.rebuild = Math.min(100, settle.rebuild + 1); }
     const node = S.routeNodes.find(n => n.id === arrivedNodeId);
     if (node && !node.known) {
       node.known = true;
       addLog(`discovered: <span class="log-hi">${node.label}</span>`);
       drawRouteMap();
+      // v0.0.7
+      postActivity('discovery', { nodeId: arrivedNodeId, label: node.label });
     }
-    addLog(`delivered to <span class="log-hi">${settle ? settle.label : arrivedNodeId}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
+    addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
+    // v0.0.7
+    postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
   });
   renderCourierStack();
   renderCargoSlots(true);
@@ -622,7 +707,6 @@ function updateDestDrift() {
   els.destDrift.innerHTML =
     `<span class="dest-glyph">${glyph.replace(/\n/g, '<br>')}</span>` +
     `<span class="dest-label">${label}</span>`;
-  // fix 2: restart animation starting from inside the visible viewport
   els.destDrift.style.animation = 'none';
   void els.destDrift.offsetHeight;
   els.destDrift.style.animation = 'destdrift 22s linear forwards';
@@ -736,6 +820,7 @@ let els = {};
 function resolveEls() {
   els = {
     porterIdEl:   $('porterIdEl'),
+    porterHint:   document.querySelector('.tlh-porter-hint'),
     delivered:    $('hDelivered'),
     scrip:        $('hScrip'),
     walked:       $('hWalked'),
@@ -828,12 +913,63 @@ function renderSettlements() {
     });
 }
 
+// v0.0.7: render real polled events. Falls back to "no signal" when empty.
 function renderNetwork() {
   if (!els.networkEl) return;
-  els.networkEl.innerHTML = S.networkFeed.map(f => `<div class="net-item">${f}</div>`).join('');
+  const myId = getCachedPorterId();
+  const lines = [];
+
+  if (S.networkConnected) {
+    const others = Math.max(0, S.networkCensus - 1);
+    if (others === 0) {
+      lines.push('<div class="net-item net-census">no other porters today</div>');
+    } else if (others === 1) {
+      lines.push(`<div class="net-item net-census"><span class="net-hi">1 other</span> porter online today</div>`);
+    } else {
+      lines.push(`<div class="net-item net-census"><span class="net-hi">${others} others</span> online today</div>`);
+    }
+  }
+
+  // Filter out self events from feed display
+  const visible = S.networkFeed.filter(e => e.porterId !== myId);
+
+  if (!S.networkConnected) {
+    lines.push('<div class="net-item net-quiet">connecting to feed...</div>');
+  } else if (visible.length === 0) {
+    lines.push('<div class="net-item net-quiet">no signal</div>');
+  } else {
+    visible.slice().reverse().forEach(e => {
+      lines.push(`<div class="net-item">${formatEvent(e)}</div>`);
+    });
+  }
+
+  els.networkEl.innerHTML = lines.join('');
 }
 
-// 7l: proper real-time timestamp
+function formatEvent(e) {
+  const who = `<span class="net-hi">${shortPorterId(e.porterId)}</span>`;
+  const data = e.data || {};
+  switch (e.type) {
+    case 'delivery':
+      return `${who} delivered to <span class="net-ac">${data.destLabel || '?'}</span>`;
+    case 'milestone':
+      if (data.kind === 'distance') {
+        return `${who} hit <span class="net-ac">${data.value}km</span>`;
+      }
+      return `${who} reached a milestone`;
+    case 'discovery':
+      return `${who} scouted: <span class="net-ac">${data.label || data.nodeId || '?'}</span>`;
+    case 'lost_drop':
+      return `${who} lost <span class="net-ac">${data.label || 'cargo'}</span>`;
+    case 'lost_recovered':
+      return `${who} recovered <span class="net-ac">${data.label || 'lost cargo'}</span>`;
+    case 'trust_unlock':
+      return `${who} earned trust at <span class="net-ac">${data.npcLabel || '?'}</span>`;
+    default:
+      return `${who} ${e.type}`;
+  }
+}
+
 function tt() {
   const totalSecs = Math.floor(S.ticks * TICK_MS / 1000);
   const m = Math.floor(totalSecs / 60);
@@ -846,7 +982,7 @@ function addLog(msg) {
   el.innerHTML = `<span class="log-ts">[${tt()}]</span> ${msg}`;
   els.logEl.insertBefore(el, els.logEl.firstChild);
   const all = els.logEl.querySelectorAll('.log-line');
-  if (all.length > 14) all[all.length-1].remove(); // fix 5: was 7
+  if (all.length > 14) all[all.length-1].remove();
 }
 
 // ============================================================
@@ -858,10 +994,9 @@ function updateHUD() {
   els.walked.textContent    = S.distKm + 'km';
   els.status.textContent    = S.status;
   els.status.style.color    = STATUS_COLORS[S.status] || '#b1c9c3';
-  renderUpgrades(); // fix 3: keep buttons enabled/disabled in sync with scrip
+  renderUpgrades();
 }
 
-// fix 4: track inventory state to avoid rebuilding DOM every tick (kills tooltip flicker)
 let _lastCargoKey = '';
 function cargoKey() {
   return S.inventory.map(p => `${p.size}${p.destId}${p.scrip}`).join('|') + '|' + S.maxSlots + '|' + S.usedWeight;
@@ -891,7 +1026,6 @@ function renderCargoSlots(force) {
     els.cargoSlots.appendChild(d);
   }
 
-  // weight pips — one per kg of capacity, colour-ramped teal→purple→pink
   if (els.weightSegs) {
     els.weightSegs.innerHTML = '';
     const loadPct = S.usedWeight / S.maxWeight;
@@ -946,7 +1080,7 @@ function renderStamina() {
   const canteenPct = Math.round((S.canteen/S.canteenMax)*100);
   if (els.drinkBtn) {
     els.drinkBtn.textContent = `drink (${canteenPct}%)`;
-    els.drinkBtn.disabled    = S.canteen<=0 || S.stamina>=S.staminaMax; // 7g
+    els.drinkBtn.disabled    = S.canteen<=0 || S.stamina>=S.staminaMax;
   }
   if (els.canteenBar) els.canteenBar.style.width = canteenPct+'%';
 }
@@ -975,13 +1109,12 @@ function checkAutobuy() {
   }
 }
 
-// boot clip refill: prompt in log instead of silent auto-charge
 let _clipRefillPending = null;
 
 function refillBootClip(nodeId) {
   if (S.bootClipMax===0 || !['A','B','H'].includes(nodeId)) return;
   if (S.bootClipCount>=S.bootClipMax) return;
-  if (_clipRefillPending) return; // already waiting on a response
+  if (_clipRefillPending) return;
   const cost = (S.bootClipMax-S.bootClipCount)*15;
   if (S.scrip < cost) return;
   const settle = S.settlements[nodeId];
@@ -1012,7 +1145,7 @@ function toggleTieDown() {
 }
 
 // ============================================================
-// TRIP / CATCH  (7e: risky cell bonus)
+// TRIP / CATCH
 // ============================================================
 function currentCellIsRisky() {
   const ci = Math.floor((S.edgeIdx*CELLS_PER_EDGE)+(S.dotT*CELLS_PER_EDGE)) % TOTAL_CELLS;
@@ -1080,7 +1213,6 @@ function drinkWater() {
 function tick() {
   S.ticks++;
 
-  // trip recovery
   if (S.tripTimer>0) {
     S.tripTimer--;
     if (S.tripTimer===0) {
@@ -1090,7 +1222,6 @@ function tick() {
     renderBoots(); renderStamina(); updateHUD(); return;
   }
 
-  // resting
   if (S.status==='resting') {
     S.restTimer--;
     if (S.restTimer<=0) {
@@ -1102,7 +1233,6 @@ function tick() {
     renderStamina(); updateHUD(); return;
   }
 
-  // walking / carrying
   if (S.status==='walking' || S.status==='carrying') {
     S.stamina = Math.max(0, S.stamina-STAMINA_DRAIN);
     if (S.staminaOverboost && S.stamina<=S.staminaMax) S.staminaOverboost=false;
@@ -1115,9 +1245,9 @@ function tick() {
 
     if (S.isRaining||S.inRiver) S.canteen=Math.min(S.canteenMax,S.canteen+0.4);
 
-    // 7k: distKm from actual route progress (edges completed + fraction)
     if (S.ticks%5===0) {
       S.distKm = Math.round((S.edgeIdx + S.dotT) * 4.2 * 10) / 10;
+      checkDistMilestones(); // v0.0.7
     }
 
     maybeTrip();
@@ -1131,7 +1261,6 @@ function tick() {
     }
   }
 
-  // advance world position
   const prevEdgeIdx = S.edgeIdx;
   S.dotT += 0.006 * speedMultiplier();
 
@@ -1140,7 +1269,12 @@ function tick() {
     S.edgeIdx = (S.edgeIdx+1) % S.edges.length;
     const arrivedAt = S.edges[prevEdgeIdx][1];
     const node = S.routeNodes.find(n => n.id===arrivedAt);
-    if (node && !node.known) { node.known=true; addLog(`discovered: <span class="log-hi">${node.label}</span>`); }
+    if (node && !node.known) {
+      node.known=true;
+      addLog(`discovered: <span class="log-hi">${node.label}</span>`);
+      // v0.0.7: broadcast discovery on bare arrival (no delivery case)
+      postActivity('discovery', { nodeId: arrivedAt, label: node.label });
+    }
     drawRouteMap();
     updateDestDrift();
     refillBootClip(arrivedAt);
@@ -1149,18 +1283,14 @@ function tick() {
     updateRouteDot();
   }
 
-  // world scroll
   S.worldPos = worldPosFromRoute();
   renderFieldstrip();
 
-  // pkg respawns (every 10 ticks to save cycles)
   if (S.ticks%10===0) tickPkgRespawns();
 
-  // rain
   if (S.rainTimer>0) S.rainTimer--;
   else if (Math.random()<0.003) { setRain(!S.isRaining); S.rainTimer=40+Math.floor(Math.random()*60); }
 
-  // save strip "ago" tick (cheap, every ~3s)
   if (S.ticks % 9 === 0) updateSaveStrip();
 
   renderBoots(); renderStamina(); renderCargoSlots(); updateHUD();
@@ -1176,8 +1306,6 @@ function init() {
   const porterId = getPorterId();
   if (els.porterIdEl) els.porterIdEl.textContent = porterId;
 
-  // Build the world FIRST (procedural, fresh each load by design),
-  // THEN restore save state on top of it.
   buildWorld();
 
   const restored = loadGame();
@@ -1198,7 +1326,6 @@ function init() {
     addLog(`porter <span class="log-hi">${porterId}</span> online at <span class="log-hi">depot a</span>`);
   }
 
-  // 7i: bounce via CSS class
   if (els.courierAt) {
     els.courierAt.className = 'tlh-at bounce' + (S.inventory.length > 0 ? ' carry' : '');
     els.courierAt.style.animation = '';
@@ -1218,7 +1345,6 @@ function init() {
   });
   els.tieDownBtn.addEventListener('click', toggleTieDown);
 
-  // Restore toggle button visual state from loaded prefs
   if (S.autobuyBoots && els.autobuyBtn) {
     els.autobuyBtn.textContent = 'autobuy: on';
     els.autobuyBtn.classList.add('on');
@@ -1228,16 +1354,33 @@ function init() {
     els.autodrinkBtn.classList.add('on');
   }
 
-  // Save strip controls
   if (els.saveBtn) els.saveBtn.addEventListener('click', () => saveGame(false));
   if (els.wipeBtn) els.wipeBtn.addEventListener('click', armWipe);
 
-  // Autosave triggers
   setInterval(() => saveGame(true), AUTOSAVE_MS);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') saveGame(true);
+    if (document.visibilityState === 'hidden') {
+      saveGame(true);
+      stopPolling();
+    } else {
+      startPolling();
+    }
   });
   window.addEventListener('beforeunload', () => saveGame(true));
+
+  // v0.0.7: update porter strip hint to indicate connection state
+  if (els.porterHint) els.porterHint.textContent = 'connecting to feed...';
+
+  // Start polling (only if tab is visible)
+  if (document.visibilityState !== 'hidden') startPolling();
+
+  // Update porter hint after first successful poll
+  const hintCheck = setInterval(() => {
+    if (S.networkConnected && els.porterHint) {
+      els.porterHint.textContent = 'connected to feed';
+      clearInterval(hintCheck);
+    }
+  }, 1000);
 
   setInterval(tick, TICK_MS);
 }
