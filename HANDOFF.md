@@ -58,7 +58,10 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 - **Reactions are currently hidden** (`display: none` on `.gsc-reactions`). Custom reactions are planned — defer until next session.
 
 ### music player (in `nav.js`)
-- 4 tracks: `pilgrim's path`, `stoic porridge`, `onward` (all craigory ham), `drifter` (duster).
+- 9 tracks: `pilgrim's path`, `stoic porridge`, `onward` (craigory ham), `drifter` (duster), `20190622`, `20200107 2`, `20200402`, `20201228`, `20210818` (mac demarco).
+- `pilgrim's path` is the default first track for new sessions.
+- Mac demarco tracks have placeholder `0:00` durations — they auto-fill from the file once each track is played.
+- The `20200107 2.mp3` file has a literal space in the filename. Modern browsers handle it; if it ever breaks, URL-encode the `src` to `/audio/20200107%202.mp3`.
 - State persists across page navigations via `sessionStorage`.
 - Shuffle (`⇄`), loop (off/track/playlist), volume, seek bar.
 - Oil-slick animated visualizer bars.
@@ -72,14 +75,14 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 
 ---
 
-## the long haul — game architecture (v0.0.5)
+## the long haul — game architecture (v0.0.6)
 
-The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All mutable state is in the `S` object. No persistence between page loads except porter ID in localStorage.
+The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All mutable state is in the `S` object. Persistent save state lives in `localStorage` under `tlh-save-v1`.
 
 ### branch status
 - Active development branch: `feature/the-long-haul`
 - **Not merged to main/live yet.** The user verifies by loading the HTML directly from the branch — bugs found are real branch bugs, not deployment issues.
-- Do NOT push to the repo unless explicitly asked. Changes are batched into version releases.
+- Push convention: full version drops (e.g. v0.0.5 → v0.0.6) get pushed to the feature branch when ready. Small bugfixes are batched between version drops and pushed together. Site-wide changes (like adding the music tracks to `nav.js`) can be pushed to `main` separately, as long as they don't expose unfinished TLH-specific work.
 
 ### core loop
 - The courier walks a fixed circular route of 6 edges between 6 named nodes (A → ? → B → C → H → · → A).
@@ -87,7 +90,7 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - Speed is modulated by stamina segment count and boot durability. `rebuildRoads` upgrade adds ×1.2.
 
 ### world map
-- `buildWorld()` generates a flat array `worldCells[]` of exactly `CELLS_PER_EDGE × 6 = 1,560` cells at startup.
+- `buildWorld()` generates a flat array `worldCells[]` of exactly `CELLS_PER_EDGE × 6 = 1,560` cells at startup. World is regenerated fresh each page load — never persisted.
 - Each cell: `{ html, pkg, risky, edgeIdx }`.
 - `pkg` (if present): `{ size, label, kg, slots, scrip, isLost, destId, picked, respawnIn }`. `destId` is the far end of the cell's edge — stamped at generation, never changes.
 - Risky cells: edges leading to C or ? are flagged `risky: true`, applying a ×1.4 trip chance multiplier.
@@ -99,6 +102,16 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - On node arrival: `tryDeliver(arrivedNodeId)` delivers all inventory items with matching `destId`.
 - After delivery: `pkg.respawnIn = PKG_RESPAWN_TICKS (800)` starts countdown. Every 10 ticks, `tickPkgRespawns()` decrements and eventually resets `picked = false`, capped at `PKG_MAX_PER_EDGE = 14` active per edge.
 
+### persistence (v0.0.6)
+- Save key: `localStorage['tlh-save-v1']`. Versioned schema — bump `SAVE_VERSION` to invalidate old saves gracefully (load returns false, fresh start).
+- **Saved**: progress (delivered, scrip, distKm, ticks, capacities, boots/clip, stamina/canteen, autobuy/autodrink toggles), position (edgeIdx, dotT), inventory (with `_worldCell` stripped — see note below), upgrades, node-known flags, settlement supply/rebuild.
+- **NOT saved**: `worldCells[]` (regenerated each load — saves are tiny as a result), package respawn timers, log lines, rain state, tie-down (one-use), pending boot clip refill prompt.
+- **Why `_worldCell` is stripped**: world is fresh each load, old indices don't line up. In-flight inventory loses its respawn link — package delivers fine, but its world cell never gets a respawn timer set. Tiny self-correcting leak. Not a real bug.
+- **Upgrade restoration**: load does NOT re-run `apply()` on saved upgrades. Saved values for `maxSlots`, `maxWeight`, `bootClipMax/Count` are trusted as-is. Re-running `apply()` would double the bonuses (e.g. `cargoSling` adds +2 slots, but the saved `maxSlots` already includes that +2).
+- **Save triggers**: 30s autosave interval, `visibilitychange` to hidden, `beforeunload`, manual `[save]` button.
+- **Wipe save**: two-click confirm pattern. First click arms the button (turns pink, pulses, label changes to "click again to confirm"). 4-second timeout reverts. Second click within window wipes. Does NOT wipe `tlh-porter-id` — that's intentional, porter ID is identity, not progress.
+- **No offline progression yet**. Resume-where-you-left-off only. Offline progression is a real balance feature that needs its own version when ready.
+
 ### rendering
 - `renderCargoSlots(force)` has a dirty-check via `cargoKey()` — only rebuilds DOM when inventory changes. Pass `force=true` on pickup/delivery/upgrade to override. This prevents CSS tooltip flicker.
 - `updateHUD()` calls `renderUpgrades()` every tick so upgrade buttons stay in sync with scrip.
@@ -107,11 +120,13 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - Three viewport layers: terrain (z1) → destination drift (z2) → rain (z3) → courier (z10). Destination drift animates across the visible viewport on each edge change (`destdrift 22s linear forwards`, restarted via reflow trick).
 - Stamina: 4 segments (full/half/crit/empty) + optional 5th overboost segment (pulsing teal, shown after shelter rest).
 - Boot clip refill: on arrival at supply depots (A, B, H) with a deficit clip, a log prompt appears with an inline `[refill]` button. Does NOT auto-charge. `_clipRefillPending` state tracks one pending prompt at a time.
-- Log: 14-line cap, real-time MM:SS timestamp from `ticks × TICK_MS / 1000`.
+- Save strip: thin row below the panels mirroring porter strip aesthetic. `[save]` `[wipe save]` `last save: X ago`. "Ago" text refreshes every ~3s via the tick loop.
+- Log: 14-line cap, real-time MM:SS timestamp from `ticks × TICK_MS / 1000`. Note: timestamp continues from saved `ticks` value across reload (intentional — feels like one continuous session).
 
 ### porter ID
 - Format: `PTR-XXXX` (8 hex chars). Stored in localStorage key `tlh-porter-id`.
 - Legacy `TLH-XXXX` IDs are migrated on next load.
+- Survives wipe save — porter ID is identity, not progress.
 
 ### upgrade system
 - 9 upgrades in `UPGRADE_DEFS`. Bought with scrip. Some have prerequisites.
@@ -128,7 +143,7 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 Tie-down: when armed, intercepts one trip that would damage cargo, then disarms.
 
 ### network panel
-Currently hardcoded flavor text in `S.networkFeed`. Not yet connected to any backend. Porter strip hint correctly reads "saved locally" — do not change to imply real multiplayer until backend exists.
+Currently hardcoded flavor text in `S.networkFeed`. Not yet connected to any backend. Porter strip hint correctly reads "saved locally" — do not change to imply real multiplayer until backend exists. Backend design is fleshed out below — see "async multiplayer plan."
 
 ---
 
@@ -174,22 +189,71 @@ A local Node.js process that watches `incoming/<category>/` for new PNGs, conver
 
 ---
 
+## async multiplayer plan (TLH)
+
+Designed to fit the game's actual shape: each player has their own procedural world; multiplayer is **a presence layer**, not shared world state. Reference frames: Death Stranding likes/structures, Dark Souls bloodstains/messages, Animal Crossing villager letters. Other players are *implied* and *felt*, not *present*.
+
+### platform decision
+- **Cloudflare Worker + KV** (free tier covers it forever for personal-site traffic).
+- Schema is generic: every event is `{ type, porterId, timestamp, data }` where `type` is any string and `data` is any JSON. Worker is a generic event bus; new game systems just teach themselves to broadcast/consume the event types they care about. Means we don't need backend changes when structures/NPCs/etc arrive.
+- Pattern: **broadcast-on-action, consume-on-poll**. POST /activity once per relevant event. Client polls /feed every 45–60s while tab is visible.
+- Rate-limit per porter ID via a second KV key with TTL.
+
+### v0.0.6 scope (Tier 1) — what to actually ship
+1. **Activity log**: real deliveries, distance milestones, node discoveries from other porters in the network panel.
+2. **Porter census**: real "X others online today" count derived from unique porter IDs seen in last 24h.
+3. **Lost cargo recovery loop**: when porter A trips and damages a `[lost]` package, the next time a `[lost]` package spawns in porter B's world it has a ~25% chance to be stamped with porter A's ID and original label. Pickup log shows "recovered [s] worn journal — last seen with PTR-7F2A-9C01." Delivery gives small scrip bonus AND broadcasts back to porter A's feed.
+4. **Echo events**: other porters discovering nodes show up in your feed as hints ("PTR-?? scouted: ruins") — a nudge that a place exists without spoiling it. This pairs with the progressive node identification system planned for the terrain rework (see Tier 2 below).
+
+After Tier 1 ships: update porter strip hint from "saved locally" to "others can see your contributions" (or similar).
+
+### v0.0.7+ scope (Tier 2) — fits with structures
+- **Structure stewardship**: structures (canopies, lookouts, ziplines, etc.) get stamped with builder porter ID. Tooltip reads "built by PTR-7F2A — repaired 4 times." Using/repairing someone else's structure broadcasts a thank-you event to their feed. Mutual maintenance without direct interaction.
+- **Postbox dead-drops**: porter A loads a package into a postbox at depot B with destination = depot H. Package data goes to KV. Porter B encounters that postbox in their game, picks up the package, delivers it. Both porters get scrip + feed events. First true cooperative interaction.
+- **Structure naming**: 1-line names propagate ("birdcry overlook", "the long drink"). Tiny content contribution, makes the world feel made-by-people.
+- **Roads as collective infrastructure**: `rebuildRoads` upgrade broadcasts edge-being-rebuilt; other porters who see it in their feed get a small temporary speed boost (+5%) on that edge for an hour.
+- **Ziplines as gifts**: appearing in another porter's world gives them free use for a window before normal procgen would surface it. Builder gets thank-you + tiny scrip kickback per use.
+
+### v0.0.7+ scope (Tier 3) — fits with radio chatter NPCs
+- **Player-authored radio messages**: once per session, write a 60-char message that becomes a radio chatter line in another porter's feed for the next 24h. Anonymized as `static, then: "..."`. Other porters can `[boost]` to repeat them or let them fade. Ambient text becomes partially player-written.
+- **Trust meter pooled with NPCs**: trust is partially community-pooled. When a porter hits trust 100 with a given NPC, all porters can hear that NPC's special unlocked line. Discovery becomes communal even though mechanics are solo.
+
+### v0.1+ scope (Tier 4) — long-tail
+- **Porter profiles**: click a porter ID in your feed to see their public stats — total km, delivery count, structures still standing, last-seen time.
+- **Daily delivery boards**: community contracts where X total porters across all worlds delivering a kind of package in 24h triggers a small reward for everyone.
+- **Memorial events**: porters who don't post activity for 90 days get their lost cargo and unrepaired structures pink-tinted with a "last seen" note. Doesn't punish (they can return any time), creates a melancholy archeology layer.
+
+### KV schema (anticipated)
+- `feed:recent` — last ~200 events, all porters (single JSON blob).
+- `census:active` — set of porter IDs seen in last 24h (derived/cached).
+- `lost:{porterId}` — list of lost packages this porter has dropped (recovery system).
+- `structures:{regionKey}` — structures built at procgen-stable positions, shared (Tier 2).
+- `postbox:{boxId}` — actual carriable packages awaiting pickup (Tier 2).
+- `radio:queue` — pending player radio messages (Tier 3).
+- `rate:{porterId}` — per-porter rate limit counter, TTL ~60s.
+
+Total expected state for hundreds of active porters: ~50KB. KV free tier handles this trivially.
+
+### what user needs to do when ready to implement
+- Sign up for a free Cloudflare account (no credit card needed for free tier).
+- Install `wrangler` CLI.
+- Claude writes the Worker code; user runs `wrangler deploy` and provides the URL.
+- Worker source lives in this repo as `worker/` folder for transparency, even though deployed separately.
+
+### display sub-decisions still pending
+- Polling rate: 45–60s while visible? Or only fetch on load + on each delivery?
+- Broadcast scope: every delivery? Or only milestones (every 10 deliveries, every km, first time hitting a node)? Per-delivery means a busy player floods the feed for everyone else; milestones might read better.
+- Display style: replace hardcoded flavor lines wholesale? Or interleave real events with flavor when feed is quiet?
+
+---
+
 ## pending work
+
+### 🟡 async multiplayer — TLH backend (v0.0.6 next)
+See "async multiplayer plan" section above for full design. Next step: user creates Cloudflare account + installs `wrangler`, then Claude writes the Worker. Tier 1 (activity log, census, lost cargo recovery, echo events) is the v0.0.6 scope.
 
 ### 🔴 firefox thumbnail click (calendar)
 The `imgEl.onclick = function() { window.location.href = pageUrl }` approach is blocked by Firefox's popup rules. Fix: replace with an `<a>` tag wrapping the panel image in `artwork-calendar.html` so navigation is always a real link.
-
-### 🟡 async multiplayer — TLH network panel (v0.0.6)
-Network panel currently shows hardcoded flavor text. Needs a lightweight backend:
-- Cloudflare Worker or small Supabase table.
-- `POST /activity` with porter ID + event type (delivery, distance, pkg found, node discovered).
-- `GET /feed` returning last N events from all porters.
-- `S.networkFeed` replaced with live-polled array, fetched every 30–60s via `fetch()`.
-- Rate-limit by porter ID server-side. No auth needed.
-- Only update porter strip hint to "others can see your contributions" once backend is real.
-
-### 🟡 music player additions (v0.0.6)
-User has new tracks to add to `nav.js`. Current tracks: pilgrim's path, stoic porridge, onward (craigory ham), drifter (duster).
 
 ### 🟡 giscus reactions (deferred)
 Reactions are currently hidden. Plan: replace GitHub's default emoji set with custom teal-palette symbols/ASCII via CSS `content` overrides. Options discussed: minimal symbols (`♥` `+1` etc.), counts-only, or CSS-filtered emoji. Revisit next session.
@@ -213,16 +277,67 @@ See Firefox fix above. Also: add `female`, `male`, `nudity` tags to tagging syst
 Hotlink to Line of Action with user's usual settings — need URL from user.
 
 ### 🟣 TLH future game features (v0.0.7+, do not implement yet)
-- **Structures tab**: postboxes (store cargo), rainfall canopies (wait out rain + refill canteen), generators (battery recharge stub), lookout posts (see more/farther packages), ziplines (skip terrain between 2 points), shelters (home base), drone bays (carry cargo to destination). Built on paths between landmarks with limited slots. All degrade over time, upgradeable with field resources. Roads can move here too.
-- **New terrain types**: deserts (rare rain, faster stamina drain), rivers (difficult to wade, bridgeable), slopes/elevation/mountains (ladders/climbing anchors as purchasable consumables).
-- **Hot springs**: field stamina restore with wait time cost.
-- **Radio chatter**: periodic NPC lines that build with trust, giving world flavour and hinting at packages/dangers.
+
+**Structures tab**: postboxes (store cargo), rainfall canopies (wait out rain + refill canteen), generators (battery recharge stub), lookout posts (see more/farther packages), ziplines (skip terrain between 2 points), shelters (home base), drone bays (carry cargo to destination). Built on paths between landmarks with limited slots. All degrade over time, upgradeable with field resources. Roads can move here too. Multiplayer integration per Tier 2 of multiplayer plan.
+
+**New terrain types**: deserts (rare rain, faster stamina drain), rivers (difficult to wade, bridgeable), slopes/elevation/mountains (ladders/climbing anchors as purchasable consumables).
+
+**Bigger map**: with terrain expansion, the route should grow beyond 6 nodes. Currently the ring is small enough to see everything in 5 minutes; bigger map = real frontier.
+
+**Progressive node identification** (couples with bigger map and trust system):
+- Every node starts as `???` instead of being pre-known.
+- Identification has *degrees*: `???` → `signal detected` (heard about via radio chatter or another porter's echo event) → `outpost?` (seen from a lookout post) → `depot b` (visited in person).
+- This gives lookout posts a real reason to exist beyond "see further" and ties cleanly into the trust/radio system.
+- Multiplayer hook: other porters' identifications broadcast partial reveals to your map. You see "signal detected: edge ?→B" but not the full label until you visit yourself. Echo events from Tier 1 multiplayer become the mechanic for partial reveals, not just flavor.
+- Settlement `quote` field gets a payoff: quotes get *more specific* as identification deepens. Early quote is rumor, late quote is firsthand.
+- Note: currently you can't actually identify the `???` node — once visited, it stays unnamed. This system fixes that as a side effect.
+
+**Hot springs**: field stamina restore with wait time cost.
+
+**Radio chatter**: periodic NPC lines that build with trust, giving world flavour and hinting at packages/dangers. Multiplayer integration per Tier 3 of multiplayer plan.
 
 ---
 
 ## session log
 
-### 2026-04-13
+### 2026-04-13 (later)
+
+**The Long Haul — v0.0.6 (feature/the-long-haul branch)**
+
+Two systems landed in this session: music tracks added to the shared player, and full save/load persistence for TLH.
+
+**music player additions (`nav.js`)**
+- Added 5 mac demarco tracks: `20190622`, `20200107 2`, `20200402`, `20201228`, `20210818`.
+- All appended to end of `TRACKS` array — preserves saved listener positions for existing 4 tracks.
+- Pushed to BOTH `main` (without TLH nav link) and `feature/the-long-haul` (with TLH nav link). Main version preserves the "TLH not live yet" rule by stripping the nav child entry.
+- Mac demarco tracks have `0:00` placeholder durations (auto-fills from `audio.duration` once loaded).
+- `20200107 2.mp3` keeps the literal space in filename. Modern browsers handle it transparently. If it ever throws `ERR: not found`, URL-encode the `src` to `%20`.
+- `pilgrim's path` remains the default first track (index 0) for new sessions.
+
+**persistence / autosave (TLH v0.0.6)**
+- New `PERSISTENCE` block in `the-long-haul.js` (~140 lines): `buildSavePayload`, `saveGame`, `loadGame`, `wipeSave`, `armWipe`, `fmtAgo`, `updateSaveStrip`.
+- Save key `tlh-save-v1` with versioned schema (`SAVE_VERSION = 1`). Old/malformed/wrong-version saves are discarded gracefully on load — fresh start.
+- Saves: progress (delivered, scrip, distKm, ticks, capacities, boots, stamina, canteen, toggle states), position (edgeIdx, dotT), inventory (with `_worldCell` stripped), upgrades, node-known flags, settlement supply/rebuild values.
+- Does NOT save: `worldCells[]` (regenerated each load), package respawn timers, log lines, rain state, tie-down armed state. World is intentionally fresh each session by design.
+- Autosave triggers: 30s interval, `visibilitychange` to hidden, `beforeunload`, manual button.
+- New save strip below panels: `// session: [save] [wipe save] last save: X ago`. Mirrors porter strip aesthetic. "Ago" text updates every ~3s via tick loop.
+- Wipe save: two-click confirm pattern. First click arms button (turns pink, pulses via `overboost-pulse` keyframe, label changes). 4-second timeout reverts. Second click within window wipes. Wipe does NOT clear porter ID.
+- Critical detail: load does NOT re-run upgrade `apply()` callbacks. Saved values for `maxSlots`, `maxWeight`, `bootClipMax/Count` are trusted as-is. Re-running `apply()` would double-grant stat bonuses.
+- Init flow: `buildWorld()` first (always fresh), then `loadGame()` overlays saved state on top. If save was restored, log shows "back online — save restored" instead of the regular "online at depot a" line. Toggle button visual state restored from saved prefs.
+
+**multiplayer planning (no code yet)**
+- Discussed multiplayer extensively. Settled on Cloudflare Worker + KV as the platform.
+- Designed framework: presence layer, not shared world. Generic event bus schema (`{type, porterId, timestamp, data}`) so future game systems just plug in.
+- Scoped 4 tiers (v0.0.6 = activity log + census + lost cargo recovery + echo events; v0.0.7+ = structure stewardship + postbox dead-drops; etc.). Full plan captured above in "async multiplayer plan" section.
+
+**bugs / things to verify after pulling v0.0.6**
+- Persistence: save/load round-trip preserves scrip, position, upgrades correctly.
+- Cargo capacity bonuses (e.g. `cargoSling`) don't double after reload.
+- Save strip layout looks right at narrow widths (mirrors porter strip behavior).
+- Mac demarco tracks all play; especially watch `20200107 2.mp3` for the filename-with-space edge case.
+- Wipe save button pulses pink when armed; reverts after 4s; wipes successfully on second click.
+
+### 2026-04-13 (earlier)
 
 **The Long Haul — v0.0.5 (feature/the-long-haul branch)**
 
@@ -325,3 +440,5 @@ Full rewrite of terrain and delivery systems. All changes are on the feature bra
 - WebAIM contrast checker: https://webaim.org/resources/contrastchecker/
 - deploy-to-neocities action: https://github.com/bcomnes/deploy-to-neocities
 - pm2 docs: https://pm2.keymetrics.io/docs/usage/quick-start/
+- Cloudflare Workers docs: https://developers.cloudflare.com/workers/
+- Cloudflare KV docs: https://developers.cloudflare.com/kv/
