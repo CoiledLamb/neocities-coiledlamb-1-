@@ -30,11 +30,11 @@ function getPorterId() {
 // WORLD MAP CONSTANTS
 // ============================================================
 const CELLS_PER_EDGE   = 260;
-const VIEWPORT_CELLS   = 64;
+const VIEWPORT_CELLS   = 90;   // bumped from 64 in v0.0.7 — covers wider viewports w/o grey edge (bug 1)
 const COURIER_CELL     = 16;
-const PKG_PICKUP_RANGE = 6;
-const PKG_MAX_PER_EDGE = 14;
-const PKG_RESPAWN_TICKS = 800;
+const PKG_PICKUP_RANGE = 8;    // bumped from 6 — fewer missed packages
+const PKG_MAX_PER_EDGE = 18;   // bumped from 14 — denser baseline supply
+const PKG_RESPAWN_TICKS = 500; // dropped from 800 — respawns ~1.7x faster (bug 2)
 
 const ZONE_TYPES = {
   road: {
@@ -45,7 +45,7 @@ const ZONE_TYPES = {
       { ch: '_',      cls: 'fc-rn', w: 3 },
       { ch: '\u00b7', cls: 'fc-fl', w: 2 },
     ],
-    pkgChance: 0.04, sandalChance: 0.01,
+    pkgChance: 0.07, sandalChance: 0.02,
   },
   scrub: {
     weight: 25, width: [8, 16],
@@ -56,7 +56,7 @@ const ZONE_TYPES = {
       { ch: '.', cls: 'fc-fl', w: 3 },
       { ch: '*', cls: 'fc-sw-plant', w: 1 },
     ],
-    pkgChance: 0.05, sandalChance: 0.03,
+    pkgChance: 0.08, sandalChance: 0.05,
   },
   wetlands: {
     weight: 12, width: [6, 14],
@@ -66,7 +66,7 @@ const ZONE_TYPES = {
       { ch: '~', cls: 'fc-sw', w: 6 },
       { ch: ',', cls: 'fc-fl', w: 1 },
     ],
-    pkgChance: 0.02, sandalChance: 0.00, refillsCanteen: true,
+    pkgChance: 0.04, sandalChance: 0.00, refillsCanteen: true,
   },
   ruins: {
     weight: 15, width: [10, 20],
@@ -78,7 +78,7 @@ const ZONE_TYPES = {
       { ch: '[', cls: 'fc-sg', w: 1 },
       { ch: ']', cls: 'fc-sg', w: 1 },
     ],
-    pkgChance: 0.09, sandalChance: 0.01, risky: true,
+    pkgChance: 0.12, sandalChance: 0.02, risky: true,
   },
   depot_approach: {
     weight: 8, width: [6, 10],
@@ -87,7 +87,7 @@ const ZONE_TYPES = {
       { ch: '-', cls: 'fc-rn', w: 3 },
       { ch: ',', cls: 'fc-fl', w: 2 },
     ],
-    pkgChance: 0.08, sandalChance: 0.00, isDepotApproach: true,
+    pkgChance: 0.10, sandalChance: 0.00, isDepotApproach: true,
   },
 };
 
@@ -137,6 +137,7 @@ const S = {
   maxSlots: 6, usedSlots: 0, maxWeight: 5, usedWeight: 0, inventory: [],
   tieDownActive: false,
   bootDurability: 80, autobuyBoots: false, bootClipCount: 0, bootClipMax: 0, usingMakeshift: false,
+  sandalweedCount: 0,  // bug 3: harvested sandalweeds, auto-equip when boots run out
   stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
   canteen: 100, canteenMax: 100, autodrink: false,
   isRaining: false, rainTimer: 0, inRiver: false,
@@ -302,6 +303,7 @@ function buildSavePayload() {
       bootClipCount:  S.bootClipCount,
       bootClipMax:    S.bootClipMax,
       usingMakeshift: S.usingMakeshift,
+      sandalweedCount: S.sandalweedCount,
       stamina:          S.stamina,
       staminaOverboost: S.staminaOverboost,
       canteen:          S.canteen,
@@ -368,6 +370,7 @@ function loadGame() {
     if (typeof p.bootClipCount  === 'number') S.bootClipCount  = p.bootClipCount;
     if (typeof p.bootClipMax    === 'number') S.bootClipMax    = p.bootClipMax;
     if (typeof p.usingMakeshift === 'boolean') S.usingMakeshift = p.usingMakeshift;
+    if (typeof p.sandalweedCount === 'number') S.sandalweedCount = Math.max(0, Math.floor(p.sandalweedCount));
     if (typeof p.stamina          === 'number') S.stamina        = p.stamina;
     if (typeof p.staminaOverboost === 'boolean') S.staminaOverboost = p.staminaOverboost;
     if (typeof p.canteen          === 'number') S.canteen        = p.canteen;
@@ -530,7 +533,7 @@ function buildWorld() {
           continue;
         }
         if (r < zone.pkgChance + zone.sandalChance) {
-          worldCells.push({ html: `<span class="fc fc-sw-plant" title="sandalweed"> * </span>`, pkg: null, risky: isRisky, edgeIdx: ei });
+          worldCells.push({ html: `<span class="fc fc-sw-plant" title="sandalweed"> * </span>`, pkg: null, sandal: true, risky: isRisky, edgeIdx: ei });
           i++; ci++;
           continue;
         }
@@ -573,8 +576,11 @@ function worldPosFromRoute() {
 function renderFieldstrip() {
   const strip = els.fieldstrip;
   if (!strip) return;
-  const leftCell    = Math.floor(S.worldPos);
-  const renderCount = VIEWPORT_CELLS + 4;
+  const leftCell = Math.floor(S.worldPos);
+  // bug 1: dynamically size render count based on actual viewport width,
+  // with a generous +8 buffer to absorb any rounding/measurement error
+  const viewportPx = (strip.parentNode && strip.parentNode.clientWidth) || (VIEWPORT_CELLS * cellPxWidth);
+  const renderCount = Math.max(VIEWPORT_CELLS, Math.ceil(viewportPx / cellPxWidth) + 8);
   let html = '';
   for (let i = 0; i < renderCount; i++) {
     const ci   = (leftCell + i) % TOTAL_CELLS;
@@ -605,8 +611,22 @@ function scanForPickup() {
   for (let offset = 0; offset <= PKG_PICKUP_RANGE; offset++) {
     const ci   = (courierCell + offset) % TOTAL_CELLS;
     const cell = worldCells[ci];
-    if (!cell || !cell.pkg || cell.pkg.picked) continue;
+    if (!cell) continue;
+
+    // bug 3: harvest sandalweed (no slot/weight cost — stored as a counter)
+    if (cell.sandal) {
+      cell.sandal = false;
+      cell.html = `<span class="fc fc-fl">   </span>`; // wipe the * from terrain
+      S.sandalweedCount++;
+      addLog(`harvested <span class="log-hi">sandalweed</span> (${S.sandalweedCount} carried)`);
+      renderBoots();
+      continue; // keep scanning — may be a package right behind it
+    }
+
+    if (!cell.pkg || cell.pkg.picked) continue;
     const pkg = cell.pkg;
+    // bug 2: don't break the loop just because this one pkg won't fit;
+    // continue scanning so a smaller package further ahead can still be picked up
     if (pkg.slots > S.maxSlots - S.usedSlots) continue;
     if (pkg.kg    > S.maxWeight - S.usedWeight) continue;
 
@@ -625,7 +645,7 @@ function scanForPickup() {
     if (els.courierAt) els.courierAt.className = 'tlh-at bounce carry';
     const lostTag = carried.isLost ? ' <span class="log-wn">[lost pkg]</span>' : '';
     addLog(`picked up <span class="log-hi">[${carried.size}] ${carried.label}</span>${lostTag}`);
-    break;
+    return; // only pick up one package per scan; sandals don't trigger this
   }
 }
 
@@ -1053,6 +1073,23 @@ function renderBoots() {
     if (S.bootClipMax>0) { els.clipBadge.textContent='clip: '+S.bootClipCount+'/'+S.bootClipMax; els.clipBadge.style.display='inline'; }
     else els.clipBadge.style.display='none';
   }
+  // bug 3: sandalweed count badge (created on demand, injected after clip badge)
+  let sandalBadge = document.getElementById('sandalBadge');
+  if (S.sandalweedCount > 0) {
+    if (!sandalBadge && els.clipBadge && els.clipBadge.parentNode) {
+      sandalBadge = document.createElement('span');
+      sandalBadge.id = 'sandalBadge';
+      sandalBadge.className = 'clip-badge sandal-badge';
+      sandalBadge.title = 'sandalweed: makeshift footwear, auto-equipped when boots fail';
+      els.clipBadge.parentNode.insertBefore(sandalBadge, els.clipBadge.nextSibling);
+    }
+    if (sandalBadge) {
+      sandalBadge.textContent = '* ' + S.sandalweedCount;
+      sandalBadge.style.display = 'inline';
+    }
+  } else if (sandalBadge) {
+    sandalBadge.style.display = 'none';
+  }
   if (els.buyBootsBtn) els.buyBootsBtn.disabled = S.scrip < 15;
 }
 
@@ -1096,6 +1133,13 @@ function buyBoots() {
 }
 
 function checkAutobuy() {
+  // bug 3: sandalweed equip — happens regardless of autobuy toggle, since it's
+  // a free fallback the porter always has access to. priority: clip > sandalweed > scrip.
+  if (S.bootDurability<=0 && S.bootClipCount<=0 && S.sandalweedCount>0) {
+    S.sandalweedCount--; S.bootDurability=30; S.usingMakeshift=true;
+    addLog('<span class="log-wn">boots failed</span> \u2014 lashed on a <span class="log-hi">sandalweed</span> (' + S.sandalweedCount + ' left)');
+    renderBoots(); return;
+  }
   if (!S.autobuyBoots) return;
   if (S.bootDurability<=0 && S.bootClipCount>0) {
     S.bootClipCount--; S.bootDurability=100; S.usingMakeshift=false;
