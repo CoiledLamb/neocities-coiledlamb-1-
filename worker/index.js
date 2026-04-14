@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — multiplayer feed worker
-   v0.0.7
+   v0.0.7.1 (quota-aware)
    ==============================================
    Endpoints:
      POST /activity     append event, rate-limited per porter
@@ -26,6 +26,15 @@
        fall off the front.
      - Census auto-prunes porters not seen in 24h on every read.
      - CORS: open. No auth needed.
+
+   Quota handling (v0.0.7.1):
+     Cloudflare KV free tier has a 1000 puts/day cap. When exceeded, KV.put()
+     throws an Error containing "limit exceeded". The catch-all at the bottom
+     classifies these as 429 Too Many Requests (Retry-After until UTC
+     midnight) instead of 500. The game-side fetch already swallows errors
+     silently, but the right status lets future client logic back off
+     gracefully and lets us add a "feed throttled" UI signal in a later
+     patch (see TLH-HANDOFF.md bug list).
 */
 
 // ============================================================
@@ -58,15 +67,36 @@ const CORS = {
   'Access-Control-Max-Age':       '86400',
 };
 
-function jsonResponse(obj, status = 200) {
+function jsonResponse(obj, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS },
+    headers: { 'Content-Type': 'application/json', ...CORS, ...extraHeaders },
   });
 }
 
-function errorResponse(msg, status = 400) {
-  return jsonResponse({ error: msg }, status);
+function errorResponse(msg, status = 400, extraHeaders = {}) {
+  return jsonResponse({ error: msg }, status, extraHeaders);
+}
+
+// Seconds until next 00:00 UTC — used for Retry-After on quota 429s.
+function secondsUntilUtcMidnight() {
+  const now = new Date();
+  const next = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+    0, 0, 0, 0
+  ));
+  return Math.max(60, Math.floor((next - now) / 1000));
+}
+
+// True if the thrown error looks like a Cloudflare KV daily-quota exhaustion.
+// KV.put throws Error with message containing "limit exceeded" in this case;
+// match defensively in case the wording shifts.
+function isKvQuotaError(err) {
+  if (!err || !err.message) return false;
+  const m = err.message.toLowerCase();
+  return m.includes('limit exceeded') || m.includes('kv put') && m.includes('daily');
 }
 
 // ============================================================
@@ -250,7 +280,7 @@ export default {
       if (request.method === 'GET' && path === '/') {
         return jsonResponse({
           name:    'tlh-feed',
-          version: '0.0.7',
+          version: '0.0.7.1',
           endpoints: [
             'POST /activity',
             'GET  /feed?since=<timestamp>',
@@ -262,6 +292,17 @@ export default {
 
       return errorResponse('not_found', 404);
     } catch (err) {
+      // KV daily-quota exhaustion → 429 with Retry-After until UTC midnight.
+      // Lets a future client back off gracefully instead of treating it as
+      // a generic crash. Falls through to 500 for any other unhandled error.
+      if (isKvQuotaError(err)) {
+        const retryAfter = secondsUntilUtcMidnight();
+        return errorResponse(
+          'quota_exhausted: KV daily put limit reached, retry after UTC midnight',
+          429,
+          { 'Retry-After': String(retryAfter) }
+        );
+      }
       return errorResponse('server_error: ' + (err && err.message ? err.message : 'unknown'), 500);
     }
   },

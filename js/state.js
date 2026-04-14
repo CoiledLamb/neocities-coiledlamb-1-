@@ -1,0 +1,130 @@
+/* ==============================================
+   THE LONG HAUL — state (v0.0.7.2)
+
+   Single source of truth for all mutable game state. Every logic module
+   imports this and mutates S in place.
+
+   Structure:
+     S.*              — persisted game state (progress, position, upgrades, etc.)
+     S._transient.*   — transient session-only state: DOM refs, timers, cache
+                        keys, in-flight flags. Never persisted to localStorage.
+
+   The _transient sub-object replaces the scattered module-level `let` flags
+   from the pre-split file (_pollTimer, _wipeArmed, _lastGearPopKey, etc.).
+   All of them now live in one place with a consistent convention.
+   ============================================== */
+'use strict';
+
+export const S = {
+  // ----- persisted: progress -----
+  delivered: 0, scrip: 0, distKm: 0, ticks: 0,
+  status: 'walking', restTimer: 0, tripTimer: 0,
+  maxSlots: 6, usedSlots: 0, maxWeight: 5, usedWeight: 0, inventory: [],
+  tieDownActive: false,
+  bootDurability: 80, autobuyBoots: false, bootClipCount: 0, bootClipMax: 0, usingMakeshift: false,
+  sandalweedCount: 0,
+  stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
+  canteen: 100, canteenMax: 100, autodrink: false,
+  isRaining: false, rainTimer: 0, inRiver: false,
+
+  upgrades: {
+    bootsT1: false, bootsT2: false,
+    bootClip1: false, bootClip2: false,
+    cargoSling: false, cargoPack: false, cargoWeight: false,
+    efficientConsumption: false, steadyFeet: false,
+    sandalSatchel: false,
+  },
+
+  settlements: {
+    'A':        { label:'depot a',  tier:'waypoint', supply:65, rebuild:65, quote:'"a fire and four walls"'   },
+    'B':        { label:'depot b',  tier:'outpost',  supply:34, rebuild:34, quote:'"new roof going up"'       },
+    '?':        { label:'???',      tier:'unknown',  supply:5,  rebuild:5,  quote:'"signal detected west"'   },
+    'C':        { label:'ruins',    tier:'ruins',    supply:10, rebuild:8,  quote:'"danger. high trip risk."' },
+    'H':        { label:'home',     tier:'shelter',  supply:80, rebuild:70, quote:'"hot food. safe walls."'   },
+    '\u00b7':   { label:'waypoint', tier:'waypoint', supply:40, rebuild:30, quote:'"a painted stone marker"' },
+  },
+
+  routeNodes: [
+    { id:'A',       label:'depot a',  x:0, y:0 },
+    { id:'?',       label:'???',      x:0, y:0 },
+    { id:'B',       label:'depot b',  x:0, y:0 },
+    { id:'C',       label:'ruins',    x:0, y:0 },
+    { id:'H',       label:'home',     x:0, y:0 },
+    { id:'\u00b7',  label:'waypoint', x:0, y:0 },
+  ],
+  nodeStages: { 'A':3, '?':0, 'B':0, 'C':0, 'H':3, '\u00b7':0 },
+  edges: [['A','?'],['?','B'],['B','C'],['C','H'],['H','\u00b7'],['\u00b7','A']],
+  edgeIdx: 2, dotT: 0, worldPos: 0,
+
+  pendingDelivery: null,
+
+  networkFeed: [],
+  networkCensus: 0,
+  networkConnected: false,
+  milestonesHit: [],
+  lastFeedTimestamp: 0,
+
+  npcs: {
+    'A': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'B': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'H': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+  },
+
+  channels: [],
+
+  // v0.0.7 commit 5: lost cargo recovery loop. Transient — not persisted.
+  // These live on S root rather than _transient because they have semantic
+  // meaning ("how much recovery cargo is live") rather than being pure
+  // plumbing like the _transient bucket below.
+  knownPeers: [],
+  activeRecoveryCount: 0,
+  lastRecoverySpawnTick: 0,
+  nextRecoveryAttemptTick: 0,
+
+  // ----- transient: session-only plumbing -----
+  // v0.0.7.2: consolidated from scattered module-level `let` flags.
+  // Never persisted to localStorage.
+  _transient: {
+    // DOM refs — populated by resolveEls() at init via Object.assign so
+    // the reference stays stable (logic modules can alias it locally).
+    els: {},
+
+    // World cell array — mutated in place by buildWorld() via
+    // .length = 0 + push, so the reference stays stable.
+    worldCells: [],
+
+    // Cell width probe result — set once at init by calcCellPxWidth().
+    cellPxWidth: 12,
+
+    // Multiplayer plumbing
+    porterIdCached: null,
+    pollTimer: null,
+
+    // Persistence plumbing
+    lastSaveAt: 0,
+    wipeArmed: false,
+    wipeTimer: null,
+    // Guard prevents save handlers (autosave, beforeunload, visibilitychange)
+    // from re-writing in-memory state during the 400ms between wipeSave()
+    // and location.reload(). Once set, never unset — page is reloading.
+    wipeInProgress: false,
+
+    // Pending log-button prompts (one at a time)
+    depotRestPending: null,
+    clipRefillPending: null,
+
+    // Render dirty-check keys
+    lastCargoKey: '',
+    lastGearPopKey: '',
+
+    // Gear popover outside-click handler (so we can remove it on close)
+    gearPopHandler: null,
+
+    // distKm accumulator trackers (v0.0.7 commit 6). Null sentinel means
+    // "first tick since load" — accumulateDist() uses that to seed without
+    // counting a spurious delta. Promoted from S root to _transient in
+    // v0.0.7.2 for consistency with other transient plumbing.
+    lastDistEdgeIdx: null,
+    lastDistDotT: null,
+  },
+};
