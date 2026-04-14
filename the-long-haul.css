@@ -521,6 +521,44 @@ html, body {
 .settle-fill.b { background: linear-gradient(90deg,#40a4b9,#9d78d4); animation: oil 3s linear infinite; background-size: 200% auto; }
 .settle-quote { font-size: 9px; color: #2a5c5a; margin-top: 3px; line-height: 1.4; }
 
+/* v0.0.7 commit 4a: NPC trust row inside settle-item.
+   Sits between the rebuild bar and the quote. Compact: callsign + bar + numeric value. */
+.settle-trust {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 9px;
+  font-family: 'Source Code Pro', monospace;
+}
+.settle-trust-label {
+  color: #9d78d4;
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  min-width: 26px;
+}
+.settle-trust-bar {
+  flex: 1;
+  height: 2px;
+  background: #132e2d;
+  border-radius: 1px;
+  overflow: hidden;
+}
+.settle-trust-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7a58a4, #9d78d4);
+  transition: width 0.4s;
+}
+.settle-trust-val {
+  color: #7a58a4;
+  font-size: 9px;
+  flex-shrink: 0;
+  min-width: 18px;
+  text-align: right;
+}
+
 /* save strip — mirrors porter strip aesthetic at top */
 .tlh-save-strip {
   display: flex;

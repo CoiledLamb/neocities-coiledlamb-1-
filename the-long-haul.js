@@ -133,6 +133,42 @@ const STATUS_COLORS = {
 const DIST_MILESTONES = [10, 25, 50, 100, 250, 500, 1000];
 
 // ============================================================
+// NPCs (v0.0.7 commit 4a — trust system scaffold)
+// ============================================================
+// NPCs live at supply depots A, B, H. Greek callsigns are placeholder names
+// that will be replaced with full lore later. Each NPC has a trust value 0-100
+// and a set of unlock flags for the four threshold tiers (25/50/75/100).
+//
+// Threshold behaviors:
+//   25  — identification hints (fires stage 1 on adjacent unknown nodes). LIVE in 4a.
+//   50  — warnings (rain incoming, trip risk, low stamina advisories). 4b.
+//   75  — package previews on connected edges. 4b.
+//   100 — rest at depot like shelter + bonus scrip. 4b.
+//
+// 4a only wires the threshold-25 behavior. The other three log + broadcast
+// trust_unlock events but produce no gameplay effect yet — placeholder hooks
+// so 4b doesn't need another schema bump.
+const NPC_DEFS = {
+  'A': { callsign: 'rho', name: 'rho',  depotLabel: 'depot a' },
+  'B': { callsign: 'iota', name: 'iota', depotLabel: 'depot b' },
+  'H': { callsign: 'tau', name: 'tau',  depotLabel: 'home'    },
+};
+const TRUST_THRESHOLDS = [25, 50, 75, 100];
+const TRUST_GAIN_DELIVERY      = 1;
+const TRUST_GAIN_LOST_DELIVERY = 2;
+const TRUST_GAIN_DISCOVERY     = 3;
+
+// Adjacency table: which nodes does each NPC's depot connect to via the route?
+// Used by the threshold-25 behavior to bump unknown adjacent nodes to stage 1.
+// Hardcoded against the current 6-node ring; if the map ever expands beyond
+// the loop in S.edges, this needs to be derived from edges instead of pinned.
+const NPC_ADJACENT = {
+  'A': ['?', '\u00b7'],
+  'B': ['?', 'C'],
+  'H': ['C', '\u00b7'],
+};
+
+// ============================================================
 // STATE
 // ============================================================
 const S = {
@@ -187,6 +223,16 @@ const S = {
   networkConnected: false,  // true once first successful poll completes
   milestonesHit: [],        // distance milestones already broadcast (km values)
   lastFeedTimestamp: 0,     // for incremental polling via ?since=
+
+  // v0.0.7 commit 4a: NPC trust state. Keys match NPC_DEFS (A, B, H).
+  // unlocks tracks which thresholds have been crossed — separate from the live
+  // trust value so we don't double-fire if trust drops and then re-crosses
+  // (decay isn't implemented in 4a, but unlocks: are still ratchet-only).
+  npcs: {
+    'A': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false } },
+    'B': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false } },
+    'H': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false } },
+  },
 };
 
 // v0.0.7 bug batch: derived sandalweed cap based on upgrade
@@ -294,8 +340,8 @@ function checkDistMilestones() {
 // ============================================================
 // IDENTIFICATION STAGES (v0.0.7 commit 3)
 // ============================================================
-// Stage progression rules (commit 3 implements 2 and 3):
-//   0 -> 1 : trust >=25 at adjacent depot (commit 4)
+// Stage progression rules:
+//   0 -> 1 : trust >=25 at adjacent NPC depot (commit 4a — LIVE)
 //   *  -> 2 : walking an edge connected to this node
 //   *  -> 3 : arriving at the node itself
 function getNodeStage(id) {
@@ -337,13 +383,79 @@ function getDisplayLabel(id) {
 }
 
 // ============================================================
+// NPC TRUST (v0.0.7 commit 4a)
+// ============================================================
+// Returns the NPC entry for a depot id, or null if no NPC lives there.
+function getNpc(depotId) {
+  if (!NPC_DEFS[depotId] || !S.npcs || !S.npcs[depotId]) return null;
+  return S.npcs[depotId];
+}
+
+// Add trust to an NPC. Caps at 100. Fires unlock thresholds in order.
+// Returns the new trust value.
+function addTrust(depotId, amount, reason) {
+  const npc = getNpc(depotId);
+  if (!npc || !amount) return 0;
+  const before = npc.trust;
+  npc.trust = Math.max(0, Math.min(100, npc.trust + amount));
+  // Check each threshold in ascending order so multi-tier jumps fire all hooks
+  for (const t of TRUST_THRESHOLDS) {
+    const key = 't' + t;
+    if (before < t && npc.trust >= t && !npc.unlocks[key]) {
+      npc.unlocks[key] = true;
+      onTrustUnlock(depotId, t);
+    }
+  }
+  return npc.trust;
+}
+
+// Threshold crossing handler. Routes to behavior by tier.
+// In 4a only t25 has gameplay behavior; t50/t75/t100 log + broadcast inert.
+function onTrustUnlock(depotId, tier) {
+  const def = NPC_DEFS[depotId];
+  const npcLabel = def ? def.callsign : depotId;
+  // Broadcast all unlock crossings — feed visibility = social value
+  postActivity('trust_unlock', { depotId, npcLabel, tier });
+
+  if (tier === 25) {
+    // Reveal: any stage-0 adjacent node bumps to stage 1.
+    // "adjacent" = nodes the depot connects to via the route ring.
+    const adj = NPC_ADJACENT[depotId] || [];
+    const revealed = [];
+    adj.forEach(nid => {
+      if (getNodeStage(nid) === 0) {
+        if (setNodeStage(nid, 1)) revealed.push(nid);
+      }
+    });
+    if (revealed.length > 0) {
+      const labels = revealed.map(getDisplayLabel).join(', ');
+      addLog(`<span class="log-hi">${npcLabel}</span> shares word of nearby waypoints \u2014 signal: ${labels}`);
+      drawRouteMap();
+      renderSettlements();
+    } else {
+      addLog(`<span class="log-hi">${npcLabel}</span> trusts you (25) \u2014 "i'll keep an ear out for you"`);
+    }
+    return;
+  }
+  // t50/t75/t100 — placeholder log lines, no gameplay yet (4b will hook these)
+  if (tier === 50) {
+    addLog(`<span class="log-hi">${npcLabel}</span> trusts you (50) \u2014 will share warnings`);
+  } else if (tier === 75) {
+    addLog(`<span class="log-hi">${npcLabel}</span> trusts you (75) \u2014 will preview routes`);
+  } else if (tier === 100) {
+    addLog(`<span class="log-hi">${npcLabel}</span> trusts you (100) \u2014 you have a seat by their fire`);
+  }
+}
+
+// ============================================================
 // PERSISTENCE
 // ============================================================
 const SAVE_KEY     = 'tlh-save-v1';   // legacy
 const SAVE_KEY_V2  = 'tlh-save-v2';   // legacy (v0.0.7 commits 1-2)
 const SAVE_KEY_V3  = 'tlh-save-v3';   // legacy (v0.0.7 commit 3)
-const SAVE_KEY_V4  = 'tlh-save-v4';   // current (v0.0.7 bug batch)
-const SAVE_VERSION = 4;
+const SAVE_KEY_V4  = 'tlh-save-v4';   // legacy (v0.0.7 bug batch)
+const SAVE_KEY_V5  = 'tlh-save-v5';   // current (v0.0.7 commit 4a)
+const SAVE_VERSION = 5;
 const AUTOSAVE_MS  = 30000;
 
 let _lastSaveAt = 0;
@@ -390,13 +502,19 @@ function buildSavePayload() {
       milestonesHit:     [...S.milestonesHit],
       lastFeedTimestamp: S.lastFeedTimestamp,
     },
+    // v0.0.7 commit 4a: NPC trust + unlock state
+    npcs: Object.keys(S.npcs).reduce((acc, k) => {
+      const n = S.npcs[k];
+      acc[k] = { trust: n.trust, unlocks: { ...n.unlocks } };
+      return acc;
+    }, {}),
   };
 }
 
 function saveGame(silent) {
   try {
     const payload = buildSavePayload();
-    localStorage.setItem(SAVE_KEY_V4, JSON.stringify(payload));
+    localStorage.setItem(SAVE_KEY_V5, JSON.stringify(payload));
     _lastSaveAt = payload.savedAt;
     updateSaveStrip();
     if (!silent) addLog('<span class="log-ok">progress saved</span>');
@@ -409,8 +527,11 @@ function saveGame(silent) {
 
 function loadGame() {
   let raw;
-  // Try v4 first (current), fall back to v3, v2, then v1 for migration
-  try { raw = localStorage.getItem(SAVE_KEY_V4); } catch (e) { return false; }
+  // Try v5 first (current), fall back through v4, v3, v2, v1 for migration
+  try { raw = localStorage.getItem(SAVE_KEY_V5); } catch (e) { return false; }
+  if (!raw) {
+    try { raw = localStorage.getItem(SAVE_KEY_V4); } catch (e) { return false; }
+  }
   if (!raw) {
     try { raw = localStorage.getItem(SAVE_KEY_V3); } catch (e) { return false; }
   }
@@ -424,8 +545,8 @@ function loadGame() {
   let data;
   try { data = JSON.parse(raw); } catch (e) { return false; }
   if (!data) return false;
-  // Accept v1, v2, v3 (migrate), or v4 (load directly)
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== SAVE_VERSION) return false;
+  // Accept v1, v2, v3, v4 (migrate), or v5 (load directly)
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== SAVE_VERSION) return false;
 
   try {
     const p = data.progress || {};
@@ -503,15 +624,41 @@ function loadGame() {
       }
     }
 
+    // v0.0.7 commit 4a: NPC trust + unlock state.
+    // Pre-v5 saves don't have this — they get fresh-zero defaults from initial S.npcs.
+    if (data.npcs && typeof data.npcs === 'object') {
+      Object.keys(S.npcs).forEach(k => {
+        const n = data.npcs[k];
+        if (!n) return;
+        if (typeof n.trust === 'number') {
+          S.npcs[k].trust = Math.max(0, Math.min(100, Math.floor(n.trust)));
+        }
+        if (n.unlocks && typeof n.unlocks === 'object') {
+          ['t25','t50','t75','t100'].forEach(t => {
+            if (typeof n.unlocks[t] === 'boolean') S.npcs[k].unlocks[t] = n.unlocks[t];
+          });
+        }
+        // Repair: if trust is at/above a threshold but the unlock flag is false,
+        // re-fire it so resumed saves don't get stuck mid-tier. Ratchet still holds.
+        TRUST_THRESHOLDS.forEach(t => {
+          const key = 't' + t;
+          if (S.npcs[k].trust >= t && !S.npcs[k].unlocks[key]) {
+            S.npcs[k].unlocks[key] = true;
+          }
+        });
+      });
+    }
+
     _lastSaveAt = data.savedAt || 0;
     S.status = S.inventory.length > 0 ? 'carrying' : 'walking';
 
-    // Migration: if we loaded an older save, immediately re-save as v4 and drop legacy keys
+    // Migration: if we loaded an older save, immediately re-save as v5 and drop legacy keys
     if (data.version !== SAVE_VERSION) {
       try {
         localStorage.removeItem(SAVE_KEY);
         localStorage.removeItem(SAVE_KEY_V2);
         localStorage.removeItem(SAVE_KEY_V3);
+        localStorage.removeItem(SAVE_KEY_V4);
         saveGame(true);
       } catch (e) {}
     }
@@ -523,6 +670,7 @@ function loadGame() {
 
 function wipeSave() {
   try {
+    localStorage.removeItem(SAVE_KEY_V5);
     localStorage.removeItem(SAVE_KEY_V4);
     localStorage.removeItem(SAVE_KEY_V3);
     localStorage.removeItem(SAVE_KEY_V2);
@@ -773,10 +921,20 @@ function tryDeliver(arrivedNodeId) {
       renderSettlements();
       // v0.0.7
       postActivity('discovery', { nodeId: arrivedNodeId, label: node.label });
+      // v0.0.7 commit 4a: first discovery of an NPC depot is a trust handshake
+      if (NPC_DEFS[arrivedNodeId]) {
+        addTrust(arrivedNodeId, TRUST_GAIN_DISCOVERY, 'discovery');
+      }
     }
     addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
     // v0.0.7
     postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
+    // v0.0.7 commit 4a: trust gain on delivery to an NPC depot.
+    // Lost packages are worth more (rarer + lore-significant).
+    if (NPC_DEFS[arrivedNodeId]) {
+      const gain = pkg.isLost ? TRUST_GAIN_LOST_DELIVERY : TRUST_GAIN_DELIVERY;
+      addTrust(arrivedNodeId, gain, pkg.isLost ? 'lost-delivery' : 'delivery');
+    }
   });
   renderCourierStack();
   renderCargoSlots(true);
@@ -1073,9 +1231,23 @@ function renderSettlements() {
       const name = s.stage >= 3 ? s.label : s.tier;
       const subtitle = s.stage >= 3 ? s.tier : 'unconfirmed';
       const quote = s.stage >= 3 ? s.quote : `"reports of a ${s.tier} along this route"`;
+      // v0.0.7 commit 4a: trust block for known NPC depots
+      let trustBlock = '';
+      const npcDef = NPC_DEFS[s.id];
+      const npc    = getNpc(s.id);
+      if (npcDef && npc && s.stage >= 3) {
+        const tPct = Math.max(0, Math.min(100, npc.trust));
+        trustBlock = `
+          <div class="settle-trust">
+            <span class="settle-trust-label">${npcDef.callsign}</span>
+            <div class="settle-trust-bar"><div class="settle-trust-fill" style="width:${tPct}%"></div></div>
+            <span class="settle-trust-val">${tPct}</span>
+          </div>`;
+      }
       div.innerHTML = `
         <div class="settle-name">${name} <span>${subtitle}</span></div>
         <div class="settle-bar"><div class="settle-fill ${s.rebuild>50?'b':'a'}" style="width:${Math.round(s.rebuild)}%"></div></div>
+        ${trustBlock}
         <div class="settle-quote">${quote}</div>`;
       els.settlementsEl.appendChild(div);
     });
@@ -1132,7 +1304,9 @@ function formatEvent(e) {
     case 'lost_recovered':
       return `${who} recovered <span class="net-ac">${data.label || 'lost cargo'}</span>`;
     case 'trust_unlock':
-      return `${who} earned trust at <span class="net-ac">${data.npcLabel || '?'}</span>`;
+      // v0.0.7 commit 4a: include tier in display
+      const tier = data.tier ? ` (${data.tier})` : '';
+      return `${who} earned trust at <span class="net-ac">${data.npcLabel || '?'}</span>${tier}`;
     default:
       return `${who} ${e.type}`;
   }
@@ -1476,6 +1650,10 @@ function tick() {
       addLog(`discovered: <span class="log-hi">${node.label}</span>`);
       // v0.0.7: broadcast discovery on bare arrival (no delivery case)
       postActivity('discovery', { nodeId: arrivedAt, label: node.label });
+      // v0.0.7 commit 4a: first discovery of an NPC depot is a trust handshake
+      if (NPC_DEFS[arrivedAt]) {
+        addTrust(arrivedAt, TRUST_GAIN_DISCOVERY, 'discovery');
+      }
     }
     // v0.0.7 commit 3: starting a new edge bumps both endpoints to stage 2 (tier visible)
     const [newFrom, newTo] = S.edges[S.edgeIdx];
