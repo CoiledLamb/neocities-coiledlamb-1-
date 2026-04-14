@@ -1,11 +1,16 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.10
+   v0.0.7.11
 
-   Refactor commit 10: extracted world generation + scroll
-   to ./world.js. buildWorld, calcCellPxWidth, worldPosFromRoute,
-   renderFieldstrip now imported from there. weightedPick and
-   makeWorldPkg are internal to world.js (no other callers).
+   Refactor commit 11: extracted package pickup + delivery +
+   respawn to ./packages.js. scanForPickup, tryDeliver,
+   tickPkgRespawns now live there and are called via Pkg.*
+   from the tick loop. sandalCap, renderCourierStack,
+   renderCargoSlots, renderBoots promoted to exports so
+   packages.js can import them back (circular-by-file,
+   not-by-init — bindings are live at runtime). sandalCap
+   will move to boots.js in commit 13; the render helpers
+   move to render/hud.js later.
 
    Imports:
      S — game state singleton (state.js)
@@ -27,6 +32,8 @@
      renderChannels, tickAmbientChatter — channels
      buildWorld, calcCellPxWidth, worldPosFromRoute,
        renderFieldstrip — world
+     Pkg.scanForPickup, Pkg.tryDeliver,
+       Pkg.tickPkgRespawns — packages (namespace import)
 
    Local aliases:
      els, worldCells — see commit 2 notes
@@ -58,12 +65,16 @@ import { renderChannels, tickAmbientChatter } from './channels.js';
 import {
   buildWorld, calcCellPxWidth, worldPosFromRoute, renderFieldstrip,
 } from './world.js';
+import * as Pkg from './packages.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
 
-function sandalCap() {
+// sandalCap is exported for packages.js (scanForPickup). Moves to
+// boots.js in commit 13 — at which point packages.js should import
+// it from there instead and this export can drop.
+export function sandalCap() {
   return S.upgrades.sandalSatchel ? C.SANDAL_CAP_UPGRADED : C.SANDAL_CAP_BASE;
 }
 
@@ -91,133 +102,8 @@ function accumulateDist() {
   t.lastDistDotT    = S.dotT;
 }
 
-// ============================================================
-// PACKAGE PICKUP
-// ============================================================
-function scanForPickup() {
-  if (S.status !== 'walking' && S.status !== 'carrying') return;
-  const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
-  for (let offset = 0; offset <= C.PKG_PICKUP_RANGE; offset++) {
-    const ci   = (courierCell + offset) % C.TOTAL_CELLS;
-    const cell = worldCells[ci];
-    if (!cell) continue;
-
-    if (cell.sandal) {
-      if (S.sandalweedCount >= sandalCap()) continue;
-      cell.sandal = false;
-      cell.html = `<span class="fc fc-fl">   </span>`;
-      S.sandalweedCount++;
-      addLog(`harvested <span class="log-hi">sandalweed</span> (${S.sandalweedCount}/${sandalCap()})`);
-      renderBoots();
-      continue;
-    }
-
-    if (!cell.pkg || cell.pkg.picked) continue;
-    const pkg = cell.pkg;
-    if (pkg.slots > S.maxSlots - S.usedSlots) continue;
-    if (pkg.kg    > S.maxWeight - S.usedWeight) continue;
-
-    pkg.picked = true;
-    const carried = {
-      size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
-      scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
-      isRecovery: !!pkg.isRecovery,
-      recoveryFromPorter: pkg.recoveryFromPorter || null,
-      _worldCell: ci,
-    };
-    S.inventory.push(carried);
-    S.usedSlots  += carried.slots;
-    S.usedWeight += carried.kg;
-    S.status = 'carrying';
-    renderCourierStack();
-    renderCargoSlots(true);
-    if (els.courierAt) els.courierAt.className = 'tlh-at bounce carry';
-    const lostTag = carried.isRecovery
-      ? ` <span class="log-wn">[recovery]</span> from <span class="log-hi">${shortPorterId(carried.recoveryFromPorter)}</span>`
-      : (carried.isLost ? ' <span class="log-wn">[lost pkg]</span>' : '');
-    addLog(`picked up <span class="log-hi">[${carried.size}] ${carried.label}</span>${lostTag}`);
-    return;
-  }
-}
-
-// ============================================================
-// PACKAGE DELIVERY
-// ============================================================
-function tryDeliver(arrivedNodeId) {
-  const toDeliver = S.inventory.filter(p => p.destId === arrivedNodeId);
-  if (toDeliver.length === 0) return;
-  const settle = S.settlements[arrivedNodeId];
-  const destLabel = settle ? settle.label : arrivedNodeId;
-  toDeliver.forEach(pkg => {
-    S.scrip      += pkg.scrip;
-    S.delivered  += 1;
-    S.usedSlots  -= pkg.slots;
-    S.usedWeight -= pkg.kg;
-    S.inventory.splice(S.inventory.indexOf(pkg), 1);
-    if (pkg._worldCell !== undefined && worldCells[pkg._worldCell] && worldCells[pkg._worldCell].pkg) {
-      if (pkg.isRecovery) {
-        worldCells[pkg._worldCell].pkg = null;
-        worldCells[pkg._worldCell].isRecovery = false;
-        S.activeRecoveryCount = Math.max(0, S.activeRecoveryCount - 1);
-        updatePorterStripBadges();
-      } else {
-        worldCells[pkg._worldCell].pkg.respawnIn = C.PKG_RESPAWN_TICKS;
-      }
-    }
-    if (settle) { settle.supply = Math.min(100, settle.supply + 3); settle.rebuild = Math.min(100, settle.rebuild + 1); }
-    const node = S.routeNodes.find(n => n.id === arrivedNodeId);
-    if (node && getNodeStage(arrivedNodeId) < 3) {
-      setNodeStage(arrivedNodeId, 3);
-      addLog(`discovered: <span class="log-hi">${node.label}</span>`);
-      drawRouteMap();
-      renderSettlements();
-      postActivity('discovery', { nodeId: arrivedNodeId, label: node.label });
-      if (NPC_DEFS[arrivedNodeId]) {
-        addTrust(arrivedNodeId, C.TRUST_GAIN_DISCOVERY, 'discovery');
-      }
-    }
-    addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
-    postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
-
-    if (pkg.isRecovery && pkg.recoveryFromPorter) {
-      postActivity('lost_recovered', {
-        label: pkg.label,
-        size: pkg.size,
-        forPorter: pkg.recoveryFromPorter,
-      });
-      addLog(`<span class="log-ok">recovered</span> <span class="log-hi">${pkg.label}</span> \u2014 left by <span class="log-hi">${shortPorterId(pkg.recoveryFromPorter)}</span>`);
-    }
-
-    if (NPC_DEFS[arrivedNodeId]) {
-      const gain = pkg.isLost ? C.TRUST_GAIN_LOST_DELIVERY : C.TRUST_GAIN_DELIVERY;
-      addTrust(arrivedNodeId, gain, pkg.isLost ? 'lost-delivery' : 'delivery');
-    }
-  });
-  renderCourierStack();
-  renderCargoSlots(true);
-  if (S.inventory.length === 0) {
-    S.status = 'walking';
-    if (els.courierAt) els.courierAt.className = 'tlh-at bounce';
-  }
-  renderSettlements();
-}
-
-function tickPkgRespawns() {
-  for (let i = 0; i < C.TOTAL_CELLS; i++) {
-    const cell = worldCells[i];
-    if (!cell || !cell.pkg || !cell.pkg.picked || cell.pkg.respawnIn <= 0) continue;
-    cell.pkg.respawnIn--;
-    if (cell.pkg.respawnIn === 0) {
-      const active = worldCells.filter(c => c.edgeIdx === cell.edgeIdx && c.pkg && !c.pkg.picked).length;
-      if (active < C.PKG_MAX_PER_EDGE) {
-        cell.pkg.picked = false;
-        addLog(`<span class="log-ok">new package</span> spotted on the road`);
-      } else {
-        cell.pkg.respawnIn = C.PKG_RESPAWN_TICKS;
-      }
-    }
-  }
-}
+// Package pickup / delivery / respawn now live in ./packages.js.
+// scanForPickup, tryDeliver, tickPkgRespawns imported via Pkg.* below.
 
 // ============================================================
 // DESTINATION DRIFT
@@ -585,7 +471,9 @@ function cargoKey() {
   return S.inventory.map(p => `${p.size}${p.destId}${p.scrip}`).join('|') + '|' + S.maxSlots + '|' + S.usedWeight;
 }
 
-function renderCargoSlots(force) {
+// renderCargoSlots is exported for packages.js (called from
+// scanForPickup + tryDeliver). Moves to render/hud.js later.
+export function renderCargoSlots(force) {
   if (!els.cargoSlots) return;
   const key = cargoKey();
   if (!force && key === S._transient.lastCargoKey) return;
@@ -621,13 +509,17 @@ function renderCargoSlots(force) {
   }
 }
 
-function renderCourierStack() {
+// renderCourierStack is exported for packages.js (called from
+// scanForPickup + tryDeliver). Moves to render/hud.js later.
+export function renderCourierStack() {
   if (!els.courierStack) return;
   els.courierStack.innerHTML = S.inventory.length === 0 ? '' :
     S.inventory.map(p => `<span class="courier-pkg${p.isLost?' lost':''}">[${p.size}]</span>`).join('');
 }
 
-function renderBoots() {
+// renderBoots is exported for packages.js (called from sandalweed
+// harvest in scanForPickup). Moves to boots.js in commit 13.
+export function renderBoots() {
   const d = Math.round(S.bootDurability);
   if (els.bootsVal) els.bootsVal.textContent = d+'%';
   if (els.bootsBar) { els.bootsBar.style.width = d+'%'; els.bootsBar.className = 'boots-bar-fill'+(d>50?'':d>25?' worn':' bad'); }
@@ -934,7 +826,7 @@ function tick() {
 
     maybeTrip();
     checkAutobuy();
-    scanForPickup();
+    Pkg.scanForPickup();
 
     if (S.stamina<50 && S.status==='walking' && Math.random()<0.03) {
       S.status='resting'; S.restTimer=C.REST_TICKS_MIN+Math.floor(Math.random()*(C.REST_TICKS_MAX-C.REST_TICKS_MIN));
@@ -969,7 +861,7 @@ function tick() {
     drawRouteMap();
     updateDestDrift();
     refillBootClip(arrivedAt);
-    tryDeliver(arrivedAt);
+    Pkg.tryDeliver(arrivedAt);
 
     if (NPC_DEFS[arrivedAt]) {
       tryT50Warning(arrivedAt);
@@ -983,7 +875,7 @@ function tick() {
   S.worldPos = worldPosFromRoute();
   renderFieldstrip();
 
-  if (S.ticks%10===0) tickPkgRespawns();
+  if (S.ticks%10===0) Pkg.tickPkgRespawns();
 
   if (S.rainTimer>0) S.rainTimer--;
   else if (Math.random()<0.003) { setRain(!S.isRaining); S.rainTimer=40+Math.floor(Math.random()*60); }
