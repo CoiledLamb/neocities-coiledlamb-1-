@@ -1,1 +1,588 @@
-__CSS_PLACEHOLDER__
+/* ==============================================
+   THE LONG HAUL — game stylesheet
+   v0.0.7
+   ============================================== */
+
+html, body {
+  margin: 0;
+  background: #155352;
+  color: #b1c9c3;
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 600;
+  min-height: 100vh;
+}
+
+#site { opacity: 0; transition: opacity 0.7s ease; }
+#site.visible { opacity: 1; }
+
+.tlh-page {
+  padding: 28px 28px 48px;
+  box-sizing: border-box;
+}
+
+.tlh-header { margin-bottom: 14px; }
+.tlh-title {
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 700;
+  color: #e0eeec;
+  text-transform: lowercase;
+  line-height: 1;
+  margin: 0 0 3px;
+}
+.tlh-subtitle {
+  font-size: 11px;
+  color: #7aa8a6;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  margin: 0;
+}
+
+.tlh-layout {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  gap: 10px;
+  align-items: stretch; /* v0.0.7 bug batch: was 'start'; stretch lets right column match left height */
+}
+
+/* v0.0.7 bug batch: shell becomes a column flex so dispatch log can fill */
+.tlh-shell {
+  border: 1px solid #1e5554;
+  border-radius: 2px;
+  overflow: hidden;
+  animation: oil-border 4s linear infinite;
+  background: #0d3533;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* porter ID strip */
+.tlh-porter-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid #1e5554;
+  background: #0b2e2d;
+  font-size: 10px;
+  font-family: 'Source Code Pro', monospace;
+  flex-shrink: 0;
+}
+.tlh-porter-label { color: #3a6a68; flex-shrink: 0; }
+.tlh-porter-id {
+  color: #77bfcf;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+.tlh-porter-hint {
+  color: #2a5c5a;
+  font-size: 9px;
+  margin-left: auto;
+  text-align: right;
+}
+
+/* ============================================================
+   VIEWPORT — 3 layers
+   ============================================================ */
+.tlh-viewport {
+  height: 110px;
+  background: #081f1e;
+  overflow: hidden;
+  position: relative;
+  border-bottom: 1px solid #1e5554;
+  flex-shrink: 0;
+}
+
+/* Layer 1 — terrain strip (JS-driven, fix 1: max-content not 200%) */
+.tlh-fieldstrip {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1;
+  width: max-content;
+  padding-bottom: 8px;
+  padding-left: 4px;
+  position: relative;
+  z-index: 1;
+  will-change: transform;
+}
+
+/* Layer 2 — destination drift (fix 2: starts inside viewport) */
+.tlh-dest-drift {
+  position: absolute;
+  right: 12%;
+  bottom: 8px;
+  z-index: 2;
+  text-align: center;
+  font-family: 'Source Code Pro', monospace;
+  pointer-events: none;
+  opacity: 0;
+}
+@keyframes destdrift {
+  0%   { right: 12%; opacity: 0; }
+  8%   { opacity: 0.25; }
+  70%  { opacity: 0.20; }
+  95%  { opacity: 0; }
+  100% { right: 80%; opacity: 0; }
+}
+.dest-glyph {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #2a5c5a;
+  line-height: 1.3;
+  letter-spacing: 0.05em;
+}
+.dest-label {
+  display: block;
+  font-size: 8px;
+  color: #1e5554;
+  margin-top: 2px;
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+}
+
+/* Layer 3 — rain */
+.tlh-rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 3;
+}
+@keyframes raindrop {
+  0%   { transform: translateY(-10px); opacity: 0; }
+  15%  { opacity: 0.5; }
+  90%  { opacity: 0.3; }
+  100% { transform: translateY(120px); opacity: 0; }
+}
+
+/* Layer 4 — courier */
+.tlh-courier {
+  position: absolute;
+  left: 70px;
+  bottom: 8px;
+  z-index: 10;
+  text-align: center;
+  font-family: 'Source Code Pro', monospace;
+}
+
+/* courier package stack */
+.tlh-courier-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin-bottom: 2px;
+  animation: bounce 0.4s steps(1) infinite;
+}
+.courier-pkg {
+  font-size: 10px;
+  font-weight: 700;
+  color: #77bfcf;
+  line-height: 1;
+  font-family: 'Source Code Pro', monospace;
+}
+.courier-pkg.lost { color: #da8bda; }
+
+.tlh-at {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e0eeec;
+  line-height: 1;
+}
+/* 7i: bounce via class so stack + @ animate in sync */
+.tlh-at.bounce { animation: bounce 0.4s steps(1) infinite; }
+.tlh-at.carry  { color: #77bfcf; }
+.tlh-at.rest   { color: #4a7a78; }
+.tlh-at.trip   { color: #da8bda; }
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-3px); }
+}
+@keyframes trip {
+  0%,100% { transform: rotate(0deg); }
+  25%     { transform: rotate(25deg) translateY(3px); }
+  75%     { transform: rotate(-15deg); }
+}
+
+/* field chars */
+.fc { display: inline-block; padding: 0 1px; user-select: none; font-family: 'Source Code Pro', monospace; }
+.fc-fl       { color: #1e5554; }
+.fc-rn       { color: #3a6a68; }
+.fc-sg       { color: #4a7a78; }
+.fc-sw       { color: #2a5c5a; }
+.fc-pk       { color: #77bfcf; font-weight: 700; }
+.fc-pk-lost  { color: #da8bda; font-weight: 700; }
+.fc-sw-plant { color: #2a7a58; }
+.fc-depot    { color: #4a7a78; font-weight: 700; }
+
+/* HUD */
+.tlh-hud { display: flex; border-bottom: 1px solid #1e5554; flex-shrink: 0; }
+.tlh-hc  { flex: 1; padding: 5px 8px; border-right: 1px solid #1e5554; }
+.tlh-hc:last-child { border-right: none; }
+.tlh-hl  { display: block; font-size: 9px; color: #3a6a68; text-transform: lowercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+.tlh-hv  { font-size: 12px; font-weight: 700; color: #e0eeec; }
+.tlh-hv.ac { color: #77bfcf; }
+.tlh-hv.status { color: #da8bda; }
+
+/* rows */
+.tlh-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #1e5554;
+  font-size: 10px;
+  font-family: 'Source Code Pro', monospace;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.tlh-row-label { color: #3a6a68; min-width: 36px; flex-shrink: 0; text-transform: lowercase; }
+
+/* cargo slots */
+.cargo-slots { display: flex; gap: 2px; flex-shrink: 0; }
+.cslot {
+  width: 13px; height: 13px;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  font-size: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: #3a6a68;
+  font-family: 'Source Code Pro', monospace;
+  position: relative;
+}
+.cslot.s { background: #1e5554; color: #77bfcf; border-color: #40a4b9; }
+.cslot.m { background: #1a3040; color: #9d78d4; border-color: #9d78d4; }
+.cslot.l { background: #2a1a3a; color: #da8bda; border-color: #da8bda; }
+.cslot.e { background: transparent; }
+
+/* CSS-only tooltip (fix 4: no DOM thrash = no flicker)
+   v0.0.7 bug batch: hoisted from .cslot.has-tooltip to a generic .has-tooltip
+   so the sandalweed badge can reuse the exact same styling */
+.has-tooltip { cursor: help; position: relative; }
+.has-tooltip::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0b2e2d;
+  border: 1px solid #40a4b9;
+  color: #b1c9c3;
+  font-size: 8px;
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 600;
+  white-space: pre;
+  padding: 4px 7px;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.1s;
+  line-height: 1.6;
+  min-width: 80px;
+  text-align: left;
+}
+.has-tooltip:hover::after { opacity: 1; }
+
+/* weight pips — one per kg of max capacity, colour-ramped
+   v0.0.7 bug batch: pushed to right side of cargo bar via margin-left:auto */
+.weight-segs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  align-items: center;
+  margin-left: auto;
+}
+.wseg {
+  width: 8px; height: 8px;
+  border-radius: 1px;
+  border: 1px solid #1e5554;
+  background: #132e2d;
+  flex-shrink: 0;
+}
+.wseg.filled     { background: #4a7a78; border-color: #3a6a68; }
+.wseg.heavy      { background: #9d78d4; border-color: #7a58a4; }
+.wseg.overloaded { background: #da8bda; border-color: #a4589a; }
+.wseg.empty      { background: #132e2d; border-color: #1e5554; }
+
+/* inline log action button (boot clip refill prompt etc.) */
+.log-btn {
+  background: transparent;
+  border: 1px solid #3a6a68;
+  border-radius: 1px;
+  color: #77bfcf;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 8px; font-weight: 600;
+  padding: 1px 5px; cursor: pointer;
+  text-transform: lowercase;
+  transition: border-color 0.1s, color 0.1s;
+  vertical-align: middle;
+  margin-left: 3px;
+}
+.log-btn:hover { border-color: #77bfcf; }
+
+/* tie-down button */
+.tie-down-btn { flex-shrink: 0; }
+
+/* boots */
+.boots-bar-wrap { flex: 1; height: 4px; background: #132e2d; border-radius: 1px; overflow: hidden; }
+.boots-bar-fill { height: 100%; border-radius: 1px; transition: width 0.5s, background-color 0.5s; background: #4a7a78; }
+.boots-bar-fill.worn { background: #9d78d4; }
+.boots-bar-fill.bad  { background: #da8bda; }
+.boots-val { color: #b1c9c3; min-width: 30px; flex-shrink: 0; }
+
+.clip-badge {
+  font-size: 9px; color: #77bfcf;
+  border: 1px solid #40a4b9;
+  border-radius: 1px; padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+/* v0.0.7 bug batch: sandalweed badge variant — green tint, pulses pink at cap */
+.sandal-badge {
+  color: #2a7a58;
+  border-color: #2a7a58;
+}
+.sandal-badge.at-cap {
+  color: #da8bda;
+  border-color: #da8bda;
+  animation: overboost-pulse 1.6s ease-in-out infinite;
+}
+
+.boots-auto {
+  background: transparent;
+  border: 1px dashed #1e5554;
+  border-radius: 1px;
+  color: #3a6a68;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; font-weight: 600;
+  padding: 2px 6px; cursor: pointer;
+  text-transform: lowercase;
+  transition: color 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+.boots-auto.on { color: #77bfcf; border-color: #40a4b9; }
+.boots-auto:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
+
+/* stamina */
+.stamina-segs { display: flex; gap: 3px; flex-shrink: 0; }
+.sseg {
+  width: 22px; height: 8px;
+  border-radius: 1px;
+  border: 1px solid #1e5554;
+  background: #132e2d;
+  transition: background 0.3s, border-color 0.3s;
+}
+.sseg.full      { background: #4a7a78; border-color: #3a6a68; }
+.sseg.half      { background: #9d78d4; border-color: #7a58a4; }
+.sseg.empty     { background: #132e2d; border-color: #1e5554; }
+.sseg.crit      { background: #da8bda; border-color: #a4589a; }
+.sseg.overboost {
+  background: #77bfcf;
+  border-color: #40a4b9;
+  animation: overboost-pulse 1.2s ease-in-out infinite;
+  width: 14px;
+}
+@keyframes overboost-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* canteen bar — slim context indicator */
+.canteen-bar-wrap {
+  width: 28px; height: 3px;
+  background: #132e2d;
+  border-radius: 1px;
+  overflow: hidden;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+.canteen-bar-fill {
+  height: 100%; border-radius: 1px;
+  background: #40a4b9;
+  transition: width 0.4s;
+}
+
+.drink-btn {
+  background: transparent;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  color: #7aa8a6;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; font-weight: 600;
+  padding: 2px 7px; cursor: pointer;
+  text-transform: lowercase;
+  transition: border-color 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.drink-btn:hover { border-color: #40a4b9; color: #b1c9c3; }
+.drink-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
+
+/* panels — v0.0.7 bug batch: flex:1 + min-height:0 lets dispatch log fill remaining shell height */
+.tlh-panels {
+  display: flex;
+  min-height: 120px;
+  flex: 1;
+}
+.tlh-panel {
+  flex: 1;
+  border-right: 1px solid #1e5554;
+  padding: 7px 10px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tlh-panel:last-child { border-right: none; }
+.tlh-ptitle {
+  font-size: 9px;
+  color: #3a6a68;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  margin-bottom: 5px;
+  font-family: 'Source Code Pro', monospace;
+  flex-shrink: 0;
+}
+
+/* Each panel's content area scrolls independently when it overflows.
+   v0.0.7 bug batch: dispatch log + upgrades + settlements all share the pattern. */
+.tlh-panel > #logEl,
+.tlh-panel > #upgradesEl,
+.tlh-panel > #settlementsEl {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* v0.0.7 bug batch: custom scrollbars matching terminal palette */
+.tlh-panel > #logEl,
+.tlh-panel > #upgradesEl,
+.tlh-panel > #settlementsEl {
+  scrollbar-width: thin;
+  scrollbar-color: #2a5c5a #0b2e2d;
+}
+.tlh-panel > #logEl::-webkit-scrollbar,
+.tlh-panel > #upgradesEl::-webkit-scrollbar,
+.tlh-panel > #settlementsEl::-webkit-scrollbar { width: 6px; }
+.tlh-panel > #logEl::-webkit-scrollbar-track,
+.tlh-panel > #upgradesEl::-webkit-scrollbar-track,
+.tlh-panel > #settlementsEl::-webkit-scrollbar-track { background: #0b2e2d; }
+.tlh-panel > #logEl::-webkit-scrollbar-thumb,
+.tlh-panel > #upgradesEl::-webkit-scrollbar-thumb,
+.tlh-panel > #settlementsEl::-webkit-scrollbar-thumb {
+  background: #2a5c5a;
+  border-radius: 3px;
+}
+.tlh-panel > #logEl::-webkit-scrollbar-thumb:hover,
+.tlh-panel > #upgradesEl::-webkit-scrollbar-thumb:hover,
+.tlh-panel > #settlementsEl::-webkit-scrollbar-thumb:hover {
+  background: #3a6a68;
+}
+
+/* log */
+.log-line { display: block; font-size: 10px; line-height: 1.7; color: #7aa8a6; font-family: 'Source Code Pro', monospace; }
+.log-ts { color: #2a5c5a; }
+.log-hi { color: #77bfcf; }
+.log-wn { color: #da8bda; }
+.log-ok { color: #4a7a78; }
+
+/* upgrades */
+.upg-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
+.upg-item:last-child { border-bottom: none; }
+.upg-name { color: #b1c9c3; line-height: 1.4; }
+.upg-name small { color: #3a6a68; font-size: 9px; display: block; }
+.upg-btn {
+  background: transparent;
+  border: 1px solid #1e5554;
+  color: #7aa8a6;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; font-weight: 600;
+  padding: 2px 6px; border-radius: 1px;
+  cursor: pointer; white-space: nowrap;
+  text-transform: lowercase;
+  transition: border-color 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.upg-btn:hover:not(:disabled) { border-color: #40a4b9; color: #b1c9c3; }
+.upg-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
+
+/* settlements */
+.settle-item { padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
+.settle-item:last-child { border-bottom: none; }
+.settle-name { color: #e0eeec; font-weight: 700; font-size: 10px; display: flex; justify-content: space-between; }
+.settle-name span { color: #3a6a68; font-weight: 400; font-size: 9px; }
+.settle-bar { height: 3px; background: #132e2d; border-radius: 1px; overflow: hidden; margin-top: 3px; }
+.settle-fill { height: 100%; border-radius: 1px; }
+.settle-fill.a { background: #4a7a78; }
+.settle-fill.b { background: linear-gradient(90deg,#40a4b9,#9d78d4); animation: oil 3s linear infinite; background-size: 200% auto; }
+.settle-quote { font-size: 9px; color: #2a5c5a; margin-top: 3px; line-height: 1.4; }
+
+/* save strip — mirrors porter strip aesthetic at top */
+.tlh-save-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-top: 1px solid #1e5554;
+  background: #0b2e2d;
+  font-size: 10px;
+  font-family: 'Source Code Pro', monospace;
+  flex-shrink: 0;
+}
+.tlh-save-label { color: #3a6a68; flex-shrink: 0; }
+.tlh-save-ago {
+  color: #2a5c5a;
+  font-size: 9px;
+  margin-left: auto;
+  text-align: right;
+}
+.tlh-save-ago span { color: #3a6a68; }
+
+.save-btn {
+  background: transparent;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  color: #7aa8a6;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px; font-weight: 600;
+  padding: 2px 8px; cursor: pointer;
+  text-transform: lowercase;
+  transition: border-color 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.save-btn:hover { border-color: #40a4b9; color: #b1c9c3; }
+.save-btn.wipe { color: #7a4a78; border-color: #2a1a3a; }
+.save-btn.wipe:hover { border-color: #9d78d4; color: #b1c9c3; }
+.save-btn.wipe.armed {
+  color: #da8bda;
+  border-color: #da8bda;
+  animation: overboost-pulse 1.2s ease-in-out infinite;
+}
+
+/* right col */
+.tlh-right { display: flex; flex-direction: column; gap: 8px; }
+.tlh-route-panel,
+.tlh-network-panel {
+  border: 1px solid #1e5554;
+  border-radius: 2px;
+  background: #081f1e;
+  padding: 8px;
+}
+
+/* network */
+.net-item { font-size: 9px; color: #7aa8a6; line-height: 1.65; border-bottom: 1px solid #132e2d; padding: 2px 0; font-family: 'Source Code Pro', monospace; }
+.net-item:last-child { border-bottom: none; }
+.net-hi { color: #da8bda; }
+.net-ac { color: #77bfcf; }
+/* v0.0.7: status states for empty/connecting feed and census header */
+.net-item.net-quiet { color: #2a5c5a; font-style: italic; }
+.net-item.net-census { color: #4a7a78; font-size: 9px; padding-bottom: 4px; margin-bottom: 2px; border-bottom: 1px solid #1e5554; }
+
+@media (max-width: 700px) {
+  .tlh-layout { grid-template-columns: 1fr; }
+  .tlh-right { flex-direction: row; }
+}
