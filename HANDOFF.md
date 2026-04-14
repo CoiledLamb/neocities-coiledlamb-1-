@@ -1,5 +1,9 @@
 # coiledlamb.neocities.org — handoff doc
-_last updated: 2026-04-12_
+_last updated: 2026-04-13_
+
+---
+
+> **TLH game development has its own handoff doc.** See [`TLH-HANDOFF.md`](./TLH-HANDOFF.md) for the full game architecture, multiplayer plan, identification stages, bug list, future feature backlog, and TLH-specific session log. This file covers everything else (site-wide infrastructure, gallery, blog, admin, music player, art-pipeline, deployment).
 
 ---
 
@@ -7,8 +11,8 @@ _last updated: 2026-04-12_
 
 A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build framework — vanilla HTML, CSS, and JS. Deployed via the Neocities GitHub Action on every push to `main`.
 
-**live site:** https://coiledlamb.neocities.org  
-**site repo:** https://github.com/CoiledLamb/neocities-coiledlamb-1-  
+**live site:** https://coiledlamb.neocities.org
+**site repo:** https://github.com/CoiledLamb/neocities-coiledlamb-1-
 **pipeline repo:** https://github.com/CoiledLamb/art-pipeline
 
 ---
@@ -32,6 +36,8 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 | `utterances-custom.css` | legacy utterances theme — unused, can be deleted |
 | `figures.html`, `hands.html` | gallery pages (each sets `window.PAGE_CATEGORY` then loads `gallery.js`) |
 | `blog.html` / `blog.css` | blog page |
+| `the-long-haul.html` / `.css` / `.js` | The Long Haul game — see `TLH-HANDOFF.md` |
+| `worker/index.js` / `wrangler.toml` / `README.md` | Cloudflare Worker for TLH multiplayer feed — see `TLH-HANDOFF.md` |
 
 ### gallery system
 - `gallery.json` is generated and maintained exclusively by the **art-pipeline** (separate repo: `CoiledLamb/art-pipeline`). That pipeline watches an `incoming/` folder, converts PNGs to WebP, uploads images to Neocities, and updates `gallery.json` directly on the live site.
@@ -55,7 +61,10 @@ A hand-coded Neocities personal site with a terminal/CRT aesthetic. No build fra
 - **Reactions are currently hidden** (`display: none` on `.gsc-reactions`). Custom reactions are planned — defer until next session.
 
 ### music player (in `nav.js`)
-- 4 tracks: `pilgrim's path`, `stoic porridge`, `onward` (all craigory ham), `drifter` (duster).
+- 9 tracks: `pilgrim's path`, `stoic porridge`, `onward` (craigory ham), `drifter` (duster), `20190622`, `20200107 2`, `20200402`, `20201228`, `20210818` (mac demarco).
+- `pilgrim's path` is the default first track for new sessions.
+- Mac demarco tracks have placeholder `0:00` durations — they auto-fill from the file once each track is played.
+- The `20200107 2.mp3` file has a literal space in the filename. Modern browsers handle it; if it ever breaks, URL-encode the `src` to `/audio/20200107%202.mp3`.
 - State persists across page navigations via `sessionStorage`.
 - Shuffle (`⇄`), loop (off/track/playlist), volume, seek bar.
 - Oil-slick animated visualizer bars.
@@ -111,7 +120,9 @@ A local Node.js process that watches `incoming/<category>/` for new PNGs, conver
 
 ---
 
-## pending work
+## pending work (site-wide)
+
+> **TLH game pending work lives in `TLH-HANDOFF.md`.** This section covers only site-wide items.
 
 ### 🔴 firefox thumbnail click (calendar)
 The `imgEl.onclick = function() { window.location.href = pageUrl }` approach is blocked by Firefox's popup rules. Fix: replace with an `<a>` tag wrapping the panel image in `artwork-calendar.html` so navigation is always a real link.
@@ -139,7 +150,9 @@ Hotlink to Line of Action with user's usual settings — need URL from user.
 
 ---
 
-## session log
+## session log (site-wide)
+
+> **TLH-specific session entries live in `TLH-HANDOFF.md`.** This log records non-game work only.
 
 ### 2026-04-12
 
