@@ -1,23 +1,28 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7
+   v0.0.7.2
 
-   Refactor commit 1 (plumbing): ported from the-long-haul.js to js/main.js
-   and loaded as an ES module. Contents are otherwise identical — the IIFE
-   wrapper is dropped because module scope already isolates identifiers from
-   the global namespace, and the DOMContentLoaded guard is dropped because
-   module scripts are deferred by default (they execute after DOM parse).
+   Refactor commit 2: extracted state to ./state.js. Consolidated all
+   scattered module-level `let` flags into S._transient.
 
-   No imports/exports yet. Subsequent commits will split state, constants,
-   and logic into sibling modules.
+   Imports:
+     S — game state singleton. S.* is persisted, S._transient.* is session-only.
 
-   Rollback: in the-long-haul.html, change
-     <script type="module" src="js/main.js"></script>
-   back to
-     <script src="the-long-haul.js"></script>
-   and the old file at the repo root still has the original IIFE contents.
+   Local aliases for ergonomics:
+     els         — reference to S._transient.els (same object, shorter writes)
+     worldCells  — reference to S._transient.worldCells (same array)
+     resolveEls() and buildWorld() mutate these in place (Object.assign /
+     .length = 0 + push) so the aliases never go stale.
+
+   No other behavior changes from v0.0.7.1.
    ============================================== */
 'use strict';
+
+import { S } from './state.js';
+
+// Local aliases — live references into S._transient. Never reassign these.
+const els = S._transient.els;
+const worldCells = S._transient.worldCells;
 
 // ============================================================
 // PORTER ID
@@ -53,12 +58,6 @@ const PKG_RESPAWN_TICKS = 500;
 const SANDAL_CAP_BASE     = 5;
 const SANDAL_CAP_UPGRADED = 25;
 
-// v0.0.7 commit 6: distKm accumulator
-// Pre-commit-6, distKm was derived from (edgeIdx + dotT) * 4.2 every 5 ticks,
-// so fresh saves (edgeIdx default 2) would show ~8.4km before moving. Now a
-// true accumulator: posKm() gives current ring position, accumulateDist()
-// adds forward delta per tick and handles loop rollover.
-// Old saves self-heal on first session post-upgrade — no migration needed.
 const KM_PER_EDGE = 4.2;
 
 const ZONE_TYPES = {
@@ -152,16 +151,12 @@ const STATUS_COLORS = {
 
 const DIST_MILESTONES = [10, 25, 50, 100, 250, 500, 1000];
 
-// v0.0.7 commit 5: lost cargo recovery tunables
-// v0.0.7 commit 6: TRIP_LOST_DROP_CHANCE split into NORMAL/LOST — all cargo
-// can now drop on trip, not just lost pkgs. Drop check fires BEFORE tie-down
-// (tie-down protects damage only, fate takes the cargo regardless).
-const TRIP_DROP_CHANCE_NORMAL = 0.20;  // chance any normal pkg drops on trip
-const TRIP_DROP_CHANCE_LOST   = 0.30;  // chance lost pkg drops on trip
-const RECOVERY_BONUS_MULT    = 1.5;   // scrip multiplier for recovery deliveries
-const RECOVERY_SOFT_CAP      = 3;     // max active recovery cargo in world
-const RECOVERY_POLL_INTERVAL = 85;    // ticks between recovery spawn attempts (~30s)
-const KNOWN_PEERS_CAP        = 10;    // FIFO cap on tracked peer porter IDs
+const TRIP_DROP_CHANCE_NORMAL = 0.20;
+const TRIP_DROP_CHANCE_LOST   = 0.30;
+const RECOVERY_BONUS_MULT    = 1.5;
+const RECOVERY_SOFT_CAP      = 3;
+const RECOVERY_POLL_INTERVAL = 85;
+const KNOWN_PEERS_CAP        = 10;
 
 // ============================================================
 // NPCs (v0.0.7 commit 4a/4b — trust + chatter)
@@ -171,9 +166,6 @@ const NPC_DEFS = {
   'B': { callsign: 'iota', name: 'iota', depotLabel: 'depot b' },
   'H': { callsign: 'tau',  name: 'tau',  depotLabel: 'home'    },
 };
-// Post-v0.0.7 refactor pass (commit A): realigned 25/50/75/100 → 20/40/60/80
-// to match the settlements panel tick marks. Gameplay and visual now agree.
-// Old saves self-heal via the ratchet in loadGame — no migration needed.
 const TRUST_THRESHOLDS = [20, 40, 60, 80];
 const TRUST_GAIN_DELIVERY      = 1;
 const TRUST_GAIN_LOST_DELIVERY = 2;
@@ -278,103 +270,25 @@ const CHATTER_INTERVAL_MIN_TICKS = 170;
 const CHATTER_INTERVAL_MAX_TICKS = 345;
 const CHATTER_BASE_CHANCE        = 0.005;
 
-// ============================================================
-// STATE
-// ============================================================
-const S = {
-  delivered: 0, scrip: 0, distKm: 0, ticks: 0,
-  status: 'walking', restTimer: 0, tripTimer: 0,
-  maxSlots: 6, usedSlots: 0, maxWeight: 5, usedWeight: 0, inventory: [],
-  tieDownActive: false,
-  bootDurability: 80, autobuyBoots: false, bootClipCount: 0, bootClipMax: 0, usingMakeshift: false,
-  sandalweedCount: 0,
-  stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
-  canteen: 100, canteenMax: 100, autodrink: false,
-  isRaining: false, rainTimer: 0, inRiver: false,
-
-  upgrades: {
-    bootsT1: false, bootsT2: false,
-    bootClip1: false, bootClip2: false,
-    cargoSling: false, cargoPack: false, cargoWeight: false,
-    efficientConsumption: false, steadyFeet: false,
-    sandalSatchel: false,
-  },
-
-  settlements: {
-    'A':        { label:'depot a',  tier:'waypoint', supply:65, rebuild:65, quote:'"a fire and four walls"'   },
-    'B':        { label:'depot b',  tier:'outpost',  supply:34, rebuild:34, quote:'"new roof going up"'       },
-    '?':        { label:'???',      tier:'unknown',  supply:5,  rebuild:5,  quote:'"signal detected west"'   },
-    'C':        { label:'ruins',    tier:'ruins',    supply:10, rebuild:8,  quote:'"danger. high trip risk."' },
-    'H':        { label:'home',     tier:'shelter',  supply:80, rebuild:70, quote:'"hot food. safe walls."'   },
-    '\u00b7':   { label:'waypoint', tier:'waypoint', supply:40, rebuild:30, quote:'"a painted stone marker"' },
-  },
-
-  routeNodes: [
-    { id:'A',       label:'depot a',  x:0, y:0 },
-    { id:'?',       label:'???',      x:0, y:0 },
-    { id:'B',       label:'depot b',  x:0, y:0 },
-    { id:'C',       label:'ruins',    x:0, y:0 },
-    { id:'H',       label:'home',     x:0, y:0 },
-    { id:'\u00b7',  label:'waypoint', x:0, y:0 },
-  ],
-  nodeStages: { 'A':3, '?':0, 'B':0, 'C':0, 'H':3, '\u00b7':0 },
-  edges: [['A','?'],['?','B'],['B','C'],['C','H'],['H','\u00b7'],['\u00b7','A']],
-  edgeIdx: 2, dotT: 0, worldPos: 0,
-
-  pendingDelivery: null,
-
-  networkFeed: [],
-  networkCensus: 0,
-  networkConnected: false,
-  milestonesHit: [],
-  lastFeedTimestamp: 0,
-
-  npcs: {
-    'A': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'B': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'H': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-  },
-
-  channels: [],
-
-  // v0.0.7 commit 5: lost cargo recovery loop. All transient — not persisted.
-  // knownPeers: porter IDs harvested from feed events (FIFO, cap KNOWN_PEERS_CAP).
-  //   Used as the pool for recovery polling.
-  // activeRecoveryCount: live count of recovery cargo in worldCells. Soft-capped
-  //   at RECOVERY_SOFT_CAP. Decremented on pickup/delivery, incremented on spawn.
-  // lastRecoverySpawnTick: throttle for soft-cap pacing — won't spawn a new
-  //   recovery if last spawn was inside one poll interval.
-  knownPeers: [],
-  activeRecoveryCount: 0,
-  lastRecoverySpawnTick: 0,
-  nextRecoveryAttemptTick: 0,
-
-  // v0.0.7 commit 6: distKm accumulator trackers (transient, not persisted).
-  // Null sentinel means "first tick since load" — accumulator uses that to
-  // seed without counting a spurious delta.
-  _lastDistEdgeIdx: null,
-  _lastDistDotT: null,
-};
+const DEPOT_REST_BONUS_SCRIP = 10;
 
 function sandalCap() {
   return S.upgrades.sandalSatchel ? SANDAL_CAP_UPGRADED : SANDAL_CAP_BASE;
 }
 
 // v0.0.7 commit 6: distKm accumulator helpers.
-// posKm returns current ring position in km; accumulateDist adds forward
-// delta since last tick to S.distKm. Handles edge rollover (negative delta
-// from wrap-around) by adding the full loop length (6 * KM_PER_EDGE).
 function posKm(edgeIdx, dotT) {
   return (edgeIdx + dotT) * KM_PER_EDGE;
 }
 
 function accumulateDist() {
-  if (S._lastDistEdgeIdx === null || S._lastDistDotT === null) {
-    S._lastDistEdgeIdx = S.edgeIdx;
-    S._lastDistDotT    = S.dotT;
+  const t = S._transient;
+  if (t.lastDistEdgeIdx === null || t.lastDistDotT === null) {
+    t.lastDistEdgeIdx = S.edgeIdx;
+    t.lastDistDotT    = S.dotT;
     return;
   }
-  const prev = posKm(S._lastDistEdgeIdx, S._lastDistDotT);
+  const prev = posKm(t.lastDistEdgeIdx, t.lastDistDotT);
   const now  = posKm(S.edgeIdx, S.dotT);
   let delta  = now - prev;
   if (delta < 0) {
@@ -384,8 +298,8 @@ function accumulateDist() {
   // Guard against absurd jumps (e.g. save-load warping). Cap at one edge.
   if (delta > KM_PER_EDGE * 2) delta = 0;
   S.distKm = Math.round((S.distKm + delta) * 10) / 10;
-  S._lastDistEdgeIdx = S.edgeIdx;
-  S._lastDistDotT    = S.dotT;
+  t.lastDistEdgeIdx = S.edgeIdx;
+  t.lastDistDotT    = S.dotT;
 }
 
 // ============================================================
@@ -395,12 +309,9 @@ const FEED_URL    = 'https://coiledlamb.tlh-feed.workers.dev';
 const POLL_MS     = 60000;
 const FEED_DISPLAY_CAP = 8;
 
-let _porterIdCached = null;
-let _pollTimer      = null;
-
 function getCachedPorterId() {
-  if (!_porterIdCached) _porterIdCached = getPorterId();
-  return _porterIdCached;
+  if (!S._transient.porterIdCached) S._transient.porterIdCached = getPorterId();
+  return S._transient.porterIdCached;
 }
 
 function postActivity(type, data) {
@@ -416,8 +327,6 @@ function postActivity(type, data) {
   } catch (e) {}
 }
 
-// v0.0.7 commit 5: post a lost-pkg drop to the worker.
-// Worker stores under lost:{porterId} FIFO list, cap 20. Fire-and-forget.
 function postLostDrop(pkg) {
   const porterId = getCachedPorterId();
   if (porterId === 'PTR-OFFLINE') return;
@@ -435,12 +344,9 @@ function postLostDrop(pkg) {
       keepalive: true,
     }).catch(() => {});
   } catch (e) {}
-  // Also broadcast a lost_drop event for the global feed
   postActivity('lost_drop', { label: pkg.label, size: pkg.size });
 }
 
-// v0.0.7 commit 5: fetch lost cargo list for a specific peer.
-// Returns array of pkg objects, or [] on failure.
 async function fetchLostFromPeer(peerPorterId) {
   try {
     const res = await fetch(FEED_URL + '/lost/' + encodeURIComponent(peerPorterId));
@@ -472,7 +378,6 @@ async function pollFeed() {
         S.networkFeed.push(e);
         seen.add(key);
         if (e.timestamp > S.lastFeedTimestamp) S.lastFeedTimestamp = e.timestamp;
-        // v0.0.7 commit 5: harvest peer porter IDs for recovery pool (FIFO, no self)
         if (e.porterId && e.porterId !== myId) {
           if (!S.knownPeers.includes(e.porterId)) {
             S.knownPeers.push(e.porterId);
@@ -492,13 +397,16 @@ async function pollFeed() {
 }
 
 function startPolling() {
-  if (_pollTimer) return;
+  if (S._transient.pollTimer) return;
   pollFeed();
-  _pollTimer = setInterval(pollFeed, POLL_MS);
+  S._transient.pollTimer = setInterval(pollFeed, POLL_MS);
 }
 
 function stopPolling() {
-  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  if (S._transient.pollTimer) {
+    clearInterval(S._transient.pollTimer);
+    S._transient.pollTimer = null;
+  }
 }
 
 function shortPorterId(id) {
@@ -522,7 +430,7 @@ function checkDistMilestones() {
 }
 
 // ============================================================
-// IDENTIFICATION STAGES (v0.0.7 commit 3)
+// IDENTIFICATION STAGES
 // ============================================================
 function getNodeStage(id) {
   return (S.nodeStages && typeof S.nodeStages[id] === 'number') ? S.nodeStages[id] : 0;
@@ -559,7 +467,7 @@ function getDisplayLabel(id) {
 }
 
 // ============================================================
-// NPC TRUST (v0.0.7 commit 4a/4b)
+// NPC TRUST
 // ============================================================
 function getNpc(depotId) {
   if (!NPC_DEFS[depotId] || !S.npcs || !S.npcs[depotId]) return null;
@@ -589,11 +497,7 @@ function onTrustUnlock(depotId, tier) {
   const line = NPC_LINES.threshold[depotId] && NPC_LINES.threshold[depotId][tier];
   if (line) speak(depotId, line);
 
-  // Post-v0.0.7 commit A: tier comparisons realigned to new thresholds.
-  // t20 = adjacent reveal (was t25)
-  // t40 = warnings unlocked (was t50)
-  // t60 = route previews unlocked (was t75)
-  // t80 = rest prompts unlocked (was t100)
+  // t20 = adjacent reveal, t40 = warnings, t60 = previews, t80 = rest prompts
   if (tier === 20) {
     const adj = NPC_ADJACENT[depotId] || [];
     const revealed = [];
@@ -618,7 +522,7 @@ function onTrustUnlock(depotId, tier) {
 }
 
 // ============================================================
-// CHANNELS / CHATTER (v0.0.7 commit 4b)
+// CHANNELS / CHATTER
 // ============================================================
 function speak(depotId, text) {
   const def = NPC_DEFS[depotId];
@@ -641,9 +545,6 @@ function pickRandom(arr) {
 }
 
 function tryT50Warning(depotId) {
-  // Post-v0.0.7 commit A: unlock gate moved from t50 to t40 (thresholds
-  // realigned). Function name kept for now — will be renamed in commit C
-  // (NPC/trust/channels grouping) to avoid touching every callsite twice.
   const npc = getNpc(depotId);
   if (!npc || !npc.unlocks.t40) return false;
   const lines = NPC_LINES.warning[depotId];
@@ -669,8 +570,6 @@ function tryT50Warning(depotId) {
 }
 
 function tryT75Preview(depotId) {
-  // Post-v0.0.7 commit A: unlock gate moved from t75 to t60.
-  // Function name kept; will be renamed in commit C.
   const npc = getNpc(depotId);
   if (!npc || !npc.unlocks.t60) return false;
   const tmpl = NPC_LINES.preview[depotId];
@@ -697,19 +596,14 @@ function tryT75Preview(depotId) {
   return true;
 }
 
-let _depotRestPending = null;
-const DEPOT_REST_BONUS_SCRIP = 10;
-
 function tryT100RestPrompt(depotId) {
-  // Post-v0.0.7 commit A: unlock gate moved from t100 to t80.
-  // Function name kept; will be renamed in commit C.
   const npc = getNpc(depotId);
   if (!npc || !npc.unlocks.t80) return false;
-  if (_depotRestPending) return false;
+  if (S._transient.depotRestPending) return false;
   if (S.stamina >= S.staminaMax && S.staminaOverboost) return false;
   const def = NPC_DEFS[depotId];
   const npcLabel = def ? def.callsign : depotId;
-  _depotRestPending = { depotId };
+  S._transient.depotRestPending = { depotId };
   addLog(`<span class="log-hi">${npcLabel}</span> offers a seat by the fire \u2014 <button class="log-btn" id="depotRestBtn">rest</button>`);
   setTimeout(() => {
     const btn = document.getElementById('depotRestBtn');
@@ -719,9 +613,9 @@ function tryT100RestPrompt(depotId) {
 }
 
 function confirmDepotRest() {
-  if (!_depotRestPending) return;
-  const { depotId } = _depotRestPending;
-  _depotRestPending = null;
+  if (!S._transient.depotRestPending) return;
+  const { depotId } = S._transient.depotRestPending;
+  S._transient.depotRestPending = null;
   const def = NPC_DEFS[depotId];
   const npcLabel = def ? def.callsign : depotId;
   S.stamina = S.staminaMax * 1.05;
@@ -740,7 +634,6 @@ function tickAmbientChatter() {
   if (S.ticks % 10 !== 0) return;
   Object.keys(NPC_DEFS).forEach(depotId => {
     const npc = getNpc(depotId);
-    // Post-v0.0.7 commit A: chatter gate moved from t25 to t20.
     if (!npc || !npc.unlocks.t20) return;
     if (S.ticks < npc.nextChatterTick) return;
     if (Math.random() >= CHATTER_BASE_CHANCE * 10) return;
@@ -765,7 +658,6 @@ function fmtChannelAge(ts) {
 function renderChannels() {
   if (!els.channelsEl) return;
   if (S.channels.length === 0) {
-    // v0.0.7 commit 6: empty state tells new players what unlocks chatter
     els.channelsEl.innerHTML = '<div class="chan-item chan-quiet">no callsigns trusted yet \u2014 deliver to depots to build trust</div>';
     return;
   }
@@ -779,17 +671,13 @@ function renderChannels() {
 }
 
 // ============================================================
-// LOST CARGO RECOVERY (v0.0.7 commit 5)
+// LOST CARGO RECOVERY
 // ============================================================
-// Try to spawn one recovery cargo into a random valid worldCell.
-// Soft cap: stops if activeRecoveryCount >= RECOVERY_SOFT_CAP, OR if
-// we spawned within the last RECOVERY_POLL_INTERVAL ticks (pacing).
 async function tickRecoveryAttempt() {
   if (S.ticks < S.nextRecoveryAttemptTick) return;
   S.nextRecoveryAttemptTick = S.ticks + RECOVERY_POLL_INTERVAL;
 
   if (S.activeRecoveryCount >= RECOVERY_SOFT_CAP) return;
-  // Soft pacing: don't spawn back-to-back even if under cap
   if (S.ticks - S.lastRecoverySpawnTick < RECOVERY_POLL_INTERVAL) return;
   if (S.knownPeers.length === 0) return;
 
@@ -805,14 +693,11 @@ async function tickRecoveryAttempt() {
   spawnRecoveryCargo(lostPkg, peerId);
 }
 
-// Find an empty worldCell on a random edge, plant the recovery pkg there.
 function spawnRecoveryCargo(lostPkg, fromPorterId) {
-  // Pick a random edge
   const edgeIdx = Math.floor(Math.random() * S.edges.length);
   const startCell = edgeIdx * CELLS_PER_EDGE;
   const endCell = startCell + CELLS_PER_EDGE;
 
-  // Find empty cells on this edge (no existing pkg, no sandal)
   const candidates = [];
   for (let i = startCell + 10; i < endCell - 10; i++) {
     const c = worldCells[i];
@@ -820,12 +705,11 @@ function spawnRecoveryCargo(lostPkg, fromPorterId) {
       candidates.push(i);
     }
   }
-  if (candidates.length === 0) return; // edge is too packed; will retry next tick
+  if (candidates.length === 0) return;
 
   const ci = pickRandom(candidates);
   const destId = S.edges[edgeIdx][1];
 
-  // Coerce shape — peer worker may have stored slightly different fields
   const pkg = {
     size:  lostPkg.size  || 's',
     label: lostPkg.label || 'lost cargo',
@@ -833,7 +717,7 @@ function spawnRecoveryCargo(lostPkg, fromPorterId) {
     slots: lostPkg.slots || 1,
     scrip: Math.floor((lostPkg.scrip || 14) * RECOVERY_BONUS_MULT),
     isLost: true,
-    isRecovery: true,             // commit 5: distinguishes from local lost spawns
+    isRecovery: true,
     recoveryFromPorter: fromPorterId,
     destId,
     picked: false,
@@ -845,12 +729,9 @@ function spawnRecoveryCargo(lostPkg, fromPorterId) {
   S.activeRecoveryCount++;
   S.lastRecoverySpawnTick = S.ticks;
   updatePorterStripBadges();
-  // Quiet log line — feed event covers the social side
   addLog(`<span class="log-wn">recovery cargo</span> dropped into the world`);
 }
 
-// v0.0.7 commit 6: subtle porter-strip indicator for active recovery count.
-// Ambient presence, not a CTA — only visible when count > 0.
 function updatePorterStripBadges() {
   if (!els.porterStrip) return;
   let badge = document.getElementById('recoveryBadge');
@@ -860,7 +741,6 @@ function updatePorterStripBadges() {
       badge = document.createElement('span');
       badge.id = 'recoveryBadge';
       badge.className = 'tlh-porter-recovery has-tooltip';
-      // Insert before the hint (which has margin-left: auto and sits at the right)
       const hint = els.porterStrip.querySelector('.tlh-porter-hint');
       if (hint) els.porterStrip.insertBefore(badge, hint);
       else      els.porterStrip.appendChild(badge);
@@ -883,15 +763,6 @@ const SAVE_KEY_V4  = 'tlh-save-v4';
 const SAVE_KEY_V5  = 'tlh-save-v5';
 const SAVE_VERSION = 5;
 const AUTOSAVE_MS  = 30000;
-
-let _lastSaveAt = 0;
-let _wipeArmed  = false;
-let _wipeTimer  = null;
-// v0.0.7 wipe fix: guard flag prevents save handlers (autosave, beforeunload,
-// visibilitychange) from re-writing in-memory state during the 400ms window
-// between wipeSave() and location.reload(). Once set, never unset — page is
-// reloading; module re-init will reset it to false naturally.
-let _wipeInProgress = false;
 
 function buildSavePayload() {
   return {
@@ -940,13 +811,11 @@ function buildSavePayload() {
 }
 
 function saveGame(silent) {
-  // v0.0.7 wipe fix: bail if wipe is in flight; otherwise the unload handlers
-  // re-save the in-memory state we just cleared.
-  if (_wipeInProgress) return false;
+  if (S._transient.wipeInProgress) return false;
   try {
     const payload = buildSavePayload();
     localStorage.setItem(SAVE_KEY_V5, JSON.stringify(payload));
-    _lastSaveAt = payload.savedAt;
+    S._transient.lastSaveAt = payload.savedAt;
     updateSaveStrip();
     if (!silent) addLog('<span class="log-ok">progress saved</span>');
     return true;
@@ -973,9 +842,7 @@ function loadGame() {
     const p = data.progress || {};
     if (typeof p.delivered      === 'number') S.delivered      = p.delivered;
     if (typeof p.scrip          === 'number') S.scrip          = p.scrip;
-    // v0.0.7 commit 6: distKm loaded from save is the old derived value for
-    // saves pre-commit-6. It'll look slightly off on first session after
-    // upgrade (shows stale ring-position rather than true total walked) but
+    // distKm loaded from pre-commit-6 saves is the old derived value —
     // self-heals as the accumulator adds forward deltas from here on.
     if (typeof p.distKm         === 'number') S.distKm         = p.distKm;
     if (typeof p.ticks          === 'number') S.ticks          = p.ticks;
@@ -1050,9 +917,7 @@ function loadGame() {
           S.npcs[k].trust = Math.max(0, Math.min(100, Math.floor(n.trust)));
         }
         if (n.unlocks && typeof n.unlocks === 'object') {
-          // Post-v0.0.7 commit A: old saves may have t25/t50/t75/t100 keys.
-          // Map them forward to the new t20/t40/t60/t80 keys so unlocks are
-          // preserved without a schema bump. Any unknown keys are ignored.
+          // Old saves may have t25/t50/t75/t100 keys. Map forward to t20/t40/t60/t80.
           const legacyMap = { t25:'t20', t50:'t40', t75:'t60', t100:'t80' };
           Object.keys(n.unlocks).forEach(oldKey => {
             if (typeof n.unlocks[oldKey] !== 'boolean') return;
@@ -1062,8 +927,6 @@ function loadGame() {
             }
           });
         }
-        // Ratchet: any trust ≥ threshold auto-unlocks (self-heals old saves
-        // where the player was in-between tiers when thresholds changed).
         TRUST_THRESHOLDS.forEach(t => {
           const key = 't' + t;
           if (S.npcs[k].trust >= t && !S.npcs[k].unlocks[key]) {
@@ -1073,7 +936,7 @@ function loadGame() {
       });
     }
 
-    _lastSaveAt = data.savedAt || 0;
+    S._transient.lastSaveAt = data.savedAt || 0;
     S.status = S.inventory.length > 0 ? 'carrying' : 'walking';
 
     if (data.version !== SAVE_VERSION) {
@@ -1099,13 +962,13 @@ function wipeSave() {
     localStorage.removeItem(SAVE_KEY_V2);
     localStorage.removeItem(SAVE_KEY);
   } catch (e) {}
-  _lastSaveAt = 0;
+  S._transient.lastSaveAt = 0;
   updateSaveStrip();
 }
 
 function fmtAgo(ms) {
-  if (!_lastSaveAt) return 'no save yet';
-  const secs = Math.floor((Date.now() - _lastSaveAt) / 1000);
+  if (!S._transient.lastSaveAt) return 'no save yet';
+  const secs = Math.floor((Date.now() - S._transient.lastSaveAt) / 1000);
   if (secs < 5)   return 'just now';
   if (secs < 60)  return secs + 's ago';
   const mins = Math.floor(secs / 60);
@@ -1121,12 +984,13 @@ function updateSaveStrip() {
 }
 
 function armWipe() {
-  if (_wipeArmed) {
-    clearTimeout(_wipeTimer);
-    _wipeArmed = false;
-    // v0.0.7 wipe fix: set guard BEFORE clearing storage so any save handler
-    // that fires between now and reload bails immediately.
-    _wipeInProgress = true;
+  const t = S._transient;
+  if (t.wipeArmed) {
+    clearTimeout(t.wipeTimer);
+    t.wipeArmed = false;
+    // Set guard BEFORE clearing storage so any save handler that fires
+    // between now and reload bails immediately.
+    t.wipeInProgress = true;
     wipeSave();
     if (els.wipeBtn) {
       els.wipeBtn.textContent = 'wipe save';
@@ -1136,13 +1000,13 @@ function armWipe() {
     setTimeout(() => { try { location.reload(); } catch (e) {} }, 400);
     return;
   }
-  _wipeArmed = true;
+  t.wipeArmed = true;
   if (els.wipeBtn) {
     els.wipeBtn.textContent = 'click again to confirm';
     els.wipeBtn.classList.add('armed');
   }
-  _wipeTimer = setTimeout(() => {
-    _wipeArmed = false;
+  t.wipeTimer = setTimeout(() => {
+    t.wipeArmed = false;
     if (els.wipeBtn) {
       els.wipeBtn.textContent = 'wipe save';
       els.wipeBtn.classList.remove('armed');
@@ -1153,7 +1017,6 @@ function armWipe() {
 // ============================================================
 // WORLD CELLS
 // ============================================================
-let worldCells = [];
 const TOTAL_CELLS = CELLS_PER_EDGE * 6;
 
 function weightedPick(arr, getW) {
@@ -1171,7 +1034,8 @@ function makeWorldPkg(edgeIdx) {
 }
 
 function buildWorld() {
-  worldCells = [];
+  // Mutate worldCells in place to preserve the module-level alias.
+  worldCells.length = 0;
   for (let ei = 0; ei < 6; ei++) {
     const isRisky = RISKY_EDGE_DEST.has(S.edges[ei][1]);
     let ci = 0;
@@ -1220,15 +1084,13 @@ function buildWorld() {
 // ============================================================
 // WORLD SCROLL
 // ============================================================
-let cellPxWidth = 12;
-
 function calcCellPxWidth() {
   const probe = document.createElement('span');
   probe.className   = 'fc fc-fl';
   probe.textContent = ' . ';
   probe.style.cssText = 'visibility:hidden;position:absolute;';
   document.body.appendChild(probe);
-  cellPxWidth = probe.getBoundingClientRect().width || 12;
+  S._transient.cellPxWidth = probe.getBoundingClientRect().width || 12;
   document.body.removeChild(probe);
 }
 
@@ -1240,6 +1102,7 @@ function worldPosFromRoute() {
 function renderFieldstrip() {
   const strip = els.fieldstrip;
   if (!strip) return;
+  const cellPxWidth = S._transient.cellPxWidth;
   const leftCell = Math.floor(S.worldPos);
   const viewportPx = (strip.parentNode && strip.parentNode.clientWidth) || (VIEWPORT_CELLS * cellPxWidth);
   const renderCount = Math.max(VIEWPORT_CELLS, Math.ceil(viewportPx / cellPxWidth) + 8);
@@ -1294,7 +1157,6 @@ function scanForPickup() {
     const carried = {
       size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
       scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
-      // v0.0.7 commit 5: carry forward recovery metadata
       isRecovery: !!pkg.isRecovery,
       recoveryFromPorter: pkg.recoveryFromPorter || null,
       _worldCell: ci,
@@ -1329,8 +1191,6 @@ function tryDeliver(arrivedNodeId) {
     S.usedWeight -= pkg.kg;
     S.inventory.splice(S.inventory.indexOf(pkg), 1);
     if (pkg._worldCell !== undefined && worldCells[pkg._worldCell] && worldCells[pkg._worldCell].pkg) {
-      // v0.0.7 commit 5: recovery cargo doesn't respawn — it's a one-shot item
-      // from another porter's lost list. Free up the slot fully.
       if (pkg.isRecovery) {
         worldCells[pkg._worldCell].pkg = null;
         worldCells[pkg._worldCell].isRecovery = false;
@@ -1355,7 +1215,6 @@ function tryDeliver(arrivedNodeId) {
     addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
     postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
 
-    // v0.0.7 commit 5: recovery delivery — broadcast lost_recovered + log line
     if (pkg.isRecovery && pkg.recoveryFromPorter) {
       postActivity('lost_recovered', {
         label: pkg.label,
@@ -1560,9 +1419,11 @@ function updateRouteDot() {
 // DOM REFS
 // ============================================================
 const $ = id => document.getElementById(id);
-let els = {};
+
 function resolveEls() {
-  els = {
+  // Mutate els in place (via Object.assign) so the module-level alias
+  // stays pointing at the same object.
+  Object.assign(els, {
     porterStrip:  document.querySelector('.tlh-porter-strip'),
     porterIdEl:   $('porterIdEl'),
     porterHint:   document.querySelector('.tlh-porter-hint'),
@@ -1598,7 +1459,7 @@ function resolveEls() {
     saveBtn:      $('saveBtn'),
     wipeBtn:      $('wipeBtn'),
     saveAgo:      $('saveAgo'),
-  };
+  });
 }
 
 // ============================================================
@@ -1647,12 +1508,6 @@ function buyUpgrade(id) {
 // ============================================================
 // SETTLEMENTS / NETWORK / LOG
 // ============================================================
-// v0.0.7 commit 6: rebuilt panel layout.
-// - Trust bar moved to top (was bottom) when NPC present + stage 3
-// - Trust bar: continuous fill with vertical tick marks at 20/40/60/80
-// - Rebuild bar faded/recessed — placeholder for future real mechanic
-// - Stage-2 settlements get subtle opacity reduction (unconfirmed, de-emphasized)
-// Post-v0.0.7 commit A: gameplay thresholds now match the 20/40/60/80 tick positions.
 function renderSettlements() {
   if (!els.settlementsEl) return;
   els.settlementsEl.innerHTML = '';
@@ -1738,7 +1593,6 @@ function formatEvent(e) {
     case 'lost_drop':
       return `${who} lost <span class="net-ac">${data.label || 'cargo'}</span>`;
     case 'lost_recovered':
-      // v0.0.7 commit 5: include the original porter being repaid
       if (data.forPorter) {
         return `${who} recovered <span class="net-ac">${data.label || 'lost cargo'}</span> for <span class="net-hi">${shortPorterId(data.forPorter)}</span>`;
       }
@@ -1758,6 +1612,7 @@ function tt() {
   const s = totalSecs % 60;
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
+
 function addLog(msg) {
   if (!els.logEl) return;
   const el = document.createElement('span'); el.className = 'log-line';
@@ -1773,15 +1628,12 @@ function addLog(msg) {
 function updateHUD() {
   els.delivered.textContent = S.delivered;
   els.scrip.textContent     = S.scrip + '\u00a2';
-  // v0.0.7 commit 6: distKm is now accumulated directly; display rounded to 1dp
   els.walked.textContent    = (Math.round(S.distKm * 10) / 10) + 'km';
   els.status.textContent    = S.status;
   els.status.style.color    = STATUS_COLORS[S.status] || '#b1c9c3';
   renderUpgrades();
 }
 
-let _lastCargoKey = '';
-let _lastGearPopKey = '';
 function cargoKey() {
   return S.inventory.map(p => `${p.size}${p.destId}${p.scrip}`).join('|') + '|' + S.maxSlots + '|' + S.usedWeight;
 }
@@ -1789,8 +1641,8 @@ function cargoKey() {
 function renderCargoSlots(force) {
   if (!els.cargoSlots) return;
   const key = cargoKey();
-  if (!force && key === _lastCargoKey) return;
-  _lastCargoKey = key;
+  if (!force && key === S._transient.lastCargoKey) return;
+  S._transient.lastCargoKey = key;
 
   els.cargoSlots.innerHTML = '';
   const used = [];
@@ -1833,13 +1685,10 @@ function renderBoots() {
   if (els.bootsVal) els.bootsVal.textContent = d+'%';
   if (els.bootsBar) { els.bootsBar.style.width = d+'%'; els.bootsBar.className = 'boots-bar-fill'+(d>50?'':d>25?' worn':' bad'); }
 
-  // v0.0.7 commit 6: boots gear popover — clip/buy/autobuy live inside here.
-  // Dirty-checked: only rebuild innerHTML when state actually changes, so we
-  // avoid thrashing the DOM every tick.
   if (els.bootsGearPop) {
     const popKey = `${S.bootClipMax}|${S.bootClipCount}|${S.scrip < 15 ? 'x' : 'o'}|${S.autobuyBoots ? 'on' : 'off'}`;
-    if (popKey !== _lastGearPopKey) {
-      _lastGearPopKey = popKey;
+    if (popKey !== S._transient.lastGearPopKey) {
+      S._transient.lastGearPopKey = popKey;
       const clipLine = S.bootClipMax > 0
         ? `<div class="gear-line">clip: <span class="gear-val">${S.bootClipCount}/${S.bootClipMax}</span></div>`
         : '';
@@ -1850,7 +1699,6 @@ function renderBoots() {
         clipLine +
         `<button class="boots-auto gear-btn" id="buyBootsBtn" ${buyDisabled}>buy boots (15\u00a2)</button>` +
         `<button class="boots-auto gear-btn${autobuyOn}" id="autobuyBtn">${autobuyTxt}</button>`;
-      // Re-wire listeners on the fresh DOM nodes
       const newBuy = document.getElementById('buyBootsBtn');
       const newAuto = document.getElementById('autobuyBtn');
       if (newBuy) newBuy.addEventListener('click', buyBoots);
@@ -1862,7 +1710,6 @@ function renderBoots() {
 
   let sandalBadge = document.getElementById('sandalBadge');
   if (S.sandalweedCount > 0 || S.upgrades.sandalSatchel) {
-    // Sandal badge lives beside the gear button — insert after it.
     if (!sandalBadge && els.bootsGearBtn && els.bootsGearBtn.parentNode) {
       sandalBadge = document.createElement('span');
       sandalBadge.id = 'sandalBadge';
@@ -1892,29 +1739,25 @@ function toggleAutobuy() {
   renderBoots();
 }
 
-// v0.0.7 commit 6: gear popover toggle — click-based, click-outside closes.
-let _gearPopHandler = null;
 function toggleBootsGear() {
   if (!els.bootsGearPop) return;
   const isOpen = els.bootsGearPop.classList.toggle('open');
   if (els.bootsGearBtn) els.bootsGearBtn.classList.toggle('on', isOpen);
   if (isOpen) {
-    // Defer attaching the outside-click handler so the click that opened
-    // us doesn't immediately close it.
     setTimeout(() => {
-      _gearPopHandler = (ev) => {
+      S._transient.gearPopHandler = (ev) => {
         if (!els.bootsGearPop.contains(ev.target) && ev.target !== els.bootsGearBtn) {
           els.bootsGearPop.classList.remove('open');
           if (els.bootsGearBtn) els.bootsGearBtn.classList.remove('on');
-          document.removeEventListener('click', _gearPopHandler);
-          _gearPopHandler = null;
+          document.removeEventListener('click', S._transient.gearPopHandler);
+          S._transient.gearPopHandler = null;
         }
       };
-      document.addEventListener('click', _gearPopHandler);
+      document.addEventListener('click', S._transient.gearPopHandler);
     }, 0);
-  } else if (_gearPopHandler) {
-    document.removeEventListener('click', _gearPopHandler);
-    _gearPopHandler = null;
+  } else if (S._transient.gearPopHandler) {
+    document.removeEventListener('click', S._transient.gearPopHandler);
+    S._transient.gearPopHandler = null;
   }
 }
 
@@ -1944,7 +1787,6 @@ function renderStamina() {
     els.drinkBtn.textContent = `drink (${canteenPct}%)`;
     els.drinkBtn.disabled    = S.canteen<=0 || S.stamina>=S.staminaMax;
   }
-  // v0.0.7 commit 6: canteen bar is now vertical — fill grows bottom-to-top via height
   if (els.canteenBar) els.canteenBar.style.height = canteenPct+'%';
 }
 
@@ -1977,16 +1819,14 @@ function checkAutobuy() {
   }
 }
 
-let _clipRefillPending = null;
-
 function refillBootClip(nodeId) {
   if (S.bootClipMax===0 || !['A','B','H'].includes(nodeId)) return;
   if (S.bootClipCount>=S.bootClipMax) return;
-  if (_clipRefillPending) return;
+  if (S._transient.clipRefillPending) return;
   const cost = (S.bootClipMax-S.bootClipCount)*15;
   if (S.scrip < cost) return;
   const settle = S.settlements[nodeId];
-  _clipRefillPending = { nodeId, cost };
+  S._transient.clipRefillPending = { nodeId, cost };
   addLog(`<span class="log-wn">boot clip low</span> at <span class="log-hi">${settle?settle.label:nodeId}</span> \u2014 refill for ${cost}\u00a2? <button class="log-btn" id="clipRefillBtn">refill</button>`);
   setTimeout(() => {
     const btn = document.getElementById('clipRefillBtn');
@@ -1995,9 +1835,9 @@ function refillBootClip(nodeId) {
 }
 
 function confirmClipRefill() {
-  if (!_clipRefillPending) return;
-  const { cost } = _clipRefillPending;
-  _clipRefillPending = null;
+  if (!S._transient.clipRefillPending) return;
+  const { cost } = S._transient.clipRefillPending;
+  S._transient.clipRefillPending = null;
   if (S.scrip < cost) { addLog('<span class="log-wn">not enough scrip</span>'); return; }
   S.scrip -= cost; S.bootClipCount = S.bootClipMax;
   addLog(`boot clip refilled (${cost}\u00a2)`);
@@ -2041,10 +1881,6 @@ function maybeTrip() {
   if (Math.random() >= tripChance()) return;
   if (Math.random() < catchChance()) { addLog('stumbled on debris \u2014 <span class="log-ok">caught yourself</span>'); return; }
 
-  // v0.0.7 commit 6: drop check fires BEFORE tie-down protection.
-  // Tie-down protects against damage, not drops — fate takes the cargo.
-  // Pick the first item in inventory; roll the appropriate chance based on
-  // whether it's a lost pkg (LOST uses higher chance than NORMAL).
   let dropped = false;
   if (S.inventory.length > 0) {
     const target = S.inventory[0];
@@ -2054,11 +1890,9 @@ function maybeTrip() {
       S.usedWeight -= target.kg;
       S.inventory.splice(0, 1);
       if (target.isLost) {
-        // Lost pkgs go through the worker so others can recover them.
         postLostDrop(target);
         addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> fell into the world \u2014 someone may find it`);
       } else {
-        // Normal pkgs just vanish locally — no worker event, no recovery path.
         addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> was lost in the scramble`);
       }
       renderCourierStack();
@@ -2067,8 +1901,6 @@ function maybeTrip() {
     }
   }
 
-  // Tie-down protection: only matters when drop didn't fire. Absorbs the
-  // damage-reduction fallback so a single stumble can't drop AND damage.
   if (!dropped && S.tieDownActive && S.inventory.length > 0) {
     S.tieDownActive=false;
     if (els.tieDownBtn) { els.tieDownBtn.textContent='tie-down: off'; els.tieDownBtn.classList.remove('on'); }
@@ -2146,8 +1978,6 @@ function tick() {
 
     if (S.isRaining||S.inRiver) S.canteen=Math.min(S.canteenMax,S.canteen+0.4);
 
-    // v0.0.7 commit 6: real distKm accumulator (see KM_PER_EDGE comment).
-    // Runs every tick while walking/carrying so we catch sub-edge movement.
     accumulateDist();
     if (S.ticks%5===0) {
       checkDistMilestones();
@@ -2165,7 +1995,6 @@ function tick() {
   }
 
   tickAmbientChatter();
-  // v0.0.7 commit 5: recovery cargo spawn attempts (throttled internally)
   tickRecoveryAttempt();
 
   const prevEdgeIdx = S.edgeIdx;
@@ -2256,9 +2085,6 @@ function init() {
     els.courierAt.style.animation = '';
   }
 
-  // v0.0.7 commit 6: gear popover toggle.
-  // buy/autobuy buttons are rendered inside the popover by renderBoots()
-  // and wired there — we don't pre-bind them at init anymore.
   if (els.bootsGearBtn) els.bootsGearBtn.addEventListener('click', toggleBootsGear);
 
   if (els.drinkBtn) els.drinkBtn.addEventListener('click', drinkWater);
@@ -2302,6 +2128,4 @@ function init() {
   setInterval(tick, TICK_MS);
 }
 
-// Module scripts are deferred by default — DOM is already parsed by the time
-// this executes. No DOMContentLoaded guard needed.
 init();
