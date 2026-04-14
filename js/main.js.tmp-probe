@@ -1,0 +1,40 @@
+/* ==============================================
+   THE LONG HAUL — game logic
+   v0.0.7.11
+
+   Refactor commit 11: extracted package pickup + delivery +
+   respawn to ./packages.js. scanForPickup, tryDeliver,
+   tickPkgRespawns now live there and are called via Pkg.*
+   from the tick loop. sandalCap, renderCourierStack,
+   renderCargoSlots, renderBoots promoted to exports so
+   packages.js can import them back (circular-by-file,
+   not-by-init — bindings are live at runtime). sandalCap
+   will move to boots.js in commit 13; the render helpers
+   move to render/hud.js later.
+
+   Imports:
+     S — game state singleton (state.js)
+     C — tuning constants namespace (constants.js)
+     NPC_LINES, NPC_DEFS, NPC_ADJACENT — NPC data
+     NPC_PKGS, LOST_PKGS — cargo definitions
+     ZONE_TYPES — terrain weights/chars/spawn rates
+     NODE_GLYPHS, STATUS_COLORS — visual maps
+     UPGRADE_DEFS — upgrade list (closures mutate S)
+     saveGame, loadGame, armWipe, updateSaveStrip — persistence
+     getPorterId, getCachedPorterId, postActivity, postLostDrop,
+       fetchLostFromPeer, startPolling, stopPolling,
+       shortPorterId, checkDistMilestones — multiplayer
+     tickRecoveryAttempt, updatePorterStripBadges — recovery
+     getNodeStage, setNodeStage, markEdgeAdjacent,
+       getDisplayLabel — identification
+     addTrust, tryT50Warning, tryT75Preview,
+       tryT100RestPrompt — trust
+     renderChannels, tickAmbientChatter — channels
+     buildWorld, calcCellPxWidth, worldPosFromRoute,
+       renderFieldstrip — world
+     Pkg.scanForPickup, Pkg.tryDeliver,
+       Pkg.tickPkgRespawns — packages (namespace import)
+
+   Local aliases:
+     els, worldCells — see commit 2 notes
+   ============================================== */
