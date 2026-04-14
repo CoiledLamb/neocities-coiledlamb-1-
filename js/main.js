@@ -1,14 +1,14 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.6
+   v0.0.7.7
 
-   Refactor commit 6: extracted multiplayer to ./multiplayer.js.
-   getPorterId, getCachedPorterId, postActivity, postLostDrop,
-   fetchLostFromPeer, pollFeed, startPolling, stopPolling,
-   shortPorterId, checkDistMilestones now imported from there.
+   Refactor commit 7: extracted lost cargo recovery loop
+   to ./recovery.js. tickRecoveryAttempt, spawnRecoveryCargo,
+   updatePorterStripBadges now imported from there.
 
-   addLog and renderNetwork are exported for multiplayer.js
-   (circular by file, not by initialization).
+   pickRandom helper duplicated in recovery.js (still used
+   here by NPC code). Will consolidate when trust/channels
+   extract or a util module appears.
 
    Imports:
      S — game state singleton (state.js)
@@ -22,6 +22,7 @@
      getPorterId, getCachedPorterId, postActivity, postLostDrop,
        fetchLostFromPeer, startPolling, stopPolling,
        shortPorterId, checkDistMilestones — multiplayer
+     tickRecoveryAttempt, updatePorterStripBadges — recovery
 
    Local aliases:
      els, worldCells — see commit 2 notes
@@ -42,6 +43,7 @@ import {
   fetchLostFromPeer, startPolling, stopPolling,
   shortPorterId, checkDistMilestones,
 } from './multiplayer.js';
+import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -313,89 +315,6 @@ function renderChannels() {
       `<span class="chan-ago">${fmtChannelAge(c.ts)}</span>` +
     `</div>`
   ).join('');
-}
-
-// ============================================================
-// LOST CARGO RECOVERY
-// ============================================================
-async function tickRecoveryAttempt() {
-  if (S.ticks < S.nextRecoveryAttemptTick) return;
-  S.nextRecoveryAttemptTick = S.ticks + C.RECOVERY_POLL_INTERVAL;
-
-  if (S.activeRecoveryCount >= C.RECOVERY_SOFT_CAP) return;
-  if (S.ticks - S.lastRecoverySpawnTick < C.RECOVERY_POLL_INTERVAL) return;
-  if (S.knownPeers.length === 0) return;
-
-  const peerId = pickRandom(S.knownPeers);
-  if (!peerId) return;
-
-  const lostList = await fetchLostFromPeer(peerId);
-  if (!lostList || lostList.length === 0) return;
-
-  const lostPkg = pickRandom(lostList);
-  if (!lostPkg) return;
-
-  spawnRecoveryCargo(lostPkg, peerId);
-}
-
-function spawnRecoveryCargo(lostPkg, fromPorterId) {
-  const edgeIdx = Math.floor(Math.random() * S.edges.length);
-  const startCell = edgeIdx * C.CELLS_PER_EDGE;
-  const endCell = startCell + C.CELLS_PER_EDGE;
-
-  const candidates = [];
-  for (let i = startCell + 10; i < endCell - 10; i++) {
-    const c = worldCells[i];
-    if (c && !c.pkg && !c.sandal && i % 8 === 0) {
-      candidates.push(i);
-    }
-  }
-  if (candidates.length === 0) return;
-
-  const ci = pickRandom(candidates);
-  const destId = S.edges[edgeIdx][1];
-
-  const pkg = {
-    size:  lostPkg.size  || 's',
-    label: lostPkg.label || 'lost cargo',
-    kg:    lostPkg.kg    || 1,
-    slots: lostPkg.slots || 1,
-    scrip: Math.floor((lostPkg.scrip || 14) * C.RECOVERY_BONUS_MULT),
-    isLost: true,
-    isRecovery: true,
-    recoveryFromPorter: fromPorterId,
-    destId,
-    picked: false,
-    respawnIn: 0,
-  };
-  worldCells[ci].pkg = pkg;
-  worldCells[ci].isRecovery = true;
-
-  S.activeRecoveryCount++;
-  S.lastRecoverySpawnTick = S.ticks;
-  updatePorterStripBadges();
-  addLog(`<span class="log-wn">recovery cargo</span> dropped into the world`);
-}
-
-function updatePorterStripBadges() {
-  if (!els.porterStrip) return;
-  let badge = document.getElementById('recoveryBadge');
-  const n = S.activeRecoveryCount;
-  if (n > 0) {
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.id = 'recoveryBadge';
-      badge.className = 'tlh-porter-recovery has-tooltip';
-      const hint = els.porterStrip.querySelector('.tlh-porter-hint');
-      if (hint) els.porterStrip.insertBefore(badge, hint);
-      else      els.porterStrip.appendChild(badge);
-    }
-    badge.textContent = 'recovery \u00d7' + n;
-    badge.setAttribute('title', n + ' recovery cargo in the world\nfrom other porters\ndeliver for 1.5\u00d7 scrip');
-    badge.style.display = 'inline';
-  } else if (badge) {
-    badge.style.display = 'none';
-  }
 }
 
 // ============================================================
@@ -972,7 +891,7 @@ function tt() {
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
-// addLog is exported for persistence.js / multiplayer.js / etc.
+// addLog is exported for persistence.js / multiplayer.js / recovery.js / etc.
 // Circular import-safe: callers only invoke addLog inside function bodies, not at module load.
 export function addLog(msg) {
   if (!els.logEl) return;
