@@ -1,5 +1,5 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-14 (commits 5-10 + dropoff at commit 11)_
+_last updated: 2026-04-14 (commits 11-14 done, hotfixed, worker quota fix in place, dropoff about to push commit 15)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, future feature backlog, and game-specific session log.
 
@@ -12,11 +12,13 @@ _last updated: 2026-04-14 (commits 5-10 + dropoff at commit 11)_
 
 **Testing setup**: `python -m http.server 8000` from repo root → `http://localhost:8000/the-long-haul.html`. User is on Windows (cmd). Hard refresh (Ctrl+Shift+R) between commits. Pre-existing benign `favicon.ico 404` — ignore.
 
-### 🛑 DROPOFF POINT: about to push commit 11 (packages.js)
+### 🛑 DROPOFF POINT: about to push commit 15 (upgrades.js)
 
-**Branch HEAD** as of this writing: `836a91b` (commit 10 — world.js extracted, v0.0.7.10 verified green by user).
+**Branch HEAD** as of this writing: `e8d488f` (worker quota-aware fix, on top of `78ccbf6` trip.js hotfix, on top of `f779ab8` commit 13-14 part 2). Main.js is at v0.0.7.14 and **verified green by user** on localhost after the hotfix.
 
-**Next action when resuming**: push commit 11 to extract `js/packages.js`. Plan in detail below in "commits remaining".
+**Worker fix NOT yet deployed** — needs `wrangler deploy` from the `worker/` directory. The git push alone doesn't redeploy a Cloudflare Worker. User to run manually when ready. (Multiplayer will stay broken until UTC midnight KV quota reset regardless — see bug list item 8.)
+
+**Next action when resuming**: push commit 15 to extract `js/upgrades.js`. Plan in detail below.
 
 ### key architecture decisions made
 
@@ -28,30 +30,31 @@ _last updated: 2026-04-14 (commits 5-10 + dropoff at commit 11)_
 - **Data files flat in `js/data/`** (not nested). Six files: `npc-lines.js`, `npc-defs.js`, `packages.js`, `zones.js`, `glyphs.js`, `upgrades.js`. `UPGRADE_DEFS` imports `S` because `apply` closures mutate state — unusual for a data file but cleaner than a dispatch table.
 - **HTML subtitle dimmed sub-version**: `v0.0.7<span style="opacity:0.6">.N</span>` — but the oil-text gradient renders the dimmed `.N` nearly invisible against background. User finds this charming and chose to keep the bug. Update the `.N` value each commit anyway; user verifies via View Source.
 - **No save schema bump during refactor**. Stays at v5. Old saves self-heal via existing ratchet in `loadGame`.
-- **Circular-import-by-file pattern, established commit 5 onward.** Sub-modules import functions like `addLog`, `renderNetwork`, `drawRouteMap`, `renderSettlements`, `staminaSegCount`, `renderStamina`, `updateHUD` from `./main.js`. This is circular by file but NOT by initialization — these are only ever called inside function bodies, never at module load. ES modules handle this correctly (the binding is live, populated by the time anything runs). Each `export` in main.js is annotated with a comment explaining who imports it and why.
+- **Circular-import-by-file pattern, established commit 5 onward.** Sub-modules import functions like `addLog`, `renderNetwork`, `drawRouteMap`, `renderSettlements`, `updateHUD` from `./main.js`, plus peer modules (e.g. trust imports from stamina, packages from boots). This is circular by file but NOT by initialization — these are only ever called inside function bodies, never at module load. ES modules handle this correctly (the binding is live, populated by the time anything runs). Each `export` in main.js is annotated with a comment explaining who imports it and why.
+- **Namespace imports for extracted modules called from main.js tick/init.** Once a module has 3+ functions called from main, main.js imports as `import * as Boots from './boots.js'` and calls `Boots.renderBoots()`. Keeps the import list sane and makes the call site self-document where the function lives. Established with `Pkg`, `Trip`, `Boots`, `Stamina`.
 
 ### target file structure
 ```
 the-long-haul.html          (stays at root)
 the-long-haul.css           (stays at root)
 js/
-  main.js                   - entry + init() + tick() + remaining glue
+  main.js                   ✅ entry + init() + tick() + remaining glue (722 lines at v0.0.7.14)
   state.js                  ✅ S object + S._transient
   constants.js              ✅ tuning values
   world.js                  ✅ buildWorld, scroll, fieldstrip
-  packages.js               ← COMMIT 11 IN PROGRESS  scanForPickup, tryDeliver, respawns
-  trip.js                   - tripChance, catchChance, maybeTrip
-  boots.js                  - buy/autobuy/clip/tie-down/sandalweeds
-  stamina.js                - canteen, drinkWater, speedMultiplier
+  packages.js               ✅ scanForPickup, tryDeliver, tickPkgRespawns
+  trip.js                   ✅ tripChance, catchChance, maybeTrip, accumulateDist
+  boots.js                  ✅ buy/autobuy/clip/tie-down/sandalweeds
+  stamina.js                ✅ canteen, drinkWater, speedMultiplier, staminaSegCount
   identification.js         ✅ nodeStages helpers
   trust.js                  ✅ addTrust, onTrustUnlock, tryWarning/Preview/RestPrompt (rename pending)
   channels.js               ✅ speak, renderChannels, tickAmbientChatter
   recovery.js               ✅ tickRecoveryAttempt, spawnRecoveryCargo, updatePorterStripBadges
   persistence.js            ✅ save/load/wipe/armWipe/updateSaveStrip
   multiplayer.js            ✅ getPorterId/postActivity/pollFeed/etc
-  upgrades.js               - renderUpgrades + buyUpgrade
+  upgrades.js               ← COMMIT 15 NEXT  renderUpgrades + buyUpgrade
   render/
-    hud.js, route-map.js, settlements.js, network.js, log.js
+    hud.js, route-map.js, settlements.js, network.js, log.js  ← COMMIT 16
   data/
     npc-lines.js            ✅
     npc-defs.js             ✅
@@ -59,6 +62,7 @@ js/
     zones.js                ✅
     glyphs.js               ✅
     upgrades.js             ✅ (data with apply closures, imports S)
+  main.js.tmp-probe         ⚠️ junk file (see bug list item 9) — leave for commit-15 cleanup
 ```
 
 ### commits completed on `tlh-modules`
@@ -76,55 +80,73 @@ js/
 | 8 | `d934c07` | identification.js | v0.0.7.8 |
 | 9 | `36d3cb8` | trust.js + channels.js | v0.0.7.9 |
 | 10 | `836a91b` | world.js | v0.0.7.10 |
+| 11 (multi-push) | landed via 4 sub-commits | packages.js | v0.0.7.11 |
+| 12 | `19bea14` | trip.js | v0.0.7.12 |
+| 13-14 part 1 | `7dbad92` | boots.js + stamina.js + packages wire | — |
+| 13-14 part 2 | `f779ab8` | main.js + trust wire + html bump | v0.0.7.14 |
+| 14 hotfix | `78ccbf6` | trip.js missed import | (stays v0.0.7.14) |
+| worker fix | `e8d488f` | worker/index.js quota→429 | worker v0.0.7.1 |
 
-All ten verified green by user. Multiplayer feed working from localhost. Channels, trust gain, recovery cargo all functional through every step.
+All verified green by user. Multiplayer is throttled right now due to Cloudflare KV daily write quota exhaustion (not a refactor regression — would have broken on `main` too; see bug list item 8). Resets at UTC midnight.
 
-### in-progress: commit 11 — packages.js (v0.0.7.11)
+### remaining commits
 
-**Plan as of dropoff:**
+- **Commit 15 — `upgrades.js` (next)**. Extract `renderUpgrades` + `buyUpgrade` from main. Data already in `js/data/upgrades.js`, so this is a trivial move — 2 functions, ~30 lines total. Also clean up the stray `js/main.js.tmp-probe` file as part of this commit (`git rm` equivalent via not including in push). Bump HTML to `v0.0.7.15`.
+- **Commit 16 — `render/` subdirectory** (1-3 pushes depending on size): `hud.js` (updateHUD, renderCargoSlots, renderCourierStack), `route-map.js` (drawRouteMap, updateRouteDot, layoutRouteNodes), `settlements.js` (renderSettlements), `network.js` (renderNetwork, formatEvent), `log.js` (addLog, tt). Treat as one logical commit even if split. Each extracted module's imports get rerouted — grep ALL js files before pushing (see lessons learned).
+- **Commit 17 — Final main.js cleanup**: just `init()` + `tick()` + entry + dest-drift + rain. Delete orphan `the-long-haul.js` stub at repo root. Delete `js/main.js.tmp-probe`. Drop sub-version suffix (v0.0.7.17 → v0.0.7).
 
-**Moves to `js/packages.js`:**
-- `scanForPickup` — pickup proximity scan (calls addLog, renderBoots, renderCourierStack, renderCargoSlots, shortPorterId, sandalCap)
-- `tryDeliver` — most cross-system function in the codebase (~50 lines): touches recovery (`updatePorterStripBadges`, `S.activeRecoveryCount`), multiplayer (`postActivity`, `shortPorterId`), trust (`addTrust`), identification (`getNodeStage`, `setNodeStage`), render (`drawRouteMap`, `renderSettlements`, `renderCourierStack`, `renderCargoSlots`), log (`addLog`), settlement supply/rebuild mutation
-- `tickPkgRespawns` — periodic respawn scan (calls addLog only)
+After commit 17: merge `tlh-modules` → `main`, delete branch. Then bugfix patch → sticky gun + terrain scanner mini-patch → v0.0.8.
+
+### commit 15 plan (detail, ready to execute)
+
+**Moves to `js/upgrades.js`:**
+- `renderUpgrades()` — repaints upgrades panel from `UPGRADE_DEFS`. Called from `updateHUD` and `buyUpgrade`.
+- `buyUpgrade(id)` — spends scrip, flips upgrade flag, runs `def.apply()`, re-renders. Called from render-button click handlers.
 
 **Stays in main:**
-- `cargoKey` and `renderCargoSlots` — render concerns, will move to `render/hud.js` later. Keeping them together avoids forcing render to import from packages later.
-- `renderCourierStack` — same render concern
-- `sandalCap` — boots concern, moves to boots.js in commit 13
+- Everything else. This is the smallest extraction of the refactor.
 
 **Cross-call story:**
-- `packages.js` will import from: state, constants, NPC_DEFS data, multiplayer (`postActivity`, `postLostDrop` not needed — that's in trip.js plan, `shortPorterId`), recovery (`updatePorterStripBadges`), trust (`addTrust`), identification (`getNodeStage`, `setNodeStage`), and main (`addLog`, `renderBoots`, `renderCourierStack`, `renderCargoSlots`, `drawRouteMap`, `renderSettlements`, `sandalCap`)
-- main.js will import the 3 public functions back
+- `upgrades.js` imports: state (`S`), data (`UPGRADE_DEFS`), main (`addLog`, `renderCargoSlots`, `updateHUD`), boots (`Boots.renderBoots`).
+- **`updateHUD` currently calls `renderUpgrades()` at the bottom.** After extraction, main's `updateHUD` will need to import `renderUpgrades` from `./upgrades.js`. This creates circular-by-file between main ↔ upgrades (main uses renderUpgrades in updateHUD, upgrades uses updateHUD+addLog+renderCargoSlots from main, upgrades uses Boots.renderBoots from boots). All invocations happen inside function bodies, so ES modules handle it — same pattern as every other sub-module.
+- main.js init already calls `renderUpgrades()` directly; that call becomes `Upg.renderUpgrades()` with a namespace import.
 
-**Risks to flag before pushing:**
-- `sandalCap` is referenced by both packages (scanForPickup) AND boots code (checkAutobuy, renderBoots). Need to either keep it in main and import it into packages.js, OR move it to boots.js early. Plan: keep in main, export it (already a 2-liner). Will move with boots.js in commit 13.
-- This is the largest single extraction by cross-system count. Verify on the user's localhost very carefully — pickup, delivery, recovery delivery, trust gain on delivery, settlement supply ticks all need to work.
+**Symbols leaving main's export surface:** none. `renderUpgrades` wasn't exported, `buyUpgrade` wasn't exported either (only referenced from the `.addEventListener` inside renderUpgrades itself, which moves with it).
 
-**Commit message format (template ready):**
+**Pre-push check (mandatory, see lessons learned):**
+```bash
+grep -l "renderUpgrades\|buyUpgrade" js/*.js
 ```
-refactor(tlh): commit 11 — extract packages (v0.0.7.11)
+Should match only `main.js` (where the init call lives) and `upgrades.js` (new file). If anything else matches, that file needs its import reviewed.
 
-New js/packages.js with: scanForPickup, tryDeliver,
-tickPkgRespawns. Most cross-system extraction yet — tryDeliver
-alone touches 6 modules.
+**Commit message template:**
+```
+refactor(tlh): commit 15 — extract upgrades (v0.0.7.15)
+
+Moves renderUpgrades + buyUpgrade to js/upgrades.js. Smallest
+extraction of the refactor — 2 functions, ~30 lines. Data was
+already in js/data/upgrades.js since commit 4.
 
 main.js changes:
-- Removed inline PACKAGE PICKUP / PACKAGE DELIVERY blocks (~150 lines)
-- Added namespace import for packages.js public surface
-- Added `export` to renderBoots, renderCourierStack,
-  renderCargoSlots, sandalCap (with circular-import-safe comments)
+- Removed inline UPGRADES block
+- Added `import * as Upg from './upgrades.js'`
+- updateHUD now calls Upg.renderUpgrades() at the bottom
+- init now calls Upg.renderUpgrades() instead of bare
 
-HTML subtitle bumped to v0.0.7.11.
+Housekeeping: removed stray js/main.js.tmp-probe file
+(accidentally created during commit 11 push; harmless,
+nothing imports it, but shouldn't live in tree).
+
+HTML subtitle bumped to v0.0.7.15.
 
 No save schema bump.
 
-Verify hard-refresh — gameplay 100% identical to v0.0.7.10.
-Test: pickup, regular delivery, recovery delivery (rare —
-depends on peer activity), trust gain on delivery, settlement
-supply tick on delivery, package respawn after delivery.
+Verify: buy any upgrade, see upgrades panel re-render correctly,
+post-purchase state (owned button, disabled next upgrade until
+scrip) all works. Also confirm sandalSatchel still visibly
+extends the sandalweed badge cap.
 
-Next: commit 12 — trip.js (tripChance, catchChance, maybeTrip).
+Next: commit 16 — render/ subdirectory.
 ```
 
 ### running bug list (collate with player feedback for next bugfix patch)
@@ -140,27 +162,18 @@ Next: commit 12 — trip.js (tripChance, catchChance, maybeTrip).
 6. **`tryT50Warning` rain logic possibly off**: `!S.isRaining && S.rainTimer > 0 && S.rainTimer < 25`. Timer counts down both during and between rain. Intent seems "rain incoming soon" but condition also true between events. User to sanity check — they wrote the rules.
 7. **`_lastGearPopKey` hardcodes scrip threshold to 15** (boots cost). Should be `C.BOOT_PRICE` constant (doesn't exist; `15` appears in 4 places).
 
+**Multiplayer / worker (new this session):**
+8. **Cloudflare KV free-tier daily put quota (1000/day) easily exhausted by active testing.** A few hours of dev with multiple browsers burns through it. Worker now returns 429 with `Retry-After` pointing at next UTC midnight (committed `e8d488f`, worker v0.0.7.1, needs `wrangler deploy`) instead of crashing as 500. Game-side TODO for bugfix patch:
+   - **Client-side rate limit on `postActivity`**: minimum 5s cooldown between any two posts; drop duplicate types within the window.
+   - **Coalesce milestone broadcasts**: if 5km/10km/15km cross in quick succession, batch into one event rather than three POSTs.
+   - **429 detection UI signal**: when POSTs start 429ing, dim the network panel + show "feed throttled — broadcasts paused" instead of the misleading "no signal" (which genuinely means "empty feed", not "broken").
+9. **Stray `js/main.js.tmp-probe` file** — accidentally created during the messy commit 11 push. Harmless (nothing imports it), but shouldn't be in tree. Remove as part of commit 15.
+
 ### user-discussed features deferred to post-refactor patch
 
 **Save export/import (cross-browser saves)** — User asked, deferred to post-refactor "feedback patch." Plan: base64-encode `buildSavePayload` output, prefix with magic string `TLH-SAVE-v5:`, paste into textarea on import. Open question: bundle porter ID? Recommended hybrid — bundle but checkbox to opt-in on import (default off = move progress, keep new browser's identity). Avoids accidental impersonation/double-broadcast on multiplayer.
 
 **Save on browser close** — User asked. Already handled via `beforeunload` + `visibilitychange` + autosave interval. localStorage.setItem is synchronous, no delay needed. Nothing to do.
-
-### remaining commits after 11
-
-Combining where it's safe to reduce ceremony for trivial extractions:
-
-- **Commit 12** — `trip.js`: `tripChance`, `catchChance`, `maybeTrip`, `currentCellIsRisky`. Includes `postLostDrop` call — already imported from multiplayer. Also moves the `posKm` / `accumulateDist` distance helpers (currently inline in main).
-- **Commits 13-14 combined** — `boots.js` + `stamina.js` (small + tangled): `buyBoots`, `checkAutobuy`, `refillBootClip`, `confirmClipRefill`, `toggleTieDown`, `toggleAutobuy`, `toggleBootsGear`, `sandalCap`, `drinkWater`, `speedMultiplier`, `staminaSegCount`, `renderStamina`, `renderBoots`. `staminaSegCount` and `renderStamina` are already exported from main (for trust.js).
-- **Commit 15** — `upgrades.js`: `renderUpgrades` + `buyUpgrade` (data already in `data/upgrades.js`).
-- **Commit 16** — `render/` subdirectory (1-3 pushes depending on size): `hud.js`, `route-map.js`, `settlements.js`, `network.js`, `log.js`. Treat as one logical commit even if split for size.
-- **Commit 17** — Final main.js cleanup: just `init()` + `tick()` + entry. Delete orphan `the-long-haul.js` stub at repo root. Drop sub-version suffix (v0.0.7.17 → v0.0.7).
-
-After all 17 done: merge `tlh-modules` → `main`, delete branch.
-
-Then: sticky gun + terrain scanner mini-patch, then user's player-feedback-focused patch (will collate with bug list above), then v0.0.8.
-
-Each commit: bump HTML subtitle to next sub-version. Commit message format: `refactor(tlh): commit N — extract <module> (v0.0.7.N)`.
 
 ### invariants preserved throughout refactor
 
@@ -174,24 +187,50 @@ Each commit: bump HTML subtitle to next sub-version. Commit message format: `ref
 
 ### user preferences for working with this branch
 
-- User likes seeing assumptions stated up-front before pushes ("here's what I'm about to do, here's the one weird thing about it") — gives them a chance to redirect.
-- User is fine with bold structural changes when they're well-explained, but flag tradeoffs honestly.
-- User pushes back when something feels weird (e.g. asked good questions about single-letter `S`, the dimmed `.N` rendering, the "no signal" panic that turned out to be cache + correct empty-state). Take the questions seriously, don't hand-wave.
+- User likes seeing **assumptions stated up-front before pushes** ("here's what I'm about to do, here's the one weird thing about it") — gives them a chance to redirect. Do not skip this even when the push feels obvious.
+- User is fine with bold structural changes when they're well-explained, but **flag tradeoffs honestly**.
+- User **pushes back when something feels weird** (e.g. asked good questions about single-letter `S`, the dimmed `.N` rendering, the "no signal" panic that turned out to be cache + correct empty-state, the KV quota 500 that turned out to be not-a-refactor-regression). Take the questions seriously, don't hand-wave.
 - Discuss style choices briefly and let user pick when there's no clear winner. Don't over-deliberate.
-- Commit messages should be substantive — explain rollback path, what changed, what stayed.
+- **Commit messages should be substantive** — explain rollback path, what changed, what stayed, what to test.
 - User has a list of player-submitted bugs they'll collate with the running bug list above when we hit the bugfix patch.
-- User explicitly prefers seeing ideas/suggestions when relevant, doesn't want me to hold back on things I notice.
+- User explicitly **prefers seeing ideas/suggestions when relevant**, doesn't want agent to hold back on things noticed.
+- User makes a distinction between **"refactor regression" (fix immediately, don't let it ride)** and **"bugfix patch material" (defer + write to bug list)**. When in doubt, ask — but err toward fixing regressions now so the "no behavior change" claim stays honest.
+
+### GitHub MCP workflow — lessons from this session
+
+The agent is pushing directly via `github:push_files` and `github:create_or_update_file`. No git CLI, no local sandbox that the user can see. That changes which mistakes are easy to make.
+
+**Hard-learned rules (in priority order):**
+
+1. **Always push multi-file commits as a single `push_files` call with ALL files in the array.** Splitting across two calls leaves the branch in a half-applied broken state — e.g. commit 13-14 had to be split for payload size, and between the two pushes, `packages.js` imported from a `boots.js` that didn't exist yet on remote. If you must split, the first half must still be self-consistent (don't push imports whose targets don't exist yet).
+
+2. **Before pushing ANY extraction that removes symbols from main's export surface, run:**
+   ```bash
+   grep -rn "<each removed symbol>" js/
+   ```
+   for every symbol leaving main. The commit 14 hotfix (`78ccbf6`) happened because `trip.js` still imported `staminaSegCount` from `./main.js` after that export moved to `./stamina.js`. I only checked the modules I *thought* would use it (packages, trust). trip.js used it since commit 12 and I hadn't re-verified. Cost: one broken user session + one hotfix commit. This check takes 5 seconds.
+
+3. **Module-init import failures cascade silently to the entire app.** If `trip.js` fails to load because of a bad import, it takes down packages (which imports trip-indirectly via trust chain) which takes down everything. Symptom: blank UI, console shows a single `SyntaxError: doesn't provide an export named '<symbol>'`. Fix: rule #2 above. Debug: check the console error — it names the failing module and missing symbol.
+
+4. **Runtime errors inside ticked code are different** — no module-init fail, but tick bails mid-loop. Symptom: UI loads but systems don't update (distKm frozen, renderX not firing). Debug: console will have a red throw with stack trace. Ask user for it before guessing.
+
+5. **Don't probe with junk files on the real branch.** In commit 11, created `js/main.js.tmp-probe` to test something and forgot to remove it. Still in tree, will clean up commit 15. If probing, use a throwaway local file path that's never pushed, or use `get_file_contents` which doesn't write.
+
+6. **Verify remote state with `get_file_contents` before editing.** Don't assume your last push is the current SHA — intermediate hotfixes happen. Pass the remote SHA back in `create_or_update_file` to get optimistic-concurrency protection.
+
+7. **Commit message length signals care level.** User actively likes substantive commit messages explaining the why, not just what. Short messages read as sloppy.
 
 ### branch merge plan (after refactor complete)
 
 When `tlh-modules` is fully merged structurally (all extractions done, `main.js` is just init+tick+entry):
 1. Drop the sub-version suffix in HTML: `v0.0.7.17` → `v0.0.7` again.
 2. Delete the orphan stub `the-long-haul.js` at repo root.
-3. Squash-merge or merge-commit to `main` (user's call).
-4. Update both this doc and `HANDOFF.md` to reflect new file structure.
-5. Delete `tlh-modules` branch.
+3. Delete `js/main.js.tmp-probe` (if still present).
+4. Squash-merge or merge-commit to `main` (user's call).
+5. Update both this doc and `HANDOFF.md` to reflect new file structure.
+6. Delete `tlh-modules` branch.
 
-After merge: ready for the bugfix/feedback patch (collate refactor housekeeping + player feedback), then sticky gun + terrain scanner mini-patch, then v0.0.8 work.
+After merge: ready for the bugfix/feedback patch (collate refactor housekeeping + player feedback + multiplayer items 8-9), then sticky gun + terrain scanner mini-patch, then v0.0.8 work.
 
 ---
 
@@ -270,7 +309,7 @@ No bump. Schema stays v5. `distKm` is still a plain number; transient `_lastDist
 
 The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All mutable state is in the `S` object. Persistent save state lives in `localStorage`.
 
-> **Note**: the above describes pre-refactor architecture (still accurate on `main`). On the `tlh-modules` branch, the game is split across `js/main.js`, `js/state.js`, `js/constants.js`, `js/data/*.js`, plus the extracted modules (persistence, multiplayer, recovery, identification, trust, channels, world). The behavior described below is identical on both branches.
+> **Note**: the above describes pre-refactor architecture (still accurate on `main`). On the `tlh-modules` branch, the game is split across `js/main.js`, `js/state.js`, `js/constants.js`, `js/data/*.js`, plus the extracted modules (persistence, multiplayer, recovery, identification, trust, channels, world, packages, trip, boots, stamina). The behavior described below is identical on both branches.
 
 ### core loop
 - The courier walks a fixed circular route of 6 edges between 6 named nodes (A → ? → B → C → H → · → A).
@@ -281,7 +320,7 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - `KM_PER_EDGE = 4.2`. `posKm(edgeIdx, dotT) = (edgeIdx + dotT) * KM_PER_EDGE` gives current ring position.
 - `accumulateDist()` runs every walking/carrying tick: computes forward delta since last tick, handles rollover (negative delta → add `edges.length * KM_PER_EDGE`), caps absurd jumps at 2× edge length, adds to `S.distKm`, updates trackers.
 - `S._lastDistEdgeIdx` / `S._lastDistDotT` null sentinel = first tick since load; initializes trackers without counting a spurious delta.
-- (On refactor branch: these live on `S._transient.lastDistEdgeIdx` / `S._transient.lastDistDotT`.)
+- (On refactor branch: these live on `S._transient.lastDistEdgeIdx` / `S._transient.lastDistDotT`. `posKm`/`accumulateDist` in `js/trip.js` since commit 12.)
 
 ### world map
 - `buildWorld()` generates a flat array `worldCells[]` of exactly `CELLS_PER_EDGE × 6 = 1,560` cells at startup. World is regenerated fresh each page load — never persisted.
@@ -296,12 +335,18 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - On pickup: `pkg.picked = true`, package copied into `S.inventory` with `_worldCell` reference for respawn. Recovery metadata (`isRecovery`, `recoveryFromPorter`) carries forward.
 - On node arrival: `tryDeliver(arrivedNodeId)` delivers all inventory items with matching `destId`.
 - After delivery: normal pkg gets `pkg.respawnIn = PKG_RESPAWN_TICKS (500)`. **Recovery cargo is one-shot** — `worldCell.pkg` set to null, `activeRecoveryCount` decremented, `updatePorterStripBadges()` refreshes the strip.
+- (On refactor branch: in `js/packages.js` since commit 11.)
 
 ### trip + drop (v0.0.7 commit 6)
 - `TRIP_DROP_CHANCE_NORMAL = 0.20`, `TRIP_DROP_CHANCE_LOST = 0.30`.
 - On trip: catch roll first. If not caught, **drop check fires BEFORE tie-down**. Targets first inventory item; roll appropriate chance. Lost pkg drops via `postLostDrop()` (worker). Normal pkg vanishes locally with a log line — no worker event.
 - Tie-down: if drop didn't fire and inventory > 0, consumes the tie-down to protect against damage fallback. `S.tieDownActive = false`.
 - Damage fallback: if no drop and no tie-down, first item's scrip takes 25% hit (min 1).
+- (On refactor branch: in `js/trip.js` since commit 12.)
+
+### boots / stamina (refactor branch commits 13-14)
+- `boots.js` owns: `sandalCap`, `buyBoots`, `checkAutobuy`, `refillBootClip`, `confirmClipRefill`, `toggleAutobuy`, `toggleBootsGear`, `toggleTieDown`, `renderBoots`. Tie-down lives here because the original main.js section grouped tie-down with boots/clip; Trip reads `S.tieDownActive` directly so no cross-import needed.
+- `stamina.js` owns: `staminaSegCount`, `renderStamina`, `drinkWater`, `speedMultiplier`. Autodrink threshold triggers `drinkWater` from inside `renderStamina`.
 
 ### sandalweeds
 - Spawn in scrub (most), road (rare), ruins (rare). Wetlands and depot approaches: never.
@@ -389,10 +434,11 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - Rate limit: 5 events/60s per porter, silent drop.
 - Feed cap 200 events. Census 24h auto-prune. LOST_CAP 20 per porter FIFO.
 - CORS open.
+- **Worker v0.0.7.1 (committed `e8d488f`, not yet deployed)**: KV daily-quota exhaustion now returns 429 with `Retry-After` header (seconds until UTC midnight) instead of 500. Detection in the `try/catch` at the bottom of the `fetch` handler via `isKvQuotaError(err)` helper (substring match on "limit exceeded"). Any other unhandled error still returns 500. Deploy with `wrangler deploy` from `worker/` directory.
 
 ### game-side
 - Constants in `MULTIPLAYER` block: `FEED_URL`, `POLL_MS = 60000`, `FEED_DISPLAY_CAP = 8`.
-- `postActivity(type, data)` — fire-and-forget POST with `keepalive:true`.
+- `postActivity(type, data)` — fire-and-forget POST with `keepalive:true`. Silent on all errors.
 - `pollFeed()` — incremental fetch via `?since=`, dedupes, harvests peer porter IDs into `knownPeers`.
 - `startPolling`/`stopPolling` tied to `visibilitychange` (only polls while tab visible).
 - `checkDistMilestones()` broadcasts at [10, 25, 50, 100, 250, 500, 1000]km.
@@ -478,7 +524,31 @@ Two upgrades shipping as a small mini-patch after the `tlh-modules` refactor mer
 
 ## TLH session log
 
-### 2026-04-14 (tlh-modules refactor — commits 5-10 done, dropoff at commit 11)
+### 2026-04-14 (tlh-modules refactor — commits 11-14 done, worker quota fix, dropoff at commit 15)
+
+Resumed refactor from commit 10 dropoff. Pushed commits 11, 12, and 13-14 (combined), plus one hotfix and a worker-side fix. Main.js dropped from ~887 lines to 722.
+
+**Commits this session:**
+- **11 (multi-push)** — packages.js. Messy push: split across 4 sub-commits instead of the intended 1. Created stray `js/main.js.tmp-probe` during a misdirected probe attempt. Still landed green, but tree has a junk file to clean up in commit 15.
+- **12 `19bea14`** — trip.js. Clean single push. Extracted trip mechanics + distance accumulator.
+- **13-14 part 1 `7dbad92` + part 2 `f779ab8`** — boots.js + stamina.js combined. Split across two pushes only for payload size; the two halves are intended as one atomic commit 13-14.
+  - boots.js (~190 lines): sandalCap, buyBoots, checkAutobuy, refillBootClip, confirmClipRefill, toggleAutobuy, toggleBootsGear, toggleTieDown, renderBoots.
+  - stamina.js (~80 lines): staminaSegCount, renderStamina, drinkWater, speedMultiplier.
+  - packages.js rerouted to import sandalCap+renderBoots from boots.js.
+  - trust.js rerouted to import staminaSegCount+renderStamina from stamina.js.
+  - main.js dropped 4 exports (sandalCap, renderBoots, staminaSegCount, renderStamina).
+- **14 hotfix `78ccbf6`** — trip.js was still importing `staminaSegCount` from `./main.js` after commit 14 moved it to `./stamina.js`. Missed because I grepped only the modules I thought would use it (packages, trust). Hard symptom: blank UI on user's hard refresh, one console line: `Uncaught SyntaxError: The requested module 'http://localhost:8000/js/main.js' doesn't provide an export named: 'staminaSegCount'` — at trip.js:42. One-line import reroute. Cost: one broken user session. Lesson added to this doc under "GitHub MCP workflow — lessons from this session".
+- **Worker quota fix `e8d488f`** (worker v0.0.7.1) — User reported multiplayer broadcasts silently not working across two browsers. Investigation via DevTools Network tab showed `POST /activity` returning HTTP 500 with body `server_error: KV put() limit exceeded for the day`. **Not a refactor regression** — Cloudflare KV free tier has a 1000 puts/day cap and active dev testing had exhausted it. Worker patched to detect KV quota errors via `isKvQuotaError()` and return 429 with `Retry-After` header pointing at next UTC midnight instead of 500. Game-side `postActivity` already swallows errors silently, so no client change needed today. **Deploy pending**: user needs to run `wrangler deploy` from `worker/` directory.
+
+**Debugging pattern that worked for the worker 500:** asked user for DevTools Network tab output, then specifically the Response body of the failing POST. The response body had the exact error string. Skipped a lot of guessing this way.
+
+**Bug list items added:**
+- 8 — KV write quota easily exhausted; worker now handles gracefully but client-side rate limiting + UI signal still TODO for bugfix patch.
+- 9 — stray `js/main.js.tmp-probe` from commit 11 messiness; remove in commit 15.
+
+**Dropoff:** about to push commit 15 (upgrades.js). Plan detailed at top of this doc. Also: worker fix needs `wrangler deploy` when user is ready. Multiplayer will be throttled until UTC midnight regardless.
+
+### 2026-04-14 (tlh-modules refactor — commits 5-10 done, earlier this day)
 
 Continued refactor on `tlh-modules`. All ten extractions verified green by user across two sessions. Working pattern locked in: each commit announces plan with cross-call story, pushes 3 files (new module + main.js + HTML version bump), user verifies, move on.
 
@@ -493,8 +563,6 @@ Continued refactor on `tlh-modules`. All ten extractions verified green by user 
 **Mid-session false alarm:** User reported "no signal" on localhost network panel after commit 6. Was actually browser cache showing v0.0.7.4 (DevTools Network confirmed) — once cleared, multiplayer working fine. "no signal" is the genuine empty-feed state when the visible window has no events from peers (you're filtered out as self).
 
 **Bug list started during this session** (see top of doc) — will collate with player-submitted feedback for next bugfix patch.
-
-**Dropoff:** Was about to push commit 11 (packages.js) when context ran low. Plan written in detail at top of this doc. Resume by pushing per that plan.
 
 ### 2026-04-14 (tlh-modules refactor — commits 1-4 done, earlier session)
 
