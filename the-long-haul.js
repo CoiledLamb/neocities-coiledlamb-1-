@@ -157,7 +157,10 @@ const NPC_DEFS = {
   'B': { callsign: 'iota', name: 'iota', depotLabel: 'depot b' },
   'H': { callsign: 'tau',  name: 'tau',  depotLabel: 'home'    },
 };
-const TRUST_THRESHOLDS = [25, 50, 75, 100];
+// Post-v0.0.7 refactor pass (commit A): realigned 25/50/75/100 → 20/40/60/80
+// to match the settlements panel tick marks. Gameplay and visual now agree.
+// Old saves self-heal via the ratchet in loadGame — no migration needed.
+const TRUST_THRESHOLDS = [20, 40, 60, 80];
 const TRUST_GAIN_DELIVERY      = 1;
 const TRUST_GAIN_LOST_DELIVERY = 2;
 const TRUST_GAIN_DISCOVERY     = 3;
@@ -171,22 +174,22 @@ const NPC_ADJACENT = {
 const NPC_LINES = {
   threshold: {
     'A': {
-      25:  'good. been watching you. try the road west when you can.',
-      50:  'when the sky goes the colour of zinc, you turn back. tell yourself i said so.',
-      75:  'i keep the manifest in my head now. ask before you leave and i\'ll tell you what\'s out there.',
-      100: 'door\'s open, porter. fire\'s lit. you sit when you need to sit.',
+      20:  'good. been watching you. try the road west when you can.',
+      40:  'when the sky goes the colour of zinc, you turn back. tell yourself i said so.',
+      60:  'i keep the manifest in my head now. ask before you leave and i\'ll tell you what\'s out there.',
+      80:  'door\'s open, porter. fire\'s lit. you sit when you need to sit.',
     },
     'B': {
-      25:  'oh — hey! you\'re the one walking the loop! i can point you somewhere new if you want.',
-      50:  'rain on the way? i can usually feel it. ask me at the door, i\'ll tell you straight.',
-      75:  'i see the packages stacked here before they go out. you want a tip? just ask.',
-      100: 'we built the bunk. it\'s yours when you\'re here. don\'t make it weird, just sleep.',
+      20:  'oh — hey! you\'re the one walking the loop! i can point you somewhere new if you want.',
+      40:  'rain on the way? i can usually feel it. ask me at the door, i\'ll tell you straight.',
+      60:  'i see the packages stacked here before they go out. you want a tip? just ask.',
+      80:  'we built the bunk. it\'s yours when you\'re here. don\'t make it weird, just sleep.',
     },
     'H': {
-      25:  'i remember your callsign now. that means something. keep coming back.',
-      50:  'if you\'re tired or hurt or the weather\'s wrong, i\'ll say so. that\'s the deal.',
-      75:  'people leave parcels here on their way through. i can tell you what\'s waiting up the line.',
-      100: 'home is home. when you\'re here, you\'re here. eat. sleep. start again.',
+      20:  'i remember your callsign now. that means something. keep coming back.',
+      40:  'if you\'re tired or hurt or the weather\'s wrong, i\'ll say so. that\'s the deal.',
+      60:  'people leave parcels here on their way through. i can tell you what\'s waiting up the line.',
+      80:  'home is home. when you\'re here, you\'re here. eat. sleep. start again.',
     },
   },
   ambient: {
@@ -313,9 +316,9 @@ const S = {
   lastFeedTimestamp: 0,
 
   npcs: {
-    'A': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false }, nextChatterTick: 0 },
-    'B': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false }, nextChatterTick: 0 },
-    'H': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false }, nextChatterTick: 0 },
+    'A': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'B': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'H': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
   },
 
   channels: [],
@@ -572,7 +575,12 @@ function onTrustUnlock(depotId, tier) {
   const line = NPC_LINES.threshold[depotId] && NPC_LINES.threshold[depotId][tier];
   if (line) speak(depotId, line);
 
-  if (tier === 25) {
+  // Post-v0.0.7 commit A: tier comparisons realigned to new thresholds.
+  // t20 = adjacent reveal (was t25)
+  // t40 = warnings unlocked (was t50)
+  // t60 = route previews unlocked (was t75)
+  // t80 = rest prompts unlocked (was t100)
+  if (tier === 20) {
     const adj = NPC_ADJACENT[depotId] || [];
     const revealed = [];
     adj.forEach(nid => {
@@ -586,13 +594,13 @@ function onTrustUnlock(depotId, tier) {
       drawRouteMap();
       renderSettlements();
     } else {
-      addLog(`<span class="log-hi">${npcLabel}</span> trusts you (25)`);
+      addLog(`<span class="log-hi">${npcLabel}</span> trusts you (20)`);
     }
     return;
   }
-  if (tier === 50)  addLog(`<span class="log-hi">${npcLabel}</span> trusts you (50) \u2014 will share warnings`);
-  else if (tier === 75)  addLog(`<span class="log-hi">${npcLabel}</span> trusts you (75) \u2014 will preview routes`);
-  else if (tier === 100) addLog(`<span class="log-hi">${npcLabel}</span> trusts you (100) \u2014 you have a seat by their fire`);
+  if (tier === 40)      addLog(`<span class="log-hi">${npcLabel}</span> trusts you (40) \u2014 will share warnings`);
+  else if (tier === 60) addLog(`<span class="log-hi">${npcLabel}</span> trusts you (60) \u2014 will preview routes`);
+  else if (tier === 80) addLog(`<span class="log-hi">${npcLabel}</span> trusts you (80) \u2014 you have a seat by their fire`);
 }
 
 // ============================================================
@@ -619,8 +627,11 @@ function pickRandom(arr) {
 }
 
 function tryT50Warning(depotId) {
+  // Post-v0.0.7 commit A: unlock gate moved from t50 to t40 (thresholds
+  // realigned). Function name kept for now — will be renamed in commit C
+  // (NPC/trust/channels grouping) to avoid touching every callsite twice.
   const npc = getNpc(depotId);
-  if (!npc || !npc.unlocks.t50) return false;
+  if (!npc || !npc.unlocks.t40) return false;
   const lines = NPC_LINES.warning[depotId];
   if (!lines) return false;
 
@@ -644,8 +655,10 @@ function tryT50Warning(depotId) {
 }
 
 function tryT75Preview(depotId) {
+  // Post-v0.0.7 commit A: unlock gate moved from t75 to t60.
+  // Function name kept; will be renamed in commit C.
   const npc = getNpc(depotId);
-  if (!npc || !npc.unlocks.t75) return false;
+  if (!npc || !npc.unlocks.t60) return false;
   const tmpl = NPC_LINES.preview[depotId];
   if (!tmpl) return false;
 
@@ -674,8 +687,10 @@ let _depotRestPending = null;
 const DEPOT_REST_BONUS_SCRIP = 10;
 
 function tryT100RestPrompt(depotId) {
+  // Post-v0.0.7 commit A: unlock gate moved from t100 to t80.
+  // Function name kept; will be renamed in commit C.
   const npc = getNpc(depotId);
-  if (!npc || !npc.unlocks.t100) return false;
+  if (!npc || !npc.unlocks.t80) return false;
   if (_depotRestPending) return false;
   if (S.stamina >= S.staminaMax && S.staminaOverboost) return false;
   const def = NPC_DEFS[depotId];
@@ -711,7 +726,8 @@ function tickAmbientChatter() {
   if (S.ticks % 10 !== 0) return;
   Object.keys(NPC_DEFS).forEach(depotId => {
     const npc = getNpc(depotId);
-    if (!npc || !npc.unlocks.t25) return;
+    // Post-v0.0.7 commit A: chatter gate moved from t25 to t20.
+    if (!npc || !npc.unlocks.t20) return;
     if (S.ticks < npc.nextChatterTick) return;
     if (Math.random() >= CHATTER_BASE_CHANCE * 10) return;
     const line = pickRandom(NPC_LINES.ambient[depotId]);
@@ -1020,10 +1036,20 @@ function loadGame() {
           S.npcs[k].trust = Math.max(0, Math.min(100, Math.floor(n.trust)));
         }
         if (n.unlocks && typeof n.unlocks === 'object') {
-          ['t25','t50','t75','t100'].forEach(t => {
-            if (typeof n.unlocks[t] === 'boolean') S.npcs[k].unlocks[t] = n.unlocks[t];
+          // Post-v0.0.7 commit A: old saves may have t25/t50/t75/t100 keys.
+          // Map them forward to the new t20/t40/t60/t80 keys so unlocks are
+          // preserved without a schema bump. Any unknown keys are ignored.
+          const legacyMap = { t25:'t20', t50:'t40', t75:'t60', t100:'t80' };
+          Object.keys(n.unlocks).forEach(oldKey => {
+            if (typeof n.unlocks[oldKey] !== 'boolean') return;
+            const newKey = legacyMap[oldKey] || oldKey;
+            if (newKey in S.npcs[k].unlocks) {
+              S.npcs[k].unlocks[newKey] = n.unlocks[oldKey] || S.npcs[k].unlocks[newKey];
+            }
           });
         }
+        // Ratchet: any trust ≥ threshold auto-unlocks (self-heals old saves
+        // where the player was in-between tiers when thresholds changed).
         TRUST_THRESHOLDS.forEach(t => {
           const key = 't' + t;
           if (S.npcs[k].trust >= t && !S.npcs[k].unlocks[key]) {
@@ -1610,9 +1636,9 @@ function buyUpgrade(id) {
 // v0.0.7 commit 6: rebuilt panel layout.
 // - Trust bar moved to top (was bottom) when NPC present + stage 3
 // - Trust bar: continuous fill with vertical tick marks at 20/40/60/80
-//   (visual-only; gameplay thresholds remain 25/50/75/100 — realigned in refactor pass)
 // - Rebuild bar faded/recessed — placeholder for future real mechanic
 // - Stage-2 settlements get subtle opacity reduction (unconfirmed, de-emphasized)
+// Post-v0.0.7 commit A: gameplay thresholds now match the 20/40/60/80 tick positions.
 function renderSettlements() {
   if (!els.settlementsEl) return;
   els.settlementsEl.innerHTML = '';
