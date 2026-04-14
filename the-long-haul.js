@@ -39,6 +39,14 @@ const PKG_RESPAWN_TICKS = 500;
 const SANDAL_CAP_BASE     = 5;
 const SANDAL_CAP_UPGRADED = 25;
 
+// v0.0.7 commit 6: distKm accumulator
+// Pre-commit-6, distKm was derived from (edgeIdx + dotT) * 4.2 every 5 ticks,
+// so fresh saves (edgeIdx default 2) would show ~8.4km before moving. Now a
+// true accumulator: posKm() gives current ring position, accumulateDist()
+// adds forward delta per tick and handles loop rollover.
+// Old saves self-heal on first session post-upgrade — no migration needed.
+const KM_PER_EDGE = 4.2;
+
 const ZONE_TYPES = {
   road: {
     weight: 40, width: [12, 22],
@@ -131,7 +139,11 @@ const STATUS_COLORS = {
 const DIST_MILESTONES = [10, 25, 50, 100, 250, 500, 1000];
 
 // v0.0.7 commit 5: lost cargo recovery tunables
-const TRIP_LOST_DROP_CHANCE  = 0.30;  // chance lost pkg drops (vs damages) on trip
+// v0.0.7 commit 6: TRIP_LOST_DROP_CHANCE split into NORMAL/LOST — all cargo
+// can now drop on trip, not just lost pkgs. Drop check fires BEFORE tie-down
+// (tie-down protects damage only, fate takes the cargo regardless).
+const TRIP_DROP_CHANCE_NORMAL = 0.20;  // chance any normal pkg drops on trip
+const TRIP_DROP_CHANCE_LOST   = 0.30;  // chance lost pkg drops on trip
 const RECOVERY_BONUS_MULT    = 1.5;   // scrip multiplier for recovery deliveries
 const RECOVERY_SOFT_CAP      = 3;     // max active recovery cargo in world
 const RECOVERY_POLL_INTERVAL = 85;    // ticks between recovery spawn attempts (~30s)
@@ -319,10 +331,44 @@ const S = {
   activeRecoveryCount: 0,
   lastRecoverySpawnTick: 0,
   nextRecoveryAttemptTick: 0,
+
+  // v0.0.7 commit 6: distKm accumulator trackers (transient, not persisted).
+  // Null sentinel means "first tick since load" — accumulator uses that to
+  // seed without counting a spurious delta.
+  _lastDistEdgeIdx: null,
+  _lastDistDotT: null,
 };
 
 function sandalCap() {
   return S.upgrades.sandalSatchel ? SANDAL_CAP_UPGRADED : SANDAL_CAP_BASE;
+}
+
+// v0.0.7 commit 6: distKm accumulator helpers.
+// posKm returns current ring position in km; accumulateDist adds forward
+// delta since last tick to S.distKm. Handles edge rollover (negative delta
+// from wrap-around) by adding the full loop length (6 * KM_PER_EDGE).
+function posKm(edgeIdx, dotT) {
+  return (edgeIdx + dotT) * KM_PER_EDGE;
+}
+
+function accumulateDist() {
+  if (S._lastDistEdgeIdx === null || S._lastDistDotT === null) {
+    S._lastDistEdgeIdx = S.edgeIdx;
+    S._lastDistDotT    = S.dotT;
+    return;
+  }
+  const prev = posKm(S._lastDistEdgeIdx, S._lastDistDotT);
+  const now  = posKm(S.edgeIdx, S.dotT);
+  let delta  = now - prev;
+  if (delta < 0) {
+    // edge rollover: porter crossed the end of the loop (edgeIdx wrapped)
+    delta += S.edges.length * KM_PER_EDGE;
+  }
+  // Guard against absurd jumps (e.g. save-load warping). Cap at one edge.
+  if (delta > KM_PER_EDGE * 2) delta = 0;
+  S.distKm = Math.round((S.distKm + delta) * 10) / 10;
+  S._lastDistEdgeIdx = S.edgeIdx;
+  S._lastDistDotT    = S.dotT;
 }
 
 // ============================================================
@@ -689,7 +735,8 @@ function fmtChannelAge(ts) {
 function renderChannels() {
   if (!els.channelsEl) return;
   if (S.channels.length === 0) {
-    els.channelsEl.innerHTML = '<div class="chan-item chan-quiet">no chatter yet</div>';
+    // v0.0.7 commit 6: empty state tells new players what unlocks chatter
+    els.channelsEl.innerHTML = '<div class="chan-item chan-quiet">no callsigns trusted yet \u2014 deliver to depots to build trust</div>';
     return;
   }
   els.channelsEl.innerHTML = S.channels.map(c =>
@@ -767,8 +814,33 @@ function spawnRecoveryCargo(lostPkg, fromPorterId) {
 
   S.activeRecoveryCount++;
   S.lastRecoverySpawnTick = S.ticks;
+  updatePorterStripBadges();
   // Quiet log line — feed event covers the social side
   addLog(`<span class="log-wn">recovery cargo</span> dropped into the world`);
+}
+
+// v0.0.7 commit 6: subtle porter-strip indicator for active recovery count.
+// Ambient presence, not a CTA — only visible when count > 0.
+function updatePorterStripBadges() {
+  if (!els.porterStrip) return;
+  let badge = document.getElementById('recoveryBadge');
+  const n = S.activeRecoveryCount;
+  if (n > 0) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.id = 'recoveryBadge';
+      badge.className = 'tlh-porter-recovery has-tooltip';
+      // Insert before the hint (which has margin-left: auto and sits at the right)
+      const hint = els.porterStrip.querySelector('.tlh-porter-hint');
+      if (hint) els.porterStrip.insertBefore(badge, hint);
+      else      els.porterStrip.appendChild(badge);
+    }
+    badge.textContent = 'recovery \u00d7' + n;
+    badge.setAttribute('title', n + ' recovery cargo in the world\nfrom other porters\ndeliver for 1.5\u00d7 scrip');
+    badge.style.display = 'inline';
+  } else if (badge) {
+    badge.style.display = 'none';
+  }
 }
 
 // ============================================================
@@ -871,6 +943,10 @@ function loadGame() {
     const p = data.progress || {};
     if (typeof p.delivered      === 'number') S.delivered      = p.delivered;
     if (typeof p.scrip          === 'number') S.scrip          = p.scrip;
+    // v0.0.7 commit 6: distKm loaded from save is the old derived value for
+    // saves pre-commit-6. It'll look slightly off on first session after
+    // upgrade (shows stale ring-position rather than true total walked) but
+    // self-heals as the accumulator adds forward deltas from here on.
     if (typeof p.distKm         === 'number') S.distKm         = p.distKm;
     if (typeof p.ticks          === 'number') S.ticks          = p.ticks;
     if (typeof p.maxSlots       === 'number') S.maxSlots       = p.maxSlots;
@@ -1219,6 +1295,7 @@ function tryDeliver(arrivedNodeId) {
         worldCells[pkg._worldCell].pkg = null;
         worldCells[pkg._worldCell].isRecovery = false;
         S.activeRecoveryCount = Math.max(0, S.activeRecoveryCount - 1);
+        updatePorterStripBadges();
       } else {
         worldCells[pkg._worldCell].pkg.respawnIn = PKG_RESPAWN_TICKS;
       }
@@ -1446,6 +1523,7 @@ const $ = id => document.getElementById(id);
 let els = {};
 function resolveEls() {
   els = {
+    porterStrip:  document.querySelector('.tlh-porter-strip'),
     porterIdEl:   $('porterIdEl'),
     porterHint:   document.querySelector('.tlh-porter-hint'),
     delivered:    $('hDelivered'),
@@ -1462,6 +1540,8 @@ function resolveEls() {
     weightSegs:   $('weightSegs'),
     bootsBar:     $('bootsBar'),
     bootsVal:     $('bootsVal'),
+    bootsGearBtn: $('bootsGearBtn'),
+    bootsGearPop: $('bootsGearPop'),
     autobuyBtn:   $('autobuyBtn'),
     buyBootsBtn:  $('buyBootsBtn'),
     clipBadge:    $('clipBadge'),
@@ -1527,13 +1607,20 @@ function buyUpgrade(id) {
 // ============================================================
 // SETTLEMENTS / NETWORK / LOG
 // ============================================================
+// v0.0.7 commit 6: rebuilt panel layout.
+// - Trust bar moved to top (was bottom) when NPC present + stage 3
+// - Trust bar: continuous fill with vertical tick marks at 20/40/60/80
+//   (visual-only; gameplay thresholds remain 25/50/75/100 — realigned in refactor pass)
+// - Rebuild bar faded/recessed — placeholder for future real mechanic
+// - Stage-2 settlements get subtle opacity reduction (unconfirmed, de-emphasized)
 function renderSettlements() {
   if (!els.settlementsEl) return;
   els.settlementsEl.innerHTML = '';
   S.routeNodes.filter(n => getNodeStage(n.id) >= 2 && S.settlements[n.id])
     .map(n => ({ id:n.id, stage:getNodeStage(n.id), ...S.settlements[n.id] }))
     .forEach(s => {
-      const div = document.createElement('div'); div.className = 'settle-item';
+      const div = document.createElement('div');
+      div.className = 'settle-item' + (s.stage < 3 ? ' settle-stage2' : '');
       const name = s.stage >= 3 ? s.label : s.tier;
       const subtitle = s.stage >= 3 ? s.tier : 'unconfirmed';
       const quote = s.stage >= 3 ? s.quote : `"reports of a ${s.tier} along this route"`;
@@ -1545,14 +1632,20 @@ function renderSettlements() {
         trustBlock = `
           <div class="settle-trust">
             <span class="settle-trust-label">${npcDef.callsign}</span>
-            <div class="settle-trust-bar"><div class="settle-trust-fill" style="width:${tPct}%"></div></div>
+            <div class="settle-trust-bar">
+              <div class="settle-trust-fill" style="width:${tPct}%"></div>
+              <span class="settle-trust-tick" style="left:20%"></span>
+              <span class="settle-trust-tick" style="left:40%"></span>
+              <span class="settle-trust-tick" style="left:60%"></span>
+              <span class="settle-trust-tick" style="left:80%"></span>
+            </div>
             <span class="settle-trust-val">${tPct}</span>
           </div>`;
       }
       div.innerHTML = `
-        <div class="settle-name">${name} <span>${subtitle}</span></div>
-        <div class="settle-bar"><div class="settle-fill ${s.rebuild>50?'b':'a'}" style="width:${Math.round(s.rebuild)}%"></div></div>
         ${trustBlock}
+        <div class="settle-name">${name} <span>${subtitle}</span></div>
+        <div class="settle-bar settle-bar-wip" title="rebuild progress \u2014 WIP indicator"><div class="settle-fill ${s.rebuild>50?'b':'a'}" style="width:${Math.round(s.rebuild)}%"></div></div>
         <div class="settle-quote">${quote}</div>`;
       els.settlementsEl.appendChild(div);
     });
@@ -1640,13 +1733,15 @@ function addLog(msg) {
 function updateHUD() {
   els.delivered.textContent = S.delivered;
   els.scrip.textContent     = S.scrip + '\u00a2';
-  els.walked.textContent    = S.distKm + 'km';
+  // v0.0.7 commit 6: distKm is now accumulated directly; display rounded to 1dp
+  els.walked.textContent    = (Math.round(S.distKm * 10) / 10) + 'km';
   els.status.textContent    = S.status;
   els.status.style.color    = STATUS_COLORS[S.status] || '#b1c9c3';
   renderUpgrades();
 }
 
 let _lastCargoKey = '';
+let _lastGearPopKey = '';
 function cargoKey() {
   return S.inventory.map(p => `${p.size}${p.destId}${p.scrip}`).join('|') + '|' + S.maxSlots + '|' + S.usedWeight;
 }
@@ -1697,17 +1792,42 @@ function renderBoots() {
   const d = Math.round(S.bootDurability);
   if (els.bootsVal) els.bootsVal.textContent = d+'%';
   if (els.bootsBar) { els.bootsBar.style.width = d+'%'; els.bootsBar.className = 'boots-bar-fill'+(d>50?'':d>25?' worn':' bad'); }
-  if (els.clipBadge) {
-    if (S.bootClipMax>0) { els.clipBadge.textContent='clip: '+S.bootClipCount+'/'+S.bootClipMax; els.clipBadge.style.display='inline'; }
-    else els.clipBadge.style.display='none';
+
+  // v0.0.7 commit 6: boots gear popover — clip/buy/autobuy live inside here.
+  // Dirty-checked: only rebuild innerHTML when state actually changes, so we
+  // avoid thrashing the DOM every tick.
+  if (els.bootsGearPop) {
+    const popKey = `${S.bootClipMax}|${S.bootClipCount}|${S.scrip < 15 ? 'x' : 'o'}|${S.autobuyBoots ? 'on' : 'off'}`;
+    if (popKey !== _lastGearPopKey) {
+      _lastGearPopKey = popKey;
+      const clipLine = S.bootClipMax > 0
+        ? `<div class="gear-line">clip: <span class="gear-val">${S.bootClipCount}/${S.bootClipMax}</span></div>`
+        : '';
+      const buyDisabled = S.scrip < 15 ? 'disabled' : '';
+      const autobuyOn = S.autobuyBoots ? ' on' : '';
+      const autobuyTxt = S.autobuyBoots ? 'autobuy: on' : 'autobuy: off';
+      els.bootsGearPop.innerHTML =
+        clipLine +
+        `<button class="boots-auto gear-btn" id="buyBootsBtn" ${buyDisabled}>buy boots (15\u00a2)</button>` +
+        `<button class="boots-auto gear-btn${autobuyOn}" id="autobuyBtn">${autobuyTxt}</button>`;
+      // Re-wire listeners on the fresh DOM nodes
+      const newBuy = document.getElementById('buyBootsBtn');
+      const newAuto = document.getElementById('autobuyBtn');
+      if (newBuy) newBuy.addEventListener('click', buyBoots);
+      if (newAuto) newAuto.addEventListener('click', toggleAutobuy);
+      els.buyBootsBtn = newBuy;
+      els.autobuyBtn  = newAuto;
+    }
   }
+
   let sandalBadge = document.getElementById('sandalBadge');
   if (S.sandalweedCount > 0 || S.upgrades.sandalSatchel) {
-    if (!sandalBadge && els.clipBadge && els.clipBadge.parentNode) {
+    // Sandal badge lives beside the gear button — insert after it.
+    if (!sandalBadge && els.bootsGearBtn && els.bootsGearBtn.parentNode) {
       sandalBadge = document.createElement('span');
       sandalBadge.id = 'sandalBadge';
       sandalBadge.className = 'clip-badge sandal-badge has-tooltip';
-      els.clipBadge.parentNode.insertBefore(sandalBadge, els.clipBadge.nextSibling);
+      els.bootsGearBtn.parentNode.insertBefore(sandalBadge, els.bootsGearBtn.nextSibling);
     }
     if (sandalBadge) {
       const cap = sandalCap();
@@ -1725,7 +1845,37 @@ function renderBoots() {
   } else if (sandalBadge) {
     sandalBadge.style.display = 'none';
   }
-  if (els.buyBootsBtn) els.buyBootsBtn.disabled = S.scrip < 15;
+}
+
+function toggleAutobuy() {
+  S.autobuyBoots = !S.autobuyBoots;
+  renderBoots();
+}
+
+// v0.0.7 commit 6: gear popover toggle — click-based, click-outside closes.
+let _gearPopHandler = null;
+function toggleBootsGear() {
+  if (!els.bootsGearPop) return;
+  const isOpen = els.bootsGearPop.classList.toggle('open');
+  if (els.bootsGearBtn) els.bootsGearBtn.classList.toggle('on', isOpen);
+  if (isOpen) {
+    // Defer attaching the outside-click handler so the click that opened
+    // us doesn't immediately close it.
+    setTimeout(() => {
+      _gearPopHandler = (ev) => {
+        if (!els.bootsGearPop.contains(ev.target) && ev.target !== els.bootsGearBtn) {
+          els.bootsGearPop.classList.remove('open');
+          if (els.bootsGearBtn) els.bootsGearBtn.classList.remove('on');
+          document.removeEventListener('click', _gearPopHandler);
+          _gearPopHandler = null;
+        }
+      };
+      document.addEventListener('click', _gearPopHandler);
+    }, 0);
+  } else if (_gearPopHandler) {
+    document.removeEventListener('click', _gearPopHandler);
+    _gearPopHandler = null;
+  }
 }
 
 function staminaSegCount() {
@@ -1754,7 +1904,8 @@ function renderStamina() {
     els.drinkBtn.textContent = `drink (${canteenPct}%)`;
     els.drinkBtn.disabled    = S.canteen<=0 || S.stamina>=S.staminaMax;
   }
-  if (els.canteenBar) els.canteenBar.style.width = canteenPct+'%';
+  // v0.0.7 commit 6: canteen bar is now vertical — fill grows bottom-to-top via height
+  if (els.canteenBar) els.canteenBar.style.height = canteenPct+'%';
 }
 
 // ============================================================
@@ -1849,7 +2000,36 @@ function maybeTrip() {
   if (S.status!=='walking' && S.status!=='carrying') return;
   if (Math.random() >= tripChance()) return;
   if (Math.random() < catchChance()) { addLog('stumbled on debris \u2014 <span class="log-ok">caught yourself</span>'); return; }
-  if (S.tieDownActive && S.inventory.length>0) {
+
+  // v0.0.7 commit 6: drop check fires BEFORE tie-down protection.
+  // Tie-down protects against damage, not drops — fate takes the cargo.
+  // Pick the first item in inventory; roll the appropriate chance based on
+  // whether it's a lost pkg (LOST uses higher chance than NORMAL).
+  let dropped = false;
+  if (S.inventory.length > 0) {
+    const target = S.inventory[0];
+    const chance = target.isLost ? TRIP_DROP_CHANCE_LOST : TRIP_DROP_CHANCE_NORMAL;
+    if (Math.random() < chance) {
+      S.usedSlots  -= target.slots;
+      S.usedWeight -= target.kg;
+      S.inventory.splice(0, 1);
+      if (target.isLost) {
+        // Lost pkgs go through the worker so others can recover them.
+        postLostDrop(target);
+        addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> fell into the world \u2014 someone may find it`);
+      } else {
+        // Normal pkgs just vanish locally — no worker event, no recovery path.
+        addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> was lost in the scramble`);
+      }
+      renderCourierStack();
+      renderCargoSlots(true);
+      dropped = true;
+    }
+  }
+
+  // Tie-down protection: only matters when drop didn't fire. Absorbs the
+  // damage-reduction fallback so a single stumble can't drop AND damage.
+  if (!dropped && S.tieDownActive && S.inventory.length > 0) {
     S.tieDownActive=false;
     if (els.tieDownBtn) { els.tieDownBtn.textContent='tie-down: off'; els.tieDownBtn.classList.remove('on'); }
     addLog('<span class="log-wn">tripped!</span> tie-down held \u2014 <span class="log-ok">cargo protected</span>. re-arm to use again');
@@ -1858,29 +2038,10 @@ function maybeTrip() {
     if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
     return;
   }
+
   S.status='tripped'; S.tripTimer=6;
   S.bootDurability=Math.max(0,S.bootDurability-5);
 
-  // v0.0.7 commit 5: lost-pkg drop chance on trip. Pick the first lost item
-  // in inventory; if any, roll TRIP_LOST_DROP_CHANCE to drop it (POSTed to
-  // worker for other porters to recover). Falls back to normal damage if
-  // the roll fails or no lost items are carried.
-  let dropped = false;
-  if (S.inventory.length > 0) {
-    const lostIdx = S.inventory.findIndex(p => p.isLost);
-    if (lostIdx >= 0 && Math.random() < TRIP_LOST_DROP_CHANCE) {
-      const droppedPkg = S.inventory[lostIdx];
-      S.usedSlots  -= droppedPkg.slots;
-      S.usedWeight -= droppedPkg.kg;
-      S.inventory.splice(lostIdx, 1);
-      // Don't reset the original world cell — it was a one-shot pickup.
-      postLostDrop(droppedPkg);
-      addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${droppedPkg.label}</span> fell into the world \u2014 someone may find it`);
-      renderCourierStack();
-      renderCargoSlots(true);
-      dropped = true;
-    }
-  }
   if (!dropped) {
     if (S.inventory.length>0) { S.inventory[0].scrip=Math.max(1,Math.floor(S.inventory[0].scrip*0.75)); addLog('<span class="log-wn">tripped! package damaged \u2014 reduced payout</span>'); }
     else addLog('<span class="log-wn">tripped on loose rubble!</span>');
@@ -1945,8 +2106,10 @@ function tick() {
 
     if (S.isRaining||S.inRiver) S.canteen=Math.min(S.canteenMax,S.canteen+0.4);
 
+    // v0.0.7 commit 6: real distKm accumulator (see KM_PER_EDGE comment).
+    // Runs every tick while walking/carrying so we catch sub-edge movement.
+    accumulateDist();
     if (S.ticks%5===0) {
-      S.distKm = Math.round((S.edgeIdx + S.dotT) * 4.2 * 10) / 10;
       checkDistMilestones();
     }
 
@@ -2037,6 +2200,7 @@ function init() {
   renderUpgrades(); renderSettlements(); renderNetwork();
   renderChannels();
   renderCargoSlots(true); renderCourierStack(); renderBoots(); renderStamina();
+  updatePorterStripBadges();
   renderFieldstrip();
   updateHUD();
   updateSaveStrip();
@@ -2052,24 +2216,19 @@ function init() {
     els.courierAt.style.animation = '';
   }
 
-  els.autobuyBtn.addEventListener('click', () => {
-    S.autobuyBoots=!S.autobuyBoots;
-    els.autobuyBtn.textContent='autobuy: '+(S.autobuyBoots?'on':'off');
-    els.autobuyBtn.classList.toggle('on',S.autobuyBoots);
-  });
-  els.buyBootsBtn.addEventListener('click', buyBoots);
-  els.drinkBtn.addEventListener('click', drinkWater);
-  els.autodrinkBtn.addEventListener('click', () => {
+  // v0.0.7 commit 6: gear popover toggle.
+  // buy/autobuy buttons are rendered inside the popover by renderBoots()
+  // and wired there — we don't pre-bind them at init anymore.
+  if (els.bootsGearBtn) els.bootsGearBtn.addEventListener('click', toggleBootsGear);
+
+  if (els.drinkBtn) els.drinkBtn.addEventListener('click', drinkWater);
+  if (els.autodrinkBtn) els.autodrinkBtn.addEventListener('click', () => {
     S.autodrink=!S.autodrink;
     els.autodrinkBtn.textContent='auto: '+(S.autodrink?'on':'off');
     els.autodrinkBtn.classList.toggle('on',S.autodrink);
   });
-  els.tieDownBtn.addEventListener('click', toggleTieDown);
+  if (els.tieDownBtn) els.tieDownBtn.addEventListener('click', toggleTieDown);
 
-  if (S.autobuyBoots && els.autobuyBtn) {
-    els.autobuyBtn.textContent = 'autobuy: on';
-    els.autobuyBtn.classList.add('on');
-  }
   if (S.autodrink && els.autodrinkBtn) {
     els.autodrinkBtn.textContent = 'auto: on';
     els.autodrinkBtn.classList.add('on');
