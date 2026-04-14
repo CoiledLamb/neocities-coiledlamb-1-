@@ -1,16 +1,13 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.11
+   v0.0.7.12
 
-   Refactor commit 11: extracted package pickup + delivery +
-   respawn to ./packages.js. scanForPickup, tryDeliver,
-   tickPkgRespawns now live there and are called via Pkg.*
-   from the tick loop. sandalCap, renderCourierStack,
-   renderCargoSlots, renderBoots promoted to exports so
-   packages.js can import them back (circular-by-file,
-   not-by-init — bindings are live at runtime). sandalCap
-   will move to boots.js in commit 13; the render helpers
-   move to render/hud.js later.
+   Refactor commit 12: extracted trip mechanics + distance
+   accumulator to ./trip.js. tripChance, catchChance, maybeTrip,
+   currentCellIsRisky, posKm, accumulateDist now live there.
+   Called via Trip.* from the tick loop. No new exports needed
+   in main — staminaSegCount, addLog, renderCourierStack,
+   renderCargoSlots were already exported for prior commits.
 
    Imports:
      S — game state singleton (state.js)
@@ -34,6 +31,8 @@
        renderFieldstrip — world
      Pkg.scanForPickup, Pkg.tryDeliver,
        Pkg.tickPkgRespawns — packages (namespace import)
+     Trip.maybeTrip, Trip.accumulateDist,
+       Trip.tripChance, Trip.catchChance — trip (namespace import)
 
    Local aliases:
      els, worldCells — see commit 2 notes
@@ -66,6 +65,7 @@ import {
   buildWorld, calcCellPxWidth, worldPosFromRoute, renderFieldstrip,
 } from './world.js';
 import * as Pkg from './packages.js';
+import * as Trip from './trip.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -78,29 +78,8 @@ export function sandalCap() {
   return S.upgrades.sandalSatchel ? C.SANDAL_CAP_UPGRADED : C.SANDAL_CAP_BASE;
 }
 
-// v0.0.7 commit 6: distKm accumulator helpers.
-function posKm(edgeIdx, dotT) {
-  return (edgeIdx + dotT) * C.KM_PER_EDGE;
-}
-
-function accumulateDist() {
-  const t = S._transient;
-  if (t.lastDistEdgeIdx === null || t.lastDistDotT === null) {
-    t.lastDistEdgeIdx = S.edgeIdx;
-    t.lastDistDotT    = S.dotT;
-    return;
-  }
-  const prev = posKm(t.lastDistEdgeIdx, t.lastDistDotT);
-  const now  = posKm(S.edgeIdx, S.dotT);
-  let delta  = now - prev;
-  if (delta < 0) {
-    delta += S.edges.length * C.KM_PER_EDGE;
-  }
-  if (delta > C.KM_PER_EDGE * 2) delta = 0;
-  S.distKm = Math.round((S.distKm + delta) * 10) / 10;
-  t.lastDistEdgeIdx = S.edgeIdx;
-  t.lastDistDotT    = S.dotT;
-}
+// Distance accumulator helpers (posKm, accumulateDist) now live
+// in ./trip.js. Called via Trip.accumulateDist() in the tick loop.
 
 // Package pickup / delivery / respawn now live in ./packages.js.
 // scanForPickup, tryDeliver, tickPkgRespawns imported via Pkg.* below.
@@ -694,73 +673,9 @@ function toggleTieDown() {
 }
 
 // ============================================================
-// TRIP / CATCH
+// TRIP / CATCH — now in ./trip.js (tripChance, catchChance,
+// maybeTrip, currentCellIsRisky). Called via Trip.maybeTrip() in tick.
 // ============================================================
-function currentCellIsRisky() {
-  const ci = Math.floor((S.edgeIdx*C.CELLS_PER_EDGE)+(S.dotT*C.CELLS_PER_EDGE)) % C.TOTAL_CELLS;
-  return worldCells[ci] ? worldCells[ci].risky : false;
-}
-
-function tripChance() {
-  const bootFail = (100-S.bootDurability)/100;
-  const segsLost = 4-staminaSegCount();
-  let chance = C.TRIP_CHANCE_BASE * bootFail * (1+segsLost*0.5);
-  if (S.upgrades.steadyFeet) chance *= 0.70;
-  if (currentCellIsRisky())  chance *= 1.40;
-  return chance;
-}
-
-function catchChance() {
-  const bf = S.bootDurability/100, sf = Math.min(S.stamina,S.staminaMax)/S.staminaMax;
-  let c = C.CATCH_CHANCE_BASE * ((bf+sf)/2);
-  if (S.upgrades.steadyFeet) c += 0.15;
-  return Math.min(0.85, c);
-}
-
-function maybeTrip() {
-  if (S.status!=='walking' && S.status!=='carrying') return;
-  if (Math.random() >= tripChance()) return;
-  if (Math.random() < catchChance()) { addLog('stumbled on debris \u2014 <span class="log-ok">caught yourself</span>'); return; }
-
-  let dropped = false;
-  if (S.inventory.length > 0) {
-    const target = S.inventory[0];
-    const chance = target.isLost ? C.TRIP_DROP_CHANCE_LOST : C.TRIP_DROP_CHANCE_NORMAL;
-    if (Math.random() < chance) {
-      S.usedSlots  -= target.slots;
-      S.usedWeight -= target.kg;
-      S.inventory.splice(0, 1);
-      if (target.isLost) {
-        postLostDrop(target);
-        addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> fell into the world \u2014 someone may find it`);
-      } else {
-        addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> was lost in the scramble`);
-      }
-      renderCourierStack();
-      renderCargoSlots(true);
-      dropped = true;
-    }
-  }
-
-  if (!dropped && S.tieDownActive && S.inventory.length > 0) {
-    S.tieDownActive=false;
-    if (els.tieDownBtn) { els.tieDownBtn.textContent='tie-down: off'; els.tieDownBtn.classList.remove('on'); }
-    addLog('<span class="log-wn">tripped!</span> tie-down held \u2014 <span class="log-ok">cargo protected</span>. re-arm to use again');
-    S.bootDurability=Math.max(0,S.bootDurability-5);
-    S.status='tripped'; S.tripTimer=6;
-    if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
-    return;
-  }
-
-  S.status='tripped'; S.tripTimer=6;
-  S.bootDurability=Math.max(0,S.bootDurability-5);
-
-  if (!dropped) {
-    if (S.inventory.length>0) { S.inventory[0].scrip=Math.max(1,Math.floor(S.inventory[0].scrip*0.75)); addLog('<span class="log-wn">tripped! package damaged \u2014 reduced payout</span>'); }
-    else addLog('<span class="log-wn">tripped on loose rubble!</span>');
-  }
-  if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
-}
 
 // ============================================================
 // SPEED / DRINK
@@ -819,12 +734,12 @@ function tick() {
 
     if (S.isRaining||S.inRiver) S.canteen=Math.min(S.canteenMax,S.canteen+0.4);
 
-    accumulateDist();
+    Trip.accumulateDist();
     if (S.ticks%5===0) {
       checkDistMilestones();
     }
 
-    maybeTrip();
+    Trip.maybeTrip();
     checkAutobuy();
     Pkg.scanForPickup();
 
