@@ -1,23 +1,11 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.9
+   v0.0.7.10
 
-   Refactor commit 9: extracted NPC trust + channels to
-   ./trust.js and ./channels.js. The two are tightly coupled:
-   trust.js imports speak/pickRandom from channels.js.
-
-   addLog, drawRouteMap, renderSettlements, staminaSegCount,
-   renderStamina, updateHUD are exported from main.js for
-   trust.js (circular by file, not by initialization).
-
-   pickRandom is no longer duplicated here — channels.js owns
-   the export, recovery.js still has its own copy until a
-   later cleanup.
-
-   Function names tryT50Warning/tryT75Preview/tryT100RestPrompt
-   still reflect old trust thresholds (25/50/75/100). Renaming
-   to tryWarning/tryPreview/tryRestPrompt deferred to a focused
-   follow-up commit.
+   Refactor commit 10: extracted world generation + scroll
+   to ./world.js. buildWorld, calcCellPxWidth, worldPosFromRoute,
+   renderFieldstrip now imported from there. weightedPick and
+   makeWorldPkg are internal to world.js (no other callers).
 
    Imports:
      S — game state singleton (state.js)
@@ -37,6 +25,8 @@
      addTrust, tryT50Warning, tryT75Preview,
        tryT100RestPrompt — trust
      renderChannels, tickAmbientChatter — channels
+     buildWorld, calcCellPxWidth, worldPosFromRoute,
+       renderFieldstrip — world
 
    Local aliases:
      els, worldCells — see commit 2 notes
@@ -65,6 +55,9 @@ import {
   addTrust, tryT50Warning, tryT75Preview, tryT100RestPrompt,
 } from './trust.js';
 import { renderChannels, tickAmbientChatter } from './channels.js';
+import {
+  buildWorld, calcCellPxWidth, worldPosFromRoute, renderFieldstrip,
+} from './world.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -96,116 +89,6 @@ function accumulateDist() {
   S.distKm = Math.round((S.distKm + delta) * 10) / 10;
   t.lastDistEdgeIdx = S.edgeIdx;
   t.lastDistDotT    = S.dotT;
-}
-
-// ============================================================
-// WORLD CELLS
-// ============================================================
-function weightedPick(arr, getW) {
-  const total = arr.reduce((s, x) => s + getW(x), 0);
-  let r = Math.random() * total;
-  for (const x of arr) { r -= getW(x); if (r <= 0) return x; }
-  return arr[0];
-}
-
-function makeWorldPkg(edgeIdx) {
-  const isLost = Math.random() < 0.15;
-  const pool   = isLost ? LOST_PKGS : NPC_PKGS;
-  const def    = pool[Math.floor(Math.random() * pool.length)];
-  return { ...def, isLost: isLost || false, destId: S.edges[edgeIdx][1], picked: false, respawnIn: 0 };
-}
-
-function buildWorld() {
-  worldCells.length = 0;
-  for (let ei = 0; ei < 6; ei++) {
-    const isRisky = C.RISKY_EDGE_DEST.has(S.edges[ei][1]);
-    let ci = 0;
-
-    while (ci < C.CELLS_PER_EDGE) {
-      const zoneKey = weightedPick(Object.keys(ZONE_TYPES), k => ZONE_TYPES[k].weight);
-      const zone    = ZONE_TYPES[zoneKey];
-      const zoneLen = zone.width[0] + Math.floor(Math.random() * (zone.width[1] - zone.width[0]));
-
-      if (zone.isDepotApproach && Math.random() < 0.4 && ci + 3 <= C.CELLS_PER_EDGE) {
-        worldCells.push({ html: `<span class="fc fc-fl">   </span>`,     pkg: null, risky: isRisky, edgeIdx: ei });
-        worldCells.push({ html: `<span class="fc fc-depot"> [=] </span>`, pkg: null, risky: isRisky, edgeIdx: ei });
-        worldCells.push({ html: `<span class="fc fc-fl">   </span>`,     pkg: null, risky: isRisky, edgeIdx: ei });
-        ci += 3;
-      }
-
-      for (let i = 0; i < zoneLen && ci < C.CELLS_PER_EDGE; i++, ci++) {
-        const r = Math.random();
-        if (r < zone.pkgChance && (ci % 8 === 0) && ci + 2 < C.CELLS_PER_EDGE) {
-          const pkg = makeWorldPkg(ei);
-          worldCells.push({ html: '', pkg, risky: isRisky, edgeIdx: ei });
-          i += 2; ci += 2;
-          continue;
-        }
-        if (r < zone.pkgChance + zone.sandalChance) {
-          worldCells.push({ html: `<span class="fc fc-sw-plant" title="sandalweed"> * </span>`, pkg: null, sandal: true, risky: isRisky, edgeIdx: ei });
-          i++; ci++;
-          continue;
-        }
-        const c = weightedPick(zone.chars, x => x.w);
-        worldCells.push({ html: `<span class="fc ${c.cls}"> ${c.ch} </span>`, pkg: null, risky: isRisky, edgeIdx: ei });
-      }
-
-      if (ci < C.CELLS_PER_EDGE) {
-        worldCells.push({ html: `<span class="fc fc-fl">  </span>`, pkg: null, risky: isRisky, edgeIdx: ei });
-        ci++;
-      }
-    }
-  }
-  while (worldCells.length < C.TOTAL_CELLS) {
-    worldCells.push({ html: `<span class="fc fc-fl"> . </span>`, pkg: null, risky: false, edgeIdx: 0 });
-  }
-  worldCells.length = C.TOTAL_CELLS;
-}
-
-// ============================================================
-// WORLD SCROLL
-// ============================================================
-function calcCellPxWidth() {
-  const probe = document.createElement('span');
-  probe.className   = 'fc fc-fl';
-  probe.textContent = ' . ';
-  probe.style.cssText = 'visibility:hidden;position:absolute;';
-  document.body.appendChild(probe);
-  S._transient.cellPxWidth = probe.getBoundingClientRect().width || 12;
-  document.body.removeChild(probe);
-}
-
-function worldPosFromRoute() {
-  const courierCell = (S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE);
-  return ((courierCell - C.COURIER_CELL) % C.TOTAL_CELLS + C.TOTAL_CELLS) % C.TOTAL_CELLS;
-}
-
-function renderFieldstrip() {
-  const strip = els.fieldstrip;
-  if (!strip) return;
-  const cellPxWidth = S._transient.cellPxWidth;
-  const leftCell = Math.floor(S.worldPos);
-  const viewportPx = (strip.parentNode && strip.parentNode.clientWidth) || (C.VIEWPORT_CELLS * cellPxWidth);
-  const renderCount = Math.max(C.VIEWPORT_CELLS, Math.ceil(viewportPx / cellPxWidth) + 8);
-  let html = '';
-  for (let i = 0; i < renderCount; i++) {
-    const ci   = (leftCell + i) % C.TOTAL_CELLS;
-    const cell = worldCells[ci];
-    if (!cell) continue;
-    if (cell.pkg) {
-      if (!cell.pkg.picked) {
-        const cls = cell.pkg.isLost ? 'fc-pk fc-pk-lost' : 'fc-pk';
-        html += `<span class="fc ${cls}" data-ci="${ci}">[${cell.pkg.size}]</span>`;
-      } else {
-        html += `<span class="fc fc-fl">   </span>`;
-      }
-    } else {
-      html += cell.html;
-    }
-  }
-  strip.innerHTML = html;
-  const fracOffset = (S.worldPos - Math.floor(S.worldPos)) * cellPxWidth;
-  strip.style.transform = `translateX(${-fracOffset}px)`;
 }
 
 // ============================================================
