@@ -30,13 +30,12 @@ function getPorterId() {
 // WORLD MAP CONSTANTS
 // ============================================================
 const CELLS_PER_EDGE   = 260;
-const VIEWPORT_CELLS   = 90;   // bumped from 64 in v0.0.7 — covers wider viewports w/o grey edge (bug 1)
+const VIEWPORT_CELLS   = 90;
 const COURIER_CELL     = 16;
-const PKG_PICKUP_RANGE = 8;    // bumped from 6 — fewer missed packages
-const PKG_MAX_PER_EDGE = 18;   // bumped from 14 — denser baseline supply
-const PKG_RESPAWN_TICKS = 500; // dropped from 800 — respawns ~1.7x faster (bug 2)
+const PKG_PICKUP_RANGE = 8;
+const PKG_MAX_PER_EDGE = 18;
+const PKG_RESPAWN_TICKS = 500;
 
-// v0.0.7 bug batch: sandalweed cap (raises with sandalSatchel upgrade)
 const SANDAL_CAP_BASE     = 5;
 const SANDAL_CAP_UPGRADED = 25;
 
@@ -112,7 +111,7 @@ const LOST_PKGS = [
 ];
 
 const TICK_MS           = 350;
-const STAMINA_DRAIN     = 0.40;  // v0.0.7 bug batch: 0.28 -> 0.40 (faster drain, canteen matters more)
+const STAMINA_DRAIN     = 0.40;
 const BOOT_DRAIN        = 0.12;
 const TRIP_CHANCE_BASE  = 0.006;
 const CATCH_CHANCE_BASE = 0.35;
@@ -129,29 +128,20 @@ const STATUS_COLORS = {
   tripped:    '#da8bda',
 };
 
-// v0.0.7: distance milestones (km) — broadcast once each per save
 const DIST_MILESTONES = [10, 25, 50, 100, 250, 500, 1000];
 
 // ============================================================
-// NPCs (v0.0.7 commit 4a — trust system scaffold)
+// NPCs (v0.0.7 commit 4a/4b — trust + chatter)
 // ============================================================
-// NPCs live at supply depots A, B, H. Greek callsigns are placeholder names
-// that will be replaced with full lore later. Each NPC has a trust value 0-100
-// and a set of unlock flags for the four threshold tiers (25/50/75/100).
-//
-// Threshold behaviors:
-//   25  — identification hints (fires stage 1 on adjacent unknown nodes). LIVE in 4a.
-//   50  — warnings (rain incoming, trip risk, low stamina advisories). 4b.
-//   75  — package previews on connected edges. 4b.
-//   100 — rest at depot like shelter + bonus scrip. 4b.
-//
-// 4a only wires the threshold-25 behavior. The other three log + broadcast
-// trust_unlock events but produce no gameplay effect yet — placeholder hooks
-// so 4b doesn't need another schema bump.
+// Greek callsigns are placeholder; full lore replaces these later.
+// Each NPC has a distinct voice in dialogue:
+//   rho   (A) — steady, laconic, weather-aware
+//   iota  (B) — younger, eager, talks about the build
+//   tau   (H) — warm, observant, talks about the porter as a person
 const NPC_DEFS = {
-  'A': { callsign: 'rho', name: 'rho',  depotLabel: 'depot a' },
+  'A': { callsign: 'rho',  name: 'rho',  depotLabel: 'depot a' },
   'B': { callsign: 'iota', name: 'iota', depotLabel: 'depot b' },
-  'H': { callsign: 'tau', name: 'tau',  depotLabel: 'home'    },
+  'H': { callsign: 'tau',  name: 'tau',  depotLabel: 'home'    },
 };
 const TRUST_THRESHOLDS = [25, 50, 75, 100];
 const TRUST_GAIN_DELIVERY      = 1;
@@ -159,14 +149,117 @@ const TRUST_GAIN_LOST_DELIVERY = 2;
 const TRUST_GAIN_DISCOVERY     = 3;
 
 // Adjacency table: which nodes does each NPC's depot connect to via the route?
-// Used by the threshold-25 behavior to bump unknown adjacent nodes to stage 1.
-// Hardcoded against the current 6-node ring; if the map ever expands beyond
-// the loop in S.edges, this needs to be derived from edges instead of pinned.
+// Used by the t25 reveal behavior. Hardcoded against the current 6-node ring;
+// if the map ever expands, derive from S.edges instead.
 const NPC_ADJACENT = {
   'A': ['?', '\u00b7'],
   'B': ['?', 'C'],
   'H': ['C', '\u00b7'],
 };
+
+// ============================================================
+// CHATTER / DIALOGUE CORPUS (v0.0.7 commit 4b)
+// ============================================================
+// Lines are templates; {placeholders} get filled at speak time.
+// Available placeholders: {next} (next node display label), {kind} (small/medium/large)
+const NPC_LINES = {
+  // ----- threshold-crossing one-shots (fire once per NPC per save when trust >= tier)
+  threshold: {
+    'A': {
+      25:  'good. been watching you. try the road west when you can.',
+      50:  'when the sky goes the colour of zinc, you turn back. tell yourself i said so.',
+      75:  'i keep the manifest in my head now. ask before you leave and i\'ll tell you what\'s out there.',
+      100: 'door\'s open, porter. fire\'s lit. you sit when you need to sit.',
+    },
+    'B': {
+      25:  'oh — hey! you\'re the one walking the loop! i can point you somewhere new if you want.',
+      50:  'rain on the way? i can usually feel it. ask me at the door, i\'ll tell you straight.',
+      75:  'i see the packages stacked here before they go out. you want a tip? just ask.',
+      100: 'we built the bunk. it\'s yours when you\'re here. don\'t make it weird, just sleep.',
+    },
+    'H': {
+      25:  'i remember your callsign now. that means something. keep coming back.',
+      50:  'if you\'re tired or hurt or the weather\'s wrong, i\'ll say so. that\'s the deal.',
+      75:  'people leave parcels here on their way through. i can tell you what\'s waiting up the line.',
+      100: 'home is home. when you\'re here, you\'re here. eat. sleep. start again.',
+    },
+  },
+  // ----- ambient chatter (fires periodically once trust >= 25, picked at random per NPC)
+  ambient: {
+    'A': [
+      'wind\'s shifted. mind your hat.',
+      'the road keeps. the road forgets.',
+      'someone walked through last night. didn\'t stop.',
+      'kettle\'s on if you\'re passing.',
+      'we don\'t count the days here.',
+      'sky was that yellow this morning. you know the one.',
+    ],
+    'B': [
+      'roof patched! a real roof! finally!',
+      'do you know who left the seeds? thank them, if you see them.',
+      'i tried to follow the stars last night. couldn\'t.',
+      'somebody whistled past at dawn. it was you, wasn\'t it?',
+      'we\'re going to plant something next season. anything that\'ll take.',
+      'the radio crackles when you\'re close. funny.',
+    ],
+    'H': [
+      'come in, dry off, sit a while.',
+      'the kettle remembers you.',
+      'your boots have a sound. i hear them before i see you.',
+      'someone left a photograph here. i\'ll keep it for them.',
+      'the dog stayed up listening for you. she does that.',
+      'old porter\'s rest — always a chair by the door.',
+    ],
+  },
+  // ----- t50 warnings (templated by trigger)
+  warning: {
+    'A': {
+      rain:    'sky\'s gonna open inside the hour. lean into it or wait it out.',
+      trip:    'next leg eats boots. i\'ve seen it. mind your step.',
+      stamina: 'you\'re running on empty, porter. drink before you push.',
+    },
+    'B': {
+      rain:    'oh — rain! get a hood up, it\'s coming!',
+      trip:    'careful out there, the path beyond is bad. real bad.',
+      stamina: 'you look wiped. drink something before you go!',
+    },
+    'H': {
+      rain:    'rain\'s walking up the valley. you\'ll meet it if you go now.',
+      trip:    'the road ahead has bones in it. take it slow.',
+      stamina: 'sit a beat. you\'ll fall if you walk like that.',
+    },
+  },
+  // ----- t75 previews (templated with package info)
+  preview: {
+    'A': '{kind} parcel waiting up the line at {next}. you\'ll want the slot.',
+    'B': 'oh! there\'s a {kind} package toward {next}! grab the room for it!',
+    'H': '{kind} bundle headed for {next}. travels well in the right hands.',
+  },
+  // ----- t100 rest acceptance (one of these fires when player accepts depot rest)
+  rest: {
+    'A': [
+      'sit. boots off. there.',
+      'kettle\'s yours. take what you need.',
+      'i\'ll wake you when the light changes.',
+    ],
+    'B': [
+      'oh, good — take the bunk! it\'s real soft, i swear!',
+      'the dog will sit at your feet, just so you know!',
+      'sleep, sleep — i\'ll watch the door!',
+    ],
+    'H': [
+      'home is home. close your eyes.',
+      'rest. nothing\'s going anywhere without you.',
+      'i\'ll keep the fire — you keep your strength.',
+    ],
+  },
+};
+
+// Channels panel constants
+const CHANNELS_DISPLAY_CAP = 6;
+const CHATTER_INTERVAL_MIN_TICKS = 170;  // ~60s at 350ms/tick
+const CHATTER_INTERVAL_MAX_TICKS = 345;  // ~120s at 350ms/tick
+const CHATTER_BASE_CHANCE        = 0.005; // per tick once cooldown elapsed
 
 // ============================================================
 // STATE
@@ -177,7 +270,7 @@ const S = {
   maxSlots: 6, usedSlots: 0, maxWeight: 5, usedWeight: 0, inventory: [],
   tieDownActive: false,
   bootDurability: 80, autobuyBoots: false, bootClipCount: 0, bootClipMax: 0, usingMakeshift: false,
-  sandalweedCount: 0,  // bug 3: harvested sandalweeds, auto-equip when boots run out
+  sandalweedCount: 0,
   stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
   canteen: 100, canteenMax: 100, autodrink: false,
   isRaining: false, rainTimer: 0, inRiver: false,
@@ -207,35 +300,32 @@ const S = {
     { id:'H',       label:'home',     x:0, y:0 },
     { id:'\u00b7',  label:'waypoint', x:0, y:0 },
   ],
-  // v0.0.7 commit 3: progressive node identification (0=unknown, 1=signal, 2=tier seen, 3=visited)
-  // Starting state: porter knows their two anchors A (depot a) and H (home).
-  // All others start at stage 0 — even those previously default-known like B and ·.
-  // Migration path bumps existing 'known: true' to stage 3 to preserve player progress.
   nodeStages: { 'A':3, '?':0, 'B':0, 'C':0, 'H':3, '\u00b7':0 },
   edges: [['A','?'],['?','B'],['B','C'],['C','H'],['H','\u00b7'],['\u00b7','A']],
   edgeIdx: 2, dotT: 0, worldPos: 0,
 
   pendingDelivery: null,
 
-  // v0.0.7: live multiplayer state (replaces old hardcoded networkFeed)
-  networkFeed: [],          // array of event objects from /feed
-  networkCensus: 0,         // active porters in last 24h
-  networkConnected: false,  // true once first successful poll completes
-  milestonesHit: [],        // distance milestones already broadcast (km values)
-  lastFeedTimestamp: 0,     // for incremental polling via ?since=
+  networkFeed: [],
+  networkCensus: 0,
+  networkConnected: false,
+  milestonesHit: [],
+  lastFeedTimestamp: 0,
 
-  // v0.0.7 commit 4a: NPC trust state. Keys match NPC_DEFS (A, B, H).
-  // unlocks tracks which thresholds have been crossed — separate from the live
-  // trust value so we don't double-fire if trust drops and then re-crosses
-  // (decay isn't implemented in 4a, but unlocks: are still ratchet-only).
+  // v0.0.7 commit 4a: NPC trust state.
+  // commit 4b adds nextChatterTick (per NPC, cooldown for ambient chatter).
+  // nextChatterTick is transient — not persisted; resets to 0 on load.
   npcs: {
-    'A': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false } },
-    'B': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false } },
-    'H': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false } },
+    'A': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false }, nextChatterTick: 0 },
+    'B': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false }, nextChatterTick: 0 },
+    'H': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false }, nextChatterTick: 0 },
   },
+
+  // v0.0.7 commit 4b: channels panel state. Transient — not persisted.
+  // Each entry: { depotId, callsign, text, ts (game ticks at speak time) }
+  channels: [],
 };
 
-// v0.0.7 bug batch: derived sandalweed cap based on upgrade
 function sandalCap() {
   return S.upgrades.sandalSatchel ? SANDAL_CAP_UPGRADED : SANDAL_CAP_BASE;
 }
@@ -255,8 +345,6 @@ function getCachedPorterId() {
   return _porterIdCached;
 }
 
-// Best-effort fire-and-forget. Failures are silent — don't pollute the log
-// with network errors; the multiplayer layer is non-essential to gameplay.
 function postActivity(type, data) {
   const porterId = getCachedPorterId();
   if (porterId === 'PTR-OFFLINE') return;
@@ -270,7 +358,6 @@ function postActivity(type, data) {
   } catch (e) {}
 }
 
-// Poll for new events. Uses ?since= for incremental fetch.
 async function pollFeed() {
   try {
     const url = FEED_URL + '/feed' + (S.lastFeedTimestamp ? ('?since=' + S.lastFeedTimestamp) : '');
@@ -282,7 +369,6 @@ async function pollFeed() {
     S.networkConnected = true;
     S.networkCensus    = data.census || 0;
 
-    // Merge new events, dedupe by timestamp+porterId+type
     const seen = new Set(S.networkFeed.map(e => `${e.timestamp}|${e.porterId}|${e.type}`));
     data.events.forEach(e => {
       const key = `${e.timestamp}|${e.porterId}|${e.type}`;
@@ -293,16 +379,13 @@ async function pollFeed() {
       }
     });
 
-    // Trim to display cap
     S.networkFeed.sort((a, b) => a.timestamp - b.timestamp);
     if (S.networkFeed.length > FEED_DISPLAY_CAP) {
       S.networkFeed = S.networkFeed.slice(-FEED_DISPLAY_CAP);
     }
 
     renderNetwork();
-  } catch (e) {
-    // Silent
-  }
+  } catch (e) {}
 }
 
 function startPolling() {
@@ -315,7 +398,6 @@ function stopPolling() {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
 }
 
-// Compact PTR-XXXXYYYY -> PTR-XXXX, leave PTR-XXXX-YYYY alone
 function shortPorterId(id) {
   if (!id || typeof id !== 'string') return 'PTR-????';
   const parts = id.split('-');
@@ -325,7 +407,6 @@ function shortPorterId(id) {
   return id;
 }
 
-// Distance milestone check — broadcast once per threshold per save
 function checkDistMilestones() {
   const km = Math.floor(S.distKm);
   for (const m of DIST_MILESTONES) {
@@ -340,10 +421,6 @@ function checkDistMilestones() {
 // ============================================================
 // IDENTIFICATION STAGES (v0.0.7 commit 3)
 // ============================================================
-// Stage progression rules:
-//   0 -> 1 : trust >=25 at adjacent NPC depot (commit 4a — LIVE)
-//   *  -> 2 : walking an edge connected to this node
-//   *  -> 3 : arriving at the node itself
 function getNodeStage(id) {
   return (S.nodeStages && typeof S.nodeStages[id] === 'number') ? S.nodeStages[id] : 0;
 }
@@ -358,8 +435,6 @@ function setNodeStage(id, stage) {
   return false;
 }
 
-// Bump from/to of an edge to >= stage 2 (tier visible).
-// Called whenever the courier starts walking a new edge.
 function markEdgeAdjacent(fromId, toId) {
   let changed = false;
   if (setNodeStage(fromId, 2)) changed = true;
@@ -367,8 +442,6 @@ function markEdgeAdjacent(fromId, toId) {
   return changed;
 }
 
-// Returns the right display string for a node based on its stage.
-// Stage 0/1: "???". Stage 2: tier name. Stage 3: real label.
 function getDisplayLabel(id) {
   const stage = getNodeStage(id);
   if (stage >= 3) {
@@ -383,22 +456,18 @@ function getDisplayLabel(id) {
 }
 
 // ============================================================
-// NPC TRUST (v0.0.7 commit 4a)
+// NPC TRUST (v0.0.7 commit 4a/4b)
 // ============================================================
-// Returns the NPC entry for a depot id, or null if no NPC lives there.
 function getNpc(depotId) {
   if (!NPC_DEFS[depotId] || !S.npcs || !S.npcs[depotId]) return null;
   return S.npcs[depotId];
 }
 
-// Add trust to an NPC. Caps at 100. Fires unlock thresholds in order.
-// Returns the new trust value.
 function addTrust(depotId, amount, reason) {
   const npc = getNpc(depotId);
   if (!npc || !amount) return 0;
   const before = npc.trust;
   npc.trust = Math.max(0, Math.min(100, npc.trust + amount));
-  // Check each threshold in ascending order so multi-tier jumps fire all hooks
   for (const t of TRUST_THRESHOLDS) {
     const key = 't' + t;
     if (before < t && npc.trust >= t && !npc.unlocks[key]) {
@@ -409,17 +478,17 @@ function addTrust(depotId, amount, reason) {
   return npc.trust;
 }
 
-// Threshold crossing handler. Routes to behavior by tier.
-// In 4a only t25 has gameplay behavior; t50/t75/t100 log + broadcast inert.
 function onTrustUnlock(depotId, tier) {
   const def = NPC_DEFS[depotId];
   const npcLabel = def ? def.callsign : depotId;
-  // Broadcast all unlock crossings — feed visibility = social value
   postActivity('trust_unlock', { depotId, npcLabel, tier });
+
+  // v0.0.7 commit 4b: speak the threshold line on the channels panel
+  const line = NPC_LINES.threshold[depotId] && NPC_LINES.threshold[depotId][tier];
+  if (line) speak(depotId, line);
 
   if (tier === 25) {
     // Reveal: any stage-0 adjacent node bumps to stage 1.
-    // "adjacent" = nodes the depot connects to via the route ring.
     const adj = NPC_ADJACENT[depotId] || [];
     const revealed = [];
     adj.forEach(nid => {
@@ -433,28 +502,198 @@ function onTrustUnlock(depotId, tier) {
       drawRouteMap();
       renderSettlements();
     } else {
-      addLog(`<span class="log-hi">${npcLabel}</span> trusts you (25) \u2014 "i'll keep an ear out for you"`);
+      addLog(`<span class="log-hi">${npcLabel}</span> trusts you (25)`);
     }
     return;
   }
-  // t50/t75/t100 — placeholder log lines, no gameplay yet (4b will hook these)
-  if (tier === 50) {
-    addLog(`<span class="log-hi">${npcLabel}</span> trusts you (50) \u2014 will share warnings`);
-  } else if (tier === 75) {
-    addLog(`<span class="log-hi">${npcLabel}</span> trusts you (75) \u2014 will preview routes`);
-  } else if (tier === 100) {
-    addLog(`<span class="log-hi">${npcLabel}</span> trusts you (100) \u2014 you have a seat by their fire`);
+  // t50/t75/t100 — the gameplay behaviors fire on depot arrival, not on threshold cross.
+  // Just log + announce; the dialogue line on the channel panel does the rest.
+  if (tier === 50)  addLog(`<span class="log-hi">${npcLabel}</span> trusts you (50) \u2014 will share warnings`);
+  else if (tier === 75)  addLog(`<span class="log-hi">${npcLabel}</span> trusts you (75) \u2014 will preview routes`);
+  else if (tier === 100) addLog(`<span class="log-hi">${npcLabel}</span> trusts you (100) \u2014 you have a seat by their fire`);
+}
+
+// ============================================================
+// CHANNELS / CHATTER (v0.0.7 commit 4b)
+// ============================================================
+// Push a line into the channels panel from a given NPC.
+// Trims to display cap; rerenders.
+function speak(depotId, text) {
+  const def = NPC_DEFS[depotId];
+  if (!def) return;
+  S.channels.unshift({
+    depotId,
+    callsign: def.callsign,
+    text,
+    ts: S.ticks,
+  });
+  if (S.channels.length > CHANNELS_DISPLAY_CAP) {
+    S.channels.length = CHANNELS_DISPLAY_CAP;
   }
+  renderChannels();
+}
+
+function pickRandom(arr) {
+  if (!arr || arr.length === 0) return null;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// t50 warning fires once per depot visit, picked by priority: trip > rain > stamina.
+// Returns true if a warning was spoken.
+function tryT50Warning(depotId) {
+  const npc = getNpc(depotId);
+  if (!npc || !npc.unlocks.t50) return false;
+  const lines = NPC_LINES.warning[depotId];
+  if (!lines) return false;
+
+  // Priority: trip risk > rain > stamina
+  // Trip: next edge after this depot has risky:true on its destination
+  const myEdgeIdx = S.edges.findIndex(([a,b]) => a === depotId);
+  if (myEdgeIdx >= 0) {
+    const [, nextDest] = S.edges[myEdgeIdx];
+    if (RISKY_EDGE_DEST.has(nextDest) && lines.trip) {
+      speak(depotId, lines.trip);
+      return true;
+    }
+  }
+  // Rain: rainTimer is short (<25 ticks) and not currently raining — means it's about to flip
+  if (!S.isRaining && S.rainTimer > 0 && S.rainTimer < 25 && lines.rain) {
+    speak(depotId, lines.rain);
+    return true;
+  }
+  // Stamina: down to <=2 segments
+  if (staminaSegCount() <= 2 && lines.stamina) {
+    speak(depotId, lines.stamina);
+    return true;
+  }
+  return false;
+}
+
+// t75 preview: peek at the next edge that the NPC's depot starts. If there's
+// a real un-picked package waiting, drop a single hint line. Capped to one per visit.
+function tryT75Preview(depotId) {
+  const npc = getNpc(depotId);
+  if (!npc || !npc.unlocks.t75) return false;
+  const tmpl = NPC_LINES.preview[depotId];
+  if (!tmpl) return false;
+
+  // Find the edge starting at this depot (the one the courier is about to walk)
+  const myEdgeIdx = S.edges.findIndex(([a,b]) => a === depotId);
+  if (myEdgeIdx < 0) return false;
+  const [, nextDest] = S.edges[myEdgeIdx];
+
+  // Scan that edge's worldCells for the first un-picked package
+  const startCell = myEdgeIdx * CELLS_PER_EDGE;
+  const endCell   = startCell + CELLS_PER_EDGE;
+  let found = null;
+  for (let i = startCell; i < endCell; i++) {
+    const c = worldCells[i];
+    if (c && c.pkg && !c.pkg.picked) { found = c.pkg; break; }
+  }
+  if (!found) return false;
+
+  const kindMap = { s: 'small', m: 'medium', l: 'large' };
+  const text = tmpl
+    .replace('{kind}', kindMap[found.size] || found.size)
+    .replace('{next}', getDisplayLabel(nextDest));
+  speak(depotId, text);
+  return true;
+}
+
+// t100 rest prompt: show inline [rest] log button on arrival; on click, full restore + bonus.
+// Mirrors the boot clip refill prompt pattern. One pending at a time.
+let _depotRestPending = null;
+const DEPOT_REST_BONUS_SCRIP = 10;
+
+function tryT100RestPrompt(depotId) {
+  const npc = getNpc(depotId);
+  if (!npc || !npc.unlocks.t100) return false;
+  if (_depotRestPending) return false;
+  // Don't prompt if stamina is already maxed AND no overboost room would be added
+  if (S.stamina >= S.staminaMax && S.staminaOverboost) return false;
+  const def = NPC_DEFS[depotId];
+  const npcLabel = def ? def.callsign : depotId;
+  _depotRestPending = { depotId };
+  addLog(`<span class="log-hi">${npcLabel}</span> offers a seat by the fire \u2014 <button class="log-btn" id="depotRestBtn">rest</button>`);
+  setTimeout(() => {
+    const btn = document.getElementById('depotRestBtn');
+    if (btn) btn.addEventListener('click', confirmDepotRest);
+  }, 0);
+  return true;
+}
+
+function confirmDepotRest() {
+  if (!_depotRestPending) return;
+  const { depotId } = _depotRestPending;
+  _depotRestPending = null;
+  const def = NPC_DEFS[depotId];
+  const npcLabel = def ? def.callsign : depotId;
+  // Full restore + small overboost (+5%) + bonus scrip
+  S.stamina = S.staminaMax * 1.05;
+  S.staminaOverboost = true;
+  S.canteen = Math.min(S.canteenMax, S.canteen + 30);
+  S.scrip += DEPOT_REST_BONUS_SCRIP;
+  addLog(`rested at <span class="log-hi">${npcLabel}</span> \u2014 <span class="log-ok">stamina restored, +${DEPOT_REST_BONUS_SCRIP}\u00a2</span>`);
+  // Speak a rest-acceptance line on the channel panel
+  const line = pickRandom(NPC_LINES.rest[depotId]);
+  if (line) speak(depotId, line);
+  renderStamina(); updateHUD();
+  const btn = document.getElementById('depotRestBtn');
+  if (btn) btn.closest('.log-line').remove();
+}
+
+// Ambient chatter — fires periodically once an NPC's trust >= 25.
+// Throttled per-NPC via nextChatterTick. Also rate-limited by global chance per tick.
+function tickAmbientChatter() {
+  // Only roll once every few ticks to keep the work cheap
+  if (S.ticks % 10 !== 0) return;
+  Object.keys(NPC_DEFS).forEach(depotId => {
+    const npc = getNpc(depotId);
+    if (!npc || !npc.unlocks.t25) return;
+    if (S.ticks < npc.nextChatterTick) return;
+    if (Math.random() >= CHATTER_BASE_CHANCE * 10) return; // adjusted for the %10 throttle
+    const line = pickRandom(NPC_LINES.ambient[depotId]);
+    if (!line) return;
+    speak(depotId, line);
+    npc.nextChatterTick = S.ticks + CHATTER_INTERVAL_MIN_TICKS +
+      Math.floor(Math.random() * (CHATTER_INTERVAL_MAX_TICKS - CHATTER_INTERVAL_MIN_TICKS));
+  });
+}
+
+// Format "Xs ago" for channel timestamps (uses game ticks vs. ts at speak time)
+function fmtChannelAge(ts) {
+  const elapsedTicks = S.ticks - ts;
+  const elapsedSecs = Math.floor(elapsedTicks * TICK_MS / 1000);
+  if (elapsedSecs < 5)   return 'now';
+  if (elapsedSecs < 60)  return elapsedSecs + 's';
+  const mins = Math.floor(elapsedSecs / 60);
+  if (mins < 60)         return mins + 'm';
+  return Math.floor(mins / 60) + 'h';
+}
+
+function renderChannels() {
+  if (!els.channelsEl) return;
+  if (S.channels.length === 0) {
+    els.channelsEl.innerHTML = '<div class="chan-item chan-quiet">no chatter yet</div>';
+    return;
+  }
+  els.channelsEl.innerHTML = S.channels.map(c =>
+    `<div class="chan-item" data-depot="${c.depotId}">` +
+      `<span class="chan-cs">${c.callsign}</span>` +
+      `<span class="chan-text">${c.text}</span>` +
+      `<span class="chan-ago">${fmtChannelAge(c.ts)}</span>` +
+    `</div>`
+  ).join('');
 }
 
 // ============================================================
 // PERSISTENCE
 // ============================================================
-const SAVE_KEY     = 'tlh-save-v1';   // legacy
-const SAVE_KEY_V2  = 'tlh-save-v2';   // legacy (v0.0.7 commits 1-2)
-const SAVE_KEY_V3  = 'tlh-save-v3';   // legacy (v0.0.7 commit 3)
-const SAVE_KEY_V4  = 'tlh-save-v4';   // legacy (v0.0.7 bug batch)
-const SAVE_KEY_V5  = 'tlh-save-v5';   // current (v0.0.7 commit 4a)
+const SAVE_KEY     = 'tlh-save-v1';
+const SAVE_KEY_V2  = 'tlh-save-v2';
+const SAVE_KEY_V3  = 'tlh-save-v3';
+const SAVE_KEY_V4  = 'tlh-save-v4';
+const SAVE_KEY_V5  = 'tlh-save-v5';   // current
 const SAVE_VERSION = 5;
 const AUTOSAVE_MS  = 30000;
 
@@ -490,19 +729,18 @@ function buildSavePayload() {
       scrip: p.scrip, isLost: !!p.isLost, destId: p.destId,
     })),
     upgrades: { ...S.upgrades },
-    // v0.0.7 commit 3: nodeStages replaces nodesKnown
     nodeStages: { ...S.nodeStages },
     settlements: Object.keys(S.settlements).reduce((acc, k) => {
       const s = S.settlements[k];
       acc[k] = { supply: s.supply, rebuild: s.rebuild };
       return acc;
     }, {}),
-    // v0.0.7 additions
     multiplayer: {
       milestonesHit:     [...S.milestonesHit],
       lastFeedTimestamp: S.lastFeedTimestamp,
     },
-    // v0.0.7 commit 4a: NPC trust + unlock state
+    // commit 4a: trust + unlocks. nextChatterTick is intentionally not saved
+    // (resets on load — channels are transient "live radio").
     npcs: Object.keys(S.npcs).reduce((acc, k) => {
       const n = S.npcs[k];
       acc[k] = { trust: n.trust, unlocks: { ...n.unlocks } };
@@ -527,25 +765,15 @@ function saveGame(silent) {
 
 function loadGame() {
   let raw;
-  // Try v5 first (current), fall back through v4, v3, v2, v1 for migration
   try { raw = localStorage.getItem(SAVE_KEY_V5); } catch (e) { return false; }
-  if (!raw) {
-    try { raw = localStorage.getItem(SAVE_KEY_V4); } catch (e) { return false; }
-  }
-  if (!raw) {
-    try { raw = localStorage.getItem(SAVE_KEY_V3); } catch (e) { return false; }
-  }
-  if (!raw) {
-    try { raw = localStorage.getItem(SAVE_KEY_V2); } catch (e) { return false; }
-  }
-  if (!raw) {
-    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
-  }
+  if (!raw) { try { raw = localStorage.getItem(SAVE_KEY_V4); } catch (e) { return false; } }
+  if (!raw) { try { raw = localStorage.getItem(SAVE_KEY_V3); } catch (e) { return false; } }
+  if (!raw) { try { raw = localStorage.getItem(SAVE_KEY_V2); } catch (e) { return false; } }
+  if (!raw) { try { raw = localStorage.getItem(SAVE_KEY); }    catch (e) { return false; } }
   if (!raw) return false;
   let data;
   try { data = JSON.parse(raw); } catch (e) { return false; }
   if (!data) return false;
-  // Accept v1, v2, v3, v4 (migrate), or v5 (load directly)
   if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== SAVE_VERSION) return false;
 
   try {
@@ -581,15 +809,11 @@ function loadGame() {
       Object.keys(S.upgrades).forEach(k => {
         if (typeof data.upgrades[k] === 'boolean') S.upgrades[k] = data.upgrades[k];
       });
-      // v0.0.7 bug batch: rebuildRoads -> efficientConsumption migration.
-      // Old saves (v3 and earlier) may have rebuildRoads:true. Map it forward
-      // and drop the old key. Boolean flag is preserved as a 1:1 ownership swap.
       if (data.upgrades.rebuildRoads === true) {
         S.upgrades.efficientConsumption = true;
       }
     }
 
-    // v0.0.7 commit 3: load nodeStages directly (v3+) or migrate from nodesKnown (v1/v2)
     if (data.nodeStages && typeof data.nodeStages === 'object') {
       Object.keys(data.nodeStages).forEach(k => {
         const v = data.nodeStages[k];
@@ -598,8 +822,6 @@ function loadGame() {
         }
       });
     } else if (data.nodesKnown && typeof data.nodesKnown === 'object') {
-      // Migration: known:true -> stage 3 (preserve player progress),
-      // known:false -> stage 0 (current default)
       Object.keys(data.nodesKnown).forEach(k => {
         if (data.nodesKnown[k] === true) S.nodeStages[k] = 3;
       });
@@ -614,7 +836,6 @@ function loadGame() {
       });
     }
 
-    // v0.0.7 multiplayer fields (absent in v1 saves)
     if (data.multiplayer && typeof data.multiplayer === 'object') {
       if (Array.isArray(data.multiplayer.milestonesHit)) {
         S.milestonesHit = data.multiplayer.milestonesHit.filter(m => typeof m === 'number');
@@ -624,8 +845,6 @@ function loadGame() {
       }
     }
 
-    // v0.0.7 commit 4a: NPC trust + unlock state.
-    // Pre-v5 saves don't have this — they get fresh-zero defaults from initial S.npcs.
     if (data.npcs && typeof data.npcs === 'object') {
       Object.keys(S.npcs).forEach(k => {
         const n = data.npcs[k];
@@ -638,8 +857,6 @@ function loadGame() {
             if (typeof n.unlocks[t] === 'boolean') S.npcs[k].unlocks[t] = n.unlocks[t];
           });
         }
-        // Repair: if trust is at/above a threshold but the unlock flag is false,
-        // re-fire it so resumed saves don't get stuck mid-tier. Ratchet still holds.
         TRUST_THRESHOLDS.forEach(t => {
           const key = 't' + t;
           if (S.npcs[k].trust >= t && !S.npcs[k].unlocks[key]) {
@@ -652,7 +869,6 @@ function loadGame() {
     _lastSaveAt = data.savedAt || 0;
     S.status = S.inventory.length > 0 ? 'carrying' : 'walking';
 
-    // Migration: if we loaded an older save, immediately re-save as v5 and drop legacy keys
     if (data.version !== SAVE_VERSION) {
       try {
         localStorage.removeItem(SAVE_KEY);
@@ -674,7 +890,7 @@ function wipeSave() {
     localStorage.removeItem(SAVE_KEY_V4);
     localStorage.removeItem(SAVE_KEY_V3);
     localStorage.removeItem(SAVE_KEY_V2);
-    localStorage.removeItem(SAVE_KEY); // also clear legacy
+    localStorage.removeItem(SAVE_KEY);
   } catch (e) {}
   _lastSaveAt = 0;
   updateSaveStrip();
@@ -706,10 +922,7 @@ function armWipe() {
       els.wipeBtn.textContent = 'wipe save';
       els.wipeBtn.classList.remove('armed');
     }
-    addLog('<span class="log-wn">save wiped</span> — reloading for a fresh start...');
-    // v0.0.7 bug batch: reload to fully reset in-memory S, otherwise the
-    // 30s autosave / visibilitychange / beforeunload triggers would re-write
-    // surviving state back to localStorage and the wipe appears not to work.
+    addLog('<span class="log-wn">save wiped</span> \u2014 reloading for a fresh start...');
     setTimeout(() => { try { location.reload(); } catch (e) {} }, 400);
     return;
   }
@@ -818,8 +1031,6 @@ function renderFieldstrip() {
   const strip = els.fieldstrip;
   if (!strip) return;
   const leftCell = Math.floor(S.worldPos);
-  // bug 1: dynamically size render count based on actual viewport width,
-  // with a generous +8 buffer to absorb any rounding/measurement error
   const viewportPx = (strip.parentNode && strip.parentNode.clientWidth) || (VIEWPORT_CELLS * cellPxWidth);
   const renderCount = Math.max(VIEWPORT_CELLS, Math.ceil(viewportPx / cellPxWidth) + 8);
   let html = '';
@@ -854,25 +1065,18 @@ function scanForPickup() {
     const cell = worldCells[ci];
     if (!cell) continue;
 
-    // bug 3: harvest sandalweed (no slot/weight cost — stored as a counter)
-    // v0.0.7 bug batch: respect cap so player can't infinitely hoard
     if (cell.sandal) {
-      if (S.sandalweedCount >= sandalCap()) {
-        // leave the * standing — player can come back if they burn through stock
-        continue;
-      }
+      if (S.sandalweedCount >= sandalCap()) continue;
       cell.sandal = false;
-      cell.html = `<span class="fc fc-fl">   </span>`; // wipe the * from terrain
+      cell.html = `<span class="fc fc-fl">   </span>`;
       S.sandalweedCount++;
       addLog(`harvested <span class="log-hi">sandalweed</span> (${S.sandalweedCount}/${sandalCap()})`);
       renderBoots();
-      continue; // keep scanning — may be a package right behind it
+      continue;
     }
 
     if (!cell.pkg || cell.pkg.picked) continue;
     const pkg = cell.pkg;
-    // bug 2: don't break the loop just because this one pkg won't fit;
-    // continue scanning so a smaller package further ahead can still be picked up
     if (pkg.slots > S.maxSlots - S.usedSlots) continue;
     if (pkg.kg    > S.maxWeight - S.usedWeight) continue;
 
@@ -891,7 +1095,7 @@ function scanForPickup() {
     if (els.courierAt) els.courierAt.className = 'tlh-at bounce carry';
     const lostTag = carried.isLost ? ' <span class="log-wn">[lost pkg]</span>' : '';
     addLog(`picked up <span class="log-hi">[${carried.size}] ${carried.label}</span>${lostTag}`);
-    return; // only pick up one package per scan; sandals don't trigger this
+    return;
   }
 }
 
@@ -919,18 +1123,13 @@ function tryDeliver(arrivedNodeId) {
       addLog(`discovered: <span class="log-hi">${node.label}</span>`);
       drawRouteMap();
       renderSettlements();
-      // v0.0.7
       postActivity('discovery', { nodeId: arrivedNodeId, label: node.label });
-      // v0.0.7 commit 4a: first discovery of an NPC depot is a trust handshake
       if (NPC_DEFS[arrivedNodeId]) {
         addTrust(arrivedNodeId, TRUST_GAIN_DISCOVERY, 'discovery');
       }
     }
     addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
-    // v0.0.7
     postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
-    // v0.0.7 commit 4a: trust gain on delivery to an NPC depot.
-    // Lost packages are worth more (rarer + lore-significant).
     if (NPC_DEFS[arrivedNodeId]) {
       const gain = pkg.isLost ? TRUST_GAIN_LOST_DELIVERY : TRUST_GAIN_DELIVERY;
       addTrust(arrivedNodeId, gain, pkg.isLost ? 'lost-delivery' : 'delivery');
@@ -1033,8 +1232,6 @@ function drawRouteMap() {
   const ns = 'http://www.w3.org/2000/svg';
   const [fromId, toId] = currentEdge();
 
-  // Edges: brightness depends on the lower stage of the two endpoints.
-  // Both stage 3 -> bright. At least one stage 2+ -> medium. Any stage 0/1 -> dim.
   S.edges.forEach(([a, b]) => {
     const na = S.routeNodes.find(n => n.id === a), nb = S.routeNodes.find(n => n.id === b);
     if (!na || !nb) return;
@@ -1058,16 +1255,13 @@ function drawRouteMap() {
     g.setAttribute('class', 'route-node-g');
     g.setAttribute('data-stage', String(stage));
     g.setAttribute('data-id', n.id);
-    // Tooltip uses stage-aware label so hovering an unknown node says ??? not the real name
     g.setAttribute('title', getDisplayLabel(n.id));
 
-    // Fill brightens with stage; current node always gets the dark current-fill bg
     const fill = isCurrent ? '#0b2e2d'
                : stage >= 3 ? '#1e5554'
                : stage >= 2 ? '#1a3f3e'
                : stage >= 1 ? '#142e2d'
                : '#132e2d';
-    // Stroke brightens with stage; current node always gets the bright current-stroke
     const stroke = isCurrent ? '#77bfcf'
                  : stage >= 3 ? '#3a6a68'
                  : stage >= 2 ? '#2f5e5c'
@@ -1080,7 +1274,6 @@ function drawRouteMap() {
     c.setAttribute('stroke', stroke);
     c.setAttribute('stroke-width', isCurrent ? '1.5' : '1');
 
-    // Center character: '?' for stage 0, real letter (dimmed) for stage 1+, bright for current
     const t = document.createElementNS(ns, 'text');
     t.setAttribute('x', n.x); t.setAttribute('y', n.y + 4);
     t.setAttribute('text-anchor', 'middle');
@@ -1093,7 +1286,6 @@ function drawRouteMap() {
                           : '#2a5c5a');
     t.textContent = (stage >= 1 || n.id === '?') ? n.id : '?';
 
-    // External label: hide entirely at stage 0, show stage-appropriate text otherwise
     const lx     = n.x > 70 ? n.x - 9 : n.x < 40 ? n.x + 9 : n.x;
     const anchor = n.x > 70 ? 'end'    : n.x < 40 ? 'start'  : 'middle';
     const ly     = n.y < 30 ? n.y - 9  : n.y > 165 ? n.y + 12 : n.y < 100 ? n.y - 9 : n.y + 13;
@@ -1106,7 +1298,6 @@ function drawRouteMap() {
                             : stage >= 3 ? '#3a6a68'
                             : stage >= 2 ? '#2a5c5a'
                             : '#1e5554');
-    // Stage 0: blank (unknown node, no label clutter on map). Otherwise stage-aware label.
     lbl.textContent = stage === 0 ? '' : getDisplayLabel(n.id);
 
     g.appendChild(c); g.appendChild(t); g.appendChild(lbl);
@@ -1165,6 +1356,7 @@ function resolveEls() {
     settlementsEl:$('settlementsEl'),
     routeSvg:     $('routeSvg'),
     networkEl:    $('networkEl'),
+    channelsEl:   $('channelsEl'),  // v0.0.7 commit 4b
     saveBtn:      $('saveBtn'),
     wipeBtn:      $('wipeBtn'),
     saveAgo:      $('saveAgo'),
@@ -1183,9 +1375,7 @@ const UPGRADE_DEFS = [
   { id:'cargoSling',  name:'cargo sling',        desc:'+2 carry slots',                cost:80,  requires:null,          apply:()=>{ S.maxSlots+=2; } },
   { id:'cargoPack',   name:'expedition pack',    desc:'+3 more carry slots',           cost:180, requires:'cargoSling',  apply:()=>{ S.maxSlots+=3; } },
   { id:'cargoWeight', name:'pack mule rig',      desc:'+5 kg capacity',                cost:150, requires:null,          apply:()=>{ S.maxWeight+=5; } },
-  // v0.0.7 bug batch: replaced rebuildRoads (passive +20% speed) with efficientConsumption (-40% canteen drain per drink)
   { id:'efficientConsumption', name:'efficient consumption', desc:'-40% canteen drain per drink', cost:120, requires:null, apply:()=>{} },
-  // v0.0.7 bug batch: sandalweed satchel raises hoard cap from 5 to 25
   { id:'sandalSatchel', name:'sandalweed satchel', desc:'hoard cap 5 \u2192 25', cost:60, requires:null, apply:()=>{} },
 ];
 
@@ -1222,8 +1412,6 @@ function buyUpgrade(id) {
 function renderSettlements() {
   if (!els.settlementsEl) return;
   els.settlementsEl.innerHTML = '';
-  // v0.0.7 commit 3: show settlements at stage 2+ (tier visible).
-  // Stage 2 shows tier name + "(unconfirmed)" suffix, stage 3 shows full label.
   S.routeNodes.filter(n => getNodeStage(n.id) >= 2 && S.settlements[n.id])
     .map(n => ({ id:n.id, stage:getNodeStage(n.id), ...S.settlements[n.id] }))
     .forEach(s => {
@@ -1231,7 +1419,6 @@ function renderSettlements() {
       const name = s.stage >= 3 ? s.label : s.tier;
       const subtitle = s.stage >= 3 ? s.tier : 'unconfirmed';
       const quote = s.stage >= 3 ? s.quote : `"reports of a ${s.tier} along this route"`;
-      // v0.0.7 commit 4a: trust block for known NPC depots
       let trustBlock = '';
       const npcDef = NPC_DEFS[s.id];
       const npc    = getNpc(s.id);
@@ -1253,7 +1440,6 @@ function renderSettlements() {
     });
 }
 
-// v0.0.7: render real polled events. Falls back to "no signal" when empty.
 function renderNetwork() {
   if (!els.networkEl) return;
   const myId = getCachedPorterId();
@@ -1270,7 +1456,6 @@ function renderNetwork() {
     }
   }
 
-  // Filter out self events from feed display
   const visible = S.networkFeed.filter(e => e.porterId !== myId);
 
   if (!S.networkConnected) {
@@ -1303,10 +1488,10 @@ function formatEvent(e) {
       return `${who} lost <span class="net-ac">${data.label || 'cargo'}</span>`;
     case 'lost_recovered':
       return `${who} recovered <span class="net-ac">${data.label || 'lost cargo'}</span>`;
-    case 'trust_unlock':
-      // v0.0.7 commit 4a: include tier in display
+    case 'trust_unlock': {
       const tier = data.tier ? ` (${data.tier})` : '';
       return `${who} earned trust at <span class="net-ac">${data.npcLabel || '?'}</span>${tier}`;
+    }
     default:
       return `${who} ${e.type}`;
   }
@@ -1394,7 +1579,6 @@ function renderBoots() {
     if (S.bootClipMax>0) { els.clipBadge.textContent='clip: '+S.bootClipCount+'/'+S.bootClipMax; els.clipBadge.style.display='inline'; }
     else els.clipBadge.style.display='none';
   }
-  // v0.0.7 bug batch: sandalweed badge with cap display + cargo-style tooltip
   let sandalBadge = document.getElementById('sandalBadge');
   if (S.sandalweedCount > 0 || S.upgrades.sandalSatchel) {
     if (!sandalBadge && els.clipBadge && els.clipBadge.parentNode) {
@@ -1462,8 +1646,6 @@ function buyBoots() {
 }
 
 function checkAutobuy() {
-  // bug 3: sandalweed equip — happens regardless of autobuy toggle, since it's
-  // a free fallback the porter always has access to. priority: clip > sandalweed > scrip.
   if (S.bootDurability<=0 && S.bootClipCount<=0 && S.sandalweedCount>0) {
     S.sandalweedCount--; S.bootDurability=30; S.usingMakeshift=true;
     addLog('<span class="log-wn">boots failed</span> \u2014 lashed on a <span class="log-hi">sandalweed</span> (' + S.sandalweedCount + '/' + sandalCap() + ' left)');
@@ -1565,7 +1747,6 @@ function maybeTrip() {
 // SPEED / DRINK
 // ============================================================
 function speedMultiplier() {
-  // v0.0.7 bug batch: removed rebuildRoads x1.2 term entirely
   let mult = 1-(4-staminaSegCount())*0.15;
   if (S.bootDurability<=0)     mult *= 0.5;
   return Math.max(0.2, mult);
@@ -1576,7 +1757,6 @@ function drinkWater() {
   const need = S.staminaMax-S.stamina;
   const rest = Math.min(need,(S.canteen/S.canteenMax)*S.staminaMax);
   S.stamina  = Math.min(S.staminaMax, S.stamina+rest);
-  // v0.0.7 bug batch: efficientConsumption upgrade reduces canteen cost per drink by 40%
   const drainMult = S.upgrades.efficientConsumption ? 0.60 : 1.0;
   S.canteen  = Math.max(0, S.canteen-(rest/S.staminaMax)*S.canteenMax*drainMult);
   addLog(`drank from canteen \u2014 <span class="log-hi">+${Math.round(rest/S.staminaMax*100)}% stamina</span>`);
@@ -1622,7 +1802,7 @@ function tick() {
 
     if (S.ticks%5===0) {
       S.distKm = Math.round((S.edgeIdx + S.dotT) * 4.2 * 10) / 10;
-      checkDistMilestones(); // v0.0.7
+      checkDistMilestones();
     }
 
     maybeTrip();
@@ -1636,6 +1816,9 @@ function tick() {
     }
   }
 
+  // v0.0.7 commit 4b: ambient chatter (cheap; gated by ticks%10 inside)
+  tickAmbientChatter();
+
   const prevEdgeIdx = S.edgeIdx;
   S.dotT += 0.006 * speedMultiplier();
 
@@ -1644,18 +1827,14 @@ function tick() {
     S.edgeIdx = (S.edgeIdx+1) % S.edges.length;
     const arrivedAt = S.edges[prevEdgeIdx][1];
     const node = S.routeNodes.find(n => n.id===arrivedAt);
-    // v0.0.7 commit 3: bare arrival -> stage 3 (full identification)
     if (node && getNodeStage(arrivedAt) < 3) {
       setNodeStage(arrivedAt, 3);
       addLog(`discovered: <span class="log-hi">${node.label}</span>`);
-      // v0.0.7: broadcast discovery on bare arrival (no delivery case)
       postActivity('discovery', { nodeId: arrivedAt, label: node.label });
-      // v0.0.7 commit 4a: first discovery of an NPC depot is a trust handshake
       if (NPC_DEFS[arrivedAt]) {
         addTrust(arrivedAt, TRUST_GAIN_DISCOVERY, 'discovery');
       }
     }
-    // v0.0.7 commit 3: starting a new edge bumps both endpoints to stage 2 (tier visible)
     const [newFrom, newTo] = S.edges[S.edgeIdx];
     if (markEdgeAdjacent(newFrom, newTo)) {
       renderSettlements();
@@ -1664,6 +1843,13 @@ function tick() {
     updateDestDrift();
     refillBootClip(arrivedAt);
     tryDeliver(arrivedAt);
+
+    // v0.0.7 commit 4b: trust-tier behaviors fire on arrival at NPC depots
+    if (NPC_DEFS[arrivedAt]) {
+      tryT50Warning(arrivedAt);
+      tryT75Preview(arrivedAt);
+      tryT100RestPrompt(arrivedAt);
+    }
   } else {
     updateRouteDot();
   }
@@ -1677,6 +1863,8 @@ function tick() {
   else if (Math.random()<0.003) { setRain(!S.isRaining); S.rainTimer=40+Math.floor(Math.random()*60); }
 
   if (S.ticks % 9 === 0) updateSaveStrip();
+  // v0.0.7 commit 4b: refresh channel timestamps periodically (Xs ago text)
+  if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
 
   renderBoots(); renderStamina(); renderCargoSlots(); updateHUD();
 }
@@ -1695,8 +1883,6 @@ function init() {
 
   const restored = loadGame();
 
-  // v0.0.7 commit 3: ensure the edge the player is currently on has both endpoints at stage 2+.
-  // This handles fresh starts and old saves where the player resumes mid-edge.
   const [curFrom, curTo] = S.edges[S.edgeIdx];
   markEdgeAdjacent(curFrom, curTo);
 
@@ -1705,6 +1891,7 @@ function init() {
   buildRain(); setRain(false);
   layoutRouteNodes(); drawRouteMap(); updateDestDrift();
   renderUpgrades(); renderSettlements(); renderNetwork();
+  renderChannels();  // v0.0.7 commit 4b
   renderCargoSlots(true); renderCourierStack(); renderBoots(); renderStamina();
   renderFieldstrip();
   updateHUD();
@@ -1758,13 +1945,10 @@ function init() {
   });
   window.addEventListener('beforeunload', () => saveGame(true));
 
-  // v0.0.7: update porter strip hint to indicate connection state
   if (els.porterHint) els.porterHint.textContent = 'connecting to feed...';
 
-  // Start polling (only if tab is visible)
   if (document.visibilityState !== 'hidden') startPolling();
 
-  // Update porter hint after first successful poll
   const hintCheck = setInterval(() => {
     if (S.networkConnected && els.porterHint) {
       els.porterHint.textContent = 'connected to feed';

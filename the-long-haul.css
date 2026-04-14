@@ -41,10 +41,9 @@ html, body {
   display: grid;
   grid-template-columns: 1fr 140px;
   gap: 10px;
-  align-items: stretch; /* v0.0.7 bug batch: was 'start'; stretch lets right column match left height */
+  align-items: stretch;
 }
 
-/* v0.0.7 bug batch: shell becomes a column flex so dispatch log can fill */
 .tlh-shell {
   border: 1px solid #1e5554;
   border-radius: 2px;
@@ -94,7 +93,6 @@ html, body {
   flex-shrink: 0;
 }
 
-/* Layer 1 — terrain strip (JS-driven, fix 1: max-content not 200%) */
 .tlh-fieldstrip {
   display: flex;
   align-items: flex-end;
@@ -110,7 +108,6 @@ html, body {
   will-change: transform;
 }
 
-/* Layer 2 — destination drift (fix 2: starts inside viewport) */
 .tlh-dest-drift {
   position: absolute;
   right: 12%;
@@ -145,7 +142,6 @@ html, body {
   text-transform: lowercase;
 }
 
-/* Layer 3 — rain */
 .tlh-rain {
   position: absolute;
   inset: 0;
@@ -160,7 +156,6 @@ html, body {
   100% { transform: translateY(120px); opacity: 0; }
 }
 
-/* Layer 4 — courier */
 .tlh-courier {
   position: absolute;
   left: 70px;
@@ -170,7 +165,6 @@ html, body {
   font-family: 'Source Code Pro', monospace;
 }
 
-/* courier package stack */
 .tlh-courier-stack {
   display: flex;
   flex-direction: column;
@@ -194,7 +188,6 @@ html, body {
   color: #e0eeec;
   line-height: 1;
 }
-/* 7i: bounce via class so stack + @ animate in sync */
 .tlh-at.bounce { animation: bounce 0.4s steps(1) infinite; }
 .tlh-at.carry  { color: #77bfcf; }
 .tlh-at.rest   { color: #4a7a78; }
@@ -209,7 +202,6 @@ html, body {
   75%     { transform: rotate(-15deg); }
 }
 
-/* field chars */
 .fc { display: inline-block; padding: 0 1px; user-select: none; font-family: 'Source Code Pro', monospace; }
 .fc-fl       { color: #1e5554; }
 .fc-rn       { color: #3a6a68; }
@@ -220,7 +212,6 @@ html, body {
 .fc-sw-plant { color: #2a7a58; }
 .fc-depot    { color: #4a7a78; font-weight: 700; }
 
-/* HUD */
 .tlh-hud { display: flex; border-bottom: 1px solid #1e5554; flex-shrink: 0; }
 .tlh-hc  { flex: 1; padding: 5px 8px; border-right: 1px solid #1e5554; }
 .tlh-hc:last-child { border-right: none; }
@@ -229,7 +220,6 @@ html, body {
 .tlh-hv.ac { color: #77bfcf; }
 .tlh-hv.status { color: #da8bda; }
 
-/* rows */
 .tlh-row {
   display: flex;
   align-items: center;
@@ -243,7 +233,6 @@ html, body {
 }
 .tlh-row-label { color: #3a6a68; min-width: 36px; flex-shrink: 0; text-transform: lowercase; }
 
-/* cargo slots */
 .cargo-slots { display: flex; gap: 2px; flex-shrink: 0; }
 .cslot {
   width: 13px; height: 13px;
@@ -260,9 +249,6 @@ html, body {
 .cslot.l { background: #2a1a3a; color: #da8bda; border-color: #da8bda; }
 .cslot.e { background: transparent; }
 
-/* CSS-only tooltip (fix 4: no DOM thrash = no flicker)
-   v0.0.7 bug batch: hoisted from .cslot.has-tooltip to a generic .has-tooltip
-   so the sandalweed badge can reuse the exact same styling */
 .has-tooltip { cursor: help; position: relative; }
 .has-tooltip::after {
   content: attr(title);
@@ -289,8 +275,6 @@ html, body {
 }
 .has-tooltip:hover::after { opacity: 1; }
 
-/* weight pips — one per kg of max capacity, colour-ramped
-   v0.0.7 bug batch: pushed to right side of cargo bar via margin-left:auto */
 .weight-segs {
   display: flex;
   gap: 2px;
@@ -310,7 +294,6 @@ html, body {
 .wseg.overloaded { background: #da8bda; border-color: #a4589a; }
 .wseg.empty      { background: #132e2d; border-color: #1e5554; }
 
-/* inline log action button (boot clip refill prompt etc.) */
 .log-btn {
   background: transparent;
   border: 1px solid #3a6a68;
@@ -326,10 +309,8 @@ html, body {
 }
 .log-btn:hover { border-color: #77bfcf; }
 
-/* tie-down button */
 .tie-down-btn { flex-shrink: 0; }
 
-/* boots */
 .boots-bar-wrap { flex: 1; height: 4px; background: #132e2d; border-radius: 1px; overflow: hidden; }
 .boots-bar-fill { height: 100%; border-radius: 1px; transition: width 0.5s, background-color 0.5s; background: #4a7a78; }
 .boots-bar-fill.worn { background: #9d78d4; }
@@ -343,7 +324,6 @@ html, body {
   flex-shrink: 0;
 }
 
-/* v0.0.7 bug batch: sandalweed badge variant — green tint, pulses pink at cap */
 .sandal-badge {
   color: #2a7a58;
   border-color: #2a7a58;
@@ -369,7 +349,6 @@ html, body {
 .boots-auto.on { color: #77bfcf; border-color: #40a4b9; }
 .boots-auto:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
-/* stamina */
 .stamina-segs { display: flex; gap: 3px; flex-shrink: 0; }
 .sseg {
   width: 22px; height: 8px;
@@ -393,7 +372,6 @@ html, body {
   50%       { opacity: 0.5; }
 }
 
-/* canteen bar — slim context indicator */
 .canteen-bar-wrap {
   width: 28px; height: 3px;
   background: #132e2d;
@@ -423,7 +401,6 @@ html, body {
 .drink-btn:hover { border-color: #40a4b9; color: #b1c9c3; }
 .drink-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
-/* panels — v0.0.7 bug batch: flex:1 + min-height:0 lets dispatch log fill remaining shell height */
 .tlh-panels {
   display: flex;
   min-height: 120px;
@@ -448,8 +425,6 @@ html, body {
   flex-shrink: 0;
 }
 
-/* Each panel's content area scrolls independently when it overflows.
-   v0.0.7 bug batch: dispatch log + upgrades + settlements all share the pattern. */
 .tlh-panel > #logEl,
 .tlh-panel > #upgradesEl,
 .tlh-panel > #settlementsEl {
@@ -458,7 +433,6 @@ html, body {
   overflow-y: auto;
 }
 
-/* v0.0.7 bug batch: custom scrollbars matching terminal palette */
 .tlh-panel > #logEl,
 .tlh-panel > #upgradesEl,
 .tlh-panel > #settlementsEl {
@@ -483,14 +457,12 @@ html, body {
   background: #3a6a68;
 }
 
-/* log */
 .log-line { display: block; font-size: 10px; line-height: 1.7; color: #7aa8a6; font-family: 'Source Code Pro', monospace; }
 .log-ts { color: #2a5c5a; }
 .log-hi { color: #77bfcf; }
 .log-wn { color: #da8bda; }
 .log-ok { color: #4a7a78; }
 
-/* upgrades */
 .upg-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
 .upg-item:last-child { border-bottom: none; }
 .upg-name { color: #b1c9c3; line-height: 1.4; }
@@ -510,7 +482,6 @@ html, body {
 .upg-btn:hover:not(:disabled) { border-color: #40a4b9; color: #b1c9c3; }
 .upg-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
-/* settlements */
 .settle-item { padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
 .settle-item:last-child { border-bottom: none; }
 .settle-name { color: #e0eeec; font-weight: 700; font-size: 10px; display: flex; justify-content: space-between; }
@@ -521,8 +492,6 @@ html, body {
 .settle-fill.b { background: linear-gradient(90deg,#40a4b9,#9d78d4); animation: oil 3s linear infinite; background-size: 200% auto; }
 .settle-quote { font-size: 9px; color: #2a5c5a; margin-top: 3px; line-height: 1.4; }
 
-/* v0.0.7 commit 4a: NPC trust row inside settle-item.
-   Sits between the rebuild bar and the quote. Compact: callsign + bar + numeric value. */
 .settle-trust {
   display: flex;
   align-items: center;
@@ -559,7 +528,6 @@ html, body {
   text-align: right;
 }
 
-/* save strip — mirrors porter strip aesthetic at top */
 .tlh-save-strip {
   display: flex;
   align-items: center;
@@ -601,24 +569,63 @@ html, body {
   animation: overboost-pulse 1.2s ease-in-out infinite;
 }
 
-/* right col */
 .tlh-right { display: flex; flex-direction: column; gap: 8px; }
 .tlh-route-panel,
-.tlh-network-panel {
+.tlh-network-panel,
+.tlh-channels-panel {
   border: 1px solid #1e5554;
   border-radius: 2px;
   background: #081f1e;
   padding: 8px;
 }
 
-/* network */
 .net-item { font-size: 9px; color: #7aa8a6; line-height: 1.65; border-bottom: 1px solid #132e2d; padding: 2px 0; font-family: 'Source Code Pro', monospace; }
 .net-item:last-child { border-bottom: none; }
 .net-hi { color: #da8bda; }
 .net-ac { color: #77bfcf; }
-/* v0.0.7: status states for empty/connecting feed and census header */
 .net-item.net-quiet { color: #2a5c5a; font-style: italic; }
 .net-item.net-census { color: #4a7a78; font-size: 9px; padding-bottom: 4px; margin-bottom: 2px; border-bottom: 1px solid #1e5554; }
+
+/* v0.0.7 commit 4b: channels panel — NPC chatter feed */
+.chan-item {
+  font-size: 9px;
+  color: #b1c9c3;
+  line-height: 1.5;
+  border-bottom: 1px solid #132e2d;
+  padding: 4px 0;
+  font-family: 'Source Code Pro', monospace;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: "cs ago" "text text";
+  column-gap: 4px;
+  row-gap: 2px;
+  align-items: baseline;
+}
+.chan-item:last-child { border-bottom: none; }
+.chan-cs {
+  grid-area: cs;
+  color: #9d78d4;
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+  font-size: 9px;
+}
+.chan-ago {
+  grid-area: ago;
+  color: #2a5c5a;
+  font-size: 8px;
+  text-align: right;
+}
+.chan-text {
+  grid-area: text;
+  color: #b1c9c3;
+  font-style: italic;
+  font-weight: 400;
+}
+.chan-item[data-depot="A"] .chan-cs { color: #77bfcf; }
+.chan-item[data-depot="B"] .chan-cs { color: #da8bda; }
+.chan-item[data-depot="H"] .chan-cs { color: #9d78d4; }
+.chan-item.chan-quiet { color: #2a5c5a; font-style: italic; display: block; padding: 2px 0; }
 
 @media (max-width: 700px) {
   .tlh-layout { grid-template-columns: 1fr; }
