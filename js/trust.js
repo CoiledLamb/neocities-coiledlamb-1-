@@ -13,12 +13,12 @@
      t60: tryT75Preview — outbound edge package preview
      t80: tryT100RestPrompt — [rest] log button
 
-   Imports note (commit 9 / v0.0.7.9):
-     Imports addLog, drawRouteMap, renderSettlements,
-     staminaSegCount, renderStamina, updateHUD from main.js.
-     All circular-by-file but invoked only inside function
-     bodies, never at module load. They'll move to their own
-     modules in later commits.
+   Imports note:
+     staminaSegCount + renderStamina now from ./stamina.js
+       (commit 14 — was previously from main).
+     addLog, drawRouteMap, renderSettlements, updateHUD still
+       from main — circular-by-file but invoked only inside
+       function bodies.
    ============================================== */
 'use strict';
 
@@ -29,9 +29,10 @@ import { NPC_LINES } from './data/npc-lines.js';
 import { postActivity } from './multiplayer.js';
 import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js';
 import { speak, pickRandom } from './channels.js';
+import { staminaSegCount, renderStamina } from './stamina.js';
 import {
   addLog, drawRouteMap, renderSettlements,
-  staminaSegCount, renderStamina, updateHUD,
+  updateHUD,
 } from './main.js';
 
 const els = S._transient.els;
@@ -43,133 +44,128 @@ export function getNpc(depotId) {
 }
 
 export function addTrust(depotId, amount, reason) {
-  const npc = getNpc(depotId);
-  if (!npc || !amount) return 0;
+  if (!NPC_DEFS[depotId]) return;
+  if (!S.npcs[depotId]) S.npcs[depotId] = { trust: 0, lastSpokeTick: 0 };
+  const npc = S.npcs[depotId];
   const before = npc.trust;
   npc.trust = Math.max(0, Math.min(100, npc.trust + amount));
-  for (const t of C.TRUST_THRESHOLDS) {
-    const key = 't' + t;
-    if (before < t && npc.trust >= t && !npc.unlocks[key]) {
-      npc.unlocks[key] = true;
-      onTrustUnlock(depotId, t);
-    }
+  if (npc.trust === before) return;
+  for (let i = 0; i < C.TRUST_THRESHOLDS.length; i++) {
+    const t = C.TRUST_THRESHOLDS[i];
+    if (before < t && npc.trust >= t) onTrustUnlock(depotId, t, i);
   }
-  return npc.trust;
+  renderSettlements();
 }
 
-function onTrustUnlock(depotId, tier) {
-  const def = NPC_DEFS[depotId];
-  const npcLabel = def ? def.callsign : depotId;
-  postActivity('trust_unlock', { depotId, npcLabel, tier });
+function onTrustUnlock(depotId, threshold, tierIndex) {
+  const npc = NPC_DEFS[depotId];
+  if (!npc) return;
+  const tierKey = `t${threshold}`;
+  S.npcs[depotId][tierKey] = true;
 
-  const line = NPC_LINES.threshold[depotId] && NPC_LINES.threshold[depotId][tier];
-  if (line) speak(depotId, line);
+  const lines = (NPC_LINES[depotId] && NPC_LINES[depotId].threshold && NPC_LINES[depotId].threshold[threshold]) || [];
+  if (lines.length > 0) speak(depotId, pickRandom(lines), 'unlock');
 
-  if (tier === 20) {
+  postActivity('trust_unlock', { depotId, npcLabel: npc.callsign, tier: tierKey });
+
+  if (threshold === 20) {
     const adj = NPC_ADJACENT[depotId] || [];
-    const revealed = [];
-    adj.forEach(nid => {
-      if (getNodeStage(nid) === 0) {
-        if (setNodeStage(nid, 1)) revealed.push(nid);
+    let revealed = false;
+    adj.forEach(adjId => {
+      if (getNodeStage(adjId) < 1) {
+        setNodeStage(adjId, 1);
+        revealed = true;
       }
     });
-    if (revealed.length > 0) {
-      const labels = revealed.map(getDisplayLabel).join(', ');
-      addLog(`<span class="log-hi">${npcLabel}</span> shares word of nearby waypoints \u2014 signal: ${labels}`);
+    if (revealed) {
+      addLog(`<span class="log-hi">${npc.callsign}</span> shared route intel`);
       drawRouteMap();
       renderSettlements();
-    } else {
-      addLog(`<span class="log-hi">${npcLabel}</span> trusts you (20)`);
     }
+  }
+}
+
+export function tryT50Warning(arrivedNodeId) {
+  if (!NPC_DEFS[arrivedNodeId]) return;
+  const npc = S.npcs[arrivedNodeId];
+  if (!npc || !npc.t40) return;
+  const def = NPC_DEFS[arrivedNodeId];
+  const lines = NPC_LINES[arrivedNodeId] || {};
+
+  // Priority: trip-risk edge > rain incoming > low stamina
+  const [, nextTo] = S.edges[(S.edgeIdx + 1) % S.edges.length];
+  const nextEdgeIdx = (S.edgeIdx + 1) % S.edges.length;
+  let nextEdgeRisky = false;
+  for (let i = 0; i < C.CELLS_PER_EDGE; i++) {
+    const ci = nextEdgeIdx * C.CELLS_PER_EDGE + i;
+    if (worldCells[ci] && worldCells[ci].risky) { nextEdgeRisky = true; break; }
+  }
+  if (nextEdgeRisky && lines.warningTrip && lines.warningTrip.length) {
+    speak(arrivedNodeId, pickRandom(lines.warningTrip), 'warn');
     return;
   }
-  if (tier === 40)      addLog(`<span class="log-hi">${npcLabel}</span> trusts you (40) \u2014 will share warnings`);
-  else if (tier === 60) addLog(`<span class="log-hi">${npcLabel}</span> trusts you (60) \u2014 will preview routes`);
-  else if (tier === 80) addLog(`<span class="log-hi">${npcLabel}</span> trusts you (80) \u2014 you have a seat by their fire`);
+  if (!S.isRaining && S.rainTimer > 0 && S.rainTimer < 25 && lines.warningRain && lines.warningRain.length) {
+    speak(arrivedNodeId, pickRandom(lines.warningRain), 'warn');
+    return;
+  }
+  if (staminaSegCount() <= 1 && lines.warningStamina && lines.warningStamina.length) {
+    speak(arrivedNodeId, pickRandom(lines.warningStamina), 'warn');
+  }
 }
 
-export function tryT50Warning(depotId) {
-  const npc = getNpc(depotId);
-  if (!npc || !npc.unlocks.t40) return false;
-  const lines = NPC_LINES.warning[depotId];
-  if (!lines) return false;
-
-  const myEdgeIdx = S.edges.findIndex(([a,b]) => a === depotId);
-  if (myEdgeIdx >= 0) {
-    const [, nextDest] = S.edges[myEdgeIdx];
-    if (C.RISKY_EDGE_DEST.has(nextDest) && lines.trip) {
-      speak(depotId, lines.trip);
-      return true;
-    }
+export function tryT75Preview(arrivedNodeId) {
+  if (!NPC_DEFS[arrivedNodeId]) return;
+  const npc = S.npcs[arrivedNodeId];
+  if (!npc || !npc.t60) return;
+  const lines = (NPC_LINES[arrivedNodeId] && NPC_LINES[arrivedNodeId].preview) || [];
+  if (!lines.length) return;
+  const nextEdgeIdx = (S.edgeIdx + 1) % S.edges.length;
+  let foundPkg = null;
+  for (let i = 0; i < C.CELLS_PER_EDGE; i++) {
+    const ci = nextEdgeIdx * C.CELLS_PER_EDGE + i;
+    const cell = worldCells[ci];
+    if (cell && cell.pkg && !cell.pkg.picked) { foundPkg = cell.pkg; break; }
   }
-  if (!S.isRaining && S.rainTimer > 0 && S.rainTimer < 25 && lines.rain) {
-    speak(depotId, lines.rain);
-    return true;
-  }
-  if (staminaSegCount() <= 2 && lines.stamina) {
-    speak(depotId, lines.stamina);
-    return true;
-  }
-  return false;
+  if (!foundPkg) return;
+  const tmpl = pickRandom(lines);
+  const msg = tmpl
+    .replace('{label}', foundPkg.label)
+    .replace('{size}', foundPkg.size)
+    .replace('{dest}', getDisplayLabel(foundPkg.destId));
+  speak(arrivedNodeId, msg, 'preview');
 }
 
-export function tryT75Preview(depotId) {
-  const npc = getNpc(depotId);
-  if (!npc || !npc.unlocks.t60) return false;
-  const tmpl = NPC_LINES.preview[depotId];
-  if (!tmpl) return false;
-
-  const myEdgeIdx = S.edges.findIndex(([a,b]) => a === depotId);
-  if (myEdgeIdx < 0) return false;
-  const [, nextDest] = S.edges[myEdgeIdx];
-
-  const startCell = myEdgeIdx * C.CELLS_PER_EDGE;
-  const endCell   = startCell + C.CELLS_PER_EDGE;
-  let found = null;
-  for (let i = startCell; i < endCell; i++) {
-    const c = worldCells[i];
-    if (c && c.pkg && !c.pkg.picked) { found = c.pkg; break; }
-  }
-  if (!found) return false;
-
-  const kindMap = { s: 'small', m: 'medium', l: 'large' };
-  const text = tmpl
-    .replace('{kind}', kindMap[found.size] || found.size)
-    .replace('{next}', getDisplayLabel(nextDest));
-  speak(depotId, text);
-  return true;
-}
-
-export function tryT100RestPrompt(depotId) {
-  const npc = getNpc(depotId);
-  if (!npc || !npc.unlocks.t80) return false;
-  if (S._transient.depotRestPending) return false;
-  if (S.stamina >= S.staminaMax && S.staminaOverboost) return false;
-  const def = NPC_DEFS[depotId];
-  const npcLabel = def ? def.callsign : depotId;
-  S._transient.depotRestPending = { depotId };
-  addLog(`<span class="log-hi">${npcLabel}</span> offers a seat by the fire \u2014 <button class="log-btn" id="depotRestBtn">rest</button>`);
+export function tryT100RestPrompt(arrivedNodeId) {
+  if (!NPC_DEFS[arrivedNodeId]) return;
+  const npc = S.npcs[arrivedNodeId];
+  if (!npc || !npc.t80) return;
+  if (S._transient.restPromptPending) return;
+  if (S.stamina >= S.staminaMax * 0.85) return;
+  if (S.scrip < 5) return;
+  const def = NPC_DEFS[arrivedNodeId];
+  const lines = (NPC_LINES[arrivedNodeId] && NPC_LINES[arrivedNodeId].rest) || [];
+  if (!lines.length) return;
+  S._transient.restPromptPending = { nodeId: arrivedNodeId };
+  speak(arrivedNodeId, pickRandom(lines), 'rest');
+  addLog(`<button class="log-btn" id="depotRestBtn">accept rest at ${def.callsign}</button>`);
   setTimeout(() => {
     const btn = document.getElementById('depotRestBtn');
     if (btn) btn.addEventListener('click', confirmDepotRest);
   }, 0);
-  return true;
 }
 
 function confirmDepotRest() {
-  if (!S._transient.depotRestPending) return;
-  const { depotId } = S._transient.depotRestPending;
-  S._transient.depotRestPending = null;
-  const def = NPC_DEFS[depotId];
-  const npcLabel = def ? def.callsign : depotId;
+  if (!S._transient.restPromptPending) return;
+  const { nodeId } = S._transient.restPromptPending;
+  S._transient.restPromptPending = null;
+  const def = NPC_DEFS[nodeId];
+  S.scrip = Math.max(0, S.scrip - 10);
   S.stamina = S.staminaMax * 1.05;
   S.staminaOverboost = true;
   S.canteen = Math.min(S.canteenMax, S.canteen + 30);
-  S.scrip += C.DEPOT_REST_BONUS_SCRIP;
-  addLog(`rested at <span class="log-hi">${npcLabel}</span> \u2014 <span class="log-ok">stamina restored, +${C.DEPOT_REST_BONUS_SCRIP}\u00a2</span>`);
-  const line = pickRandom(NPC_LINES.rest[depotId]);
-  if (line) speak(depotId, line);
-  renderStamina(); updateHUD();
+  addLog(`rested at <span class="log-hi">${def ? def.callsign : nodeId}</span> \u2014 <span class="log-ok">+stamina +canteen \u221210\u00a2</span>`);
+  renderStamina();
+  updateHUD();
   const btn = document.getElementById('depotRestBtn');
   if (btn) btn.closest('.log-line').remove();
 }

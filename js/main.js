@@ -1,13 +1,23 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.12
+   v0.0.7.14
 
-   Refactor commit 12: extracted trip mechanics + distance
-   accumulator to ./trip.js. tripChance, catchChance, maybeTrip,
-   currentCellIsRisky, posKm, accumulateDist now live there.
-   Called via Trip.* from the tick loop. No new exports needed
-   in main — staminaSegCount, addLog, renderCourierStack,
-   renderCargoSlots were already exported for prior commits.
+   Refactor commits 13-14: extracted boots + stamina to
+   ./boots.js and ./stamina.js. Combined push since boots and
+   stamina cross-reference (renderBoots/renderStamina both
+   called from main's tick + init, autobuy reads sandalweed
+   stash, drinkWater triggered by autodrink threshold from
+   renderStamina). No circular dep between boots and stamina —
+   boots imports addLog+updateHUD from main; stamina imports
+   addLog from main.
+
+   Net export reduction in main: sandalCap, renderBoots,
+   staminaSegCount, renderStamina are no longer main exports
+   (now exported by their respective new modules).
+
+   Cross-module updates this commit:
+     packages.js: sandalCap, renderBoots now from ./boots.js
+     trust.js:    staminaSegCount, renderStamina now from ./stamina.js
 
    Imports:
      S — game state singleton (state.js)
@@ -33,6 +43,10 @@
        Pkg.tickPkgRespawns — packages (namespace import)
      Trip.maybeTrip, Trip.accumulateDist,
        Trip.tripChance, Trip.catchChance — trip (namespace import)
+     Boots.renderBoots, Boots.checkAutobuy, Boots.refillBootClip,
+       Boots.toggleBootsGear, Boots.toggleTieDown — boots (namespace)
+     Stamina.renderStamina, Stamina.drinkWater,
+       Stamina.speedMultiplier — stamina (namespace)
 
    Local aliases:
      els, worldCells — see commit 2 notes
@@ -66,17 +80,15 @@ import {
 } from './world.js';
 import * as Pkg from './packages.js';
 import * as Trip from './trip.js';
+import * as Boots from './boots.js';
+import * as Stamina from './stamina.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
 
-// sandalCap is exported for packages.js (scanForPickup). Moves to
-// boots.js in commit 13 — at which point packages.js should import
-// it from there instead and this export can drop.
-export function sandalCap() {
-  return S.upgrades.sandalSatchel ? C.SANDAL_CAP_UPGRADED : C.SANDAL_CAP_BASE;
-}
+// sandalCap moved to ./boots.js (commit 13). Imported via
+// Boots.* below where needed, though main itself doesn't call it.
 
 // Distance accumulator helpers (posKm, accumulateDist) now live
 // in ./trip.js. Called via Trip.accumulateDist() in the tick loop.
@@ -308,7 +320,7 @@ function buyUpgrade(id) {
   if (!def || S.upgrades[id] || S.scrip < def.cost) return;
   S.scrip -= def.cost; S.upgrades[id] = true; def.apply();
   addLog(`<span class="log-hi">${def.name}</span> purchased`);
-  renderUpgrades(); renderCargoSlots(true); renderBoots(); updateHUD();
+  renderUpgrades(); renderCargoSlots(true); Boots.renderBoots(); updateHUD();
 }
 
 // ============================================================
@@ -422,7 +434,7 @@ function tt() {
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
-// addLog is exported for persistence.js / multiplayer.js / recovery.js / trust.js.
+// addLog is exported for persistence.js / multiplayer.js / recovery.js / trust.js / boots.js / stamina.js.
 // Circular import-safe: callers only invoke addLog inside function bodies.
 export function addLog(msg) {
   if (!els.logEl) return;
@@ -436,7 +448,7 @@ export function addLog(msg) {
 // ============================================================
 // HUD / RENDER
 // ============================================================
-// updateHUD is exported for trust.js (called from confirmDepotRest).
+// updateHUD is exported for trust.js (confirmDepotRest) and boots.js.
 export function updateHUD() {
   els.delivered.textContent = S.delivered;
   els.scrip.textContent     = S.scrip + '\u00a2';
@@ -496,181 +508,18 @@ export function renderCourierStack() {
     S.inventory.map(p => `<span class="courier-pkg${p.isLost?' lost':''}">[${p.size}]</span>`).join('');
 }
 
-// renderBoots is exported for packages.js (called from sandalweed
-// harvest in scanForPickup). Moves to boots.js in commit 13.
-export function renderBoots() {
-  const d = Math.round(S.bootDurability);
-  if (els.bootsVal) els.bootsVal.textContent = d+'%';
-  if (els.bootsBar) { els.bootsBar.style.width = d+'%'; els.bootsBar.className = 'boots-bar-fill'+(d>50?'':d>25?' worn':' bad'); }
+// renderBoots, toggleAutobuy, toggleBootsGear moved to ./boots.js.
+// Called via Boots.* from the tick loop and init listeners.
 
-  if (els.bootsGearPop) {
-    const popKey = `${S.bootClipMax}|${S.bootClipCount}|${S.scrip < 15 ? 'x' : 'o'}|${S.autobuyBoots ? 'on' : 'off'}`;
-    if (popKey !== S._transient.lastGearPopKey) {
-      S._transient.lastGearPopKey = popKey;
-      const clipLine = S.bootClipMax > 0
-        ? `<div class="gear-line">clip: <span class="gear-val">${S.bootClipCount}/${S.bootClipMax}</span></div>`
-        : '';
-      const buyDisabled = S.scrip < 15 ? 'disabled' : '';
-      const autobuyOn = S.autobuyBoots ? ' on' : '';
-      const autobuyTxt = S.autobuyBoots ? 'autobuy: on' : 'autobuy: off';
-      els.bootsGearPop.innerHTML =
-        clipLine +
-        `<button class="boots-auto gear-btn" id="buyBootsBtn" ${buyDisabled}>buy boots (15\u00a2)</button>` +
-        `<button class="boots-auto gear-btn${autobuyOn}" id="autobuyBtn">${autobuyTxt}</button>`;
-      const newBuy = document.getElementById('buyBootsBtn');
-      const newAuto = document.getElementById('autobuyBtn');
-      if (newBuy) newBuy.addEventListener('click', buyBoots);
-      if (newAuto) newAuto.addEventListener('click', toggleAutobuy);
-      els.buyBootsBtn = newBuy;
-      els.autobuyBtn  = newAuto;
-    }
-  }
-
-  let sandalBadge = document.getElementById('sandalBadge');
-  if (S.sandalweedCount > 0 || S.upgrades.sandalSatchel) {
-    if (!sandalBadge && els.bootsGearBtn && els.bootsGearBtn.parentNode) {
-      sandalBadge = document.createElement('span');
-      sandalBadge.id = 'sandalBadge';
-      sandalBadge.className = 'clip-badge sandal-badge has-tooltip';
-      els.bootsGearBtn.parentNode.insertBefore(sandalBadge, els.bootsGearBtn.nextSibling);
-    }
-    if (sandalBadge) {
-      const cap = sandalCap();
-      const atCap = S.sandalweedCount >= cap;
-      sandalBadge.textContent = '* ' + S.sandalweedCount + '/' + cap;
-      sandalBadge.classList.toggle('at-cap', atCap);
-      sandalBadge.setAttribute('title',
-        'sandalweed: ' + S.sandalweedCount + '/' + cap +
-        '\nmakeshift footwear' +
-        '\nauto-equipped when boots fail' +
-        (atCap ? '\n[hoard full \u2014 leaving plants standing]' : '')
-      );
-      sandalBadge.style.display = 'inline';
-    }
-  } else if (sandalBadge) {
-    sandalBadge.style.display = 'none';
-  }
-}
-
-function toggleAutobuy() {
-  S.autobuyBoots = !S.autobuyBoots;
-  renderBoots();
-}
-
-function toggleBootsGear() {
-  if (!els.bootsGearPop) return;
-  const isOpen = els.bootsGearPop.classList.toggle('open');
-  if (els.bootsGearBtn) els.bootsGearBtn.classList.toggle('on', isOpen);
-  if (isOpen) {
-    setTimeout(() => {
-      S._transient.gearPopHandler = (ev) => {
-        if (!els.bootsGearPop.contains(ev.target) && ev.target !== els.bootsGearBtn) {
-          els.bootsGearPop.classList.remove('open');
-          if (els.bootsGearBtn) els.bootsGearBtn.classList.remove('on');
-          document.removeEventListener('click', S._transient.gearPopHandler);
-          S._transient.gearPopHandler = null;
-        }
-      };
-      document.addEventListener('click', S._transient.gearPopHandler);
-    }, 0);
-  } else if (S._transient.gearPopHandler) {
-    document.removeEventListener('click', S._transient.gearPopHandler);
-    S._transient.gearPopHandler = null;
-  }
-}
-
-// staminaSegCount is exported for trust.js (called from tryT50Warning).
-export function staminaSegCount() {
-  return Math.min(4, Math.ceil(Math.min(S.stamina,S.staminaMax)/(S.staminaMax/4)));
-}
-
-// renderStamina is exported for trust.js (called from confirmDepotRest).
-export function renderStamina() {
-  const perSeg = S.staminaMax/4, disp = Math.min(S.stamina,S.staminaMax);
-  for (let i=0;i<4;i++) {
-    const seg = document.getElementById('sseg'+i); if(!seg) continue;
-    const fl=i*perSeg, ce=(i+1)*perSeg;
-    if (disp>=ce)      seg.className='sseg full';
-    else if (disp>fl)  seg.className='sseg '+((disp-fl)/perSeg>0.5?'half':'crit');
-    else               seg.className='sseg empty';
-  }
-  const over = document.getElementById('sseg4');
-  if (over) {
-    if (S.staminaOverboost&&S.stamina>S.staminaMax) { over.className='sseg overboost'; over.style.display='block'; }
-    else over.style.display='none';
-  }
-  const nowSegs = staminaSegCount();
-  if (S.autodrink && nowSegs < S.prevStaminaSeg && S.canteen>0) drinkWater();
-  S.prevStaminaSeg = nowSegs;
-  const canteenPct = Math.round((S.canteen/S.canteenMax)*100);
-  if (els.drinkBtn) {
-    els.drinkBtn.textContent = `drink (${canteenPct}%)`;
-    els.drinkBtn.disabled    = S.canteen<=0 || S.stamina>=S.staminaMax;
-  }
-  if (els.canteenBar) els.canteenBar.style.height = canteenPct+'%';
-}
+// staminaSegCount, renderStamina moved to ./stamina.js. Called via
+// Stamina.* from the tick loop and init.
 
 // ============================================================
-// BOOTS / CLIP / TIE-DOWN
+// BOOTS / CLIP / TIE-DOWN — moved to ./boots.js (commit 13).
+// buyBoots, checkAutobuy, refillBootClip, confirmClipRefill,
+// toggleTieDown, toggleAutobuy, toggleBootsGear, sandalCap,
+// renderBoots all live there. Called via Boots.* from tick + init.
 // ============================================================
-function buyBoots() {
-  if (S.scrip<15) return;
-  S.scrip-=15; S.bootDurability=100; S.usingMakeshift=false;
-  addLog('purchased new <span class="log-hi">boots</span> (15\u00a2)');
-  renderBoots(); updateHUD();
-}
-
-function checkAutobuy() {
-  if (S.bootDurability<=0 && S.bootClipCount<=0 && S.sandalweedCount>0) {
-    S.sandalweedCount--; S.bootDurability=30; S.usingMakeshift=true;
-    addLog('<span class="log-wn">boots failed</span> \u2014 lashed on a <span class="log-hi">sandalweed</span> (' + S.sandalweedCount + '/' + sandalCap() + ' left)');
-    renderBoots(); return;
-  }
-  if (!S.autobuyBoots) return;
-  if (S.bootDurability<=0 && S.bootClipCount>0) {
-    S.bootClipCount--; S.bootDurability=100; S.usingMakeshift=false;
-    addLog('<span class="log-hi">boot clip</span>: spare pair auto-equipped');
-    renderBoots(); return;
-  }
-  if (S.bootDurability<=20 && S.scrip>=15) {
-    S.scrip-=15; S.bootDurability=100; S.usingMakeshift=false;
-    addLog('autobuy: new <span class="log-hi">boots</span> purchased (15\u00a2)');
-    updateHUD();
-  }
-}
-
-function refillBootClip(nodeId) {
-  if (S.bootClipMax===0 || !['A','B','H'].includes(nodeId)) return;
-  if (S.bootClipCount>=S.bootClipMax) return;
-  if (S._transient.clipRefillPending) return;
-  const cost = (S.bootClipMax-S.bootClipCount)*15;
-  if (S.scrip < cost) return;
-  const settle = S.settlements[nodeId];
-  S._transient.clipRefillPending = { nodeId, cost };
-  addLog(`<span class="log-wn">boot clip low</span> at <span class="log-hi">${settle?settle.label:nodeId}</span> \u2014 refill for ${cost}\u00a2? <button class="log-btn" id="clipRefillBtn">refill</button>`);
-  setTimeout(() => {
-    const btn = document.getElementById('clipRefillBtn');
-    if (btn) btn.addEventListener('click', confirmClipRefill);
-  }, 0);
-}
-
-function confirmClipRefill() {
-  if (!S._transient.clipRefillPending) return;
-  const { cost } = S._transient.clipRefillPending;
-  S._transient.clipRefillPending = null;
-  if (S.scrip < cost) { addLog('<span class="log-wn">not enough scrip</span>'); return; }
-  S.scrip -= cost; S.bootClipCount = S.bootClipMax;
-  addLog(`boot clip refilled (${cost}\u00a2)`);
-  renderBoots(); updateHUD();
-  const btn = document.getElementById('clipRefillBtn');
-  if (btn) btn.closest('.log-line').remove();
-}
-
-function toggleTieDown() {
-  S.tieDownActive = !S.tieDownActive;
-  if (els.tieDownBtn) { els.tieDownBtn.textContent='tie-down: '+(S.tieDownActive?'on':'off'); els.tieDownBtn.classList.toggle('on',S.tieDownActive); }
-  if (S.tieDownActive) addLog('cargo <span class="log-hi">tied down</span> \u2014 next stumble negated');
-}
 
 // ============================================================
 // TRIP / CATCH — now in ./trip.js (tripChance, catchChance,
@@ -678,23 +527,9 @@ function toggleTieDown() {
 // ============================================================
 
 // ============================================================
-// SPEED / DRINK
+// SPEED / DRINK — moved to ./stamina.js. speedMultiplier and
+// drinkWater called via Stamina.* from tick + init listener.
 // ============================================================
-function speedMultiplier() {
-  let mult = 1-(4-staminaSegCount())*0.15;
-  if (S.bootDurability<=0)     mult *= 0.5;
-  return Math.max(0.2, mult);
-}
-
-function drinkWater() {
-  if (S.canteen<=0 || S.stamina>=S.staminaMax) return;
-  const need = S.staminaMax-S.stamina;
-  const rest = Math.min(need,(S.canteen/S.canteenMax)*S.staminaMax);
-  S.stamina  = Math.min(S.staminaMax, S.stamina+rest);
-  const drainMult = S.upgrades.efficientConsumption ? 0.60 : 1.0;
-  S.canteen  = Math.max(0, S.canteen-(rest/S.staminaMax)*S.canteenMax*drainMult);
-  addLog(`drank from canteen \u2014 <span class="log-hi">+${Math.round(rest/S.staminaMax*100)}% stamina</span>`);
-}
 
 // ============================================================
 // MAIN TICK
@@ -708,7 +543,7 @@ function tick() {
       S.status = S.inventory.length>0?'carrying':'walking';
       if (els.courierAt) { els.courierAt.className='tlh-at bounce'+(S.inventory.length>0?' carry':''); els.courierAt.style.animation=''; }
     }
-    renderBoots(); renderStamina(); updateHUD(); return;
+    Boots.renderBoots(); Stamina.renderStamina(); updateHUD(); return;
   }
 
   if (S.status==='resting') {
@@ -719,7 +554,7 @@ function tick() {
       addLog('rested at shelter \u2014 <span class="log-hi">stamina restored +25% overboost</span>');
       if (els.courierAt) { els.courierAt.className='tlh-at bounce'; els.courierAt.style.animation=''; }
     }
-    renderStamina(); updateHUD(); return;
+    Stamina.renderStamina(); updateHUD(); return;
   }
 
   if (S.status==='walking' || S.status==='carrying') {
@@ -740,7 +575,7 @@ function tick() {
     }
 
     Trip.maybeTrip();
-    checkAutobuy();
+    Boots.checkAutobuy();
     Pkg.scanForPickup();
 
     if (S.stamina<50 && S.status==='walking' && Math.random()<0.03) {
@@ -754,7 +589,7 @@ function tick() {
   tickRecoveryAttempt();
 
   const prevEdgeIdx = S.edgeIdx;
-  S.dotT += 0.006 * speedMultiplier();
+  S.dotT += 0.006 * Stamina.speedMultiplier();
 
   if (S.dotT >= 1) {
     S.dotT    = 0;
@@ -775,7 +610,7 @@ function tick() {
     }
     drawRouteMap();
     updateDestDrift();
-    refillBootClip(arrivedAt);
+    Boots.refillBootClip(arrivedAt);
     Pkg.tryDeliver(arrivedAt);
 
     if (NPC_DEFS[arrivedAt]) {
@@ -798,7 +633,7 @@ function tick() {
   if (S.ticks % 9 === 0) updateSaveStrip();
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
 
-  renderBoots(); renderStamina(); renderCargoSlots(); updateHUD();
+  Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
 }
 
 // ============================================================
@@ -824,7 +659,7 @@ function init() {
   layoutRouteNodes(); drawRouteMap(); updateDestDrift();
   renderUpgrades(); renderSettlements(); renderNetwork();
   renderChannels();
-  renderCargoSlots(true); renderCourierStack(); renderBoots(); renderStamina();
+  renderCargoSlots(true); renderCourierStack(); Boots.renderBoots(); Stamina.renderStamina();
   updatePorterStripBadges();
   renderFieldstrip();
   updateHUD();
@@ -841,15 +676,15 @@ function init() {
     els.courierAt.style.animation = '';
   }
 
-  if (els.bootsGearBtn) els.bootsGearBtn.addEventListener('click', toggleBootsGear);
+  if (els.bootsGearBtn) els.bootsGearBtn.addEventListener('click', Boots.toggleBootsGear);
 
-  if (els.drinkBtn) els.drinkBtn.addEventListener('click', drinkWater);
+  if (els.drinkBtn) els.drinkBtn.addEventListener('click', Stamina.drinkWater);
   if (els.autodrinkBtn) els.autodrinkBtn.addEventListener('click', () => {
     S.autodrink=!S.autodrink;
     els.autodrinkBtn.textContent='auto: '+(S.autodrink?'on':'off');
     els.autodrinkBtn.classList.toggle('on',S.autodrink);
   });
-  if (els.tieDownBtn) els.tieDownBtn.addEventListener('click', toggleTieDown);
+  if (els.tieDownBtn) els.tieDownBtn.addEventListener('click', Boots.toggleTieDown);
 
   if (S.autodrink && els.autodrinkBtn) {
     els.autodrinkBtn.textContent = 'auto: on';
