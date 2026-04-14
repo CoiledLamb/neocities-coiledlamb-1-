@@ -1,14 +1,10 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.7
+   v0.0.7.8
 
-   Refactor commit 7: extracted lost cargo recovery loop
-   to ./recovery.js. tickRecoveryAttempt, spawnRecoveryCargo,
-   updatePorterStripBadges now imported from there.
-
-   pickRandom helper duplicated in recovery.js (still used
-   here by NPC code). Will consolidate when trust/channels
-   extract or a util module appears.
+   Refactor commit 8: extracted node identification stages
+   to ./identification.js. getNodeStage, setNodeStage,
+   markEdgeAdjacent, getDisplayLabel now imported from there.
 
    Imports:
      S — game state singleton (state.js)
@@ -23,6 +19,8 @@
        fetchLostFromPeer, startPolling, stopPolling,
        shortPorterId, checkDistMilestones — multiplayer
      tickRecoveryAttempt, updatePorterStripBadges — recovery
+     getNodeStage, setNodeStage, markEdgeAdjacent,
+       getDisplayLabel — identification
 
    Local aliases:
      els, worldCells — see commit 2 notes
@@ -44,6 +42,9 @@ import {
   shortPorterId, checkDistMilestones,
 } from './multiplayer.js';
 import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js';
+import {
+  getNodeStage, setNodeStage, markEdgeAdjacent, getDisplayLabel,
+} from './identification.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -75,43 +76,6 @@ function accumulateDist() {
   S.distKm = Math.round((S.distKm + delta) * 10) / 10;
   t.lastDistEdgeIdx = S.edgeIdx;
   t.lastDistDotT    = S.dotT;
-}
-
-// ============================================================
-// IDENTIFICATION STAGES
-// ============================================================
-function getNodeStage(id) {
-  return (S.nodeStages && typeof S.nodeStages[id] === 'number') ? S.nodeStages[id] : 0;
-}
-
-function setNodeStage(id, stage) {
-  if (!S.nodeStages) S.nodeStages = {};
-  const cur = getNodeStage(id);
-  if (stage > cur) {
-    S.nodeStages[id] = stage;
-    return true;
-  }
-  return false;
-}
-
-function markEdgeAdjacent(fromId, toId) {
-  let changed = false;
-  if (setNodeStage(fromId, 2)) changed = true;
-  if (setNodeStage(toId,   2)) changed = true;
-  return changed;
-}
-
-function getDisplayLabel(id) {
-  const stage = getNodeStage(id);
-  if (stage >= 3) {
-    const node = S.routeNodes.find(n => n.id === id);
-    return node ? node.label : id;
-  }
-  if (stage >= 2) {
-    const settle = S.settlements[id];
-    return settle ? settle.tier : '???';
-  }
-  return '???';
 }
 
 // ============================================================
