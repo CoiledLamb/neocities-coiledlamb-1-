@@ -28,18 +28,18 @@
      locally (log only). Lost pkgs go through postLostDrop()
      so other porters can recover them.
 
-   Cross-call surface kept tight: only addLog,
-   staminaSegCount, renderCourierStack, renderCargoSlots
-   imported from main — all of which were already exported.
-   No new exports needed in main for this commit.
+   Imports note (commit 14 hotfix):
+     staminaSegCount now from ./stamina.js (was main.js).
+     addLog, renderCourierStack, renderCargoSlots still from main.
    ============================================== */
 'use strict';
 
 import { S } from './state.js';
 import * as C from './constants.js';
 import { postLostDrop } from './multiplayer.js';
+import { staminaSegCount } from './stamina.js';
 import {
-  addLog, staminaSegCount, renderCourierStack, renderCargoSlots,
+  addLog, renderCourierStack, renderCargoSlots,
 } from './main.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
