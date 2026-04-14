@@ -1,52 +1,41 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.15
+   v0.0.7.16
 
-   Refactor commit 15: extracted renderUpgrades + buyUpgrade
-   to ./upgrades.js. Smallest extraction of the refactor —
-   2 functions, ~30 lines. UPGRADE_DEFS data already lived
-   in ./data/upgrades.js since commit 4; this commit moves
-   the behavior half. main no longer imports UPGRADE_DEFS;
-   ./upgrades.js does.
+   Refactor commit 16: ALL render code moved to js/render/.
+   Five modules created in part 1 (commit ddd811e):
+     render/log.js, render/hud.js, render/route-map.js,
+     render/settlements.js, render/network.js.
 
-   Net export reduction in main: none (renderUpgrades and
-   buyUpgrade were never exported, only locally referenced).
+   This commit (part 2) wires them up. Strategy: main.js
+   imports from render/* and re-exports the same symbols
+   under their old names, preserving the public API that
+   8 dependent modules still consume. This keeps the cutover
+   minimal — no other files need to change in this commit.
 
-   Note: js/main.js.tmp-probe cleanup deferred to a separate
-   commit (the GitHub MCP push tool can't delete files, only
-   create/update).
+   Commit 17 will sweep the dependent modules to import
+   directly from render/* and remove the re-export layer
+   here. After that main.js is just init + tick + entry.
 
-   Imports:
-     S — game state singleton (state.js)
-     C — tuning constants namespace (constants.js)
-     NPC_LINES, NPC_DEFS, NPC_ADJACENT — NPC data
-     NPC_PKGS, LOST_PKGS — cargo definitions
-     ZONE_TYPES — terrain weights/chars/spawn rates
-     NODE_GLYPHS, STATUS_COLORS — visual maps
-     saveGame, loadGame, armWipe, updateSaveStrip — persistence
-     getPorterId, getCachedPorterId, postActivity, postLostDrop,
-       fetchLostFromPeer, startPolling, stopPolling,
-       shortPorterId, checkDistMilestones — multiplayer
-     tickRecoveryAttempt, updatePorterStripBadges — recovery
-     getNodeStage, setNodeStage, markEdgeAdjacent,
-       getDisplayLabel — identification
-     addTrust, tryT50Warning, tryT75Preview,
-       tryT100RestPrompt — trust
-     renderChannels, tickAmbientChatter — channels
-     buildWorld, calcCellPxWidth, worldPosFromRoute,
-       renderFieldstrip — world
-     Pkg.scanForPickup, Pkg.tryDeliver,
-       Pkg.tickPkgRespawns — packages (namespace import)
-     Trip.maybeTrip, Trip.accumulateDist,
-       Trip.tripChance, Trip.catchChance — trip (namespace import)
-     Boots.renderBoots, Boots.checkAutobuy, Boots.refillBootClip,
-       Boots.toggleBootsGear, Boots.toggleTieDown — boots (namespace)
-     Stamina.renderStamina, Stamina.drinkWater,
-       Stamina.speedMultiplier — stamina (namespace)
-     Upg.renderUpgrades — upgrades (namespace)
+   Re-exports (old name → new home):
+     addLog              → render/log.js
+     updateHUD           → render/hud.js
+     renderCargoSlots    → render/hud.js
+     renderCourierStack  → render/hud.js
+     drawRouteMap        → render/route-map.js
+     renderSettlements   → render/settlements.js
+     renderNetwork       → render/network.js
 
-   Local aliases:
-     els, worldCells — see commit 2 notes
+   Functions still local to main.js:
+     updateDestDrift, buildRain, setRain, resolveEls
+     (plus tick() and init() — orchestration only).
+
+   Local helpers still here for tick/init use:
+     currentEdge, updateRouteDot, layoutRouteNodes are
+     imported from render/route-map.js (currentEdge was
+     promoted to an export there since both modules need it).
+
+   No behavior change. No save schema bump.
    ============================================== */
 'use strict';
 
@@ -56,7 +45,7 @@ import { NPC_LINES } from './data/npc-lines.js';
 import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js';
 import { NPC_PKGS, LOST_PKGS } from './data/packages.js';
 import { ZONE_TYPES } from './data/zones.js';
-import { NODE_GLYPHS, STATUS_COLORS } from './data/glyphs.js';
+import { NODE_GLYPHS } from './data/glyphs.js';
 import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js';
 import {
   getPorterId, getCachedPorterId, postActivity, postLostDrop,
@@ -80,18 +69,38 @@ import * as Boots from './boots.js';
 import * as Stamina from './stamina.js';
 import * as Upg from './upgrades.js';
 
+// Render module imports — implementations now live in js/render/.
+import { addLog as _addLog } from './render/log.js';
+import {
+  updateHUD as _updateHUD,
+  renderCargoSlots as _renderCargoSlots,
+  renderCourierStack as _renderCourierStack,
+} from './render/hud.js';
+import {
+  drawRouteMap as _drawRouteMap,
+  updateRouteDot,
+  layoutRouteNodes,
+  currentEdge,
+} from './render/route-map.js';
+import { renderSettlements as _renderSettlements } from './render/settlements.js';
+import { renderNetwork as _renderNetwork } from './render/network.js';
+
+// Re-export the moved symbols under their original names so the
+// 8 dependent modules (persistence, multiplayer, recovery, trust,
+// boots, stamina, packages, trip) and upgrades can keep importing
+// from main.js unchanged. Commit 17 will rewrite those imports
+// and drop this layer.
+export const addLog              = _addLog;
+export const updateHUD           = _updateHUD;
+export const renderCargoSlots    = _renderCargoSlots;
+export const renderCourierStack  = _renderCourierStack;
+export const drawRouteMap        = _drawRouteMap;
+export const renderSettlements   = _renderSettlements;
+export const renderNetwork       = _renderNetwork;
+
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
-
-// sandalCap moved to ./boots.js (commit 13). Imported via
-// Boots.* below where needed, though main itself doesn't call it.
-
-// Distance accumulator helpers (posKm, accumulateDist) now live
-// in ./trip.js. Called via Trip.accumulateDist() in the tick loop.
-
-// Package pickup / delivery / respawn now live in ./packages.js.
-// scanForPickup, tryDeliver, tickPkgRespawns imported via Pkg.* below.
 
 // ============================================================
 // DESTINATION DRIFT
@@ -132,117 +141,8 @@ function buildRain() {
 function setRain(on) {
   S.isRaining = on;
   if (els.rainOverlay) els.rainOverlay.style.display = on ? 'block' : 'none';
-  if (on) { S.canteen = Math.min(S.canteenMax, S.canteen + 30); addLog('<span class="log-wn">rain begins \u2014 canteen refilling</span>'); }
-  else      addLog('rain clears');
-}
-
-// ============================================================
-// ROUTE MAP
-// ============================================================
-function layoutRouteNodes() {
-  const W = 110;
-  [{ id:'A', x:W/2, y:18 }, { id:'?', x:W-14, y:65 }, { id:'B', x:W-14, y:128 },
-   { id:'C', x:W/2, y:175 }, { id:'H', x:14, y:128 }, { id:'\u00b7', x:14, y:65 }]
-  .forEach(p => { const n = S.routeNodes.find(n => n.id === p.id); if (n) { n.x = p.x; n.y = p.y; } });
-}
-
-function currentEdge() { return S.edges[S.edgeIdx % S.edges.length]; }
-
-// drawRouteMap is exported for trust.js (called from onTrustUnlock t20).
-export function drawRouteMap() {
-  const svg = els.routeSvg;
-  if (!svg) return;
-  svg.innerHTML = '';
-  const ns = 'http://www.w3.org/2000/svg';
-  const [fromId, toId] = currentEdge();
-
-  S.edges.forEach(([a, b]) => {
-    const na = S.routeNodes.find(n => n.id === a), nb = S.routeNodes.find(n => n.id === b);
-    if (!na || !nb) return;
-    const minStage = Math.min(getNodeStage(a), getNodeStage(b));
-    const stroke = minStage >= 3 ? '#2a5c5a'
-                 : minStage >= 2 ? '#1e5554'
-                 : '#132e2d';
-    const line = document.createElementNS(ns, 'line');
-    line.setAttribute('x1', na.x); line.setAttribute('y1', na.y);
-    line.setAttribute('x2', nb.x); line.setAttribute('y2', nb.y);
-    line.setAttribute('stroke', stroke);
-    line.setAttribute('stroke-width', '1');
-    line.setAttribute('stroke-dasharray', '3 3');
-    svg.appendChild(line);
-  });
-
-  S.routeNodes.forEach(n => {
-    const isCurrent = (n.id === fromId || n.id === toId);
-    const stage = getNodeStage(n.id);
-    const g = document.createElementNS(ns, 'g'); g.style.cursor = 'pointer';
-    g.setAttribute('class', 'route-node-g');
-    g.setAttribute('data-stage', String(stage));
-    g.setAttribute('data-id', n.id);
-    g.setAttribute('title', getDisplayLabel(n.id));
-
-    const fill = isCurrent ? '#0b2e2d'
-               : stage >= 3 ? '#1e5554'
-               : stage >= 2 ? '#1a3f3e'
-               : stage >= 1 ? '#142e2d'
-               : '#132e2d';
-    const stroke = isCurrent ? '#77bfcf'
-                 : stage >= 3 ? '#3a6a68'
-                 : stage >= 2 ? '#2f5e5c'
-                 : stage >= 1 ? '#244e4d'
-                 : '#1e5554';
-    const c = document.createElementNS(ns, 'circle');
-    c.setAttribute('cx', n.x); c.setAttribute('cy', n.y);
-    c.setAttribute('r', isCurrent ? 7 : 5);
-    c.setAttribute('fill', fill);
-    c.setAttribute('stroke', stroke);
-    c.setAttribute('stroke-width', isCurrent ? '1.5' : '1');
-
-    const t = document.createElementNS(ns, 'text');
-    t.setAttribute('x', n.x); t.setAttribute('y', n.y + 4);
-    t.setAttribute('text-anchor', 'middle');
-    t.setAttribute('font-family', "'Source Code Pro',monospace");
-    t.setAttribute('font-size', '8'); t.setAttribute('font-weight', '700');
-    t.setAttribute('fill', isCurrent ? '#77bfcf'
-                          : stage >= 3 ? '#4a7a78'
-                          : stage >= 2 ? '#3a6a68'
-                          : stage >= 1 ? '#2a5c5a'
-                          : '#2a5c5a');
-    t.textContent = (stage >= 1 || n.id === '?') ? n.id : '?';
-
-    const lx     = n.x > 70 ? n.x - 9 : n.x < 40 ? n.x + 9 : n.x;
-    const anchor = n.x > 70 ? 'end'    : n.x < 40 ? 'start'  : 'middle';
-    const ly     = n.y < 30 ? n.y - 9  : n.y > 165 ? n.y + 12 : n.y < 100 ? n.y - 9 : n.y + 13;
-    const lbl = document.createElementNS(ns, 'text');
-    lbl.setAttribute('x', lx); lbl.setAttribute('y', ly);
-    lbl.setAttribute('text-anchor', anchor);
-    lbl.setAttribute('font-family', "'Source Code Pro',monospace");
-    lbl.setAttribute('font-size', '7');
-    lbl.setAttribute('fill', isCurrent ? '#77bfcf'
-                            : stage >= 3 ? '#3a6a68'
-                            : stage >= 2 ? '#2a5c5a'
-                            : '#1e5554');
-    lbl.textContent = stage === 0 ? '' : getDisplayLabel(n.id);
-
-    g.appendChild(c); g.appendChild(t); g.appendChild(lbl);
-    svg.appendChild(g);
-  });
-
-  const dot = document.createElementNS(ns, 'circle');
-  dot.setAttribute('id', 'routeDot'); dot.setAttribute('r', '3');
-  dot.setAttribute('fill', '#e0eeec'); dot.setAttribute('stroke', '#77bfcf'); dot.setAttribute('stroke-width', '1');
-  svg.appendChild(dot);
-  updateRouteDot();
-}
-
-function updateRouteDot() {
-  const dot = document.getElementById('routeDot');
-  if (!dot) return;
-  const [fromId, toId] = currentEdge();
-  const from = S.routeNodes.find(n => n.id === fromId), to = S.routeNodes.find(n => n.id === toId);
-  if (!from || !to) return;
-  dot.setAttribute('cx', from.x + (to.x - from.x) * S.dotT);
-  dot.setAttribute('cy', from.y + (to.y - from.y) * S.dotT);
+  if (on) { S.canteen = Math.min(S.canteenMax, S.canteen + 30); _addLog('<span class="log-wn">rain begins \u2014 canteen refilling</span>'); }
+  else      _addLog('rain clears');
 }
 
 // ============================================================
@@ -291,220 +191,6 @@ function resolveEls() {
 }
 
 // ============================================================
-// UPGRADES — moved to ./upgrades.js (commit 15). renderUpgrades
-// and buyUpgrade now live there. Called via Upg.renderUpgrades()
-// from updateHUD and init.
-// ============================================================
-
-// ============================================================
-// SETTLEMENTS / NETWORK / LOG
-// ============================================================
-// renderSettlements is exported for trust.js (called from onTrustUnlock t20).
-export function renderSettlements() {
-  if (!els.settlementsEl) return;
-  els.settlementsEl.innerHTML = '';
-  S.routeNodes.filter(n => getNodeStage(n.id) >= 2 && S.settlements[n.id])
-    .map(n => ({ id:n.id, stage:getNodeStage(n.id), ...S.settlements[n.id] }))
-    .forEach(s => {
-      const div = document.createElement('div');
-      div.className = 'settle-item' + (s.stage < 3 ? ' settle-stage2' : '');
-      const name = s.stage >= 3 ? s.label : s.tier;
-      const subtitle = s.stage >= 3 ? s.tier : 'unconfirmed';
-      const quote = s.stage >= 3 ? s.quote : `"reports of a ${s.tier} along this route"`;
-      let trustBlock = '';
-      const npcDef = NPC_DEFS[s.id];
-      const npc    = (S.npcs && S.npcs[s.id]) || null;
-      if (npcDef && npc && s.stage >= 3) {
-        const tPct = Math.max(0, Math.min(100, npc.trust));
-        trustBlock = `
-          <div class="settle-trust">
-            <span class="settle-trust-label">${npcDef.callsign}</span>
-            <div class="settle-trust-bar">
-              <div class="settle-trust-fill" style="width:${tPct}%"></div>
-              <span class="settle-trust-tick" style="left:20%"></span>
-              <span class="settle-trust-tick" style="left:40%"></span>
-              <span class="settle-trust-tick" style="left:60%"></span>
-              <span class="settle-trust-tick" style="left:80%"></span>
-            </div>
-            <span class="settle-trust-val">${tPct}</span>
-          </div>`;
-      }
-      div.innerHTML = `
-        ${trustBlock}
-        <div class="settle-name">${name} <span>${subtitle}</span></div>
-        <div class="settle-bar settle-bar-wip" title="rebuild progress \u2014 WIP indicator"><div class="settle-fill ${s.rebuild>50?'b':'a'}" style="width:${Math.round(s.rebuild)}%"></div></div>
-        <div class="settle-quote">${quote}</div>`;
-      els.settlementsEl.appendChild(div);
-    });
-}
-
-// renderNetwork is exported for multiplayer.js (called from pollFeed).
-// Circular import-safe: only invoked inside function bodies, not at module load.
-export function renderNetwork() {
-  if (!els.networkEl) return;
-  const myId = getCachedPorterId();
-  const lines = [];
-
-  if (S.networkConnected) {
-    const others = Math.max(0, S.networkCensus - 1);
-    if (others === 0) {
-      lines.push('<div class="net-item net-census">no other porters today</div>');
-    } else if (others === 1) {
-      lines.push(`<div class="net-item net-census"><span class="net-hi">1 other</span> porter online today</div>`);
-    } else {
-      lines.push(`<div class="net-item net-census"><span class="net-hi">${others} others</span> online today</div>`);
-    }
-  }
-
-  const visible = S.networkFeed.filter(e => e.porterId !== myId);
-
-  if (!S.networkConnected) {
-    lines.push('<div class="net-item net-quiet">connecting to feed...</div>');
-  } else if (visible.length === 0) {
-    lines.push('<div class="net-item net-quiet">no signal</div>');
-  } else {
-    visible.slice().reverse().forEach(e => {
-      lines.push(`<div class="net-item">${formatEvent(e)}</div>`);
-    });
-  }
-
-  els.networkEl.innerHTML = lines.join('');
-}
-
-function formatEvent(e) {
-  const who = `<span class="net-hi">${shortPorterId(e.porterId)}</span>`;
-  const data = e.data || {};
-  switch (e.type) {
-    case 'delivery':
-      return `${who} delivered to <span class="net-ac">${data.destLabel || '?'}</span>`;
-    case 'milestone':
-      if (data.kind === 'distance') {
-        return `${who} hit <span class="net-ac">${data.value}km</span>`;
-      }
-      return `${who} reached a milestone`;
-    case 'discovery':
-      return `${who} scouted: <span class="net-ac">${data.label || data.nodeId || '?'}</span>`;
-    case 'lost_drop':
-      return `${who} lost <span class="net-ac">${data.label || 'cargo'}</span>`;
-    case 'lost_recovered':
-      if (data.forPorter) {
-        return `${who} recovered <span class="net-ac">${data.label || 'lost cargo'}</span> for <span class="net-hi">${shortPorterId(data.forPorter)}</span>`;
-      }
-      return `${who} recovered <span class="net-ac">${data.label || 'lost cargo'}</span>`;
-    case 'trust_unlock': {
-      const tier = data.tier ? ` (${data.tier})` : '';
-      return `${who} earned trust at <span class="net-ac">${data.npcLabel || '?'}</span>${tier}`;
-    }
-    default:
-      return `${who} ${e.type}`;
-  }
-}
-
-function tt() {
-  const totalSecs = Math.floor(S.ticks * C.TICK_MS / 1000);
-  const m = Math.floor(totalSecs / 60);
-  const s = totalSecs % 60;
-  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-}
-
-// addLog is exported for persistence.js / multiplayer.js / recovery.js / trust.js / boots.js / stamina.js.
-// Circular import-safe: callers only invoke addLog inside function bodies.
-export function addLog(msg) {
-  if (!els.logEl) return;
-  const el = document.createElement('span'); el.className = 'log-line';
-  el.innerHTML = `<span class="log-ts">[${tt()}]</span> ${msg}`;
-  els.logEl.insertBefore(el, els.logEl.firstChild);
-  const all = els.logEl.querySelectorAll('.log-line');
-  if (all.length > 14) all[all.length-1].remove();
-}
-
-// ============================================================
-// HUD / RENDER
-// ============================================================
-// updateHUD is exported for trust.js (confirmDepotRest) and boots.js.
-export function updateHUD() {
-  els.delivered.textContent = S.delivered;
-  els.scrip.textContent     = S.scrip + '\u00a2';
-  els.walked.textContent    = (Math.round(S.distKm * 10) / 10) + 'km';
-  els.status.textContent    = S.status;
-  els.status.style.color    = STATUS_COLORS[S.status] || '#b1c9c3';
-  Upg.renderUpgrades();
-}
-
-function cargoKey() {
-  return S.inventory.map(p => `${p.size}${p.destId}${p.scrip}`).join('|') + '|' + S.maxSlots + '|' + S.usedWeight;
-}
-
-// renderCargoSlots is exported for packages.js (called from
-// scanForPickup + tryDeliver). Moves to render/hud.js later.
-export function renderCargoSlots(force) {
-  if (!els.cargoSlots) return;
-  const key = cargoKey();
-  if (!force && key === S._transient.lastCargoKey) return;
-  S._transient.lastCargoKey = key;
-
-  els.cargoSlots.innerHTML = '';
-  const used = [];
-  S.inventory.forEach(pkg => { for (let i=0;i<pkg.slots;i++) used.push(pkg); });
-  for (let i=0; i<S.maxSlots; i++) {
-    const pkg = used[i]||null;
-    const d = document.createElement('div');
-    d.className   = 'cslot '+(pkg?pkg.size:'e');
-    d.textContent = pkg?pkg.size:'';
-    if (pkg) {
-      const destLabel = getDisplayLabel(pkg.destId);
-      const recoveryTag = pkg.isRecovery ? ' [recovery]' : (pkg.isLost ? ' [lost]' : '');
-      d.setAttribute('title', `[${pkg.size}] ${pkg.label}${recoveryTag}\n\u2192 ${destLabel}\n${pkg.scrip}\u00a2`);
-      d.classList.add('has-tooltip');
-    }
-    els.cargoSlots.appendChild(d);
-  }
-
-  if (els.weightSegs) {
-    els.weightSegs.innerHTML = '';
-    const loadPct = S.usedWeight / S.maxWeight;
-    for (let i = 0; i < S.maxWeight; i++) {
-      const pip = document.createElement('div');
-      pip.className = i < S.usedWeight
-        ? (loadPct <= 0.5 ? 'wseg filled' : loadPct <= 0.8 ? 'wseg heavy' : 'wseg overloaded')
-        : 'wseg empty';
-      els.weightSegs.appendChild(pip);
-    }
-  }
-}
-
-// renderCourierStack is exported for packages.js (called from
-// scanForPickup + tryDeliver). Moves to render/hud.js later.
-export function renderCourierStack() {
-  if (!els.courierStack) return;
-  els.courierStack.innerHTML = S.inventory.length === 0 ? '' :
-    S.inventory.map(p => `<span class="courier-pkg${p.isLost?' lost':''}">[${p.size}]</span>`).join('');
-}
-
-// renderBoots, toggleAutobuy, toggleBootsGear moved to ./boots.js.
-// Called via Boots.* from the tick loop and init listeners.
-
-// staminaSegCount, renderStamina moved to ./stamina.js. Called via
-// Stamina.* from the tick loop and init.
-
-// ============================================================
-// BOOTS / CLIP / TIE-DOWN — moved to ./boots.js (commit 13).
-// buyBoots, checkAutobuy, refillBootClip, confirmClipRefill,
-// toggleTieDown, toggleAutobuy, toggleBootsGear, sandalCap,
-// renderBoots all live there. Called via Boots.* from tick + init.
-// ============================================================
-
-// ============================================================
-// TRIP / CATCH — now in ./trip.js (tripChance, catchChance,
-// maybeTrip, currentCellIsRisky). Called via Trip.maybeTrip() in tick.
-// ============================================================
-
-// ============================================================
-// SPEED / DRINK — moved to ./stamina.js. speedMultiplier and
-// drinkWater called via Stamina.* from tick + init listener.
-// ============================================================
-
-// ============================================================
 // MAIN TICK
 // ============================================================
 function tick() {
@@ -516,7 +202,7 @@ function tick() {
       S.status = S.inventory.length>0?'carrying':'walking';
       if (els.courierAt) { els.courierAt.className='tlh-at bounce'+(S.inventory.length>0?' carry':''); els.courierAt.style.animation=''; }
     }
-    Boots.renderBoots(); Stamina.renderStamina(); updateHUD(); return;
+    Boots.renderBoots(); Stamina.renderStamina(); _updateHUD(); return;
   }
 
   if (S.status==='resting') {
@@ -524,10 +210,10 @@ function tick() {
     if (S.restTimer<=0) {
       S.stamina=S.staminaMax*1.25; S.staminaOverboost=true;
       S.canteen=Math.min(S.canteenMax,S.canteen+20); S.status='walking';
-      addLog('rested at shelter \u2014 <span class="log-hi">stamina restored +25% overboost</span>');
+      _addLog('rested at shelter \u2014 <span class="log-hi">stamina restored +25% overboost</span>');
       if (els.courierAt) { els.courierAt.className='tlh-at bounce'; els.courierAt.style.animation=''; }
     }
-    Stamina.renderStamina(); updateHUD(); return;
+    Stamina.renderStamina(); _updateHUD(); return;
   }
 
   if (S.status==='walking' || S.status==='carrying') {
@@ -553,7 +239,7 @@ function tick() {
 
     if (S.stamina<50 && S.status==='walking' && Math.random()<0.03) {
       S.status='resting'; S.restTimer=C.REST_TICKS_MIN+Math.floor(Math.random()*(C.REST_TICKS_MAX-C.REST_TICKS_MIN));
-      addLog('<span class="log-wn">exhausted \u2014 resting at nearest shelter</span>');
+      _addLog('<span class="log-wn">exhausted \u2014 resting at nearest shelter</span>');
       if (els.courierAt) { els.courierAt.className='tlh-at rest'; els.courierAt.style.animation=''; }
     }
   }
@@ -571,7 +257,7 @@ function tick() {
     const node = S.routeNodes.find(n => n.id===arrivedAt);
     if (node && getNodeStage(arrivedAt) < 3) {
       setNodeStage(arrivedAt, 3);
-      addLog(`discovered: <span class="log-hi">${node.label}</span>`);
+      _addLog(`discovered: <span class="log-hi">${node.label}</span>`);
       postActivity('discovery', { nodeId: arrivedAt, label: node.label });
       if (NPC_DEFS[arrivedAt]) {
         addTrust(arrivedAt, C.TRUST_GAIN_DISCOVERY, 'discovery');
@@ -579,9 +265,9 @@ function tick() {
     }
     const [newFrom, newTo] = S.edges[S.edgeIdx];
     if (markEdgeAdjacent(newFrom, newTo)) {
-      renderSettlements();
+      _renderSettlements();
     }
-    drawRouteMap();
+    _drawRouteMap();
     updateDestDrift();
     Boots.refillBootClip(arrivedAt);
     Pkg.tryDeliver(arrivedAt);
@@ -606,7 +292,7 @@ function tick() {
   if (S.ticks % 9 === 0) updateSaveStrip();
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
 
-  Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
+  Boots.renderBoots(); Stamina.renderStamina(); _renderCargoSlots(); _updateHUD();
 }
 
 // ============================================================
@@ -629,19 +315,19 @@ function init() {
   S.worldPos = worldPosFromRoute();
 
   buildRain(); setRain(false);
-  layoutRouteNodes(); drawRouteMap(); updateDestDrift();
-  Upg.renderUpgrades(); renderSettlements(); renderNetwork();
+  layoutRouteNodes(); _drawRouteMap(); updateDestDrift();
+  Upg.renderUpgrades(); _renderSettlements(); _renderNetwork();
   renderChannels();
-  renderCargoSlots(true); renderCourierStack(); Boots.renderBoots(); Stamina.renderStamina();
+  _renderCargoSlots(true); _renderCourierStack(); Boots.renderBoots(); Stamina.renderStamina();
   updatePorterStripBadges();
   renderFieldstrip();
-  updateHUD();
+  _updateHUD();
   updateSaveStrip();
 
   if (restored) {
-    addLog(`porter <span class="log-hi">${porterId}</span> back online \u2014 <span class="log-ok">save restored</span>`);
+    _addLog(`porter <span class="log-hi">${porterId}</span> back online \u2014 <span class="log-ok">save restored</span>`);
   } else {
-    addLog(`porter <span class="log-hi">${porterId}</span> online at <span class="log-hi">depot a</span>`);
+    _addLog(`porter <span class="log-hi">${porterId}</span> online at <span class="log-hi">depot a</span>`);
   }
 
   if (els.courierAt) {
