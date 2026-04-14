@@ -1,24 +1,22 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.2
+   v0.0.7.3
 
-   Refactor commit 2: extracted state to ./state.js. Consolidated all
-   scattered module-level `let` flags into S._transient.
+   Refactor commit 3: extracted tuning constants to ./constants.js.
+   Imported as namespace `C.*` — balance passes are now a single-file
+   edit.
 
    Imports:
-     S — game state singleton. S.* is persisted, S._transient.* is session-only.
+     S — game state singleton (state.js)
+     C — tuning constants namespace (constants.js)
 
-   Local aliases for ergonomics:
-     els         — reference to S._transient.els (same object, shorter writes)
-     worldCells  — reference to S._transient.worldCells (same array)
-     resolveEls() and buildWorld() mutate these in place (Object.assign /
-     .length = 0 + push) so the aliases never go stale.
-
-   No other behavior changes from v0.0.7.1.
+   Local aliases:
+     els, worldCells — see commit 2 notes
    ============================================== */
 'use strict';
 
 import { S } from './state.js';
+import * as C from './constants.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -46,20 +44,8 @@ function getPorterId() {
 }
 
 // ============================================================
-// WORLD MAP CONSTANTS
+// ZONE / PACKAGE DATA (will move to js/data/ in a later commit)
 // ============================================================
-const CELLS_PER_EDGE   = 260;
-const VIEWPORT_CELLS   = 90;
-const COURIER_CELL     = 16;
-const PKG_PICKUP_RANGE = 8;
-const PKG_MAX_PER_EDGE = 18;
-const PKG_RESPAWN_TICKS = 500;
-
-const SANDAL_CAP_BASE     = 5;
-const SANDAL_CAP_UPGRADED = 25;
-
-const KM_PER_EDGE = 4.2;
-
 const ZONE_TYPES = {
   road: {
     weight: 40, width: [12, 22],
@@ -115,8 +101,6 @@ const ZONE_TYPES = {
   },
 };
 
-const RISKY_EDGE_DEST = new Set(['C', '?']);
-
 const NPC_PKGS = [
   { size:'s', label:'medicine',  kg:1, slots:1, scrip:12 },
   { size:'s', label:'seeds',     kg:1, slots:1, scrip:10 },
@@ -131,14 +115,6 @@ const LOST_PKGS = [
   { size:'s', label:'old photo',    kg:1, slots:1, scrip:14, isLost:true },
 ];
 
-const TICK_MS           = 350;
-const STAMINA_DRAIN     = 0.40;
-const BOOT_DRAIN        = 0.12;
-const TRIP_CHANCE_BASE  = 0.006;
-const CATCH_CHANCE_BASE = 0.35;
-const REST_TICKS_MIN    = 43;
-const REST_TICKS_MAX    = 86;
-
 const STATUS_COLORS = {
   idle:       '#da8bda',
   walking:    '#7aa8a6',
@@ -149,15 +125,6 @@ const STATUS_COLORS = {
   tripped:    '#da8bda',
 };
 
-const DIST_MILESTONES = [10, 25, 50, 100, 250, 500, 1000];
-
-const TRIP_DROP_CHANCE_NORMAL = 0.20;
-const TRIP_DROP_CHANCE_LOST   = 0.30;
-const RECOVERY_BONUS_MULT    = 1.5;
-const RECOVERY_SOFT_CAP      = 3;
-const RECOVERY_POLL_INTERVAL = 85;
-const KNOWN_PEERS_CAP        = 10;
-
 // ============================================================
 // NPCs (v0.0.7 commit 4a/4b — trust + chatter)
 // ============================================================
@@ -166,10 +133,6 @@ const NPC_DEFS = {
   'B': { callsign: 'iota', name: 'iota', depotLabel: 'depot b' },
   'H': { callsign: 'tau',  name: 'tau',  depotLabel: 'home'    },
 };
-const TRUST_THRESHOLDS = [20, 40, 60, 80];
-const TRUST_GAIN_DELIVERY      = 1;
-const TRUST_GAIN_LOST_DELIVERY = 2;
-const TRUST_GAIN_DISCOVERY     = 3;
 
 const NPC_ADJACENT = {
   'A': ['?', '\u00b7'],
@@ -265,20 +228,13 @@ const NPC_LINES = {
   },
 };
 
-const CHANNELS_DISPLAY_CAP = 6;
-const CHATTER_INTERVAL_MIN_TICKS = 170;
-const CHATTER_INTERVAL_MAX_TICKS = 345;
-const CHATTER_BASE_CHANCE        = 0.005;
-
-const DEPOT_REST_BONUS_SCRIP = 10;
-
 function sandalCap() {
-  return S.upgrades.sandalSatchel ? SANDAL_CAP_UPGRADED : SANDAL_CAP_BASE;
+  return S.upgrades.sandalSatchel ? C.SANDAL_CAP_UPGRADED : C.SANDAL_CAP_BASE;
 }
 
 // v0.0.7 commit 6: distKm accumulator helpers.
 function posKm(edgeIdx, dotT) {
-  return (edgeIdx + dotT) * KM_PER_EDGE;
+  return (edgeIdx + dotT) * C.KM_PER_EDGE;
 }
 
 function accumulateDist() {
@@ -292,23 +248,17 @@ function accumulateDist() {
   const now  = posKm(S.edgeIdx, S.dotT);
   let delta  = now - prev;
   if (delta < 0) {
-    // edge rollover: porter crossed the end of the loop (edgeIdx wrapped)
-    delta += S.edges.length * KM_PER_EDGE;
+    delta += S.edges.length * C.KM_PER_EDGE;
   }
-  // Guard against absurd jumps (e.g. save-load warping). Cap at one edge.
-  if (delta > KM_PER_EDGE * 2) delta = 0;
+  if (delta > C.KM_PER_EDGE * 2) delta = 0;
   S.distKm = Math.round((S.distKm + delta) * 10) / 10;
   t.lastDistEdgeIdx = S.edgeIdx;
   t.lastDistDotT    = S.dotT;
 }
 
 // ============================================================
-// MULTIPLAYER (v0.0.7)
+// MULTIPLAYER
 // ============================================================
-const FEED_URL    = 'https://coiledlamb.tlh-feed.workers.dev';
-const POLL_MS     = 60000;
-const FEED_DISPLAY_CAP = 8;
-
 function getCachedPorterId() {
   if (!S._transient.porterIdCached) S._transient.porterIdCached = getPorterId();
   return S._transient.porterIdCached;
@@ -318,7 +268,7 @@ function postActivity(type, data) {
   const porterId = getCachedPorterId();
   if (porterId === 'PTR-OFFLINE') return;
   try {
-    fetch(FEED_URL + '/activity', {
+    fetch(C.FEED_URL + '/activity', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ porterId, type, data: data || {} }),
@@ -331,7 +281,7 @@ function postLostDrop(pkg) {
   const porterId = getCachedPorterId();
   if (porterId === 'PTR-OFFLINE') return;
   try {
-    fetch(FEED_URL + '/lost', {
+    fetch(C.FEED_URL + '/lost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -349,7 +299,7 @@ function postLostDrop(pkg) {
 
 async function fetchLostFromPeer(peerPorterId) {
   try {
-    const res = await fetch(FEED_URL + '/lost/' + encodeURIComponent(peerPorterId));
+    const res = await fetch(C.FEED_URL + '/lost/' + encodeURIComponent(peerPorterId));
     if (!res.ok) return [];
     const data = await res.json();
     if (!data || !Array.isArray(data.lost)) return [];
@@ -361,7 +311,7 @@ async function fetchLostFromPeer(peerPorterId) {
 
 async function pollFeed() {
   try {
-    const url = FEED_URL + '/feed' + (S.lastFeedTimestamp ? ('?since=' + S.lastFeedTimestamp) : '');
+    const url = C.FEED_URL + '/feed' + (S.lastFeedTimestamp ? ('?since=' + S.lastFeedTimestamp) : '');
     const res = await fetch(url);
     if (!res.ok) return;
     const data = await res.json();
@@ -381,15 +331,15 @@ async function pollFeed() {
         if (e.porterId && e.porterId !== myId) {
           if (!S.knownPeers.includes(e.porterId)) {
             S.knownPeers.push(e.porterId);
-            if (S.knownPeers.length > KNOWN_PEERS_CAP) S.knownPeers.shift();
+            if (S.knownPeers.length > C.KNOWN_PEERS_CAP) S.knownPeers.shift();
           }
         }
       }
     });
 
     S.networkFeed.sort((a, b) => a.timestamp - b.timestamp);
-    if (S.networkFeed.length > FEED_DISPLAY_CAP) {
-      S.networkFeed = S.networkFeed.slice(-FEED_DISPLAY_CAP);
+    if (S.networkFeed.length > C.FEED_DISPLAY_CAP) {
+      S.networkFeed = S.networkFeed.slice(-C.FEED_DISPLAY_CAP);
     }
 
     renderNetwork();
@@ -399,7 +349,7 @@ async function pollFeed() {
 function startPolling() {
   if (S._transient.pollTimer) return;
   pollFeed();
-  S._transient.pollTimer = setInterval(pollFeed, POLL_MS);
+  S._transient.pollTimer = setInterval(pollFeed, C.POLL_MS);
 }
 
 function stopPolling() {
@@ -420,7 +370,7 @@ function shortPorterId(id) {
 
 function checkDistMilestones() {
   const km = Math.floor(S.distKm);
-  for (const m of DIST_MILESTONES) {
+  for (const m of C.DIST_MILESTONES) {
     if (km >= m && !S.milestonesHit.includes(m)) {
       S.milestonesHit.push(m);
       postActivity('milestone', { kind: 'distance', value: m });
@@ -479,7 +429,7 @@ function addTrust(depotId, amount, reason) {
   if (!npc || !amount) return 0;
   const before = npc.trust;
   npc.trust = Math.max(0, Math.min(100, npc.trust + amount));
-  for (const t of TRUST_THRESHOLDS) {
+  for (const t of C.TRUST_THRESHOLDS) {
     const key = 't' + t;
     if (before < t && npc.trust >= t && !npc.unlocks[key]) {
       npc.unlocks[key] = true;
@@ -497,7 +447,6 @@ function onTrustUnlock(depotId, tier) {
   const line = NPC_LINES.threshold[depotId] && NPC_LINES.threshold[depotId][tier];
   if (line) speak(depotId, line);
 
-  // t20 = adjacent reveal, t40 = warnings, t60 = previews, t80 = rest prompts
   if (tier === 20) {
     const adj = NPC_ADJACENT[depotId] || [];
     const revealed = [];
@@ -533,8 +482,8 @@ function speak(depotId, text) {
     text,
     ts: S.ticks,
   });
-  if (S.channels.length > CHANNELS_DISPLAY_CAP) {
-    S.channels.length = CHANNELS_DISPLAY_CAP;
+  if (S.channels.length > C.CHANNELS_DISPLAY_CAP) {
+    S.channels.length = C.CHANNELS_DISPLAY_CAP;
   }
   renderChannels();
 }
@@ -553,7 +502,7 @@ function tryT50Warning(depotId) {
   const myEdgeIdx = S.edges.findIndex(([a,b]) => a === depotId);
   if (myEdgeIdx >= 0) {
     const [, nextDest] = S.edges[myEdgeIdx];
-    if (RISKY_EDGE_DEST.has(nextDest) && lines.trip) {
+    if (C.RISKY_EDGE_DEST.has(nextDest) && lines.trip) {
       speak(depotId, lines.trip);
       return true;
     }
@@ -579,8 +528,8 @@ function tryT75Preview(depotId) {
   if (myEdgeIdx < 0) return false;
   const [, nextDest] = S.edges[myEdgeIdx];
 
-  const startCell = myEdgeIdx * CELLS_PER_EDGE;
-  const endCell   = startCell + CELLS_PER_EDGE;
+  const startCell = myEdgeIdx * C.CELLS_PER_EDGE;
+  const endCell   = startCell + C.CELLS_PER_EDGE;
   let found = null;
   for (let i = startCell; i < endCell; i++) {
     const c = worldCells[i];
@@ -621,8 +570,8 @@ function confirmDepotRest() {
   S.stamina = S.staminaMax * 1.05;
   S.staminaOverboost = true;
   S.canteen = Math.min(S.canteenMax, S.canteen + 30);
-  S.scrip += DEPOT_REST_BONUS_SCRIP;
-  addLog(`rested at <span class="log-hi">${npcLabel}</span> \u2014 <span class="log-ok">stamina restored, +${DEPOT_REST_BONUS_SCRIP}\u00a2</span>`);
+  S.scrip += C.DEPOT_REST_BONUS_SCRIP;
+  addLog(`rested at <span class="log-hi">${npcLabel}</span> \u2014 <span class="log-ok">stamina restored, +${C.DEPOT_REST_BONUS_SCRIP}\u00a2</span>`);
   const line = pickRandom(NPC_LINES.rest[depotId]);
   if (line) speak(depotId, line);
   renderStamina(); updateHUD();
@@ -636,18 +585,18 @@ function tickAmbientChatter() {
     const npc = getNpc(depotId);
     if (!npc || !npc.unlocks.t20) return;
     if (S.ticks < npc.nextChatterTick) return;
-    if (Math.random() >= CHATTER_BASE_CHANCE * 10) return;
+    if (Math.random() >= C.CHATTER_BASE_CHANCE * 10) return;
     const line = pickRandom(NPC_LINES.ambient[depotId]);
     if (!line) return;
     speak(depotId, line);
-    npc.nextChatterTick = S.ticks + CHATTER_INTERVAL_MIN_TICKS +
-      Math.floor(Math.random() * (CHATTER_INTERVAL_MAX_TICKS - CHATTER_INTERVAL_MIN_TICKS));
+    npc.nextChatterTick = S.ticks + C.CHATTER_INTERVAL_MIN_TICKS +
+      Math.floor(Math.random() * (C.CHATTER_INTERVAL_MAX_TICKS - C.CHATTER_INTERVAL_MIN_TICKS));
   });
 }
 
 function fmtChannelAge(ts) {
   const elapsedTicks = S.ticks - ts;
-  const elapsedSecs = Math.floor(elapsedTicks * TICK_MS / 1000);
+  const elapsedSecs = Math.floor(elapsedTicks * C.TICK_MS / 1000);
   if (elapsedSecs < 5)   return 'now';
   if (elapsedSecs < 60)  return elapsedSecs + 's';
   const mins = Math.floor(elapsedSecs / 60);
@@ -675,10 +624,10 @@ function renderChannels() {
 // ============================================================
 async function tickRecoveryAttempt() {
   if (S.ticks < S.nextRecoveryAttemptTick) return;
-  S.nextRecoveryAttemptTick = S.ticks + RECOVERY_POLL_INTERVAL;
+  S.nextRecoveryAttemptTick = S.ticks + C.RECOVERY_POLL_INTERVAL;
 
-  if (S.activeRecoveryCount >= RECOVERY_SOFT_CAP) return;
-  if (S.ticks - S.lastRecoverySpawnTick < RECOVERY_POLL_INTERVAL) return;
+  if (S.activeRecoveryCount >= C.RECOVERY_SOFT_CAP) return;
+  if (S.ticks - S.lastRecoverySpawnTick < C.RECOVERY_POLL_INTERVAL) return;
   if (S.knownPeers.length === 0) return;
 
   const peerId = pickRandom(S.knownPeers);
@@ -695,8 +644,8 @@ async function tickRecoveryAttempt() {
 
 function spawnRecoveryCargo(lostPkg, fromPorterId) {
   const edgeIdx = Math.floor(Math.random() * S.edges.length);
-  const startCell = edgeIdx * CELLS_PER_EDGE;
-  const endCell = startCell + CELLS_PER_EDGE;
+  const startCell = edgeIdx * C.CELLS_PER_EDGE;
+  const endCell = startCell + C.CELLS_PER_EDGE;
 
   const candidates = [];
   for (let i = startCell + 10; i < endCell - 10; i++) {
@@ -715,7 +664,7 @@ function spawnRecoveryCargo(lostPkg, fromPorterId) {
     label: lostPkg.label || 'lost cargo',
     kg:    lostPkg.kg    || 1,
     slots: lostPkg.slots || 1,
-    scrip: Math.floor((lostPkg.scrip || 14) * RECOVERY_BONUS_MULT),
+    scrip: Math.floor((lostPkg.scrip || 14) * C.RECOVERY_BONUS_MULT),
     isLost: true,
     isRecovery: true,
     recoveryFromPorter: fromPorterId,
@@ -756,17 +705,9 @@ function updatePorterStripBadges() {
 // ============================================================
 // PERSISTENCE
 // ============================================================
-const SAVE_KEY     = 'tlh-save-v1';
-const SAVE_KEY_V2  = 'tlh-save-v2';
-const SAVE_KEY_V3  = 'tlh-save-v3';
-const SAVE_KEY_V4  = 'tlh-save-v4';
-const SAVE_KEY_V5  = 'tlh-save-v5';
-const SAVE_VERSION = 5;
-const AUTOSAVE_MS  = 30000;
-
 function buildSavePayload() {
   return {
-    version: SAVE_VERSION,
+    version: C.SAVE_VERSION,
     savedAt: Date.now(),
     progress: {
       delivered:      S.delivered,
@@ -814,7 +755,7 @@ function saveGame(silent) {
   if (S._transient.wipeInProgress) return false;
   try {
     const payload = buildSavePayload();
-    localStorage.setItem(SAVE_KEY_V5, JSON.stringify(payload));
+    localStorage.setItem(C.SAVE_KEY_V5, JSON.stringify(payload));
     S._transient.lastSaveAt = payload.savedAt;
     updateSaveStrip();
     if (!silent) addLog('<span class="log-ok">progress saved</span>');
@@ -827,23 +768,21 @@ function saveGame(silent) {
 
 function loadGame() {
   let raw;
-  try { raw = localStorage.getItem(SAVE_KEY_V5); } catch (e) { return false; }
-  if (!raw) { try { raw = localStorage.getItem(SAVE_KEY_V4); } catch (e) { return false; } }
-  if (!raw) { try { raw = localStorage.getItem(SAVE_KEY_V3); } catch (e) { return false; } }
-  if (!raw) { try { raw = localStorage.getItem(SAVE_KEY_V2); } catch (e) { return false; } }
-  if (!raw) { try { raw = localStorage.getItem(SAVE_KEY); }    catch (e) { return false; } }
+  try { raw = localStorage.getItem(C.SAVE_KEY_V5); } catch (e) { return false; }
+  if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V4); } catch (e) { return false; } }
+  if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V3); } catch (e) { return false; } }
+  if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V2); } catch (e) { return false; } }
+  if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY); }    catch (e) { return false; } }
   if (!raw) return false;
   let data;
   try { data = JSON.parse(raw); } catch (e) { return false; }
   if (!data) return false;
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== SAVE_VERSION) return false;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== C.SAVE_VERSION) return false;
 
   try {
     const p = data.progress || {};
     if (typeof p.delivered      === 'number') S.delivered      = p.delivered;
     if (typeof p.scrip          === 'number') S.scrip          = p.scrip;
-    // distKm loaded from pre-commit-6 saves is the old derived value —
-    // self-heals as the accumulator adds forward deltas from here on.
     if (typeof p.distKm         === 'number') S.distKm         = p.distKm;
     if (typeof p.ticks          === 'number') S.ticks          = p.ticks;
     if (typeof p.maxSlots       === 'number') S.maxSlots       = p.maxSlots;
@@ -917,7 +856,6 @@ function loadGame() {
           S.npcs[k].trust = Math.max(0, Math.min(100, Math.floor(n.trust)));
         }
         if (n.unlocks && typeof n.unlocks === 'object') {
-          // Old saves may have t25/t50/t75/t100 keys. Map forward to t20/t40/t60/t80.
           const legacyMap = { t25:'t20', t50:'t40', t75:'t60', t100:'t80' };
           Object.keys(n.unlocks).forEach(oldKey => {
             if (typeof n.unlocks[oldKey] !== 'boolean') return;
@@ -927,7 +865,7 @@ function loadGame() {
             }
           });
         }
-        TRUST_THRESHOLDS.forEach(t => {
+        C.TRUST_THRESHOLDS.forEach(t => {
           const key = 't' + t;
           if (S.npcs[k].trust >= t && !S.npcs[k].unlocks[key]) {
             S.npcs[k].unlocks[key] = true;
@@ -939,12 +877,12 @@ function loadGame() {
     S._transient.lastSaveAt = data.savedAt || 0;
     S.status = S.inventory.length > 0 ? 'carrying' : 'walking';
 
-    if (data.version !== SAVE_VERSION) {
+    if (data.version !== C.SAVE_VERSION) {
       try {
-        localStorage.removeItem(SAVE_KEY);
-        localStorage.removeItem(SAVE_KEY_V2);
-        localStorage.removeItem(SAVE_KEY_V3);
-        localStorage.removeItem(SAVE_KEY_V4);
+        localStorage.removeItem(C.SAVE_KEY);
+        localStorage.removeItem(C.SAVE_KEY_V2);
+        localStorage.removeItem(C.SAVE_KEY_V3);
+        localStorage.removeItem(C.SAVE_KEY_V4);
         saveGame(true);
       } catch (e) {}
     }
@@ -956,11 +894,11 @@ function loadGame() {
 
 function wipeSave() {
   try {
-    localStorage.removeItem(SAVE_KEY_V5);
-    localStorage.removeItem(SAVE_KEY_V4);
-    localStorage.removeItem(SAVE_KEY_V3);
-    localStorage.removeItem(SAVE_KEY_V2);
-    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(C.SAVE_KEY_V5);
+    localStorage.removeItem(C.SAVE_KEY_V4);
+    localStorage.removeItem(C.SAVE_KEY_V3);
+    localStorage.removeItem(C.SAVE_KEY_V2);
+    localStorage.removeItem(C.SAVE_KEY);
   } catch (e) {}
   S._transient.lastSaveAt = 0;
   updateSaveStrip();
@@ -988,8 +926,6 @@ function armWipe() {
   if (t.wipeArmed) {
     clearTimeout(t.wipeTimer);
     t.wipeArmed = false;
-    // Set guard BEFORE clearing storage so any save handler that fires
-    // between now and reload bails immediately.
     t.wipeInProgress = true;
     wipeSave();
     if (els.wipeBtn) {
@@ -1017,8 +953,6 @@ function armWipe() {
 // ============================================================
 // WORLD CELLS
 // ============================================================
-const TOTAL_CELLS = CELLS_PER_EDGE * 6;
-
 function weightedPick(arr, getW) {
   const total = arr.reduce((s, x) => s + getW(x), 0);
   let r = Math.random() * total;
@@ -1034,27 +968,26 @@ function makeWorldPkg(edgeIdx) {
 }
 
 function buildWorld() {
-  // Mutate worldCells in place to preserve the module-level alias.
   worldCells.length = 0;
   for (let ei = 0; ei < 6; ei++) {
-    const isRisky = RISKY_EDGE_DEST.has(S.edges[ei][1]);
+    const isRisky = C.RISKY_EDGE_DEST.has(S.edges[ei][1]);
     let ci = 0;
 
-    while (ci < CELLS_PER_EDGE) {
+    while (ci < C.CELLS_PER_EDGE) {
       const zoneKey = weightedPick(Object.keys(ZONE_TYPES), k => ZONE_TYPES[k].weight);
       const zone    = ZONE_TYPES[zoneKey];
       const zoneLen = zone.width[0] + Math.floor(Math.random() * (zone.width[1] - zone.width[0]));
 
-      if (zone.isDepotApproach && Math.random() < 0.4 && ci + 3 <= CELLS_PER_EDGE) {
+      if (zone.isDepotApproach && Math.random() < 0.4 && ci + 3 <= C.CELLS_PER_EDGE) {
         worldCells.push({ html: `<span class="fc fc-fl">   </span>`,     pkg: null, risky: isRisky, edgeIdx: ei });
         worldCells.push({ html: `<span class="fc fc-depot"> [=] </span>`, pkg: null, risky: isRisky, edgeIdx: ei });
         worldCells.push({ html: `<span class="fc fc-fl">   </span>`,     pkg: null, risky: isRisky, edgeIdx: ei });
         ci += 3;
       }
 
-      for (let i = 0; i < zoneLen && ci < CELLS_PER_EDGE; i++, ci++) {
+      for (let i = 0; i < zoneLen && ci < C.CELLS_PER_EDGE; i++, ci++) {
         const r = Math.random();
-        if (r < zone.pkgChance && (ci % 8 === 0) && ci + 2 < CELLS_PER_EDGE) {
+        if (r < zone.pkgChance && (ci % 8 === 0) && ci + 2 < C.CELLS_PER_EDGE) {
           const pkg = makeWorldPkg(ei);
           worldCells.push({ html: '', pkg, risky: isRisky, edgeIdx: ei });
           i += 2; ci += 2;
@@ -1069,16 +1002,16 @@ function buildWorld() {
         worldCells.push({ html: `<span class="fc ${c.cls}"> ${c.ch} </span>`, pkg: null, risky: isRisky, edgeIdx: ei });
       }
 
-      if (ci < CELLS_PER_EDGE) {
+      if (ci < C.CELLS_PER_EDGE) {
         worldCells.push({ html: `<span class="fc fc-fl">  </span>`, pkg: null, risky: isRisky, edgeIdx: ei });
         ci++;
       }
     }
   }
-  while (worldCells.length < TOTAL_CELLS) {
+  while (worldCells.length < C.TOTAL_CELLS) {
     worldCells.push({ html: `<span class="fc fc-fl"> . </span>`, pkg: null, risky: false, edgeIdx: 0 });
   }
-  worldCells.length = TOTAL_CELLS;
+  worldCells.length = C.TOTAL_CELLS;
 }
 
 // ============================================================
@@ -1095,8 +1028,8 @@ function calcCellPxWidth() {
 }
 
 function worldPosFromRoute() {
-  const courierCell = (S.edgeIdx * CELLS_PER_EDGE) + (S.dotT * CELLS_PER_EDGE);
-  return ((courierCell - COURIER_CELL) % TOTAL_CELLS + TOTAL_CELLS) % TOTAL_CELLS;
+  const courierCell = (S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE);
+  return ((courierCell - C.COURIER_CELL) % C.TOTAL_CELLS + C.TOTAL_CELLS) % C.TOTAL_CELLS;
 }
 
 function renderFieldstrip() {
@@ -1104,11 +1037,11 @@ function renderFieldstrip() {
   if (!strip) return;
   const cellPxWidth = S._transient.cellPxWidth;
   const leftCell = Math.floor(S.worldPos);
-  const viewportPx = (strip.parentNode && strip.parentNode.clientWidth) || (VIEWPORT_CELLS * cellPxWidth);
-  const renderCount = Math.max(VIEWPORT_CELLS, Math.ceil(viewportPx / cellPxWidth) + 8);
+  const viewportPx = (strip.parentNode && strip.parentNode.clientWidth) || (C.VIEWPORT_CELLS * cellPxWidth);
+  const renderCount = Math.max(C.VIEWPORT_CELLS, Math.ceil(viewportPx / cellPxWidth) + 8);
   let html = '';
   for (let i = 0; i < renderCount; i++) {
-    const ci   = (leftCell + i) % TOTAL_CELLS;
+    const ci   = (leftCell + i) % C.TOTAL_CELLS;
     const cell = worldCells[ci];
     if (!cell) continue;
     if (cell.pkg) {
@@ -1132,9 +1065,9 @@ function renderFieldstrip() {
 // ============================================================
 function scanForPickup() {
   if (S.status !== 'walking' && S.status !== 'carrying') return;
-  const courierCell = Math.floor((S.edgeIdx * CELLS_PER_EDGE) + (S.dotT * CELLS_PER_EDGE));
-  for (let offset = 0; offset <= PKG_PICKUP_RANGE; offset++) {
-    const ci   = (courierCell + offset) % TOTAL_CELLS;
+  const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
+  for (let offset = 0; offset <= C.PKG_PICKUP_RANGE; offset++) {
+    const ci   = (courierCell + offset) % C.TOTAL_CELLS;
     const cell = worldCells[ci];
     if (!cell) continue;
 
@@ -1197,7 +1130,7 @@ function tryDeliver(arrivedNodeId) {
         S.activeRecoveryCount = Math.max(0, S.activeRecoveryCount - 1);
         updatePorterStripBadges();
       } else {
-        worldCells[pkg._worldCell].pkg.respawnIn = PKG_RESPAWN_TICKS;
+        worldCells[pkg._worldCell].pkg.respawnIn = C.PKG_RESPAWN_TICKS;
       }
     }
     if (settle) { settle.supply = Math.min(100, settle.supply + 3); settle.rebuild = Math.min(100, settle.rebuild + 1); }
@@ -1209,7 +1142,7 @@ function tryDeliver(arrivedNodeId) {
       renderSettlements();
       postActivity('discovery', { nodeId: arrivedNodeId, label: node.label });
       if (NPC_DEFS[arrivedNodeId]) {
-        addTrust(arrivedNodeId, TRUST_GAIN_DISCOVERY, 'discovery');
+        addTrust(arrivedNodeId, C.TRUST_GAIN_DISCOVERY, 'discovery');
       }
     }
     addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
@@ -1225,7 +1158,7 @@ function tryDeliver(arrivedNodeId) {
     }
 
     if (NPC_DEFS[arrivedNodeId]) {
-      const gain = pkg.isLost ? TRUST_GAIN_LOST_DELIVERY : TRUST_GAIN_DELIVERY;
+      const gain = pkg.isLost ? C.TRUST_GAIN_LOST_DELIVERY : C.TRUST_GAIN_DELIVERY;
       addTrust(arrivedNodeId, gain, pkg.isLost ? 'lost-delivery' : 'delivery');
     }
   });
@@ -1239,17 +1172,17 @@ function tryDeliver(arrivedNodeId) {
 }
 
 function tickPkgRespawns() {
-  for (let i = 0; i < TOTAL_CELLS; i++) {
+  for (let i = 0; i < C.TOTAL_CELLS; i++) {
     const cell = worldCells[i];
     if (!cell || !cell.pkg || !cell.pkg.picked || cell.pkg.respawnIn <= 0) continue;
     cell.pkg.respawnIn--;
     if (cell.pkg.respawnIn === 0) {
       const active = worldCells.filter(c => c.edgeIdx === cell.edgeIdx && c.pkg && !c.pkg.picked).length;
-      if (active < PKG_MAX_PER_EDGE) {
+      if (active < C.PKG_MAX_PER_EDGE) {
         cell.pkg.picked = false;
         addLog(`<span class="log-ok">new package</span> spotted on the road`);
       } else {
-        cell.pkg.respawnIn = PKG_RESPAWN_TICKS;
+        cell.pkg.respawnIn = C.PKG_RESPAWN_TICKS;
       }
     }
   }
@@ -1421,8 +1354,6 @@ function updateRouteDot() {
 const $ = id => document.getElementById(id);
 
 function resolveEls() {
-  // Mutate els in place (via Object.assign) so the module-level alias
-  // stays pointing at the same object.
   Object.assign(els, {
     porterStrip:  document.querySelector('.tlh-porter-strip'),
     porterIdEl:   $('porterIdEl'),
@@ -1607,7 +1538,7 @@ function formatEvent(e) {
 }
 
 function tt() {
-  const totalSecs = Math.floor(S.ticks * TICK_MS / 1000);
+  const totalSecs = Math.floor(S.ticks * C.TICK_MS / 1000);
   const m = Math.floor(totalSecs / 60);
   const s = totalSecs % 60;
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
@@ -1856,14 +1787,14 @@ function toggleTieDown() {
 // TRIP / CATCH
 // ============================================================
 function currentCellIsRisky() {
-  const ci = Math.floor((S.edgeIdx*CELLS_PER_EDGE)+(S.dotT*CELLS_PER_EDGE)) % TOTAL_CELLS;
+  const ci = Math.floor((S.edgeIdx*C.CELLS_PER_EDGE)+(S.dotT*C.CELLS_PER_EDGE)) % C.TOTAL_CELLS;
   return worldCells[ci] ? worldCells[ci].risky : false;
 }
 
 function tripChance() {
   const bootFail = (100-S.bootDurability)/100;
   const segsLost = 4-staminaSegCount();
-  let chance = TRIP_CHANCE_BASE * bootFail * (1+segsLost*0.5);
+  let chance = C.TRIP_CHANCE_BASE * bootFail * (1+segsLost*0.5);
   if (S.upgrades.steadyFeet) chance *= 0.70;
   if (currentCellIsRisky())  chance *= 1.40;
   return chance;
@@ -1871,7 +1802,7 @@ function tripChance() {
 
 function catchChance() {
   const bf = S.bootDurability/100, sf = Math.min(S.stamina,S.staminaMax)/S.staminaMax;
-  let c = CATCH_CHANCE_BASE * ((bf+sf)/2);
+  let c = C.CATCH_CHANCE_BASE * ((bf+sf)/2);
   if (S.upgrades.steadyFeet) c += 0.15;
   return Math.min(0.85, c);
 }
@@ -1884,7 +1815,7 @@ function maybeTrip() {
   let dropped = false;
   if (S.inventory.length > 0) {
     const target = S.inventory[0];
-    const chance = target.isLost ? TRIP_DROP_CHANCE_LOST : TRIP_DROP_CHANCE_NORMAL;
+    const chance = target.isLost ? C.TRIP_DROP_CHANCE_LOST : C.TRIP_DROP_CHANCE_NORMAL;
     if (Math.random() < chance) {
       S.usedSlots  -= target.slots;
       S.usedWeight -= target.kg;
@@ -1967,10 +1898,10 @@ function tick() {
   }
 
   if (S.status==='walking' || S.status==='carrying') {
-    S.stamina = Math.max(0, S.stamina-STAMINA_DRAIN);
+    S.stamina = Math.max(0, S.stamina-C.STAMINA_DRAIN);
     if (S.staminaOverboost && S.stamina<=S.staminaMax) S.staminaOverboost=false;
 
-    let bd=BOOT_DRAIN;
+    let bd=C.BOOT_DRAIN;
     if (S.upgrades.bootsT1) bd*=0.75;
     if (S.upgrades.bootsT2) bd*=0.50;
     if (S.usingMakeshift)   bd*=1.30;
@@ -1988,7 +1919,7 @@ function tick() {
     scanForPickup();
 
     if (S.stamina<50 && S.status==='walking' && Math.random()<0.03) {
-      S.status='resting'; S.restTimer=REST_TICKS_MIN+Math.floor(Math.random()*(REST_TICKS_MAX-REST_TICKS_MIN));
+      S.status='resting'; S.restTimer=C.REST_TICKS_MIN+Math.floor(Math.random()*(C.REST_TICKS_MAX-C.REST_TICKS_MIN));
       addLog('<span class="log-wn">exhausted \u2014 resting at nearest shelter</span>');
       if (els.courierAt) { els.courierAt.className='tlh-at rest'; els.courierAt.style.animation=''; }
     }
@@ -2010,7 +1941,7 @@ function tick() {
       addLog(`discovered: <span class="log-hi">${node.label}</span>`);
       postActivity('discovery', { nodeId: arrivedAt, label: node.label });
       if (NPC_DEFS[arrivedAt]) {
-        addTrust(arrivedAt, TRUST_GAIN_DISCOVERY, 'discovery');
+        addTrust(arrivedAt, C.TRUST_GAIN_DISCOVERY, 'discovery');
       }
     }
     const [newFrom, newTo] = S.edges[S.edgeIdx];
@@ -2103,7 +2034,7 @@ function init() {
   if (els.saveBtn) els.saveBtn.addEventListener('click', () => saveGame(false));
   if (els.wipeBtn) els.wipeBtn.addEventListener('click', armWipe);
 
-  setInterval(() => saveGame(true), AUTOSAVE_MS);
+  setInterval(() => saveGame(true), C.AUTOSAVE_MS);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       saveGame(true);
@@ -2125,7 +2056,7 @@ function init() {
     }
   }, 1000);
 
-  setInterval(tick, TICK_MS);
+  setInterval(tick, C.TICK_MS);
 }
 
 init();
