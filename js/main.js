@@ -1,15 +1,14 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.5
+   v0.0.7.6
 
-   Refactor commit 5: extracted save/load/wipe persistence
-   to ./persistence.js. saveGame/loadGame/wipeSave/armWipe/
-   updateSaveStrip now imported from there.
+   Refactor commit 6: extracted multiplayer to ./multiplayer.js.
+   getPorterId, getCachedPorterId, postActivity, postLostDrop,
+   fetchLostFromPeer, pollFeed, startPolling, stopPolling,
+   shortPorterId, checkDistMilestones now imported from there.
 
-   addLog is exported for persistence.js (circular import by
-   file but not by initialization — addLog is only called
-   inside function bodies, not at module load). When log.js
-   is extracted later, the persistence import path changes.
+   addLog and renderNetwork are exported for multiplayer.js
+   (circular by file, not by initialization).
 
    Imports:
      S — game state singleton (state.js)
@@ -20,6 +19,9 @@
      NODE_GLYPHS, STATUS_COLORS — visual maps
      UPGRADE_DEFS — upgrade list (closures mutate S)
      saveGame, loadGame, armWipe, updateSaveStrip — persistence
+     getPorterId, getCachedPorterId, postActivity, postLostDrop,
+       fetchLostFromPeer, startPolling, stopPolling,
+       shortPorterId, checkDistMilestones — multiplayer
 
    Local aliases:
      els, worldCells — see commit 2 notes
@@ -35,31 +37,15 @@ import { ZONE_TYPES } from './data/zones.js';
 import { NODE_GLYPHS, STATUS_COLORS } from './data/glyphs.js';
 import { UPGRADE_DEFS } from './data/upgrades.js';
 import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js';
+import {
+  getPorterId, getCachedPorterId, postActivity, postLostDrop,
+  fetchLostFromPeer, startPolling, stopPolling,
+  shortPorterId, checkDistMilestones,
+} from './multiplayer.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
-
-// ============================================================
-// PORTER ID
-// ============================================================
-function getPorterId() {
-  const LS_KEY = 'tlh-porter-id';
-  try {
-    let id = localStorage.getItem(LS_KEY);
-    if (!id) {
-      const hex = () => Math.floor(Math.random() * 0x10000).toString(16).toUpperCase().padStart(4, '0');
-      id = 'PTR-' + hex() + hex();
-      localStorage.setItem(LS_KEY, id);
-    } else if (id.startsWith('TLH-')) {
-      id = 'PTR-' + id.slice(4);
-      localStorage.setItem(LS_KEY, id);
-    }
-    return id;
-  } catch (e) {
-    return 'PTR-OFFLINE';
-  }
-}
 
 function sandalCap() {
   return S.upgrades.sandalSatchel ? C.SANDAL_CAP_UPGRADED : C.SANDAL_CAP_BASE;
@@ -87,129 +73,6 @@ function accumulateDist() {
   S.distKm = Math.round((S.distKm + delta) * 10) / 10;
   t.lastDistEdgeIdx = S.edgeIdx;
   t.lastDistDotT    = S.dotT;
-}
-
-// ============================================================
-// MULTIPLAYER
-// ============================================================
-function getCachedPorterId() {
-  if (!S._transient.porterIdCached) S._transient.porterIdCached = getPorterId();
-  return S._transient.porterIdCached;
-}
-
-function postActivity(type, data) {
-  const porterId = getCachedPorterId();
-  if (porterId === 'PTR-OFFLINE') return;
-  try {
-    fetch(C.FEED_URL + '/activity', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ porterId, type, data: data || {} }),
-      keepalive: true,
-    }).catch(() => {});
-  } catch (e) {}
-}
-
-function postLostDrop(pkg) {
-  const porterId = getCachedPorterId();
-  if (porterId === 'PTR-OFFLINE') return;
-  try {
-    fetch(C.FEED_URL + '/lost', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        porterId,
-        pkg: {
-          size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
-          scrip: pkg.scrip, isLost: true,
-        },
-      }),
-      keepalive: true,
-    }).catch(() => {});
-  } catch (e) {}
-  postActivity('lost_drop', { label: pkg.label, size: pkg.size });
-}
-
-async function fetchLostFromPeer(peerPorterId) {
-  try {
-    const res = await fetch(C.FEED_URL + '/lost/' + encodeURIComponent(peerPorterId));
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data || !Array.isArray(data.lost)) return [];
-    return data.lost;
-  } catch (e) {
-    return [];
-  }
-}
-
-async function pollFeed() {
-  try {
-    const url = C.FEED_URL + '/feed' + (S.lastFeedTimestamp ? ('?since=' + S.lastFeedTimestamp) : '');
-    const res = await fetch(url);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (!data || !Array.isArray(data.events)) return;
-
-    S.networkConnected = true;
-    S.networkCensus    = data.census || 0;
-
-    const myId = getCachedPorterId();
-    const seen = new Set(S.networkFeed.map(e => `${e.timestamp}|${e.porterId}|${e.type}`));
-    data.events.forEach(e => {
-      const key = `${e.timestamp}|${e.porterId}|${e.type}`;
-      if (!seen.has(key)) {
-        S.networkFeed.push(e);
-        seen.add(key);
-        if (e.timestamp > S.lastFeedTimestamp) S.lastFeedTimestamp = e.timestamp;
-        if (e.porterId && e.porterId !== myId) {
-          if (!S.knownPeers.includes(e.porterId)) {
-            S.knownPeers.push(e.porterId);
-            if (S.knownPeers.length > C.KNOWN_PEERS_CAP) S.knownPeers.shift();
-          }
-        }
-      }
-    });
-
-    S.networkFeed.sort((a, b) => a.timestamp - b.timestamp);
-    if (S.networkFeed.length > C.FEED_DISPLAY_CAP) {
-      S.networkFeed = S.networkFeed.slice(-C.FEED_DISPLAY_CAP);
-    }
-
-    renderNetwork();
-  } catch (e) {}
-}
-
-function startPolling() {
-  if (S._transient.pollTimer) return;
-  pollFeed();
-  S._transient.pollTimer = setInterval(pollFeed, C.POLL_MS);
-}
-
-function stopPolling() {
-  if (S._transient.pollTimer) {
-    clearInterval(S._transient.pollTimer);
-    S._transient.pollTimer = null;
-  }
-}
-
-function shortPorterId(id) {
-  if (!id || typeof id !== 'string') return 'PTR-????';
-  const parts = id.split('-');
-  if (parts.length === 2 && parts[1].length > 4) {
-    return parts[0] + '-' + parts[1].slice(0, 4);
-  }
-  return id;
-}
-
-function checkDistMilestones() {
-  const km = Math.floor(S.distKm);
-  for (const m of C.DIST_MILESTONES) {
-    if (km >= m && !S.milestonesHit.includes(m)) {
-      S.milestonesHit.push(m);
-      postActivity('milestone', { kind: 'distance', value: m });
-      addLog(`milestone: <span class="log-hi">${m}km walked</span>`);
-    }
-  }
 }
 
 // ============================================================
@@ -1040,7 +903,9 @@ function renderSettlements() {
     });
 }
 
-function renderNetwork() {
+// renderNetwork is exported for multiplayer.js (called from pollFeed).
+// Circular import-safe: only invoked inside function bodies, not at module load.
+export function renderNetwork() {
   if (!els.networkEl) return;
   const myId = getCachedPorterId();
   const lines = [];
@@ -1107,7 +972,7 @@ function tt() {
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
-// addLog is exported for persistence.js (and any other module that needs to log).
+// addLog is exported for persistence.js / multiplayer.js / etc.
 // Circular import-safe: callers only invoke addLog inside function bodies, not at module load.
 export function addLog(msg) {
   if (!els.logEl) return;
