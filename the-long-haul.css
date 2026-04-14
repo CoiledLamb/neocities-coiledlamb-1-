@@ -81,6 +81,20 @@ html, body {
   text-align: right;
 }
 
+/* v0.0.7 commit 6: recovery cargo presence indicator.
+   Small, subtle — ambient presence, not a call-to-action. Hidden via JS
+   when count is 0 (see updatePorterStripBadges). */
+.tlh-porter-recovery {
+  font-size: 9px;
+  color: #da8bda;
+  border: 1px solid #7a4a78;
+  border-radius: 1px;
+  padding: 1px 5px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
 /* ============================================================
    VIEWPORT — 3 layers
    ============================================================ */
@@ -324,15 +338,67 @@ html, body {
   flex-shrink: 0;
 }
 
+/* v0.0.7 commit 6: sandal at-cap now shows stable green (matches fc-sw-plant).
+   Pink pulse removed — cap is fine, not urgent; the pulse was visually noisy
+   without carrying meaning. */
 .sandal-badge {
   color: #2a7a58;
   border-color: #2a7a58;
 }
 .sandal-badge.at-cap {
-  color: #da8bda;
-  border-color: #da8bda;
-  animation: overboost-pulse 1.6s ease-in-out infinite;
+  color: #2a7a58;
+  border-color: #2a7a58;
+  /* no animation — stable green */
 }
+
+/* v0.0.7 commit 6: boots gear popover.
+   Collapses [buy boots] [autobuy] [clip] into a single \u2699 icon that opens
+   a small inline popover, reclaiming ~30% of the boots row width. The sandal
+   badge stays outside the popover as a status indicator. */
+.boots-gear-btn {
+  background: transparent;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  color: #7aa8a6;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1.2;
+  transition: color 0.12s, border-color 0.12s;
+}
+.boots-gear-btn:hover { color: #b1c9c3; border-color: #40a4b9; }
+.boots-gear-btn.on    { color: #77bfcf; border-color: #40a4b9; }
+
+.boots-gear-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.boots-gear-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #0b2e2d;
+  border: 1px solid #40a4b9;
+  border-radius: 1px;
+  padding: 6px 7px;
+  z-index: 50;
+  min-width: 130px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.boots-gear-pop.open { display: flex; flex-direction: column; gap: 4px; }
+.boots-gear-pop .gear-line {
+  font-size: 9px;
+  color: #3a6a68;
+  padding: 2px 0;
+  border-bottom: 1px solid #132e2d;
+  margin-bottom: 2px;
+}
+.boots-gear-pop .gear-val { color: #77bfcf; font-weight: 700; }
+.boots-gear-pop .gear-btn { width: 100%; text-align: center; }
 
 .boots-auto {
   background: transparent;
@@ -372,18 +438,28 @@ html, body {
   50%       { opacity: 0.5; }
 }
 
+/* v0.0.7 commit 6: vertical canteen bar.
+   Was 28px x 3px horizontal. Now narrow width x full row height, fill
+   grows bottom-to-top. Saves horizontal space on the stamina row. */
 .canteen-bar-wrap {
-  width: 28px; height: 3px;
+  width: 4px;
+  height: 14px;
   background: #132e2d;
   border-radius: 1px;
   overflow: hidden;
   flex-shrink: 0;
   opacity: 0.6;
+  position: relative;
 }
 .canteen-bar-fill {
-  height: 100%; border-radius: 1px;
+  width: 100%;
   background: #40a4b9;
-  transition: width 0.4s;
+  transition: height 0.4s;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 1px;
 }
 
 .drink-btn {
@@ -482,11 +558,20 @@ html, body {
 .upg-btn:hover:not(:disabled) { border-color: #40a4b9; color: #b1c9c3; }
 .upg-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
+/* v0.0.7 commit 6: settlement panel rebuild.
+   - Trust bar moved ABOVE the name (was at the bottom).
+   - Trust bar: continuous fill + 4 vertical tick marks at 20/40/60/80
+     (visual-only; gameplay thresholds are 25/50/75/100 — realignment
+     scheduled in the post-commit-6 refactor pass).
+   - Rebuild bar faded/recessed — placeholder for real rebuild mechanic.
+   - Stage-2 (unconfirmed) settlements get a subtle opacity reduction. */
 .settle-item { padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
 .settle-item:last-child { border-bottom: none; }
+.settle-item.settle-stage2 { opacity: 0.65; }
 .settle-name { color: #e0eeec; font-weight: 700; font-size: 10px; display: flex; justify-content: space-between; }
 .settle-name span { color: #3a6a68; font-weight: 400; font-size: 9px; }
 .settle-bar { height: 3px; background: #132e2d; border-radius: 1px; overflow: hidden; margin-top: 3px; }
+.settle-bar.settle-bar-wip { opacity: 0.45; }
 .settle-fill { height: 100%; border-radius: 1px; }
 .settle-fill.a { background: #4a7a78; }
 .settle-fill.b { background: linear-gradient(90deg,#40a4b9,#9d78d4); animation: oil 3s linear infinite; background-size: 200% auto; }
@@ -496,7 +581,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-top: 3px;
+  margin-bottom: 4px;
   font-size: 9px;
   font-family: 'Source Code Pro', monospace;
 }
@@ -510,15 +595,24 @@ html, body {
 }
 .settle-trust-bar {
   flex: 1;
-  height: 2px;
+  height: 4px;
   background: #132e2d;
   border-radius: 1px;
   overflow: hidden;
+  position: relative;
 }
 .settle-trust-fill {
   height: 100%;
   background: linear-gradient(90deg, #7a58a4, #9d78d4);
   transition: width 0.4s;
+}
+.settle-trust-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: #0b2e2d;
+  pointer-events: none;
 }
 .settle-trust-val {
   color: #7a58a4;
