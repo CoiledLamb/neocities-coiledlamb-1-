@@ -16,20 +16,12 @@
      resets it). saveGame() bails immediately if the flag is set,
      preventing beforeunload/visibilitychange/autosave from
      re-saving in-memory state over the freshly-cleared store.
-
-   Imports note (commit 5 / v0.0.7.5):
-     This module imports addLog from main.js — a circular import
-     by file but not by initialization. addLog is only called
-     inside function bodies, never at module load, so ES module
-     resolution handles it cleanly. When log.js is extracted
-     in a later commit, the import path moves and this comment
-     can come out.
    ============================================== */
 'use strict';
 
 import { S } from './state.js';
 import * as C from './constants.js';
-import { addLog } from './main.js';
+import { addLog } from './render/log.js';
 
 const els = S._transient.els;
 

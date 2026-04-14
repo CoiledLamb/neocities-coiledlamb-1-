@@ -10,17 +10,13 @@
    lost cargo (pink), but pays 1.5× scrip and is one-shot —
    no respawn after delivery. The carrier badge in the
    porter strip (#recoveryBadge) shows the active count.
-
-   Imports note (commit 7 / v0.0.7.7):
-     Imports addLog from main.js — same circular-import-safe
-     pattern as commits 5/6. Will move when log.js extracts.
    ============================================== */
 'use strict';
 
 import { S } from './state.js';
 import * as C from './constants.js';
 import { fetchLostFromPeer } from './multiplayer.js';
-import { addLog } from './main.js';
+import { addLog } from './render/log.js';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;

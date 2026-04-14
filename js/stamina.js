@@ -27,7 +27,7 @@
 'use strict';
 
 import { S } from './state.js';
-import { addLog } from './main.js';
+import { addLog } from './render/log.js';
 
 const els = S._transient.els;
 

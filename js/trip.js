@@ -27,10 +27,6 @@
      against damage fallback, not drops. Normal pkgs vanish
      locally (log only). Lost pkgs go through postLostDrop()
      so other porters can recover them.
-
-   Imports note (commit 14 hotfix):
-     staminaSegCount now from ./stamina.js (was main.js).
-     addLog, renderCourierStack, renderCargoSlots still from main.
    ============================================== */
 'use strict';
 
@@ -38,9 +34,8 @@ import { S } from './state.js';
 import * as C from './constants.js';
 import { postLostDrop } from './multiplayer.js';
 import { staminaSegCount } from './stamina.js';
-import {
-  addLog, renderCourierStack, renderCargoSlots,
-} from './main.js';
+import { addLog } from './render/log.js';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;

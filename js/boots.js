@@ -36,7 +36,8 @@
 
 import { S } from './state.js';
 import * as C from './constants.js';
-import { addLog, updateHUD } from './main.js';
+import { addLog } from './render/log.js';
+import { updateHUD } from './render/hud.js';
 
 // Local alias — live reference into S._transient. Never reassign.
 const els = S._transient.els;

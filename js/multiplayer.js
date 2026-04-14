@@ -13,19 +13,13 @@
 
    Polling is gated on document visibility (startPolling /
    stopPolling wired in main.js init via visibilitychange).
-
-   Imports note (commit 6 / v0.0.7.6):
-     Imports addLog and renderNetwork from main.js — circular
-     by file but not by initialization. Both are only called
-     inside function bodies, never at module load. When log.js
-     and render/network.js are extracted later, the import
-     paths move and this comment can come out.
    ============================================== */
 'use strict';
 
 import { S } from './state.js';
 import * as C from './constants.js';
-import { addLog, renderNetwork } from './main.js';
+import { addLog } from './render/log.js';
+import { renderNetwork } from './render/network.js';
 
 export function getPorterId() {
   const LS_KEY = 'tlh-porter-id';

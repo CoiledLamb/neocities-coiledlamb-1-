@@ -4,16 +4,17 @@
    ./data/upgrades.js since commit 4; this module is the
    behavior half (paint the panel, spend scrip, fire .apply()).
 
-   Imports from main.js (addLog, updateHUD, renderCargoSlots)
-   and Boots.renderBoots are circular-by-file but not by
-   initialization — every cross-call happens inside a function
-   body, never at module load. Same pattern as every other
-   extracted sub-module since commit 5.
+   Imports updated commit 17: addLog/updateHUD/renderCargoSlots
+   now from ./render/log.js + ./render/hud.js (was via main.js's
+   re-export layer in commit 16).
+   Boots.renderBoots still circular-by-file with boots.js, fine
+   because all calls are inside function bodies.
 
    Imports:
      S — game state singleton (state.js)
      UPGRADE_DEFS — upgrade list w/ apply closures (data/upgrades.js)
-     addLog, updateHUD, renderCargoSlots — main
+     addLog — render/log.js
+     updateHUD, renderCargoSlots — render/hud.js
      Boots.renderBoots — boots (namespace import)
 
    Local aliases:
@@ -23,7 +24,8 @@
 
 import { S } from './state.js';
 import { UPGRADE_DEFS } from './data/upgrades.js';
-import { addLog, updateHUD, renderCargoSlots } from './main.js';
+import { addLog } from './render/log.js';
+import { updateHUD, renderCargoSlots } from './render/hud.js';
 import * as Boots from './boots.js';
 
 const els = S._transient.els;

@@ -7,18 +7,12 @@
 
    Tier behaviors (function names still reflect old
    thresholds — rename to tryWarning/tryPreview/
-   tryRestPrompt deferred to a follow-up commit):
+   tryRestPrompt deferred to a follow-up commit, see
+   bug list item 1):
      t20: stage-1 reveal of NPC_ADJACENT nodes
      t40: tryT50Warning — trip-risk > rain > stamina
      t60: tryT75Preview — outbound edge package preview
      t80: tryT100RestPrompt — [rest] log button
-
-   Imports note:
-     staminaSegCount + renderStamina now from ./stamina.js
-       (commit 14 — was previously from main).
-     addLog, drawRouteMap, renderSettlements, updateHUD still
-       from main — circular-by-file but invoked only inside
-       function bodies.
    ============================================== */
 'use strict';
 
@@ -30,10 +24,10 @@ import { postActivity } from './multiplayer.js';
 import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js';
 import { speak, pickRandom } from './channels.js';
 import { staminaSegCount, renderStamina } from './stamina.js';
-import {
-  addLog, drawRouteMap, renderSettlements,
-  updateHUD,
-} from './main.js';
+import { addLog } from './render/log.js';
+import { updateHUD } from './render/hud.js';
+import { drawRouteMap } from './render/route-map.js';
+import { renderSettlements } from './render/settlements.js';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;

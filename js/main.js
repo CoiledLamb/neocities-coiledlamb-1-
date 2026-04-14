@@ -1,41 +1,84 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.16
+   v0.0.7.17
 
-   Refactor commit 16: ALL render code moved to js/render/.
-   Five modules created in part 1 (commit ddd811e):
-     render/log.js, render/hud.js, render/route-map.js,
-     render/settlements.js, render/network.js.
+   Refactor commit 17: dropped the re-export layer from
+   commit 16. Every dependent module now imports directly
+   from render/* — main.js is finally just orchestration.
 
-   This commit (part 2) wires them up. Strategy: main.js
-   imports from render/* and re-exports the same symbols
-   under their old names, preserving the public API that
-   8 dependent modules still consume. This keeps the cutover
-   minimal — no other files need to change in this commit.
+   Net export reduction in main: 7 → 0 (for real this time).
+   main.js is purely an entry point: imports + helpers +
+   tick + init + the init() call at the bottom.
 
-   Commit 17 will sweep the dependent modules to import
-   directly from render/* and remove the re-export layer
-   here. After that main.js is just init + tick + entry.
+   Helpers still local:
+     updateDestDrift — the dest label scroller (one call site,
+       drags in NODE_GLYPHS + getDisplayLabel; not worth its
+       own module).
+     buildRain, setRain — weather. Stays here until v0.0.8
+       weather work creates a proper home.
+     resolveEls — DOM lookup, init-only.
 
-   Re-exports (old name → new home):
-     addLog              → render/log.js
-     updateHUD           → render/hud.js
-     renderCargoSlots    → render/hud.js
-     renderCourierStack  → render/hud.js
-     drawRouteMap        → render/route-map.js
-     renderSettlements   → render/settlements.js
-     renderNetwork       → render/network.js
+   Imports from render/route-map.js:
+     drawRouteMap, updateRouteDot, layoutRouteNodes used by
+     init + tick. currentEdge used by updateDestDrift.
 
-   Functions still local to main.js:
-     updateDestDrift, buildRain, setRain, resolveEls
-     (plus tick() and init() — orchestration only).
+   Cross-module updates this commit (import path rewrites):
+     persistence.js: addLog from ./render/log.js
+     multiplayer.js: addLog → render/log.js,
+                     renderNetwork → render/network.js
+     recovery.js:    addLog → render/log.js
+     trust.js:       addLog/updateHUD/drawRouteMap/renderSettlements
+                     split across log/hud/route-map/settlements
+     boots.js:       addLog → render/log.js,
+                     updateHUD → render/hud.js
+     stamina.js:     addLog → render/log.js
+     packages.js:    addLog/renderCourierStack/renderCargoSlots/
+                     drawRouteMap/renderSettlements split similarly
+     trip.js:        addLog/renderCourierStack/renderCargoSlots split
+     upgrades.js:    addLog/updateHUD/renderCargoSlots split
 
-   Local helpers still here for tick/init use:
-     currentEdge, updateRouteDot, layoutRouteNodes are
-     imported from render/route-map.js (currentEdge was
-     promoted to an export there since both modules need it).
+   Refactor on tlh-modules is now structurally complete.
+   Next step: merge tlh-modules → main, drop sub-version
+   suffix v0.0.7.17 → v0.0.7, ship as live deploy. After
+   that: bugfix patch (collate refactor housekeeping items
+   1–9 from the handoff bug list with player feedback).
 
-   No behavior change. No save schema bump.
+   Imports:
+     S — game state singleton (state.js)
+     C — tuning constants namespace (constants.js)
+     NPC_LINES, NPC_DEFS, NPC_ADJACENT — NPC data
+     NPC_PKGS, LOST_PKGS — cargo definitions
+     ZONE_TYPES — terrain weights/chars/spawn rates
+     NODE_GLYPHS — visual map (used by updateDestDrift)
+     saveGame, loadGame, armWipe, updateSaveStrip — persistence
+     getPorterId, getCachedPorterId, postActivity, postLostDrop,
+       fetchLostFromPeer, startPolling, stopPolling,
+       shortPorterId, checkDistMilestones — multiplayer
+     tickRecoveryAttempt, updatePorterStripBadges — recovery
+     getNodeStage, setNodeStage, markEdgeAdjacent,
+       getDisplayLabel — identification
+     addTrust, tryT50Warning, tryT75Preview,
+       tryT100RestPrompt — trust
+     renderChannels, tickAmbientChatter — channels
+     buildWorld, calcCellPxWidth, worldPosFromRoute,
+       renderFieldstrip — world
+     Pkg.scanForPickup, Pkg.tryDeliver,
+       Pkg.tickPkgRespawns — packages (namespace)
+     Trip.maybeTrip, Trip.accumulateDist — trip (namespace)
+     Boots.renderBoots, Boots.checkAutobuy, Boots.refillBootClip,
+       Boots.toggleBootsGear, Boots.toggleTieDown — boots (namespace)
+     Stamina.renderStamina, Stamina.drinkWater,
+       Stamina.speedMultiplier — stamina (namespace)
+     Upg.renderUpgrades — upgrades (namespace)
+     addLog — render/log.js
+     updateHUD, renderCargoSlots, renderCourierStack — render/hud.js
+     drawRouteMap, updateRouteDot, layoutRouteNodes,
+       currentEdge — render/route-map.js
+     renderSettlements — render/settlements.js
+     renderNetwork — render/network.js
+
+   Local aliases:
+     els, worldCells — see commit 2 notes
    ============================================== */
 'use strict';
 
@@ -68,35 +111,15 @@ import * as Trip from './trip.js';
 import * as Boots from './boots.js';
 import * as Stamina from './stamina.js';
 import * as Upg from './upgrades.js';
-
-// Render module imports — implementations now live in js/render/.
-import { addLog as _addLog } from './render/log.js';
+import { addLog } from './render/log.js';
 import {
-  updateHUD as _updateHUD,
-  renderCargoSlots as _renderCargoSlots,
-  renderCourierStack as _renderCourierStack,
+  updateHUD, renderCargoSlots, renderCourierStack,
 } from './render/hud.js';
 import {
-  drawRouteMap as _drawRouteMap,
-  updateRouteDot,
-  layoutRouteNodes,
-  currentEdge,
+  drawRouteMap, updateRouteDot, layoutRouteNodes, currentEdge,
 } from './render/route-map.js';
-import { renderSettlements as _renderSettlements } from './render/settlements.js';
-import { renderNetwork as _renderNetwork } from './render/network.js';
-
-// Re-export the moved symbols under their original names so the
-// 8 dependent modules (persistence, multiplayer, recovery, trust,
-// boots, stamina, packages, trip) and upgrades can keep importing
-// from main.js unchanged. Commit 17 will rewrite those imports
-// and drop this layer.
-export const addLog              = _addLog;
-export const updateHUD           = _updateHUD;
-export const renderCargoSlots    = _renderCargoSlots;
-export const renderCourierStack  = _renderCourierStack;
-export const drawRouteMap        = _drawRouteMap;
-export const renderSettlements   = _renderSettlements;
-export const renderNetwork       = _renderNetwork;
+import { renderSettlements } from './render/settlements.js';
+import { renderNetwork } from './render/network.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -141,8 +164,8 @@ function buildRain() {
 function setRain(on) {
   S.isRaining = on;
   if (els.rainOverlay) els.rainOverlay.style.display = on ? 'block' : 'none';
-  if (on) { S.canteen = Math.min(S.canteenMax, S.canteen + 30); _addLog('<span class="log-wn">rain begins \u2014 canteen refilling</span>'); }
-  else      _addLog('rain clears');
+  if (on) { S.canteen = Math.min(S.canteenMax, S.canteen + 30); addLog('<span class="log-wn">rain begins \u2014 canteen refilling</span>'); }
+  else      addLog('rain clears');
 }
 
 // ============================================================
@@ -202,7 +225,7 @@ function tick() {
       S.status = S.inventory.length>0?'carrying':'walking';
       if (els.courierAt) { els.courierAt.className='tlh-at bounce'+(S.inventory.length>0?' carry':''); els.courierAt.style.animation=''; }
     }
-    Boots.renderBoots(); Stamina.renderStamina(); _updateHUD(); return;
+    Boots.renderBoots(); Stamina.renderStamina(); updateHUD(); return;
   }
 
   if (S.status==='resting') {
@@ -210,10 +233,10 @@ function tick() {
     if (S.restTimer<=0) {
       S.stamina=S.staminaMax*1.25; S.staminaOverboost=true;
       S.canteen=Math.min(S.canteenMax,S.canteen+20); S.status='walking';
-      _addLog('rested at shelter \u2014 <span class="log-hi">stamina restored +25% overboost</span>');
+      addLog('rested at shelter \u2014 <span class="log-hi">stamina restored +25% overboost</span>');
       if (els.courierAt) { els.courierAt.className='tlh-at bounce'; els.courierAt.style.animation=''; }
     }
-    Stamina.renderStamina(); _updateHUD(); return;
+    Stamina.renderStamina(); updateHUD(); return;
   }
 
   if (S.status==='walking' || S.status==='carrying') {
@@ -239,7 +262,7 @@ function tick() {
 
     if (S.stamina<50 && S.status==='walking' && Math.random()<0.03) {
       S.status='resting'; S.restTimer=C.REST_TICKS_MIN+Math.floor(Math.random()*(C.REST_TICKS_MAX-C.REST_TICKS_MIN));
-      _addLog('<span class="log-wn">exhausted \u2014 resting at nearest shelter</span>');
+      addLog('<span class="log-wn">exhausted \u2014 resting at nearest shelter</span>');
       if (els.courierAt) { els.courierAt.className='tlh-at rest'; els.courierAt.style.animation=''; }
     }
   }
@@ -257,7 +280,7 @@ function tick() {
     const node = S.routeNodes.find(n => n.id===arrivedAt);
     if (node && getNodeStage(arrivedAt) < 3) {
       setNodeStage(arrivedAt, 3);
-      _addLog(`discovered: <span class="log-hi">${node.label}</span>`);
+      addLog(`discovered: <span class="log-hi">${node.label}</span>`);
       postActivity('discovery', { nodeId: arrivedAt, label: node.label });
       if (NPC_DEFS[arrivedAt]) {
         addTrust(arrivedAt, C.TRUST_GAIN_DISCOVERY, 'discovery');
@@ -265,9 +288,9 @@ function tick() {
     }
     const [newFrom, newTo] = S.edges[S.edgeIdx];
     if (markEdgeAdjacent(newFrom, newTo)) {
-      _renderSettlements();
+      renderSettlements();
     }
-    _drawRouteMap();
+    drawRouteMap();
     updateDestDrift();
     Boots.refillBootClip(arrivedAt);
     Pkg.tryDeliver(arrivedAt);
@@ -292,7 +315,7 @@ function tick() {
   if (S.ticks % 9 === 0) updateSaveStrip();
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
 
-  Boots.renderBoots(); Stamina.renderStamina(); _renderCargoSlots(); _updateHUD();
+  Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
 }
 
 // ============================================================
@@ -315,19 +338,19 @@ function init() {
   S.worldPos = worldPosFromRoute();
 
   buildRain(); setRain(false);
-  layoutRouteNodes(); _drawRouteMap(); updateDestDrift();
-  Upg.renderUpgrades(); _renderSettlements(); _renderNetwork();
+  layoutRouteNodes(); drawRouteMap(); updateDestDrift();
+  Upg.renderUpgrades(); renderSettlements(); renderNetwork();
   renderChannels();
-  _renderCargoSlots(true); _renderCourierStack(); Boots.renderBoots(); Stamina.renderStamina();
+  renderCargoSlots(true); renderCourierStack(); Boots.renderBoots(); Stamina.renderStamina();
   updatePorterStripBadges();
   renderFieldstrip();
-  _updateHUD();
+  updateHUD();
   updateSaveStrip();
 
   if (restored) {
-    _addLog(`porter <span class="log-hi">${porterId}</span> back online \u2014 <span class="log-ok">save restored</span>`);
+    addLog(`porter <span class="log-hi">${porterId}</span> back online \u2014 <span class="log-ok">save restored</span>`);
   } else {
-    _addLog(`porter <span class="log-hi">${porterId}</span> online at <span class="log-hi">depot a</span>`);
+    addLog(`porter <span class="log-hi">${porterId}</span> online at <span class="log-hi">depot a</span>`);
   }
 
   if (els.courierAt) {

@@ -23,10 +23,6 @@
    Recovery metadata (isRecovery, recoveryFromPorter) rides the
    package from pickup → inventory → delivery; delivery broadcasts
    lost_recovered via postActivity.
-
-   sandalCap, renderBoots imported from boots.js (commit 13).
-   Other helpers (addLog, render*, drawRouteMap, renderSettlements)
-   from main — all already-exported, circular-by-file safe.
    ============================================== */
 'use strict';
 
@@ -38,10 +34,10 @@ import { updatePorterStripBadges } from './recovery.js';
 import { addTrust } from './trust.js';
 import { getNodeStage, setNodeStage } from './identification.js';
 import { sandalCap, renderBoots } from './boots.js';
-import {
-  addLog, renderCourierStack, renderCargoSlots,
-  drawRouteMap, renderSettlements,
-} from './main.js';
+import { addLog } from './render/log.js';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js';
+import { drawRouteMap } from './render/route-map.js';
+import { renderSettlements } from './render/settlements.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
