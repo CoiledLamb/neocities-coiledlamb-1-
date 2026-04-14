@@ -5,10 +5,183 @@ _last updated: 2026-04-14_
 
 ---
 
+## 🚧 ACTIVE: module refactor on `tlh-modules` branch
+
+**Branch**: `tlh-modules` (cut from `main` after v0.0.7 merge)
+**Goal**: split monolithic `the-long-haul.js` (~2270 lines, single IIFE) into ES modules. Zero behavior change throughout. Sub-versioned during refactor (v0.0.7.1, .2, .3...) — sub-suffix drops on merge back to main.
+
+**Testing setup**: `python -m http.server 8000` from repo root → `http://localhost:8000/the-long-haul.html`. User is on Windows (cmd). Hard refresh (Ctrl+Shift+R) between commits. Pre-existing benign `favicon.ico 404` — ignore.
+
+### key architecture decisions made
+- **ES modules over IIFE concat or build step**. User will go live-only post-refactor (deploy direct to Neocities), so the `file://` CORS module restriction doesn't matter — local server only during dev.
+- **Single-letter `S` for state kept** (established convention, ~300 uses). Discussed and decided to keep.
+- **Transient sub-object named `_transient`** (not `runtime`). Underscore matches existing convention elsewhere in codebase.
+- **`els` and `worldCells` as module-local aliases** over `S._transient.els` and `S._transient.worldCells`. `resolveEls()` uses `Object.assign`, `buildWorld()` uses `.length=0+push` — both preserve the alias by mutating in place. Never reassign these aliases.
+- **Constants imported as namespace**: `import * as C from './constants.js'` → `C.TICK_MS`, `C.TRIP_CHANCE_BASE` etc. Picked over named imports (40-line import list would be its own kind of noise).
+- **Data files flat in `js/data/`** (not nested). Six files: `npc-lines.js`, `npc-defs.js`, `packages.js`, `zones.js`, `glyphs.js`, `upgrades.js`. `UPGRADE_DEFS` imports `S` because `apply` closures mutate state — unusual for a data file but cleaner than a dispatch table.
+- **HTML subtitle dimmed sub-version**: `v0.0.7<span style="opacity:0.6">.N</span>` — but the oil-text gradient renders the dimmed `.N` nearly invisible against background. User finds this charming and chose to keep the bug. Update the `.N` value each commit anyway; user verifies via View Source.
+- **No save schema bump during refactor**. Stays at v5. Old saves self-heal via existing ratchet in `loadGame`.
+
+### target file structure
+```
+the-long-haul.html          (stays at root)
+the-long-haul.css           (stays at root)
+js/
+  main.js                   - entry point + init() + tick() + remaining glue
+  state.js                  ✅ S object + S._transient
+  constants.js              ✅ tuning values
+  world.js                  - buildWorld, worldCells, scroll/fieldstrip
+  packages.js               - scanForPickup, tryDeliver, respawns
+  trip.js                   - tripChance, catchChance, maybeTrip
+  boots.js                  - buy/autobuy/clip/tie-down/sandalweeds merged
+  stamina.js                - canteen, drinkWater, speedMultiplier
+  identification.js         - nodeStages + helpers
+  trust.js                  - addTrust, onTrustUnlock, tryWarning/Preview/RestPrompt
+  channels.js               - speak, renderChannels, tickAmbientChatter
+  recovery.js               - postLostDrop, fetchLostFromPeer, spawnRecoveryCargo
+  persistence.js            - save/load/wipe, schema versioning
+  multiplayer.js            - postActivity, pollFeed, census
+  upgrades.js               - renderUpgrades + buyUpgrade logic
+  render/
+    hud.js, route-map.js, settlements.js, network.js, log.js
+  data/
+    npc-lines.js            ✅
+    npc-defs.js             ✅
+    packages.js             ✅
+    zones.js                ✅
+    glyphs.js               ✅
+    upgrades.js             ✅ (data with apply closures, imports S)
+```
+
+Note: `sandalweeds.js` merged into `boots.js`. `STATUS_COLORS` and `NODE_GLYPHS` in `data/glyphs.js`.
+
+### commits completed on `tlh-modules`
+
+**Commit 1 — v0.0.7.1 "plumbing"** (SHA `f9b1e91`) ✅
+- Created `js/main.js` with full IIFE contents, wrapper stripped (module scope isolates), `DOMContentLoaded` guard removed (modules deferred by default).
+- Updated `the-long-haul.html`: `<script src="the-long-haul.js">` → `<script type="module" src="js/main.js">`
+- Old `the-long-haul.js` left at root as safety net (orphan, unreferenced).
+- User verified: works fine locally.
+
+**Commit 2 — v0.0.7.2 "state extraction"** (SHA `24d0b54`) ✅
+- Created `js/state.js` exporting `S` with `_transient` sub-object.
+- `S._transient` contains: `els`, `worldCells`, `cellPxWidth`, `porterIdCached`, `pollTimer`, `lastSaveAt`, `wipeArmed`, `wipeTimer`, `wipeInProgress`, `depotRestPending`, `clipRefillPending`, `lastCargoKey`, `lastGearPopKey`, `gearPopHandler`, `lastDistEdgeIdx`, `lastDistDotT` (last two promoted from `S` root).
+- `main.js`: `import { S } from './state.js'`, local aliases `const els = S._transient.els; const worldCells = S._transient.worldCells;`
+- `resolveEls()` uses `Object.assign`, `buildWorld()` uses `.length=0+push`.
+- HTML subtitle bumped to v0.0.7.2. Old `the-long-haul.js` reduced to stub comment.
+- User verified: works.
+
+**Commit 3 — v0.0.7.3 "constants extraction"** (SHA `077f9e8`) ✅
+- Created `js/constants.js` exporting ~50 tuning consts: `CELLS_PER_EDGE`, `VIEWPORT_CELLS`, `COURIER_CELL`, `PKG_PICKUP_RANGE`, `PKG_MAX_PER_EDGE`, `PKG_RESPAWN_TICKS`, `TOTAL_CELLS` (derived), `KM_PER_EDGE`, `SANDAL_CAP_BASE/UPGRADED`, `TICK_MS`, `STAMINA_DRAIN`, `BOOT_DRAIN`, `TRIP_CHANCE_BASE`, `CATCH_CHANCE_BASE`, `REST_TICKS_MIN/MAX`, `TRIP_DROP_CHANCE_NORMAL/LOST`, `RECOVERY_BONUS_MULT/SOFT_CAP/POLL_INTERVAL`, `KNOWN_PEERS_CAP`, `TRUST_THRESHOLDS [20,40,60,80]`, `TRUST_GAIN_*`, `CHANNELS_DISPLAY_CAP`, `CHATTER_INTERVAL_MIN/MAX_TICKS`, `CHATTER_BASE_CHANCE`, `DEPOT_REST_BONUS_SCRIP`, `FEED_URL`, `POLL_MS`, `FEED_DISPLAY_CAP`, `DIST_MILESTONES`, `RISKY_EDGE_DEST`, `SAVE_KEY/V2/V3/V4/V5`, `SAVE_VERSION (5)`, `AUTOSAVE_MS`.
+- `main.js` imports `import * as C from './constants.js'` with all references prefixed `C.*`
+- HTML subtitle v0.0.7.3. User confirmed green.
+
+### ⚠️ commit 4 — v0.0.7.4 "data extraction" — INCOMPLETE PUSH
+
+**Status**: Attempted in previous session. The 6 data files + main.js rewrite was bundled into one `push_files` call, but the `main.js` payload was so large the tool output truncated mid-`tick()` function. User asked next agent to pick up.
+
+**Verified branch state at handoff time**: `js/` contains only `main.js`, `state.js`, `constants.js`. **No `js/data/` folder exists yet.** The v0.0.7.3 commit (`077f9e8`) is still HEAD of `tlh-modules` and is the working state.
+
+**The fix**: split commit 4 into two pushes (one logical commit, two GitHub commits) to stay under the tool size limit.
+
+#### commit 4 plan — TWO-PART PUSH
+
+**Part 1 (push first): the 6 data files only.** No HTML change, no `main.js` change. Game continues to work because `main.js` still has its inline copies of the data. The new files exist but are unreferenced. User can verify the game still runs after part 1 — it should be 100% identical to v0.0.7.3 because nothing imports the new files yet.
+
+**Part 2 (push second): rewritten `main.js` + HTML version bump to v0.0.7.4.** This is when the game switches to importing from the data files. `main.js` will be ~200 lines smaller (the inline data is gone, replaced by 6 import lines).
+
+#### data file contents
+
+All exports use named exports, all files start with `'use strict';`. Content is verbatim from current `main.js` (commit 3 / SHA `077f9e8`).
+
+**`js/data/npc-lines.js`** — exports `NPC_LINES`. Big dialogue corpus (~75 lines): `threshold[depotId][tier]`, `ambient[depotId][]`, `warning[depotId][kind]`, `preview[depotId]`, `rest[depotId][]`. Three NPCs: A=rho, B=iota, H=tau.
+
+**`js/data/npc-defs.js`** — exports `NPC_DEFS` and `NPC_ADJACENT`.
+- `NPC_DEFS = { A: {callsign:'rho',name:'rho',depotLabel:'depot a'}, B: {callsign:'iota',...}, H: {callsign:'tau',...} }`
+- `NPC_ADJACENT = { A: ['?', '\u00b7'], B: ['?', 'C'], H: ['C', '\u00b7'] }`
+
+**`js/data/packages.js`** — exports `NPC_PKGS` (medicine/seeds/letter/tools/rations/lumber) and `LOST_PKGS` (worn journal/salvage kit/old photo).
+
+**`js/data/zones.js`** — exports `ZONE_TYPES` (road/scrub/wetlands/ruins/depot_approach with weights, widths, chars, pkgChance, sandalChance, plus flags like `risky`, `refillsCanteen`, `isDepotApproach`).
+
+**`js/data/glyphs.js`** — exports `NODE_GLYPHS` (two-line ASCII per node) and `STATUS_COLORS` (status string → hex).
+
+**`js/data/upgrades.js`** — exports `UPGRADE_DEFS`. **Imports `S` from `'../state.js'`** because `apply` closures mutate state (e.g. `S.maxSlots+=2`). 10 upgrades: `bootsT1/T2`, `bootClip1/2`, `steadyFeet`, `cargoSling/Pack/Weight`, `efficientConsumption`, `sandalSatchel`.
+
+#### main.js v0.0.7.4 import block
+
+```js
+import { S } from './state.js';
+import * as C from './constants.js';
+import { NPC_LINES } from './data/npc-lines.js';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js';
+import { NPC_PKGS, LOST_PKGS } from './data/packages.js';
+import { ZONE_TYPES } from './data/zones.js';
+import { NODE_GLYPHS, STATUS_COLORS } from './data/glyphs.js';
+import { UPGRADE_DEFS } from './data/upgrades.js';
+```
+
+After these imports, the inline declarations of all 9 data blobs (`ZONE_TYPES`, `NPC_PKGS`, `LOST_PKGS`, `STATUS_COLORS`, `NPC_DEFS`, `NPC_ADJACENT`, `NPC_LINES`, `NODE_GLYPHS`, `UPGRADE_DEFS`) are deleted from `main.js`. Nothing else changes — every reference to these constants in the function bodies stays exactly as-is (the imports make the names available at module scope).
+
+#### main.js source of truth for commit 4 part 2
+
+Take commit 3's `main.js` (SHA `077f9e8`, 76KB), remove the 9 data blocks listed above, add the 6 new import lines after the existing two imports. That's the entire diff. No logic changes, no behavior changes.
+
+#### remaining commits after commit 4 (rough order)
+
+The big logic extractions. Recommended order, smallest-and-safest first:
+- **Commit 5** — `persistence.js` (save/load/wipe, schema constants already in C). Self-contained, easy first extraction.
+- **Commit 6** — `multiplayer.js` (postActivity/pollFeed/census/getCachedPorterId/shortPorterId/checkDistMilestones).
+- **Commit 7** — `recovery.js` (lost cargo recovery loop + `updatePorterStripBadges`).
+- **Commit 8** — `identification.js` (`nodeStages` helpers).
+- **Commit 9** — `trust.js` + `channels.js` (could combine). Good time to rename `tryT50Warning`/`tryT75Preview`/`tryT100RestPrompt` → `tryWarning`/`tryPreview`/`tryRestPrompt` since the trust thresholds were realigned to 20/40/60/80 in pre-refactor commit A. Function names still reflect old thresholds.
+- **Commit 10** — `world.js` (buildWorld, worldCells, scroll, fieldstrip, calcCellPxWidth, worldPosFromRoute).
+- **Commit 11** — `packages.js` (scanForPickup, tryDeliver, tickPkgRespawns, makeWorldPkg, weightedPick).
+- **Commit 12** — `trip.js` (tripChance, catchChance, maybeTrip, currentCellIsRisky).
+- **Commit 13** — `boots.js` (buyBoots, checkAutobuy, refillBootClip, confirmClipRefill, toggleTieDown, toggleAutobuy, toggleBootsGear, sandalCap, plus sandalweeds logic absorbed).
+- **Commit 14** — `stamina.js` (drinkWater, speedMultiplier, staminaSegCount, renderStamina).
+- **Commit 15** — `upgrades.js` (renderUpgrades + buyUpgrade — data already in `data/upgrades.js`).
+- **Commit 16** — `render/` subdirectory (hud.js, route-map.js, settlements.js, network.js, log.js).
+- **Commit 17** — Final `main.js` cleanup: just `init()` + `tick()` + entry point. Delete the orphan stub `the-long-haul.js` at repo root.
+
+Each commit: bump HTML subtitle to next sub-version (`.5`, `.6`, ...). Commit message format: `refactor(tlh): commit N — extract <module> (v0.0.7.N)`.
+
+### invariants preserved throughout refactor
+
+- **No behavior change, ever.** Pure structural refactors. If user notices any gameplay difference, it's a bug.
+- Save schema stays v5. No bump.
+- Old saves self-heal via the ratchet in `loadGame`.
+- `TRUST_THRESHOLDS` gameplay is now `[20, 40, 60, 80]` (set in pre-refactor commit A, before this branch was cut).
+- `TOTAL_CELLS = CELLS_PER_EDGE * 6 = 1560`.
+- Worker URL unchanged: `https://coiledlamb.tlh-feed.workers.dev`
+- localStorage keys unchanged: `tlh-save-v5`, `tlh-porter-id`.
+
+### user preferences for working with this branch
+
+- User likes seeing assumptions stated up-front before pushes ("here's what I'm about to do, here's the one weird thing about it") — gives them a chance to redirect.
+- User is fine with bold structural changes when they're well-explained, but flag tradeoffs honestly.
+- User pushes back when something feels weird (e.g. asked good questions about single-letter `S`, the dimmed `.N` rendering, etc.). Take the questions seriously, don't hand-wave.
+- Discuss style choices briefly and let user pick when there's no clear winner. Don't over-deliberate.
+- Commit messages should be substantive — explain rollback path, what changed, what stayed.
+
+### branch merge plan (after refactor complete)
+
+When `tlh-modules` is fully merged structurally (all extractions done, `main.js` is just init+tick+entry):
+1. Drop the sub-version suffix in HTML: `v0.0.7.17` → `v0.0.7` again.
+2. Delete the orphan stub `the-long-haul.js` at repo root.
+3. Squash-merge or merge-commit to `main` (user's call).
+4. Update both this doc and `HANDOFF.md` to reflect new file structure.
+5. Delete `tlh-modules` branch.
+
+After merge: ready for sticky gun + terrain scanner mini-patch (designed below in "future upgrades"), then v0.0.8 work.
+
+---
+
 ## branch status
-- Active development branch: `feature/the-long-haul`
-- **Not merged to main/live yet.** The user verifies by loading the HTML directly from the branch — bugs found are real branch bugs, not deployment issues.
-- Push convention: full version drops (e.g. v0.0.5 → v0.0.6 → v0.0.7) get pushed to the feature branch when ready. Small bugfixes are batched between version drops and pushed together. Site-wide changes (like adding the music tracks to `nav.js`) can be pushed to `main` separately, as long as they don't expose unfinished TLH-specific work.
+- Active development branch: `tlh-modules` (refactor — see top section)
+- Previous: `feature/the-long-haul` (merged to main as v0.0.7)
+- **Live deploy**: `main` is on Neocities. `tlh-modules` is local-only during refactor (will merge when complete).
+- Push convention: full version drops (e.g. v0.0.5 → v0.0.6 → v0.0.7) get pushed to feature branch when ready. Small bugfixes batched between version drops. Site-wide changes (like adding music tracks to `nav.js`) can be pushed to `main` separately.
 
 ---
 
@@ -28,10 +201,11 @@ The v0.0.7 bundle interlocks **four systems** that mutually reinforce each other
 - ✅ **Commit 4b** (`466598b`) — Trust behaviors + channels panel + ~75 dialogue lines.
 - ✅ **Wipe save bugfix + Commit 5** (`18f6914`) — Wipe fix + lost cargo recovery loop.
 - ✅ **Commit 6** (2026-04-14, CSS `60b4df9` / HTML `00e5a2b` / JS `c56e52c`) — distKm accumulator, all-cargo drop, settlements rebuild, gear popover, vertical canteen, recovery badge, sandal at-cap stable green, channels empty state. **v0.0.7 is complete.**
+- ✅ **Pre-refactor commit A** (`ec9f377`) — Realigned trust thresholds 25/50/75/100 → 20/40/60/80 to match settlement panel tick marks. Updated `TRUST_THRESHOLDS` const, `onTrustUnlock` tier comparisons, `NPC_LINES.threshold` keys, `S.npcs` unlock keys (t25→t20 etc), `tryT50/T75/T100` function bodies (unlock gates), `tickAmbientChatter` gate. Added legacy key migration in `loadGame` (t25→t20, t50→t40, t75→t60, t100→t80). Old saves self-heal via ratchet.
 
 **What's next after v0.0.7:**
-1. **Sticky gun + terrain scanner mini-patch** — two upgrade items shipped as a small bundle. Full design below in "future upgrades".
-2. **General refactor pass** — zero behavior change, just code clarity. Items collected in "pending refactors" below.
+1. **Module refactor** ← currently in progress on `tlh-modules`. See top section.
+2. **Sticky gun + terrain scanner mini-patch** — two upgrade items shipped as a small bundle. Full design below in "future upgrades".
 3. **v0.0.8** — structures tab, new terrain, bigger map. (See future game features.)
 
 ---
@@ -66,7 +240,7 @@ Final commit of v0.0.7. Shipped as four sequential file commits on branch (CSS �
 No bump. Schema stays v5. `distKm` is still a plain number; transient `_lastDist*` trackers are never persisted. Old saves self-heal.
 
 ### invariants preserved
-- Gameplay trust thresholds stay at 25/50/75/100 (visual ticks at 20/40/60/80 — realignment deferred to refactor pass).
+- ~~Gameplay trust thresholds stay at 25/50/75/100~~ — realigned to 20/40/60/80 in pre-refactor commit A (`ec9f377`).
 - `_wipeInProgress` guard intact.
 - Recovery cargo is still one-shot on delivery.
 - Tie-down still absorbs damage — just doesn't absorb drops.
@@ -75,30 +249,19 @@ No bump. Schema stays v5. `distKm` is still a plain number; transient `_lastDist
 
 ## pending refactors (scheduled post-v0.0.7, pre-v0.0.8)
 
-**1. Trust threshold / visual breakpoint realignment**
+**1. Trust threshold / visual breakpoint realignment** ✅ DONE in pre-refactor commit A (`ec9f377`).
 
-`TRUST_THRESHOLDS = [25, 50, 75, 100]` (gameplay) vs settlements panel tick marks at `20/40/60/80` (visual). Intentionally misaligned right now. Should be realigned before v0.0.8 gates new content on trust. Leaning option (a) — move thresholds to 20/40/60/80. Negligible rebalance, better visual clarity.
+**2. General refactor pass** ← IN PROGRESS on `tlh-modules`. See top section.
 
-**2. General refactor pass**
-
-After 6+ commits in v0.0.7, the JS is ~2270 lines. Areas that have drifted:
-- `tick()` is doing too much — extract phases (status machine, movement, edge transition, rendering) into sub-functions.
-- NPC trust / channels / chatter could consolidate into a module-like block.
-- `NPC_LINES` corpus may eventually want a separate data file.
-- Save/load is 200+ lines of repetitive field checks. Worth a helper like `loadNumeric(p, 'delivered')`.
-- Transient state flags (`_lastDistEdgeIdx`, `_wipeInProgress`, `_lastGearPopKey`, `_gearPopHandler`, etc.) are scattered — collect in a single `_transient` sub-object.
-
-Zero behavior change, just clarity. Will make v0.0.8 easier to land.
-
-**3. Old `distKm` saved values**
-
-Commit 6 accumulator is in; old saves load their stale derived-value `distKm` once and then accumulate correctly. No migration needed, just a comment on the load path. Fine as-is.
+**3. Old `distKm` saved values** — fine as-is, comment in load path.
 
 ---
 
 ## game architecture
 
 The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All mutable state is in the `S` object. Persistent save state lives in `localStorage`.
+
+> **Note**: the above describes pre-refactor architecture (still accurate on `main`). On the `tlh-modules` branch, the game is split across `js/main.js`, `js/state.js`, `js/constants.js`, and `js/data/*.js` (in progress). The behavior described below is identical on both branches.
 
 ### core loop
 - The courier walks a fixed circular route of 6 edges between 6 named nodes (A → ? → B → C → H → · → A).
@@ -109,6 +272,7 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - `KM_PER_EDGE = 4.2`. `posKm(edgeIdx, dotT) = (edgeIdx + dotT) * KM_PER_EDGE` gives current ring position.
 - `accumulateDist()` runs every walking/carrying tick: computes forward delta since last tick, handles rollover (negative delta → add `edges.length * KM_PER_EDGE`), caps absurd jumps at 2× edge length, adds to `S.distKm`, updates trackers.
 - `S._lastDistEdgeIdx` / `S._lastDistDotT` null sentinel = first tick since load; initializes trackers without counting a spurious delta.
+- (On refactor branch: these live on `S._transient.lastDistEdgeIdx` / `S._transient.lastDistDotT`.)
 
 ### world map
 - `buildWorld()` generates a flat array `worldCells[]` of exactly `CELLS_PER_EDGE × 6 = 1,560` cells at startup. World is regenerated fresh each page load — never persisted.
@@ -139,24 +303,24 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 
 ### identification stages
 - `S.nodeStages` is the single source of truth. Object keyed by node id, values 0-3.
-- Stages: 0 = unknown, 1 = signal (trust t25), 2 = tier visible (walked adjacent edge), 3 = visited.
+- Stages: 0 = unknown, 1 = signal (trust t20 — was t25 pre-realignment), 2 = tier visible (walked adjacent edge), 3 = visited.
 - Starting state: `A` and `H` at 3 (porter's anchors), all others at 0.
 - Helpers: `getNodeStage`, `setNodeStage` (ratchet), `markEdgeAdjacent`, `getDisplayLabel`.
 - `renderSettlements` filters on stage ≥ 2. Stage-2 items get `.settle-stage2` class (opacity 0.65).
 
-### NPCs + trust (commit 4a/4b)
+### NPCs + trust (commit 4a/4b, realigned in commit A)
 - `NPC_DEFS` at A/B/H with Greek callsigns: rho (A, steady/laconic), iota (B, young/eager), tau (H, warm/observant).
-- `S.npcs.{A,B,H}` = `{ trust, unlocks: {t25,t50,t75,t100}, nextChatterTick }`.
-- `TRUST_THRESHOLDS = [25, 50, 75, 100]`. Gains: delivery +1, lost-delivery +2, discovery +3.
-- t25: reveal stage-0 adjacent nodes to stage 1 (via `NPC_ADJACENT` table).
-- t50: `tryT50Warning()` on arrival — checks trip-risk edge > rain-incoming > low-stamina, speaks first match.
-- t75: `tryT75Preview()` scans the outbound edge for any package, speaks a preview line with size + dest.
-- t100: `tryT100RestPrompt()` posts log button `[rest]` → `confirmDepotRest` restores stamina to 105% (overboost), +30 canteen, +10¢.
+- `S.npcs.{A,B,H}` = `{ trust, unlocks: {t20,t40,t60,t80}, nextChatterTick }`. (Was `{t25,t50,t75,t100}` pre-commit A.)
+- `TRUST_THRESHOLDS = [20, 40, 60, 80]`. Gains: delivery +1, lost-delivery +2, discovery +3.
+- t20: reveal stage-0 adjacent nodes to stage 1 (via `NPC_ADJACENT` table).
+- t40: `tryT50Warning()` on arrival — checks trip-risk edge > rain-incoming > low-stamina, speaks first match. **Function still named `tryT50Warning` — rename to `tryWarning` deferred to refactor commit 9.**
+- t60: `tryT75Preview()` scans the outbound edge for any package, speaks a preview line with size + dest. **Same — rename deferred.**
+- t80: `tryT100RestPrompt()` posts log button `[rest]` → `confirmDepotRest` restores stamina to 105% (overboost), +30 canteen, +10¢. **Same — rename deferred.**
 
 ### channels / chatter (commit 4b)
 - `S.channels` is a FIFO ring (cap 6) of NPC utterances: `{ depotId, callsign, text, ts }`.
 - `speak(depotId, text)` unshifts; `renderChannels` paints.
-- `tickAmbientChatter()` runs every 10 ticks, per-NPC: gated on `unlocks.t25`, per-NPC cooldown (`nextChatterTick` = 170-345 ticks), base chance 0.005 per 10-tick window.
+- `tickAmbientChatter()` runs every 10 ticks, per-NPC: gated on `unlocks.t20` (was `t25`), per-NPC cooldown (`nextChatterTick` = 170-345 ticks), base chance 0.005 per 10-tick window.
 - Per-NPC color via `[data-depot]` selector: A teal, B pink, H purple.
 - **Empty state** (commit 6): `"no callsigns trusted yet — deliver to depots to build trust"`.
 
@@ -175,6 +339,7 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - v5 added `npcs: { A/B/H: { trust, unlocks } }` block (nextChatterTick is transient).
 - **Saved fields**: progress (delivered, scrip, distKm, ticks, capacities, boots/clip, sandalweedCount, stamina/canteen, autobuy/autodrink), position (edgeIdx, dotT), inventory (with `_worldCell` stripped), upgrades, nodeStages, settlements supply/rebuild, multiplayer (milestonesHit, lastFeedTimestamp), npcs.
 - **NOT saved**: worldCells, package respawn timers, log, rain state, tie-down, pending boot clip refill, pending depot rest, network feed/census/connected, `knownPeers`, `activeRecoveryCount`, `lastRecoverySpawnTick`, `nextRecoveryAttemptTick`, `S.channels`, `S.npcs.*.nextChatterTick`, `_lastDistEdgeIdx`/`_lastDistDotT` (commit 6), `_lastGearPopKey` (commit 6).
+- **Trust unlock legacy migration** (commit A): `loadGame` maps old `t25`/`t50`/`t75`/`t100` unlock keys → `t20`/`t40`/`t60`/`t80`. Plus a ratchet that auto-unlocks any tier where current trust ≥ threshold.
 - Wipe save: `_wipeInProgress` guard flag set in `armWipe()` BEFORE `wipeSave()`, never unset (module re-init on reload resets). `saveGame()` bails immediately if flag set.
 
 ### rendering
@@ -245,9 +410,9 @@ Designed to fit the game's actual shape: each player has their own procedural wo
 
 ---
 
-## future upgrades — mini-patch after v0.0.7
+## future upgrades — mini-patch after refactor
 
-Two upgrades shipping as a small mini-patch between v0.0.7 and the refactor pass. Acquisition: upgrades menu now; long-term plan to migrate to NPC trust rewards once map expands.
+Two upgrades shipping as a small mini-patch after the `tlh-modules` refactor merges. Acquisition: upgrades menu now; long-term plan to migrate to NPC trust rewards once map expands.
 
 ### sticky gun
 
@@ -298,6 +463,20 @@ Two upgrades shipping as a small mini-patch between v0.0.7 and the refactor pass
 ---
 
 ## TLH session log
+
+### 2026-04-14 (tlh-modules refactor — commits 1-3 done, commit 4 pending)
+
+Started module refactor on new branch `tlh-modules` cut from `main`. ES modules over IIFE. Sub-versioning v0.0.7.N during refactor.
+
+**Pre-refactor commit A** (`ec9f377` on `feature/the-long-haul`, then merged to main): Realigned trust thresholds 25/50/75/100 → 20/40/60/80. Function names `tryT50/T75/T100*` kept for now — rename deferred to refactor commit 9.
+
+**Refactor commit 1 — v0.0.7.1** (`f9b1e91`): Module port. `js/main.js` created, IIFE wrapper stripped, DOMContentLoaded guard removed. HTML script tag becomes `type="module"`. Old `the-long-haul.js` left as orphan safety net.
+
+**Refactor commit 2 — v0.0.7.2** (`24d0b54`): State extraction. `js/state.js` exports `S` with new `S._transient` sub-object consolidating all scattered module-level `let` flags. `els` and `worldCells` as module-local aliases via `Object.assign` / `.length=0+push` patterns. Old `the-long-haul.js` reduced to comment stub.
+
+**Refactor commit 3 — v0.0.7.3** (`077f9e8`): Constants extraction. `js/constants.js` exports ~50 tuning consts. `main.js` imports as `* as C`.
+
+**Refactor commit 4 — v0.0.7.4 (PENDING)**: Data extraction blocked by tool size limit (single push exceeded payload). Plan written above in top section: split into two-part push (data files first, then main.js rewrite).
 
 ### 2026-04-14 (v0.0.7 commit 6 — v0.0.7 complete)
 
