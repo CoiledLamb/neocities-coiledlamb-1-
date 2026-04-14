@@ -24,11 +24,9 @@
    package from pickup → inventory → delivery; delivery broadcasts
    lost_recovered via postActivity.
 
-   sandalCap, renderBoots, renderCourierStack, renderCargoSlots,
-   drawRouteMap, renderSettlements, addLog all imported from main.
-   They're declared lower in main than this module's usage sites
-   at runtime — fine because ES module bindings are live. The
-   circular-by-file / not-by-init pattern established commit 5.
+   sandalCap, renderBoots imported from boots.js (commit 13).
+   Other helpers (addLog, render*, drawRouteMap, renderSettlements)
+   from main — all already-exported, circular-by-file safe.
    ============================================== */
 'use strict';
 
@@ -39,9 +37,10 @@ import { postActivity, shortPorterId } from './multiplayer.js';
 import { updatePorterStripBadges } from './recovery.js';
 import { addTrust } from './trust.js';
 import { getNodeStage, setNodeStage } from './identification.js';
+import { sandalCap, renderBoots } from './boots.js';
 import {
-  addLog, renderBoots, renderCourierStack, renderCargoSlots,
-  drawRouteMap, renderSettlements, sandalCap,
+  addLog, renderCourierStack, renderCargoSlots,
+  drawRouteMap, renderSettlements,
 } from './main.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
