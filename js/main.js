@@ -1,14 +1,21 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.3
+   v0.0.7.4
 
-   Refactor commit 3: extracted tuning constants to ./constants.js.
-   Imported as namespace `C.*` — balance passes are now a single-file
-   edit.
+   Refactor commit 4: extracted data blobs to ./data/*.js.
+   ZONE_TYPES, NPC_PKGS, LOST_PKGS, STATUS_COLORS, NPC_DEFS,
+   NPC_ADJACENT, NPC_LINES, NODE_GLYPHS, UPGRADE_DEFS now
+   live in their own modules. main.js is ~200 lines smaller
+   and contains only logic.
 
    Imports:
      S — game state singleton (state.js)
      C — tuning constants namespace (constants.js)
+     NPC_LINES, NPC_DEFS, NPC_ADJACENT — NPC data
+     NPC_PKGS, LOST_PKGS — cargo definitions
+     ZONE_TYPES — terrain weights/chars/spawn rates
+     NODE_GLYPHS, STATUS_COLORS — visual maps
+     UPGRADE_DEFS — upgrade list (closures mutate S)
 
    Local aliases:
      els, worldCells — see commit 2 notes
@@ -17,6 +24,12 @@
 
 import { S } from './state.js';
 import * as C from './constants.js';
+import { NPC_LINES } from './data/npc-lines.js';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js';
+import { NPC_PKGS, LOST_PKGS } from './data/packages.js';
+import { ZONE_TYPES } from './data/zones.js';
+import { NODE_GLYPHS, STATUS_COLORS } from './data/glyphs.js';
+import { UPGRADE_DEFS } from './data/upgrades.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -42,191 +55,6 @@ function getPorterId() {
     return 'PTR-OFFLINE';
   }
 }
-
-// ============================================================
-// ZONE / PACKAGE DATA (will move to js/data/ in a later commit)
-// ============================================================
-const ZONE_TYPES = {
-  road: {
-    weight: 40, width: [12, 22],
-    chars: [
-      { ch: '-',      cls: 'fc-rn', w: 5 },
-      { ch: '.',      cls: 'fc-fl', w: 4 },
-      { ch: '_',      cls: 'fc-rn', w: 3 },
-      { ch: '\u00b7', cls: 'fc-fl', w: 2 },
-    ],
-    pkgChance: 0.07, sandalChance: 0.002,
-  },
-  scrub: {
-    weight: 25, width: [8, 16],
-    chars: [
-      { ch: ',', cls: 'fc-fl', w: 5 },
-      { ch: '`', cls: 'fc-fl', w: 4 },
-      { ch: "'", cls: 'fc-fl', w: 4 },
-      { ch: '.', cls: 'fc-fl', w: 3 },
-      { ch: '*', cls: 'fc-sw-plant', w: 1 },
-    ],
-    pkgChance: 0.08, sandalChance: 0.008,
-  },
-  wetlands: {
-    weight: 12, width: [6, 14],
-    chars: [
-      { ch: '~', cls: 'fc-sw', w: 8 },
-      { ch: '|', cls: 'fc-sg', w: 2 },
-      { ch: '~', cls: 'fc-sw', w: 6 },
-      { ch: ',', cls: 'fc-fl', w: 1 },
-    ],
-    pkgChance: 0.04, sandalChance: 0.00, refillsCanteen: true,
-  },
-  ruins: {
-    weight: 15, width: [10, 20],
-    chars: [
-      { ch: '=', cls: 'fc-rn', w: 4 },
-      { ch: '|', cls: 'fc-sg', w: 3 },
-      { ch: '_', cls: 'fc-rn', w: 3 },
-      { ch: '#', cls: 'fc-rn', w: 1 },
-      { ch: '[', cls: 'fc-sg', w: 1 },
-      { ch: ']', cls: 'fc-sg', w: 1 },
-    ],
-    pkgChance: 0.12, sandalChance: 0.002, risky: true,
-  },
-  depot_approach: {
-    weight: 8, width: [6, 10],
-    chars: [
-      { ch: '.', cls: 'fc-fl', w: 6 },
-      { ch: '-', cls: 'fc-rn', w: 3 },
-      { ch: ',', cls: 'fc-fl', w: 2 },
-    ],
-    pkgChance: 0.10, sandalChance: 0.00, isDepotApproach: true,
-  },
-};
-
-const NPC_PKGS = [
-  { size:'s', label:'medicine',  kg:1, slots:1, scrip:12 },
-  { size:'s', label:'seeds',     kg:1, slots:1, scrip:10 },
-  { size:'s', label:'letter',    kg:1, slots:1, scrip:8  },
-  { size:'m', label:'tools',     kg:2, slots:2, scrip:22 },
-  { size:'m', label:'rations',   kg:2, slots:2, scrip:18 },
-  { size:'l', label:'lumber',    kg:4, slots:4, scrip:45 },
-];
-const LOST_PKGS = [
-  { size:'s', label:'worn journal', kg:1, slots:1, scrip:18, isLost:true },
-  { size:'m', label:'salvage kit',  kg:2, slots:2, scrip:30, isLost:true },
-  { size:'s', label:'old photo',    kg:1, slots:1, scrip:14, isLost:true },
-];
-
-const STATUS_COLORS = {
-  idle:       '#da8bda',
-  walking:    '#7aa8a6',
-  carrying:   '#77bfcf',
-  delivering: '#9d78d4',
-  returning:  '#4a7a78',
-  resting:    '#da8bda',
-  tripped:    '#da8bda',
-};
-
-// ============================================================
-// NPCs (v0.0.7 commit 4a/4b — trust + chatter)
-// ============================================================
-const NPC_DEFS = {
-  'A': { callsign: 'rho',  name: 'rho',  depotLabel: 'depot a' },
-  'B': { callsign: 'iota', name: 'iota', depotLabel: 'depot b' },
-  'H': { callsign: 'tau',  name: 'tau',  depotLabel: 'home'    },
-};
-
-const NPC_ADJACENT = {
-  'A': ['?', '\u00b7'],
-  'B': ['?', 'C'],
-  'H': ['C', '\u00b7'],
-};
-
-const NPC_LINES = {
-  threshold: {
-    'A': {
-      20:  'good. been watching you. try the road west when you can.',
-      40:  'when the sky goes the colour of zinc, you turn back. tell yourself i said so.',
-      60:  'i keep the manifest in my head now. ask before you leave and i\'ll tell you what\'s out there.',
-      80:  'door\'s open, porter. fire\'s lit. you sit when you need to sit.',
-    },
-    'B': {
-      20:  'oh — hey! you\'re the one walking the loop! i can point you somewhere new if you want.',
-      40:  'rain on the way? i can usually feel it. ask me at the door, i\'ll tell you straight.',
-      60:  'i see the packages stacked here before they go out. you want a tip? just ask.',
-      80:  'we built the bunk. it\'s yours when you\'re here. don\'t make it weird, just sleep.',
-    },
-    'H': {
-      20:  'i remember your callsign now. that means something. keep coming back.',
-      40:  'if you\'re tired or hurt or the weather\'s wrong, i\'ll say so. that\'s the deal.',
-      60:  'people leave parcels here on their way through. i can tell you what\'s waiting up the line.',
-      80:  'home is home. when you\'re here, you\'re here. eat. sleep. start again.',
-    },
-  },
-  ambient: {
-    'A': [
-      'wind\'s shifted. mind your hat.',
-      'the road keeps. the road forgets.',
-      'someone walked through last night. didn\'t stop.',
-      'kettle\'s on if you\'re passing.',
-      'we don\'t count the days here.',
-      'sky was that yellow this morning. you know the one.',
-    ],
-    'B': [
-      'roof patched! a real roof! finally!',
-      'do you know who left the seeds? thank them, if you see them.',
-      'i tried to follow the stars last night. couldn\'t.',
-      'somebody whistled past at dawn. it was you, wasn\'t it?',
-      'we\'re going to plant something next season. anything that\'ll take.',
-      'the radio crackles when you\'re close. funny.',
-    ],
-    'H': [
-      'come in, dry off, sit a while.',
-      'the kettle remembers you.',
-      'your boots have a sound. i hear them before i see you.',
-      'someone left a photograph here. i\'ll keep it for them.',
-      'the dog stayed up listening for you. she does that.',
-      'old porter\'s rest — always a chair by the door.',
-    ],
-  },
-  warning: {
-    'A': {
-      rain:    'sky\'s gonna open inside the hour. lean into it or wait it out.',
-      trip:    'next leg eats boots. i\'ve seen it. mind your step.',
-      stamina: 'you\'re running on empty, porter. drink before you push.',
-    },
-    'B': {
-      rain:    'oh — rain! get a hood up, it\'s coming!',
-      trip:    'careful out there, the path beyond is bad. real bad.',
-      stamina: 'you look wiped. drink something before you go!',
-    },
-    'H': {
-      rain:    'rain\'s walking up the valley. you\'ll meet it if you go now.',
-      trip:    'the road ahead has bones in it. take it slow.',
-      stamina: 'sit a beat. you\'ll fall if you walk like that.',
-    },
-  },
-  preview: {
-    'A': '{kind} parcel waiting up the line at {next}. you\'ll want the slot.',
-    'B': 'oh! there\'s a {kind} package toward {next}! grab the room for it!',
-    'H': '{kind} bundle headed for {next}. travels well in the right hands.',
-  },
-  rest: {
-    'A': [
-      'sit. boots off. there.',
-      'kettle\'s yours. take what you need.',
-      'i\'ll wake you when the light changes.',
-    ],
-    'B': [
-      'oh, good — take the bunk! it\'s real soft, i swear!',
-      'the dog will sit at your feet, just so you know!',
-      'sleep, sleep — i\'ll watch the door!',
-    ],
-    'H': [
-      'home is home. close your eyes.',
-      'rest. nothing\'s going anywhere without you.',
-      'i\'ll keep the fire — you keep your strength.',
-    ],
-  },
-};
 
 function sandalCap() {
   return S.upgrades.sandalSatchel ? C.SANDAL_CAP_UPGRADED : C.SANDAL_CAP_BASE;
@@ -1191,15 +1019,6 @@ function tickPkgRespawns() {
 // ============================================================
 // DESTINATION DRIFT
 // ============================================================
-const NODE_GLYPHS = {
-  'A':       '/--\\\n[_A_]',
-  'B':       '/\\_/\\\n[_B_]',
-  'H':       ' /\\ \n[HOME]',
-  'C':       '=====\n[RNS]',
-  '?':       ' ??? \n[ ? ]',
-  '\u00b7':  '  !  \n =\u00b7= ',
-};
-
 function updateDestDrift() {
   if (!els.destDrift) return;
   const [, toId] = currentEdge();
@@ -1396,19 +1215,6 @@ function resolveEls() {
 // ============================================================
 // UPGRADES
 // ============================================================
-const UPGRADE_DEFS = [
-  { id:'bootsT1',     name:'sturdy boots',      desc:'+25% boot durability',          cost:30,  requires:null,          apply:()=>{} },
-  { id:'bootsT2',     name:'reinforced soles',   desc:'+50% boot durability',          cost:90,  requires:'bootsT1',     apply:()=>{} },
-  { id:'bootClip1',   name:'boot clip',          desc:'carry 1 spare pair of boots',   cost:40,  requires:null,          apply:()=>{ S.bootClipMax=1; S.bootClipCount=1; } },
-  { id:'bootClip2',   name:'extended clip',      desc:'carry 2 spare pairs of boots',  cost:100, requires:'bootClip1',   apply:()=>{ S.bootClipMax=2; S.bootClipCount=Math.min(2,S.bootClipCount+1); } },
-  { id:'steadyFeet',  name:'steady feet',        desc:'-30% trip chance, +15% catch',  cost:120, requires:null,          apply:()=>{} },
-  { id:'cargoSling',  name:'cargo sling',        desc:'+2 carry slots',                cost:80,  requires:null,          apply:()=>{ S.maxSlots+=2; } },
-  { id:'cargoPack',   name:'expedition pack',    desc:'+3 more carry slots',           cost:180, requires:'cargoSling',  apply:()=>{ S.maxSlots+=3; } },
-  { id:'cargoWeight', name:'pack mule rig',      desc:'+5 kg capacity',                cost:150, requires:null,          apply:()=>{ S.maxWeight+=5; } },
-  { id:'efficientConsumption', name:'efficient consumption', desc:'-40% canteen drain per drink', cost:120, requires:null, apply:()=>{} },
-  { id:'sandalSatchel', name:'sandalweed satchel', desc:'hoard cap 5 \u2192 25', cost:60, requires:null, apply:()=>{} },
-];
-
 function renderUpgrades() {
   if (!els.upgradesEl) return;
   els.upgradesEl.innerHTML = '';
