@@ -1,10 +1,23 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.8
+   v0.0.7.9
 
-   Refactor commit 8: extracted node identification stages
-   to ./identification.js. getNodeStage, setNodeStage,
-   markEdgeAdjacent, getDisplayLabel now imported from there.
+   Refactor commit 9: extracted NPC trust + channels to
+   ./trust.js and ./channels.js. The two are tightly coupled:
+   trust.js imports speak/pickRandom from channels.js.
+
+   addLog, drawRouteMap, renderSettlements, staminaSegCount,
+   renderStamina, updateHUD are exported from main.js for
+   trust.js (circular by file, not by initialization).
+
+   pickRandom is no longer duplicated here — channels.js owns
+   the export, recovery.js still has its own copy until a
+   later cleanup.
+
+   Function names tryT50Warning/tryT75Preview/tryT100RestPrompt
+   still reflect old trust thresholds (25/50/75/100). Renaming
+   to tryWarning/tryPreview/tryRestPrompt deferred to a focused
+   follow-up commit.
 
    Imports:
      S — game state singleton (state.js)
@@ -21,6 +34,9 @@
      tickRecoveryAttempt, updatePorterStripBadges — recovery
      getNodeStage, setNodeStage, markEdgeAdjacent,
        getDisplayLabel — identification
+     addTrust, tryT50Warning, tryT75Preview,
+       tryT100RestPrompt — trust
+     renderChannels, tickAmbientChatter — channels
 
    Local aliases:
      els, worldCells — see commit 2 notes
@@ -45,6 +61,10 @@ import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js';
 import {
   getNodeStage, setNodeStage, markEdgeAdjacent, getDisplayLabel,
 } from './identification.js';
+import {
+  addTrust, tryT50Warning, tryT75Preview, tryT100RestPrompt,
+} from './trust.js';
+import { renderChannels, tickAmbientChatter } from './channels.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -76,209 +96,6 @@ function accumulateDist() {
   S.distKm = Math.round((S.distKm + delta) * 10) / 10;
   t.lastDistEdgeIdx = S.edgeIdx;
   t.lastDistDotT    = S.dotT;
-}
-
-// ============================================================
-// NPC TRUST
-// ============================================================
-function getNpc(depotId) {
-  if (!NPC_DEFS[depotId] || !S.npcs || !S.npcs[depotId]) return null;
-  return S.npcs[depotId];
-}
-
-function addTrust(depotId, amount, reason) {
-  const npc = getNpc(depotId);
-  if (!npc || !amount) return 0;
-  const before = npc.trust;
-  npc.trust = Math.max(0, Math.min(100, npc.trust + amount));
-  for (const t of C.TRUST_THRESHOLDS) {
-    const key = 't' + t;
-    if (before < t && npc.trust >= t && !npc.unlocks[key]) {
-      npc.unlocks[key] = true;
-      onTrustUnlock(depotId, t);
-    }
-  }
-  return npc.trust;
-}
-
-function onTrustUnlock(depotId, tier) {
-  const def = NPC_DEFS[depotId];
-  const npcLabel = def ? def.callsign : depotId;
-  postActivity('trust_unlock', { depotId, npcLabel, tier });
-
-  const line = NPC_LINES.threshold[depotId] && NPC_LINES.threshold[depotId][tier];
-  if (line) speak(depotId, line);
-
-  if (tier === 20) {
-    const adj = NPC_ADJACENT[depotId] || [];
-    const revealed = [];
-    adj.forEach(nid => {
-      if (getNodeStage(nid) === 0) {
-        if (setNodeStage(nid, 1)) revealed.push(nid);
-      }
-    });
-    if (revealed.length > 0) {
-      const labels = revealed.map(getDisplayLabel).join(', ');
-      addLog(`<span class="log-hi">${npcLabel}</span> shares word of nearby waypoints \u2014 signal: ${labels}`);
-      drawRouteMap();
-      renderSettlements();
-    } else {
-      addLog(`<span class="log-hi">${npcLabel}</span> trusts you (20)`);
-    }
-    return;
-  }
-  if (tier === 40)      addLog(`<span class="log-hi">${npcLabel}</span> trusts you (40) \u2014 will share warnings`);
-  else if (tier === 60) addLog(`<span class="log-hi">${npcLabel}</span> trusts you (60) \u2014 will preview routes`);
-  else if (tier === 80) addLog(`<span class="log-hi">${npcLabel}</span> trusts you (80) \u2014 you have a seat by their fire`);
-}
-
-// ============================================================
-// CHANNELS / CHATTER
-// ============================================================
-function speak(depotId, text) {
-  const def = NPC_DEFS[depotId];
-  if (!def) return;
-  S.channels.unshift({
-    depotId,
-    callsign: def.callsign,
-    text,
-    ts: S.ticks,
-  });
-  if (S.channels.length > C.CHANNELS_DISPLAY_CAP) {
-    S.channels.length = C.CHANNELS_DISPLAY_CAP;
-  }
-  renderChannels();
-}
-
-function pickRandom(arr) {
-  if (!arr || arr.length === 0) return null;
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function tryT50Warning(depotId) {
-  const npc = getNpc(depotId);
-  if (!npc || !npc.unlocks.t40) return false;
-  const lines = NPC_LINES.warning[depotId];
-  if (!lines) return false;
-
-  const myEdgeIdx = S.edges.findIndex(([a,b]) => a === depotId);
-  if (myEdgeIdx >= 0) {
-    const [, nextDest] = S.edges[myEdgeIdx];
-    if (C.RISKY_EDGE_DEST.has(nextDest) && lines.trip) {
-      speak(depotId, lines.trip);
-      return true;
-    }
-  }
-  if (!S.isRaining && S.rainTimer > 0 && S.rainTimer < 25 && lines.rain) {
-    speak(depotId, lines.rain);
-    return true;
-  }
-  if (staminaSegCount() <= 2 && lines.stamina) {
-    speak(depotId, lines.stamina);
-    return true;
-  }
-  return false;
-}
-
-function tryT75Preview(depotId) {
-  const npc = getNpc(depotId);
-  if (!npc || !npc.unlocks.t60) return false;
-  const tmpl = NPC_LINES.preview[depotId];
-  if (!tmpl) return false;
-
-  const myEdgeIdx = S.edges.findIndex(([a,b]) => a === depotId);
-  if (myEdgeIdx < 0) return false;
-  const [, nextDest] = S.edges[myEdgeIdx];
-
-  const startCell = myEdgeIdx * C.CELLS_PER_EDGE;
-  const endCell   = startCell + C.CELLS_PER_EDGE;
-  let found = null;
-  for (let i = startCell; i < endCell; i++) {
-    const c = worldCells[i];
-    if (c && c.pkg && !c.pkg.picked) { found = c.pkg; break; }
-  }
-  if (!found) return false;
-
-  const kindMap = { s: 'small', m: 'medium', l: 'large' };
-  const text = tmpl
-    .replace('{kind}', kindMap[found.size] || found.size)
-    .replace('{next}', getDisplayLabel(nextDest));
-  speak(depotId, text);
-  return true;
-}
-
-function tryT100RestPrompt(depotId) {
-  const npc = getNpc(depotId);
-  if (!npc || !npc.unlocks.t80) return false;
-  if (S._transient.depotRestPending) return false;
-  if (S.stamina >= S.staminaMax && S.staminaOverboost) return false;
-  const def = NPC_DEFS[depotId];
-  const npcLabel = def ? def.callsign : depotId;
-  S._transient.depotRestPending = { depotId };
-  addLog(`<span class="log-hi">${npcLabel}</span> offers a seat by the fire \u2014 <button class="log-btn" id="depotRestBtn">rest</button>`);
-  setTimeout(() => {
-    const btn = document.getElementById('depotRestBtn');
-    if (btn) btn.addEventListener('click', confirmDepotRest);
-  }, 0);
-  return true;
-}
-
-function confirmDepotRest() {
-  if (!S._transient.depotRestPending) return;
-  const { depotId } = S._transient.depotRestPending;
-  S._transient.depotRestPending = null;
-  const def = NPC_DEFS[depotId];
-  const npcLabel = def ? def.callsign : depotId;
-  S.stamina = S.staminaMax * 1.05;
-  S.staminaOverboost = true;
-  S.canteen = Math.min(S.canteenMax, S.canteen + 30);
-  S.scrip += C.DEPOT_REST_BONUS_SCRIP;
-  addLog(`rested at <span class="log-hi">${npcLabel}</span> \u2014 <span class="log-ok">stamina restored, +${C.DEPOT_REST_BONUS_SCRIP}\u00a2</span>`);
-  const line = pickRandom(NPC_LINES.rest[depotId]);
-  if (line) speak(depotId, line);
-  renderStamina(); updateHUD();
-  const btn = document.getElementById('depotRestBtn');
-  if (btn) btn.closest('.log-line').remove();
-}
-
-function tickAmbientChatter() {
-  if (S.ticks % 10 !== 0) return;
-  Object.keys(NPC_DEFS).forEach(depotId => {
-    const npc = getNpc(depotId);
-    if (!npc || !npc.unlocks.t20) return;
-    if (S.ticks < npc.nextChatterTick) return;
-    if (Math.random() >= C.CHATTER_BASE_CHANCE * 10) return;
-    const line = pickRandom(NPC_LINES.ambient[depotId]);
-    if (!line) return;
-    speak(depotId, line);
-    npc.nextChatterTick = S.ticks + C.CHATTER_INTERVAL_MIN_TICKS +
-      Math.floor(Math.random() * (C.CHATTER_INTERVAL_MAX_TICKS - C.CHATTER_INTERVAL_MIN_TICKS));
-  });
-}
-
-function fmtChannelAge(ts) {
-  const elapsedTicks = S.ticks - ts;
-  const elapsedSecs = Math.floor(elapsedTicks * C.TICK_MS / 1000);
-  if (elapsedSecs < 5)   return 'now';
-  if (elapsedSecs < 60)  return elapsedSecs + 's';
-  const mins = Math.floor(elapsedSecs / 60);
-  if (mins < 60)         return mins + 'm';
-  return Math.floor(mins / 60) + 'h';
-}
-
-function renderChannels() {
-  if (!els.channelsEl) return;
-  if (S.channels.length === 0) {
-    els.channelsEl.innerHTML = '<div class="chan-item chan-quiet">no callsigns trusted yet \u2014 deliver to depots to build trust</div>';
-    return;
-  }
-  els.channelsEl.innerHTML = S.channels.map(c =>
-    `<div class="chan-item" data-depot="${c.depotId}">` +
-      `<span class="chan-cs">${c.callsign}</span>` +
-      `<span class="chan-text">${c.text}</span>` +
-      `<span class="chan-ago">${fmtChannelAge(c.ts)}</span>` +
-    `</div>`
-  ).join('');
 }
 
 // ============================================================
@@ -574,7 +391,8 @@ function layoutRouteNodes() {
 
 function currentEdge() { return S.edges[S.edgeIdx % S.edges.length]; }
 
-function drawRouteMap() {
+// drawRouteMap is exported for trust.js (called from onTrustUnlock t20).
+export function drawRouteMap() {
   const svg = els.routeSvg;
   if (!svg) return;
   svg.innerHTML = '';
@@ -748,7 +566,8 @@ function buyUpgrade(id) {
 // ============================================================
 // SETTLEMENTS / NETWORK / LOG
 // ============================================================
-function renderSettlements() {
+// renderSettlements is exported for trust.js (called from onTrustUnlock t20).
+export function renderSettlements() {
   if (!els.settlementsEl) return;
   els.settlementsEl.innerHTML = '';
   S.routeNodes.filter(n => getNodeStage(n.id) >= 2 && S.settlements[n.id])
@@ -761,7 +580,7 @@ function renderSettlements() {
       const quote = s.stage >= 3 ? s.quote : `"reports of a ${s.tier} along this route"`;
       let trustBlock = '';
       const npcDef = NPC_DEFS[s.id];
-      const npc    = getNpc(s.id);
+      const npc    = (S.npcs && S.npcs[s.id]) || null;
       if (npcDef && npc && s.stage >= 3) {
         const tPct = Math.max(0, Math.min(100, npc.trust));
         trustBlock = `
@@ -855,8 +674,8 @@ function tt() {
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
-// addLog is exported for persistence.js / multiplayer.js / recovery.js / etc.
-// Circular import-safe: callers only invoke addLog inside function bodies, not at module load.
+// addLog is exported for persistence.js / multiplayer.js / recovery.js / trust.js.
+// Circular import-safe: callers only invoke addLog inside function bodies.
 export function addLog(msg) {
   if (!els.logEl) return;
   const el = document.createElement('span'); el.className = 'log-line';
@@ -869,7 +688,8 @@ export function addLog(msg) {
 // ============================================================
 // HUD / RENDER
 // ============================================================
-function updateHUD() {
+// updateHUD is exported for trust.js (called from confirmDepotRest).
+export function updateHUD() {
   els.delivered.textContent = S.delivered;
   els.scrip.textContent     = S.scrip + '\u00a2';
   els.walked.textContent    = (Math.round(S.distKm * 10) / 10) + 'km';
@@ -1005,11 +825,13 @@ function toggleBootsGear() {
   }
 }
 
-function staminaSegCount() {
+// staminaSegCount is exported for trust.js (called from tryT50Warning).
+export function staminaSegCount() {
   return Math.min(4, Math.ceil(Math.min(S.stamina,S.staminaMax)/(S.staminaMax/4)));
 }
 
-function renderStamina() {
+// renderStamina is exported for trust.js (called from confirmDepotRest).
+export function renderStamina() {
   const perSeg = S.staminaMax/4, disp = Math.min(S.stamina,S.staminaMax);
   for (let i=0;i<4;i++) {
     const seg = document.getElementById('sseg'+i); if(!seg) continue;
