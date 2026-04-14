@@ -1,23 +1,20 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.14
+   v0.0.7.15
 
-   Refactor commits 13-14: extracted boots + stamina to
-   ./boots.js and ./stamina.js. Combined push since boots and
-   stamina cross-reference (renderBoots/renderStamina both
-   called from main's tick + init, autobuy reads sandalweed
-   stash, drinkWater triggered by autodrink threshold from
-   renderStamina). No circular dep between boots and stamina —
-   boots imports addLog+updateHUD from main; stamina imports
-   addLog from main.
+   Refactor commit 15: extracted renderUpgrades + buyUpgrade
+   to ./upgrades.js. Smallest extraction of the refactor —
+   2 functions, ~30 lines. UPGRADE_DEFS data already lived
+   in ./data/upgrades.js since commit 4; this commit moves
+   the behavior half. main no longer imports UPGRADE_DEFS;
+   ./upgrades.js does.
 
-   Net export reduction in main: sandalCap, renderBoots,
-   staminaSegCount, renderStamina are no longer main exports
-   (now exported by their respective new modules).
+   Net export reduction in main: none (renderUpgrades and
+   buyUpgrade were never exported, only locally referenced).
 
-   Cross-module updates this commit:
-     packages.js: sandalCap, renderBoots now from ./boots.js
-     trust.js:    staminaSegCount, renderStamina now from ./stamina.js
+   Note: js/main.js.tmp-probe cleanup deferred to a separate
+   commit (the GitHub MCP push tool can't delete files, only
+   create/update).
 
    Imports:
      S — game state singleton (state.js)
@@ -26,7 +23,6 @@
      NPC_PKGS, LOST_PKGS — cargo definitions
      ZONE_TYPES — terrain weights/chars/spawn rates
      NODE_GLYPHS, STATUS_COLORS — visual maps
-     UPGRADE_DEFS — upgrade list (closures mutate S)
      saveGame, loadGame, armWipe, updateSaveStrip — persistence
      getPorterId, getCachedPorterId, postActivity, postLostDrop,
        fetchLostFromPeer, startPolling, stopPolling,
@@ -47,6 +43,7 @@
        Boots.toggleBootsGear, Boots.toggleTieDown — boots (namespace)
      Stamina.renderStamina, Stamina.drinkWater,
        Stamina.speedMultiplier — stamina (namespace)
+     Upg.renderUpgrades — upgrades (namespace)
 
    Local aliases:
      els, worldCells — see commit 2 notes
@@ -60,7 +57,6 @@ import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js';
 import { NPC_PKGS, LOST_PKGS } from './data/packages.js';
 import { ZONE_TYPES } from './data/zones.js';
 import { NODE_GLYPHS, STATUS_COLORS } from './data/glyphs.js';
-import { UPGRADE_DEFS } from './data/upgrades.js';
 import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js';
 import {
   getPorterId, getCachedPorterId, postActivity, postLostDrop,
@@ -82,6 +78,7 @@ import * as Pkg from './packages.js';
 import * as Trip from './trip.js';
 import * as Boots from './boots.js';
 import * as Stamina from './stamina.js';
+import * as Upg from './upgrades.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -294,34 +291,10 @@ function resolveEls() {
 }
 
 // ============================================================
-// UPGRADES
+// UPGRADES — moved to ./upgrades.js (commit 15). renderUpgrades
+// and buyUpgrade now live there. Called via Upg.renderUpgrades()
+// from updateHUD and init.
 // ============================================================
-function renderUpgrades() {
-  if (!els.upgradesEl) return;
-  els.upgradesEl.innerHTML = '';
-  UPGRADE_DEFS.forEach(def => {
-    const purchased = S.upgrades[def.id];
-    const reqMet    = !def.requires || S.upgrades[def.requires];
-    const canAfford = S.scrip >= def.cost;
-    const row = document.createElement('div'); row.className = 'upg-item';
-    const nameEl = document.createElement('span'); nameEl.className = 'upg-name';
-    nameEl.innerHTML = `${def.name}<small>${def.desc}</small>`;
-    const btn = document.createElement('button'); btn.className = 'upg-btn';
-    if (purchased)      { btn.textContent = 'owned'; btn.disabled = true; }
-    else if (!reqMet)   { btn.textContent = '???\u00a2'; btn.disabled = true; }
-    else { btn.textContent = def.cost+'\u00a2'; btn.disabled = !canAfford; btn.addEventListener('click', ()=>buyUpgrade(def.id)); }
-    row.appendChild(nameEl); row.appendChild(btn);
-    els.upgradesEl.appendChild(row);
-  });
-}
-
-function buyUpgrade(id) {
-  const def = UPGRADE_DEFS.find(d => d.id === id);
-  if (!def || S.upgrades[id] || S.scrip < def.cost) return;
-  S.scrip -= def.cost; S.upgrades[id] = true; def.apply();
-  addLog(`<span class="log-hi">${def.name}</span> purchased`);
-  renderUpgrades(); renderCargoSlots(true); Boots.renderBoots(); updateHUD();
-}
 
 // ============================================================
 // SETTLEMENTS / NETWORK / LOG
@@ -455,7 +428,7 @@ export function updateHUD() {
   els.walked.textContent    = (Math.round(S.distKm * 10) / 10) + 'km';
   els.status.textContent    = S.status;
   els.status.style.color    = STATUS_COLORS[S.status] || '#b1c9c3';
-  renderUpgrades();
+  Upg.renderUpgrades();
 }
 
 function cargoKey() {
@@ -657,7 +630,7 @@ function init() {
 
   buildRain(); setRain(false);
   layoutRouteNodes(); drawRouteMap(); updateDestDrift();
-  renderUpgrades(); renderSettlements(); renderNetwork();
+  Upg.renderUpgrades(); renderSettlements(); renderNetwork();
   renderChannels();
   renderCargoSlots(true); renderCourierStack(); Boots.renderBoots(); Stamina.renderStamina();
   updatePorterStripBadges();
