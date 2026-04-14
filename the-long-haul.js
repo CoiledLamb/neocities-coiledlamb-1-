@@ -130,14 +130,16 @@ const STATUS_COLORS = {
 
 const DIST_MILESTONES = [10, 25, 50, 100, 250, 500, 1000];
 
+// v0.0.7 commit 5: lost cargo recovery tunables
+const TRIP_LOST_DROP_CHANCE  = 0.30;  // chance lost pkg drops (vs damages) on trip
+const RECOVERY_BONUS_MULT    = 1.5;   // scrip multiplier for recovery deliveries
+const RECOVERY_SOFT_CAP      = 3;     // max active recovery cargo in world
+const RECOVERY_POLL_INTERVAL = 85;    // ticks between recovery spawn attempts (~30s)
+const KNOWN_PEERS_CAP        = 10;    // FIFO cap on tracked peer porter IDs
+
 // ============================================================
 // NPCs (v0.0.7 commit 4a/4b — trust + chatter)
 // ============================================================
-// Greek callsigns are placeholder; full lore replaces these later.
-// Each NPC has a distinct voice in dialogue:
-//   rho   (A) — steady, laconic, weather-aware
-//   iota  (B) — younger, eager, talks about the build
-//   tau   (H) — warm, observant, talks about the porter as a person
 const NPC_DEFS = {
   'A': { callsign: 'rho',  name: 'rho',  depotLabel: 'depot a' },
   'B': { callsign: 'iota', name: 'iota', depotLabel: 'depot b' },
@@ -148,22 +150,13 @@ const TRUST_GAIN_DELIVERY      = 1;
 const TRUST_GAIN_LOST_DELIVERY = 2;
 const TRUST_GAIN_DISCOVERY     = 3;
 
-// Adjacency table: which nodes does each NPC's depot connect to via the route?
-// Used by the t25 reveal behavior. Hardcoded against the current 6-node ring;
-// if the map ever expands, derive from S.edges instead.
 const NPC_ADJACENT = {
   'A': ['?', '\u00b7'],
   'B': ['?', 'C'],
   'H': ['C', '\u00b7'],
 };
 
-// ============================================================
-// CHATTER / DIALOGUE CORPUS (v0.0.7 commit 4b)
-// ============================================================
-// Lines are templates; {placeholders} get filled at speak time.
-// Available placeholders: {next} (next node display label), {kind} (small/medium/large)
 const NPC_LINES = {
-  // ----- threshold-crossing one-shots (fire once per NPC per save when trust >= tier)
   threshold: {
     'A': {
       25:  'good. been watching you. try the road west when you can.',
@@ -184,7 +177,6 @@ const NPC_LINES = {
       100: 'home is home. when you\'re here, you\'re here. eat. sleep. start again.',
     },
   },
-  // ----- ambient chatter (fires periodically once trust >= 25, picked at random per NPC)
   ambient: {
     'A': [
       'wind\'s shifted. mind your hat.',
@@ -211,7 +203,6 @@ const NPC_LINES = {
       'old porter\'s rest — always a chair by the door.',
     ],
   },
-  // ----- t50 warnings (templated by trigger)
   warning: {
     'A': {
       rain:    'sky\'s gonna open inside the hour. lean into it or wait it out.',
@@ -229,13 +220,11 @@ const NPC_LINES = {
       stamina: 'sit a beat. you\'ll fall if you walk like that.',
     },
   },
-  // ----- t75 previews (templated with package info)
   preview: {
     'A': '{kind} parcel waiting up the line at {next}. you\'ll want the slot.',
     'B': 'oh! there\'s a {kind} package toward {next}! grab the room for it!',
     'H': '{kind} bundle headed for {next}. travels well in the right hands.',
   },
-  // ----- t100 rest acceptance (one of these fires when player accepts depot rest)
   rest: {
     'A': [
       'sit. boots off. there.',
@@ -255,11 +244,10 @@ const NPC_LINES = {
   },
 };
 
-// Channels panel constants
 const CHANNELS_DISPLAY_CAP = 6;
-const CHATTER_INTERVAL_MIN_TICKS = 170;  // ~60s at 350ms/tick
-const CHATTER_INTERVAL_MAX_TICKS = 345;  // ~120s at 350ms/tick
-const CHATTER_BASE_CHANCE        = 0.005; // per tick once cooldown elapsed
+const CHATTER_INTERVAL_MIN_TICKS = 170;
+const CHATTER_INTERVAL_MAX_TICKS = 345;
+const CHATTER_BASE_CHANCE        = 0.005;
 
 // ============================================================
 // STATE
@@ -312,18 +300,25 @@ const S = {
   milestonesHit: [],
   lastFeedTimestamp: 0,
 
-  // v0.0.7 commit 4a: NPC trust state.
-  // commit 4b adds nextChatterTick (per NPC, cooldown for ambient chatter).
-  // nextChatterTick is transient — not persisted; resets to 0 on load.
   npcs: {
     'A': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false }, nextChatterTick: 0 },
     'B': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false }, nextChatterTick: 0 },
     'H': { trust: 0, unlocks: { t25:false, t50:false, t75:false, t100:false }, nextChatterTick: 0 },
   },
 
-  // v0.0.7 commit 4b: channels panel state. Transient — not persisted.
-  // Each entry: { depotId, callsign, text, ts (game ticks at speak time) }
   channels: [],
+
+  // v0.0.7 commit 5: lost cargo recovery loop. All transient — not persisted.
+  // knownPeers: porter IDs harvested from feed events (FIFO, cap KNOWN_PEERS_CAP).
+  //   Used as the pool for recovery polling.
+  // activeRecoveryCount: live count of recovery cargo in worldCells. Soft-capped
+  //   at RECOVERY_SOFT_CAP. Decremented on pickup/delivery, incremented on spawn.
+  // lastRecoverySpawnTick: throttle for soft-cap pacing — won't spawn a new
+  //   recovery if last spawn was inside one poll interval.
+  knownPeers: [],
+  activeRecoveryCount: 0,
+  lastRecoverySpawnTick: 0,
+  nextRecoveryAttemptTick: 0,
 };
 
 function sandalCap() {
@@ -358,6 +353,43 @@ function postActivity(type, data) {
   } catch (e) {}
 }
 
+// v0.0.7 commit 5: post a lost-pkg drop to the worker.
+// Worker stores under lost:{porterId} FIFO list, cap 20. Fire-and-forget.
+function postLostDrop(pkg) {
+  const porterId = getCachedPorterId();
+  if (porterId === 'PTR-OFFLINE') return;
+  try {
+    fetch(FEED_URL + '/lost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        porterId,
+        pkg: {
+          size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
+          scrip: pkg.scrip, isLost: true,
+        },
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (e) {}
+  // Also broadcast a lost_drop event for the global feed
+  postActivity('lost_drop', { label: pkg.label, size: pkg.size });
+}
+
+// v0.0.7 commit 5: fetch lost cargo list for a specific peer.
+// Returns array of pkg objects, or [] on failure.
+async function fetchLostFromPeer(peerPorterId) {
+  try {
+    const res = await fetch(FEED_URL + '/lost/' + encodeURIComponent(peerPorterId));
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data || !Array.isArray(data.lost)) return [];
+    return data.lost;
+  } catch (e) {
+    return [];
+  }
+}
+
 async function pollFeed() {
   try {
     const url = FEED_URL + '/feed' + (S.lastFeedTimestamp ? ('?since=' + S.lastFeedTimestamp) : '');
@@ -369,6 +401,7 @@ async function pollFeed() {
     S.networkConnected = true;
     S.networkCensus    = data.census || 0;
 
+    const myId = getCachedPorterId();
     const seen = new Set(S.networkFeed.map(e => `${e.timestamp}|${e.porterId}|${e.type}`));
     data.events.forEach(e => {
       const key = `${e.timestamp}|${e.porterId}|${e.type}`;
@@ -376,6 +409,13 @@ async function pollFeed() {
         S.networkFeed.push(e);
         seen.add(key);
         if (e.timestamp > S.lastFeedTimestamp) S.lastFeedTimestamp = e.timestamp;
+        // v0.0.7 commit 5: harvest peer porter IDs for recovery pool (FIFO, no self)
+        if (e.porterId && e.porterId !== myId) {
+          if (!S.knownPeers.includes(e.porterId)) {
+            S.knownPeers.push(e.porterId);
+            if (S.knownPeers.length > KNOWN_PEERS_CAP) S.knownPeers.shift();
+          }
+        }
       }
     });
 
@@ -483,12 +523,10 @@ function onTrustUnlock(depotId, tier) {
   const npcLabel = def ? def.callsign : depotId;
   postActivity('trust_unlock', { depotId, npcLabel, tier });
 
-  // v0.0.7 commit 4b: speak the threshold line on the channels panel
   const line = NPC_LINES.threshold[depotId] && NPC_LINES.threshold[depotId][tier];
   if (line) speak(depotId, line);
 
   if (tier === 25) {
-    // Reveal: any stage-0 adjacent node bumps to stage 1.
     const adj = NPC_ADJACENT[depotId] || [];
     const revealed = [];
     adj.forEach(nid => {
@@ -506,8 +544,6 @@ function onTrustUnlock(depotId, tier) {
     }
     return;
   }
-  // t50/t75/t100 — the gameplay behaviors fire on depot arrival, not on threshold cross.
-  // Just log + announce; the dialogue line on the channel panel does the rest.
   if (tier === 50)  addLog(`<span class="log-hi">${npcLabel}</span> trusts you (50) \u2014 will share warnings`);
   else if (tier === 75)  addLog(`<span class="log-hi">${npcLabel}</span> trusts you (75) \u2014 will preview routes`);
   else if (tier === 100) addLog(`<span class="log-hi">${npcLabel}</span> trusts you (100) \u2014 you have a seat by their fire`);
@@ -516,8 +552,6 @@ function onTrustUnlock(depotId, tier) {
 // ============================================================
 // CHANNELS / CHATTER (v0.0.7 commit 4b)
 // ============================================================
-// Push a line into the channels panel from a given NPC.
-// Trims to display cap; rerenders.
 function speak(depotId, text) {
   const def = NPC_DEFS[depotId];
   if (!def) return;
@@ -538,16 +572,12 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// t50 warning fires once per depot visit, picked by priority: trip > rain > stamina.
-// Returns true if a warning was spoken.
 function tryT50Warning(depotId) {
   const npc = getNpc(depotId);
   if (!npc || !npc.unlocks.t50) return false;
   const lines = NPC_LINES.warning[depotId];
   if (!lines) return false;
 
-  // Priority: trip risk > rain > stamina
-  // Trip: next edge after this depot has risky:true on its destination
   const myEdgeIdx = S.edges.findIndex(([a,b]) => a === depotId);
   if (myEdgeIdx >= 0) {
     const [, nextDest] = S.edges[myEdgeIdx];
@@ -556,12 +586,10 @@ function tryT50Warning(depotId) {
       return true;
     }
   }
-  // Rain: rainTimer is short (<25 ticks) and not currently raining — means it's about to flip
   if (!S.isRaining && S.rainTimer > 0 && S.rainTimer < 25 && lines.rain) {
     speak(depotId, lines.rain);
     return true;
   }
-  // Stamina: down to <=2 segments
   if (staminaSegCount() <= 2 && lines.stamina) {
     speak(depotId, lines.stamina);
     return true;
@@ -569,20 +597,16 @@ function tryT50Warning(depotId) {
   return false;
 }
 
-// t75 preview: peek at the next edge that the NPC's depot starts. If there's
-// a real un-picked package waiting, drop a single hint line. Capped to one per visit.
 function tryT75Preview(depotId) {
   const npc = getNpc(depotId);
   if (!npc || !npc.unlocks.t75) return false;
   const tmpl = NPC_LINES.preview[depotId];
   if (!tmpl) return false;
 
-  // Find the edge starting at this depot (the one the courier is about to walk)
   const myEdgeIdx = S.edges.findIndex(([a,b]) => a === depotId);
   if (myEdgeIdx < 0) return false;
   const [, nextDest] = S.edges[myEdgeIdx];
 
-  // Scan that edge's worldCells for the first un-picked package
   const startCell = myEdgeIdx * CELLS_PER_EDGE;
   const endCell   = startCell + CELLS_PER_EDGE;
   let found = null;
@@ -600,8 +624,6 @@ function tryT75Preview(depotId) {
   return true;
 }
 
-// t100 rest prompt: show inline [rest] log button on arrival; on click, full restore + bonus.
-// Mirrors the boot clip refill prompt pattern. One pending at a time.
 let _depotRestPending = null;
 const DEPOT_REST_BONUS_SCRIP = 10;
 
@@ -609,7 +631,6 @@ function tryT100RestPrompt(depotId) {
   const npc = getNpc(depotId);
   if (!npc || !npc.unlocks.t100) return false;
   if (_depotRestPending) return false;
-  // Don't prompt if stamina is already maxed AND no overboost room would be added
   if (S.stamina >= S.staminaMax && S.staminaOverboost) return false;
   const def = NPC_DEFS[depotId];
   const npcLabel = def ? def.callsign : depotId;
@@ -628,13 +649,11 @@ function confirmDepotRest() {
   _depotRestPending = null;
   const def = NPC_DEFS[depotId];
   const npcLabel = def ? def.callsign : depotId;
-  // Full restore + small overboost (+5%) + bonus scrip
   S.stamina = S.staminaMax * 1.05;
   S.staminaOverboost = true;
   S.canteen = Math.min(S.canteenMax, S.canteen + 30);
   S.scrip += DEPOT_REST_BONUS_SCRIP;
   addLog(`rested at <span class="log-hi">${npcLabel}</span> \u2014 <span class="log-ok">stamina restored, +${DEPOT_REST_BONUS_SCRIP}\u00a2</span>`);
-  // Speak a rest-acceptance line on the channel panel
   const line = pickRandom(NPC_LINES.rest[depotId]);
   if (line) speak(depotId, line);
   renderStamina(); updateHUD();
@@ -642,16 +661,13 @@ function confirmDepotRest() {
   if (btn) btn.closest('.log-line').remove();
 }
 
-// Ambient chatter — fires periodically once an NPC's trust >= 25.
-// Throttled per-NPC via nextChatterTick. Also rate-limited by global chance per tick.
 function tickAmbientChatter() {
-  // Only roll once every few ticks to keep the work cheap
   if (S.ticks % 10 !== 0) return;
   Object.keys(NPC_DEFS).forEach(depotId => {
     const npc = getNpc(depotId);
     if (!npc || !npc.unlocks.t25) return;
     if (S.ticks < npc.nextChatterTick) return;
-    if (Math.random() >= CHATTER_BASE_CHANCE * 10) return; // adjusted for the %10 throttle
+    if (Math.random() >= CHATTER_BASE_CHANCE * 10) return;
     const line = pickRandom(NPC_LINES.ambient[depotId]);
     if (!line) return;
     speak(depotId, line);
@@ -660,7 +676,6 @@ function tickAmbientChatter() {
   });
 }
 
-// Format "Xs ago" for channel timestamps (uses game ticks vs. ts at speak time)
 function fmtChannelAge(ts) {
   const elapsedTicks = S.ticks - ts;
   const elapsedSecs = Math.floor(elapsedTicks * TICK_MS / 1000);
@@ -687,19 +702,94 @@ function renderChannels() {
 }
 
 // ============================================================
+// LOST CARGO RECOVERY (v0.0.7 commit 5)
+// ============================================================
+// Try to spawn one recovery cargo into a random valid worldCell.
+// Soft cap: stops if activeRecoveryCount >= RECOVERY_SOFT_CAP, OR if
+// we spawned within the last RECOVERY_POLL_INTERVAL ticks (pacing).
+async function tickRecoveryAttempt() {
+  if (S.ticks < S.nextRecoveryAttemptTick) return;
+  S.nextRecoveryAttemptTick = S.ticks + RECOVERY_POLL_INTERVAL;
+
+  if (S.activeRecoveryCount >= RECOVERY_SOFT_CAP) return;
+  // Soft pacing: don't spawn back-to-back even if under cap
+  if (S.ticks - S.lastRecoverySpawnTick < RECOVERY_POLL_INTERVAL) return;
+  if (S.knownPeers.length === 0) return;
+
+  const peerId = pickRandom(S.knownPeers);
+  if (!peerId) return;
+
+  const lostList = await fetchLostFromPeer(peerId);
+  if (!lostList || lostList.length === 0) return;
+
+  const lostPkg = pickRandom(lostList);
+  if (!lostPkg) return;
+
+  spawnRecoveryCargo(lostPkg, peerId);
+}
+
+// Find an empty worldCell on a random edge, plant the recovery pkg there.
+function spawnRecoveryCargo(lostPkg, fromPorterId) {
+  // Pick a random edge
+  const edgeIdx = Math.floor(Math.random() * S.edges.length);
+  const startCell = edgeIdx * CELLS_PER_EDGE;
+  const endCell = startCell + CELLS_PER_EDGE;
+
+  // Find empty cells on this edge (no existing pkg, no sandal)
+  const candidates = [];
+  for (let i = startCell + 10; i < endCell - 10; i++) {
+    const c = worldCells[i];
+    if (c && !c.pkg && !c.sandal && i % 8 === 0) {
+      candidates.push(i);
+    }
+  }
+  if (candidates.length === 0) return; // edge is too packed; will retry next tick
+
+  const ci = pickRandom(candidates);
+  const destId = S.edges[edgeIdx][1];
+
+  // Coerce shape — peer worker may have stored slightly different fields
+  const pkg = {
+    size:  lostPkg.size  || 's',
+    label: lostPkg.label || 'lost cargo',
+    kg:    lostPkg.kg    || 1,
+    slots: lostPkg.slots || 1,
+    scrip: Math.floor((lostPkg.scrip || 14) * RECOVERY_BONUS_MULT),
+    isLost: true,
+    isRecovery: true,             // commit 5: distinguishes from local lost spawns
+    recoveryFromPorter: fromPorterId,
+    destId,
+    picked: false,
+    respawnIn: 0,
+  };
+  worldCells[ci].pkg = pkg;
+  worldCells[ci].isRecovery = true;
+
+  S.activeRecoveryCount++;
+  S.lastRecoverySpawnTick = S.ticks;
+  // Quiet log line — feed event covers the social side
+  addLog(`<span class="log-wn">recovery cargo</span> dropped into the world`);
+}
+
+// ============================================================
 // PERSISTENCE
 // ============================================================
 const SAVE_KEY     = 'tlh-save-v1';
 const SAVE_KEY_V2  = 'tlh-save-v2';
 const SAVE_KEY_V3  = 'tlh-save-v3';
 const SAVE_KEY_V4  = 'tlh-save-v4';
-const SAVE_KEY_V5  = 'tlh-save-v5';   // current
+const SAVE_KEY_V5  = 'tlh-save-v5';
 const SAVE_VERSION = 5;
 const AUTOSAVE_MS  = 30000;
 
 let _lastSaveAt = 0;
 let _wipeArmed  = false;
 let _wipeTimer  = null;
+// v0.0.7 wipe fix: guard flag prevents save handlers (autosave, beforeunload,
+// visibilitychange) from re-writing in-memory state during the 400ms window
+// between wipeSave() and location.reload(). Once set, never unset — page is
+// reloading; module re-init will reset it to false naturally.
+let _wipeInProgress = false;
 
 function buildSavePayload() {
   return {
@@ -739,8 +829,6 @@ function buildSavePayload() {
       milestonesHit:     [...S.milestonesHit],
       lastFeedTimestamp: S.lastFeedTimestamp,
     },
-    // commit 4a: trust + unlocks. nextChatterTick is intentionally not saved
-    // (resets on load — channels are transient "live radio").
     npcs: Object.keys(S.npcs).reduce((acc, k) => {
       const n = S.npcs[k];
       acc[k] = { trust: n.trust, unlocks: { ...n.unlocks } };
@@ -750,6 +838,9 @@ function buildSavePayload() {
 }
 
 function saveGame(silent) {
+  // v0.0.7 wipe fix: bail if wipe is in flight; otherwise the unload handlers
+  // re-save the in-memory state we just cleared.
+  if (_wipeInProgress) return false;
   try {
     const payload = buildSavePayload();
     localStorage.setItem(SAVE_KEY_V5, JSON.stringify(payload));
@@ -917,6 +1008,9 @@ function armWipe() {
   if (_wipeArmed) {
     clearTimeout(_wipeTimer);
     _wipeArmed = false;
+    // v0.0.7 wipe fix: set guard BEFORE clearing storage so any save handler
+    // that fires between now and reload bails immediately.
+    _wipeInProgress = true;
     wipeSave();
     if (els.wipeBtn) {
       els.wipeBtn.textContent = 'wipe save';
@@ -1084,6 +1178,9 @@ function scanForPickup() {
     const carried = {
       size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
       scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
+      // v0.0.7 commit 5: carry forward recovery metadata
+      isRecovery: !!pkg.isRecovery,
+      recoveryFromPorter: pkg.recoveryFromPorter || null,
       _worldCell: ci,
     };
     S.inventory.push(carried);
@@ -1093,7 +1190,9 @@ function scanForPickup() {
     renderCourierStack();
     renderCargoSlots(true);
     if (els.courierAt) els.courierAt.className = 'tlh-at bounce carry';
-    const lostTag = carried.isLost ? ' <span class="log-wn">[lost pkg]</span>' : '';
+    const lostTag = carried.isRecovery
+      ? ` <span class="log-wn">[recovery]</span> from <span class="log-hi">${shortPorterId(carried.recoveryFromPorter)}</span>`
+      : (carried.isLost ? ' <span class="log-wn">[lost pkg]</span>' : '');
     addLog(`picked up <span class="log-hi">[${carried.size}] ${carried.label}</span>${lostTag}`);
     return;
   }
@@ -1114,7 +1213,15 @@ function tryDeliver(arrivedNodeId) {
     S.usedWeight -= pkg.kg;
     S.inventory.splice(S.inventory.indexOf(pkg), 1);
     if (pkg._worldCell !== undefined && worldCells[pkg._worldCell] && worldCells[pkg._worldCell].pkg) {
-      worldCells[pkg._worldCell].pkg.respawnIn = PKG_RESPAWN_TICKS;
+      // v0.0.7 commit 5: recovery cargo doesn't respawn — it's a one-shot item
+      // from another porter's lost list. Free up the slot fully.
+      if (pkg.isRecovery) {
+        worldCells[pkg._worldCell].pkg = null;
+        worldCells[pkg._worldCell].isRecovery = false;
+        S.activeRecoveryCount = Math.max(0, S.activeRecoveryCount - 1);
+      } else {
+        worldCells[pkg._worldCell].pkg.respawnIn = PKG_RESPAWN_TICKS;
+      }
     }
     if (settle) { settle.supply = Math.min(100, settle.supply + 3); settle.rebuild = Math.min(100, settle.rebuild + 1); }
     const node = S.routeNodes.find(n => n.id === arrivedNodeId);
@@ -1130,6 +1237,17 @@ function tryDeliver(arrivedNodeId) {
     }
     addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
     postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
+
+    // v0.0.7 commit 5: recovery delivery — broadcast lost_recovered + log line
+    if (pkg.isRecovery && pkg.recoveryFromPorter) {
+      postActivity('lost_recovered', {
+        label: pkg.label,
+        size: pkg.size,
+        forPorter: pkg.recoveryFromPorter,
+      });
+      addLog(`<span class="log-ok">recovered</span> <span class="log-hi">${pkg.label}</span> \u2014 left by <span class="log-hi">${shortPorterId(pkg.recoveryFromPorter)}</span>`);
+    }
+
     if (NPC_DEFS[arrivedNodeId]) {
       const gain = pkg.isLost ? TRUST_GAIN_LOST_DELIVERY : TRUST_GAIN_DELIVERY;
       addTrust(arrivedNodeId, gain, pkg.isLost ? 'lost-delivery' : 'delivery');
@@ -1356,7 +1474,7 @@ function resolveEls() {
     settlementsEl:$('settlementsEl'),
     routeSvg:     $('routeSvg'),
     networkEl:    $('networkEl'),
-    channelsEl:   $('channelsEl'),  // v0.0.7 commit 4b
+    channelsEl:   $('channelsEl'),
     saveBtn:      $('saveBtn'),
     wipeBtn:      $('wipeBtn'),
     saveAgo:      $('saveAgo'),
@@ -1487,6 +1605,10 @@ function formatEvent(e) {
     case 'lost_drop':
       return `${who} lost <span class="net-ac">${data.label || 'cargo'}</span>`;
     case 'lost_recovered':
+      // v0.0.7 commit 5: include the original porter being repaid
+      if (data.forPorter) {
+        return `${who} recovered <span class="net-ac">${data.label || 'lost cargo'}</span> for <span class="net-hi">${shortPorterId(data.forPorter)}</span>`;
+      }
       return `${who} recovered <span class="net-ac">${data.label || 'lost cargo'}</span>`;
     case 'trust_unlock': {
       const tier = data.tier ? ` (${data.tier})` : '';
@@ -1545,8 +1667,8 @@ function renderCargoSlots(force) {
     d.textContent = pkg?pkg.size:'';
     if (pkg) {
       const destLabel = getDisplayLabel(pkg.destId);
-      const lostTag   = pkg.isLost?' [lost]':'';
-      d.setAttribute('title', `[${pkg.size}] ${pkg.label}${lostTag}\n\u2192 ${destLabel}\n${pkg.scrip}\u00a2`);
+      const recoveryTag = pkg.isRecovery ? ' [recovery]' : (pkg.isLost ? ' [lost]' : '');
+      d.setAttribute('title', `[${pkg.size}] ${pkg.label}${recoveryTag}\n\u2192 ${destLabel}\n${pkg.scrip}\u00a2`);
       d.classList.add('has-tooltip');
     }
     els.cargoSlots.appendChild(d);
@@ -1738,8 +1860,31 @@ function maybeTrip() {
   }
   S.status='tripped'; S.tripTimer=6;
   S.bootDurability=Math.max(0,S.bootDurability-5);
-  if (S.inventory.length>0) { S.inventory[0].scrip=Math.max(1,Math.floor(S.inventory[0].scrip*0.75)); addLog('<span class="log-wn">tripped! package damaged \u2014 reduced payout</span>'); }
-  else addLog('<span class="log-wn">tripped on loose rubble!</span>');
+
+  // v0.0.7 commit 5: lost-pkg drop chance on trip. Pick the first lost item
+  // in inventory; if any, roll TRIP_LOST_DROP_CHANCE to drop it (POSTed to
+  // worker for other porters to recover). Falls back to normal damage if
+  // the roll fails or no lost items are carried.
+  let dropped = false;
+  if (S.inventory.length > 0) {
+    const lostIdx = S.inventory.findIndex(p => p.isLost);
+    if (lostIdx >= 0 && Math.random() < TRIP_LOST_DROP_CHANCE) {
+      const droppedPkg = S.inventory[lostIdx];
+      S.usedSlots  -= droppedPkg.slots;
+      S.usedWeight -= droppedPkg.kg;
+      S.inventory.splice(lostIdx, 1);
+      // Don't reset the original world cell — it was a one-shot pickup.
+      postLostDrop(droppedPkg);
+      addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${droppedPkg.label}</span> fell into the world \u2014 someone may find it`);
+      renderCourierStack();
+      renderCargoSlots(true);
+      dropped = true;
+    }
+  }
+  if (!dropped) {
+    if (S.inventory.length>0) { S.inventory[0].scrip=Math.max(1,Math.floor(S.inventory[0].scrip*0.75)); addLog('<span class="log-wn">tripped! package damaged \u2014 reduced payout</span>'); }
+    else addLog('<span class="log-wn">tripped on loose rubble!</span>');
+  }
   if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
 }
 
@@ -1816,8 +1961,9 @@ function tick() {
     }
   }
 
-  // v0.0.7 commit 4b: ambient chatter (cheap; gated by ticks%10 inside)
   tickAmbientChatter();
+  // v0.0.7 commit 5: recovery cargo spawn attempts (throttled internally)
+  tickRecoveryAttempt();
 
   const prevEdgeIdx = S.edgeIdx;
   S.dotT += 0.006 * speedMultiplier();
@@ -1844,7 +1990,6 @@ function tick() {
     refillBootClip(arrivedAt);
     tryDeliver(arrivedAt);
 
-    // v0.0.7 commit 4b: trust-tier behaviors fire on arrival at NPC depots
     if (NPC_DEFS[arrivedAt]) {
       tryT50Warning(arrivedAt);
       tryT75Preview(arrivedAt);
@@ -1863,7 +2008,6 @@ function tick() {
   else if (Math.random()<0.003) { setRain(!S.isRaining); S.rainTimer=40+Math.floor(Math.random()*60); }
 
   if (S.ticks % 9 === 0) updateSaveStrip();
-  // v0.0.7 commit 4b: refresh channel timestamps periodically (Xs ago text)
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
 
   renderBoots(); renderStamina(); renderCargoSlots(); updateHUD();
@@ -1891,7 +2035,7 @@ function init() {
   buildRain(); setRain(false);
   layoutRouteNodes(); drawRouteMap(); updateDestDrift();
   renderUpgrades(); renderSettlements(); renderNetwork();
-  renderChannels();  // v0.0.7 commit 4b
+  renderChannels();
   renderCargoSlots(true); renderCourierStack(); renderBoots(); renderStamina();
   renderFieldstrip();
   updateHUD();
