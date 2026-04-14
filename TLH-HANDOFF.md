@@ -12,7 +12,7 @@ _last updated: 2026-04-14_
 
 ---
 
-## v0.0.7 — multi-system bundle
+## v0.0.7 — multi-system bundle ✅ DONE
 
 The v0.0.7 bundle interlocks **four systems** that mutually reinforce each other. The decision was made to ship them together rather than piecemeal because they only feel right when present together.
 
@@ -20,126 +20,79 @@ The v0.0.7 bundle interlocks **four systems** that mutually reinforce each other
 1. **Async multiplayer backend** (Cloudflare Worker + KV) — ✅ shipped commits 1-2
 2. **Progressive node identification** (??? → signal → tier → full label) — ✅ shipped commit 3
 3. **Trust meter with NPCs** — ✅ shipped commits 4a/4b
-4. **Settlement quote evolution** — ⏳ commit 6
+4. **Settlement UI polish** — ✅ shipped commit 6 (quote evolution proper deferred until rebuild mechanic is real)
 
 **Commit progress:**
 - ✅ Commits 1, 2, 3a, 3, 3b (detailed below in session log)
-- ✅ **Commit 4a** (`a105cbb`) — Trust system scaffold: NPCs at A/B/H with Greek callsigns (rho/iota/tau), `S.npcs` state, `addTrust`/`onTrustUnlock`, t25 live (reveals adjacent stage-0 nodes to stage 1). Save schema v4→v5.
-- ✅ **Commit 4b** (`466598b`) — Trust behaviors + channels panel + ~75 dialogue lines. t50 warnings on arrival (trip>rain>stamina), t75 package previews, t100 depot rest prompt (full stamina + 5% overboost + 10¢ + canteen). Channels panel with grid layout + ambient chatter (CHATTER_BASE_CHANCE=0.005, 60-120s per-NPC cooldown).
-- ✅ **Wipe save bugfix + Commit 5** (`18f6914`) — Wipe fix: `_wipeInProgress` guard flag prevents autosave/beforeunload/visibilitychange handlers from re-writing state during the 400ms reload window. Commit 5: lost cargo recovery loop — worker `/lost` POST + `/lost/:porterId` GET, `spawnRecoveryCargo` on known-peer-id pool (harvested from feed), RECOVERY_SOFT_CAP=3, RECOVERY_BONUS_MULT=1.5, recovery cargo is one-shot (no respawn on delivery).
-- ⏳ **Commit 6** — Settlement quote evolution + final UI polish. **Not started yet.** Full planning block below.
+- ✅ **Commit 4a** (`a105cbb`) — Trust system scaffold.
+- ✅ **Commit 4b** (`466598b`) — Trust behaviors + channels panel + ~75 dialogue lines.
+- ✅ **Wipe save bugfix + Commit 5** (`18f6914`) — Wipe fix + lost cargo recovery loop.
+- ✅ **Commit 6** (2026-04-14, CSS `60b4df9` / HTML `00e5a2b` / JS `c56e52c`) — distKm accumulator, all-cargo drop, settlements rebuild, gear popover, vertical canteen, recovery badge, sandal at-cap stable green, channels empty state. **v0.0.7 is complete.**
 
-After commit 6 ships, drop a small **mini-patch** with sticky gun + terrain scanner (see "future upgrades" section below) before moving on to v0.0.8/v0.0.9. A **general refactor pass** is also scheduled between commit 6 and v0.0.8 (see "pending refactors" below).
-
----
-
-## commit 6 — planning (NOT YET STARTED)
-
-Commit 6 is the last commit of v0.0.7. It bundles two bug fixes, a scope-widened cargo-drop rework, and UI polish. Plan is locked — ready to implement in a fresh session.
-
-### bugs to fix
-
-**1. `distKm` accumulator (pre-existing v0.0.5 bug)**
-
-Current code derives `S.distKm` from `(edgeIdx + dotT) * 4.2` every 5 ticks. Because `S.edgeIdx` defaults to 2, after wipe + reload the display shows ~8.4km before the porter has walked anywhere. It's a derived "current ring position" value, not a total-walked accumulator.
-
-Fix:
-- Add constant `KM_PER_EDGE = 4.2` near top of file.
-- Add transient state (not saved): `S._lastDistEdgeIdx = null`, `S._lastDistDotT = null`.
-- Add helper `posKm(edgeIdx, dotT) => (edgeIdx + dotT) * KM_PER_EDGE`.
-- Add `accumulateDist()` that computes forward delta between last tick and now, handles edge rollover (negative delta → add full loop length), adds to `S.distKm`, and updates the `_lastDist*` trackers.
-- Call `accumulateDist()` each tick inside the walking/carrying block.
-- **Remove** the old `if (S.ticks%5===0) { S.distKm = Math.round(...) }` line. Keep `checkDistMilestones()` there.
-- Old saves will have slightly-off `distKm` values for the first post-upgrade session (since it was a derived value). Add a comment noting this — no migration needed, it self-heals.
-
-**2. All cargo drop on trip (scope widened from commit 5)**
-
-Commit 5 only dropped lost cargo on trip. Widen to all cargo:
-- Replace `TRIP_LOST_DROP_CHANCE = 0.30` with two constants: `TRIP_DROP_CHANCE_NORMAL = 0.20` and `TRIP_DROP_CHANCE_LOST = 0.30`.
-- In `maybeTrip()`: drop check fires **BEFORE** tie-down check. Tie-down protects damage only, not drops — fate takes the cargo regardless.
-- Pick first item in inventory; roll appropriate chance based on `isLost`. Dropped normal cargo doesn't hit the worker (worker only stores `lost_drop` events); just removes it from inventory and logs the loss. Dropped lost cargo goes through existing `postLostDrop()` path.
-- Existing fall-through (damage-first-item-scrip-by-25%) still applies when drop roll fails.
-
-### visual changes
-
-**3. Sandalweed at-cap: kill pulse, stable green**
-
-Current `.sandal-badge.at-cap` animates pink via `overboost-pulse`. Change to stable green matching `.fc-sw-plant` (#2a7a58). Remove `animation` line from the at-cap rule — it's visually noisy and not carrying meaning (cap is fine, not urgent).
-
-**4. Boots row gear popover**
-
-Boots row currently has `[buy]` `[autobuy]` `clip: N/M` visible at all times, eating horizontal space. Collapse into a single `⚙` gear icon that opens a small inline popover with all three actions. Recovers ~30% row width. Sandalweed badge stays visible outside the popover (it's a status indicator, not an action).
-
-**5. Settlements panel rebuild**
-
-Current panel has: name, rebuild bar, trust bar (if NPC + stage 3), quote.
-
-New layout:
-- Trust bar **on top** (when NPC present + stage 3 — currently at bottom, moving it up).
-- Trust bar: **continuous fill with vertical tick marks at 20/40/60/80**. (NOT a pip/segment meter — user confirmed continuous-with-ticks.)
-- Rebuild bar: keep it, but **faded/recessed** — it's a placeholder for a future real rebuild mechanic. Dim opacity, tag somewhere inline that it's a WIP indicator.
-- Stage-2 settlements: subtle opacity reduction on the whole entry (they're unconfirmed, de-emphasize).
-
-**6. Channels empty state copy**
-
-Current: `"no chatter yet"`. Change to: `"no callsigns trusted yet — deliver to depots to build trust"`. Tells new players why it's empty and what unlocks it.
-
-**7. Recovery cargo presence badge**
-
-Add small subtle indicator on porter strip showing active recovery count when >0. New `updatePorterStripBadges()` function called from `spawnRecoveryCargo` and `tryDeliver` (when recovery count changes). Keep it unobtrusive — it's ambient presence, not a call to action.
-
-**8. Vertical canteen bar**
-
-Current `.canteen-bar-wrap` is a horizontal 28px-wide × 3px-tall bar on the stamina row. Render it vertically — narrow width, full row height, fill grows bottom-to-top. Saves horizontal space on the row. Current CSS:
-```
-.canteen-bar-wrap { width: 28px; height: 3px; ... }
-.canteen-bar-fill { height: 100%; transition: width 0.4s; }
-```
-Needs full rewrite — swap dimensions, change the JS `els.canteenBar.style.width = canteenPct+'%'` to set height instead.
-
-### out of scope for commit 6 (explicitly deferred)
-
-- Right-column density restructuring
-- Channel line tier tinting
-- Settlement quote evolution (the actual 3-stage × 6-settlement quote rewrite) — deferred until the rebuild mechanic is real. Commit 6 is UI-polish only; the "settlement quote evolution" bullet for v0.0.7 slips to post-v0.0.7.
-
-### acceptance: after commit 6
-
-- v0.0.7 is **done**. Merge to main when ready.
-- Then ship the sticky gun + terrain scanner mini-patch.
-- Then the refactor pass.
-- Then v0.0.8.
+**What's next after v0.0.7:**
+1. **Sticky gun + terrain scanner mini-patch** — two upgrade items shipped as a small bundle. Full design below in "future upgrades".
+2. **General refactor pass** — zero behavior change, just code clarity. Items collected in "pending refactors" below.
+3. **v0.0.8** — structures tab, new terrain, bigger map. (See future game features.)
 
 ---
 
-## pending refactors (scheduled post-commit-6, pre-v0.0.8)
+## commit 6 — what shipped
 
-Items surfaced during v0.0.7 that should be cleaned up before v0.0.8 introduces more complexity.
+Final commit of v0.0.7. Shipped as four sequential file commits on branch (CSS → HTML → JS → this doc).
+
+### logic changes
+1. **`distKm` accumulator.** Old derived formula (`(edgeIdx + dotT) * 4.2`) replaced with a real forward-delta accumulator. New constant `KM_PER_EDGE = 4.2`. Transient trackers `S._lastDistEdgeIdx` / `S._lastDistDotT` (null sentinel = first tick since load). Helpers `posKm()` and `accumulateDist()` — the latter handles edge rollover (negative delta → add full loop length) and caps absurd jumps at 2× edge length. Called every walking/carrying tick. The old `if (S.ticks%5===0) { S.distKm = ... }` line is gone; `checkDistMilestones()` still runs every 5 ticks. Old saves self-heal on first post-upgrade session (load stale derived value, then accumulate forward from there).
+
+2. **All-cargo drop on trip.** `TRIP_LOST_DROP_CHANCE = 0.30` replaced with `TRIP_DROP_CHANCE_NORMAL = 0.20` + `TRIP_DROP_CHANCE_LOST = 0.30`. In `maybeTrip()`, drop check fires **BEFORE** tie-down. Tie-down protects against damage fallback only, not drops. Drop targets the first inventory item; normal pkgs vanish locally + log only (no worker event), lost pkgs go through `postLostDrop()` as before.
+
+### UI changes
+3. **Sandal at-cap → stable green.** `.sandal-badge.at-cap` uses `#2a7a58` (matches `.fc-sw-plant`), no pulse animation. Cap is fine, not urgent.
+
+4. **Boots gear popover.** New `⚙` button collapses `[buy boots]`, `[autobuy]`, and `clip: N/M` into a single popover. Opens on click, closes on outside-click. Popover contents are dirty-checked via `_lastGearPopKey` so we don't thrash the DOM every tick. Sandal badge moved outside to sit next to the gear button (status indicator, not action). Recovered ~30% of row width. Old `#clipBadge` span still in HTML but hidden.
+
+5. **Settlements panel rebuild.**
+   - Trust bar moved **above** the name (was below).
+   - Trust bar is continuous fill + 4 absolutely-positioned tick marks at 20/40/60/80% via `.settle-trust-tick` spans.
+   - Rebuild bar gets `.settle-bar-wip` class (opacity 0.45) — it's a placeholder for future real rebuild mechanic.
+   - Stage-2 settlements get `.settle-stage2` class (opacity 0.65) — unconfirmed, de-emphasized.
+
+6. **Channels empty state.** Changed from `"no chatter yet"` to `"no callsigns trusted yet — deliver to depots to build trust"`. Tells new players why it's empty and what unlocks it.
+
+7. **Recovery cargo presence badge.** New `updatePorterStripBadges()` creates/shows `#recoveryBadge` in the porter strip when `activeRecoveryCount > 0`. Text: `recovery ×N`. Called from `spawnRecoveryCargo` (+1), `tryDeliver` on recovery delivery (−1), and `init()`. Pink on dim background — ambient presence, not a CTA.
+
+8. **Vertical canteen bar.** CSS swapped from `width: 28px; height: 3px` (horizontal) to `width: 4px; height: 14px` (vertical). Fill uses `position: absolute; bottom: 0` and transitions `height`. JS updated: `els.canteenBar.style.height = canteenPct+'%'` (was `.width`).
+
+### save schema
+No bump. Schema stays v5. `distKm` is still a plain number; transient `_lastDist*` trackers are never persisted. Old saves self-heal.
+
+### invariants preserved
+- Gameplay trust thresholds stay at 25/50/75/100 (visual ticks at 20/40/60/80 — realignment deferred to refactor pass).
+- `_wipeInProgress` guard intact.
+- Recovery cargo is still one-shot on delivery.
+- Tie-down still absorbs damage — just doesn't absorb drops.
+
+---
+
+## pending refactors (scheduled post-v0.0.7, pre-v0.0.8)
 
 **1. Trust threshold / visual breakpoint realignment**
 
-`TRUST_THRESHOLDS = [25, 50, 75, 100]` drives gameplay unlocks (t25 identification hints, t50 warnings, t75 previews, t100 rest). The settlements panel trust bar (rebuilt in commit 6) uses visual tick marks at **20/40/60/80** — chosen for visual rhythm, not gameplay alignment.
-
-These are intentionally misaligned right now. They should be realigned. Two options:
-- (a) Move thresholds to 20/40/60/80 to match the visual (minor rebalance — unlocks come 5% earlier, marginal).
-- (b) Move ticks to 25/50/75/100 to match gameplay (visual is less clean — four evenly-spaced ticks fit better at 20-step intervals than 25-step).
-
-Leaning (a) — gameplay impact is negligible and visual clarity matters more. Do the rebalance before v0.0.8 ships any new trust-gated content.
+`TRUST_THRESHOLDS = [25, 50, 75, 100]` (gameplay) vs settlements panel tick marks at `20/40/60/80` (visual). Intentionally misaligned right now. Should be realigned before v0.0.8 gates new content on trust. Leaning option (a) — move thresholds to 20/40/60/80. Negligible rebalance, better visual clarity.
 
 **2. General refactor pass**
 
-After 6+ commits in v0.0.7, the JS file is ~2100 lines and some areas have drifted:
-- `tick()` is doing too much — extract phases (status machine, movement, edge transition, rendering) into clearer sub-functions.
-- NPC trust / channels / chatter could probably consolidate into a module-like block.
-- Inline dialogue lines (`NPC_LINES`) are fine where they are, but worth reviewing whether they belong in a separate data file once the corpus grows.
-- Save/load is 200+ lines and mostly repetitive field-by-field checks. Worth a helper like `loadNumeric(p, 'delivered')`.
-- Transient state flags (`_lastDistEdgeIdx`, `_wipeInProgress`, etc.) are scattered — consider collecting them in a single `_transient` sub-object.
+After 6+ commits in v0.0.7, the JS is ~2270 lines. Areas that have drifted:
+- `tick()` is doing too much — extract phases (status machine, movement, edge transition, rendering) into sub-functions.
+- NPC trust / channels / chatter could consolidate into a module-like block.
+- `NPC_LINES` corpus may eventually want a separate data file.
+- Save/load is 200+ lines of repetitive field checks. Worth a helper like `loadNumeric(p, 'delivered')`.
+- Transient state flags (`_lastDistEdgeIdx`, `_wipeInProgress`, `_lastGearPopKey`, `_gearPopHandler`, etc.) are scattered — collect in a single `_transient` sub-object.
 
-Goal: zero behavior change, just code clarity. Will make v0.0.8 (structures tab, new terrain) easier to land.
+Zero behavior change, just clarity. Will make v0.0.8 easier to land.
 
 **3. Old `distKm` saved values**
 
-After commit 6 ships the accumulator, old saves will load their stale derived-value `distKm` once and then accumulate correctly from there. No migration, just a comment on the load path. Can be cleaned up later — or leave the comment in place as context for future readers.
+Commit 6 accumulator is in; old saves load their stale derived-value `distKm` once and then accumulate correctly. No migration needed, just a comment on the load path. Fine as-is.
 
 ---
 
@@ -152,33 +105,44 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - `S.edgeIdx` (0–5) and `S.dotT` (0.0–1.0) track position on the route. `dotT` increments each tick by `0.006 × speedMultiplier()`. When it hits 1.0, edge advances and `tryDeliver()` fires.
 - Speed is modulated by stamina segment count and boot durability.
 
+### distance tracking (v0.0.7 commit 6)
+- `KM_PER_EDGE = 4.2`. `posKm(edgeIdx, dotT) = (edgeIdx + dotT) * KM_PER_EDGE` gives current ring position.
+- `accumulateDist()` runs every walking/carrying tick: computes forward delta since last tick, handles rollover (negative delta → add `edges.length * KM_PER_EDGE`), caps absurd jumps at 2× edge length, adds to `S.distKm`, updates trackers.
+- `S._lastDistEdgeIdx` / `S._lastDistDotT` null sentinel = first tick since load; initializes trackers without counting a spurious delta.
+
 ### world map
 - `buildWorld()` generates a flat array `worldCells[]` of exactly `CELLS_PER_EDGE × 6 = 1,560` cells at startup. World is regenerated fresh each page load — never persisted.
 - Each cell: `{ html, pkg, sandal, risky, edgeIdx }`.
 - `pkg` (if present): `{ size, label, kg, slots, scrip, isLost, isRecovery, recoveryFromPorter, destId, picked, respawnIn }`. `destId` is the far end of the cell's edge — stamped at generation, never changes.
 - `sandal: true` flag marks harvestable sandalweed cells.
 - Risky cells: edges leading to C or ? are flagged `risky: true`, applying a ×1.4 trip chance multiplier.
-- Scroll is JS-driven: `renderFieldstrip()` computes `worldPosFromRoute()` → `translateX(...)` on `.tlh-fieldstrip` every tick. No CSS animation. `width: max-content` on the strip element. Render count is dynamically sized to actual viewport width.
+- Scroll is JS-driven: `renderFieldstrip()` computes `worldPosFromRoute()` → `translateX(...)` on `.tlh-fieldstrip` every tick. No CSS animation. `width: max-content` on the strip element.
 
 ### packages
 - Picked up by proximity scan in `scanForPickup()` — checks cells within `PKG_PICKUP_RANGE = 8` cells ahead of courier each tick.
 - On pickup: `pkg.picked = true`, package copied into `S.inventory` with `_worldCell` reference for respawn. Recovery metadata (`isRecovery`, `recoveryFromPorter`) carries forward.
 - On node arrival: `tryDeliver(arrivedNodeId)` delivers all inventory items with matching `destId`.
-- After delivery: normal pkg gets `pkg.respawnIn = PKG_RESPAWN_TICKS (500)`. **Recovery cargo is one-shot** — `worldCell.pkg` set to null, `activeRecoveryCount` decremented.
+- After delivery: normal pkg gets `pkg.respawnIn = PKG_RESPAWN_TICKS (500)`. **Recovery cargo is one-shot** — `worldCell.pkg` set to null, `activeRecoveryCount` decremented, `updatePorterStripBadges()` refreshes the strip.
+
+### trip + drop (v0.0.7 commit 6)
+- `TRIP_DROP_CHANCE_NORMAL = 0.20`, `TRIP_DROP_CHANCE_LOST = 0.30`.
+- On trip: catch roll first. If not caught, **drop check fires BEFORE tie-down**. Targets first inventory item; roll appropriate chance. Lost pkg drops via `postLostDrop()` (worker). Normal pkg vanishes locally with a log line — no worker event.
+- Tie-down: if drop didn't fire and inventory > 0, consumes the tie-down to protect against damage fallback. `S.tieDownActive = false`.
+- Damage fallback: if no drop and no tie-down, first item's scrip takes 25% hit (min 1).
 
 ### sandalweeds
 - Spawn in scrub (most), road (rare), ruins (rare). Wetlands and depot approaches: never.
 - Current rates: scrub 0.008, road 0.002, ruins 0.002.
 - **Hoard cap**: `SANDAL_CAP_BASE = 5` (`SANDAL_CAP_UPGRADED = 25` with `sandalSatchel` upgrade). When at cap, `scanForPickup` leaves the `*` standing.
 - Auto-equip when boots fail: `checkAutobuy` priority clip > sandalweed > scrip. Equipped sandalweed: `bootDurability = 30`, `usingMakeshift = true` (1.3x boot drain).
-- UI: `#sandalBadge` in boots row, format `* N/cap`. **Commit 6 changes the at-cap visual from pink pulse to stable green (#2a7a58).**
+- UI: `#sandalBadge` next to the boots gear button, format `* N/cap`. **At-cap uses stable green (#2a7a58) — no pulse (commit 6).**
 
 ### identification stages
 - `S.nodeStages` is the single source of truth. Object keyed by node id, values 0-3.
 - Stages: 0 = unknown, 1 = signal (trust t25), 2 = tier visible (walked adjacent edge), 3 = visited.
 - Starting state: `A` and `H` at 3 (porter's anchors), all others at 0.
 - Helpers: `getNodeStage`, `setNodeStage` (ratchet), `markEdgeAdjacent`, `getDisplayLabel`.
-- `renderSettlements` filters on stage ≥ 2.
+- `renderSettlements` filters on stage ≥ 2. Stage-2 items get `.settle-stage2` class (opacity 0.65).
 
 ### NPCs + trust (commit 4a/4b)
 - `NPC_DEFS` at A/B/H with Greek callsigns: rho (A, steady/laconic), iota (B, young/eager), tau (H, warm/observant).
@@ -188,37 +152,40 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 - t50: `tryT50Warning()` on arrival — checks trip-risk edge > rain-incoming > low-stamina, speaks first match.
 - t75: `tryT75Preview()` scans the outbound edge for any package, speaks a preview line with size + dest.
 - t100: `tryT100RestPrompt()` posts log button `[rest]` → `confirmDepotRest` restores stamina to 105% (overboost), +30 canteen, +10¢.
-- **TODO**: thresholds 25/50/75/100 vs visual breakpoints 20/40/60/80 misaligned — see pending refactors.
 
 ### channels / chatter (commit 4b)
 - `S.channels` is a FIFO ring (cap 6) of NPC utterances: `{ depotId, callsign, text, ts }`.
 - `speak(depotId, text)` unshifts; `renderChannels` paints.
 - `tickAmbientChatter()` runs every 10 ticks, per-NPC: gated on `unlocks.t25`, per-NPC cooldown (`nextChatterTick` = 170-345 ticks), base chance 0.005 per 10-tick window.
 - Per-NPC color via `[data-depot]` selector: A teal, B pink, H purple.
-- **Commit 6 changes empty state copy to `"no callsigns trusted yet — deliver to depots to build trust"`.**
+- **Empty state** (commit 6): `"no callsigns trusted yet — deliver to depots to build trust"`.
 
 ### lost cargo recovery (commit 5)
 - `postLostDrop(pkg)` POSTs to `/lost` + broadcasts `lost_drop` event.
 - `fetchLostFromPeer(peerId)` GETs `/lost/:porterId`.
 - `tickRecoveryAttempt()` runs each tick, throttled internally (`nextRecoveryAttemptTick` cadence = 85 ticks ≈ 30s). Soft cap `activeRecoveryCount >= 3`, plus one-per-cycle pacing via `lastRecoverySpawnTick`.
-- `spawnRecoveryCargo(lostPkg, fromPorterId)` picks a random edge, finds empty cell on `i%8===0` stride, plants pkg with `isRecovery: true` + 1.5x scrip bonus.
+- `spawnRecoveryCargo(lostPkg, fromPorterId)` picks a random edge, finds empty cell on `i%8===0` stride, plants pkg with `isRecovery: true` + 1.5x scrip bonus. Calls `updatePorterStripBadges()` on spawn.
 - `knownPeers` is a FIFO of non-self porter IDs harvested in `pollFeed` (cap 10).
-- On delivery: clears `worldCell.pkg` fully (no respawn), decrements `activeRecoveryCount`, broadcasts `lost_recovered` with `forPorter`, logs "recovered X — left by PTR-YYYY".
+- On delivery: clears `worldCell.pkg` fully (no respawn), decrements `activeRecoveryCount`, calls `updatePorterStripBadges()`, broadcasts `lost_recovered` with `forPorter`, logs "recovered X — left by PTR-YYYY".
+- **Presence badge** (commit 6): `#recoveryBadge` in porter strip shows `recovery ×N` when count > 0, hidden when 0.
 
 ### persistence (schema v5 — commit 4a)
 - Save key: `localStorage['tlh-save-v5']`. `SAVE_VERSION = 5`.
 - Loader chain: v5 → v4 → v3 → v2 → v1. Migration on load: legacy keys removed, save re-written as v5.
 - v5 added `npcs: { A/B/H: { trust, unlocks } }` block (nextChatterTick is transient).
 - **Saved fields**: progress (delivered, scrip, distKm, ticks, capacities, boots/clip, sandalweedCount, stamina/canteen, autobuy/autodrink), position (edgeIdx, dotT), inventory (with `_worldCell` stripped), upgrades, nodeStages, settlements supply/rebuild, multiplayer (milestonesHit, lastFeedTimestamp), npcs.
-- **NOT saved**: worldCells, package respawn timers, log, rain state, tie-down, pending boot clip refill, pending depot rest, network feed/census/connected, `knownPeers`, `activeRecoveryCount`, `lastRecoverySpawnTick`, `nextRecoveryAttemptTick`, `S.channels`, `S.npcs.*.nextChatterTick`, **`_lastDistEdgeIdx`/`_lastDistDotT` (commit 6)**.
-- Wipe save: `_wipeInProgress` guard flag set in `armWipe()` BEFORE `wipeSave()`, never unset (module re-init on reload resets). `saveGame()` bails immediately if flag set. This prevents unload handlers from re-writing in-memory state during the 400ms reload window.
+- **NOT saved**: worldCells, package respawn timers, log, rain state, tie-down, pending boot clip refill, pending depot rest, network feed/census/connected, `knownPeers`, `activeRecoveryCount`, `lastRecoverySpawnTick`, `nextRecoveryAttemptTick`, `S.channels`, `S.npcs.*.nextChatterTick`, `_lastDistEdgeIdx`/`_lastDistDotT` (commit 6), `_lastGearPopKey` (commit 6).
+- Wipe save: `_wipeInProgress` guard flag set in `armWipe()` BEFORE `wipeSave()`, never unset (module re-init on reload resets). `saveGame()` bails immediately if flag set.
 
 ### rendering
 - `renderCargoSlots(force)` has dirty-check via `cargoKey()`. Tooltip uses `getDisplayLabel(pkg.destId)` + recovery tag.
 - Weight pips right-aligned via `margin-left: auto`.
 - Courier stack: all carried packages stacked above `@`. Recovery/lost both pink.
 - `renderChannels` in right-column panel.
-- **Commit 6 adds**: `updatePorterStripBadges()` for recovery presence indicator; vertical canteen bar; gear popover for boots actions; rebuilt settlements panel (trust on top, continuous bar + ticks, dimmed rebuild, stage-2 opacity).
+- `renderBoots`: boots bar + val always visible; gear popover contents dirty-checked via `_lastGearPopKey = S.bootClipMax|S.bootClipCount|(scrip<15?x:o)|(autobuy?on:off)`. Rebuilds innerHTML + re-wires listeners only when key changes.
+- `renderSettlements`: trust bar on top (with 4 tick marks at 20/40/60/80%), name, rebuild bar (dimmed), quote. Stage-2 dimmed.
+- `updatePorterStripBadges()`: creates/updates `#recoveryBadge` in porter strip.
+- Vertical canteen bar: `els.canteenBar.style.height = canteenPct+'%'`.
 
 ### porter ID
 - Format: `PTR-XXXX` (8 hex chars). Stored in `tlh-porter-id`. Legacy `TLH-XXXX` migrated. Survives wipe — identity, not progress.
@@ -231,7 +198,6 @@ The game lives entirely in `the-long-haul.js` as a self-contained IIFE. All muta
 `walking` → (pickup) → `carrying` → (node arrival + delivery) → `walking`
 `walking` → (exhausted) → `resting` → (timer) → `walking` (+25% overboost)
 `walking/carrying` → (trip) → `tripped` → (timer) → previous status
-Tie-down: armed intercepts one trip that would DAMAGE cargo. **Commit 6 changes this: drop check fires BEFORE tie-down, tie-down protects damage only.**
 
 ---
 
@@ -279,9 +245,9 @@ Designed to fit the game's actual shape: each player has their own procedural wo
 
 ---
 
-## future upgrades — mini-patch after commit 6
+## future upgrades — mini-patch after v0.0.7
 
-Two upgrades shipping as a small mini-patch between commit 6 and v0.0.8. Acquisition: upgrades menu now; long-term plan to migrate to NPC trust rewards once map expands.
+Two upgrades shipping as a small mini-patch between v0.0.7 and the refactor pass. Acquisition: upgrades menu now; long-term plan to migrate to NPC trust rewards once map expands.
 
 ### sticky gun
 
@@ -317,7 +283,7 @@ Two upgrades shipping as a small mini-patch between commit 6 and v0.0.8. Acquisi
 
 ---
 
-## TLH future game features (post-commit-6, do not implement yet)
+## TLH future game features (post-mini-patch, post-refactor, do not implement yet)
 
 **Structures tab**: postboxes, rainfall canopies, generators, lookout posts, ziplines, shelters, drone bays. Built on paths, degrade, upgradeable. Multiplayer per Tier 2.
 
@@ -327,9 +293,31 @@ Two upgrades shipping as a small mini-patch between commit 6 and v0.0.8. Acquisi
 
 **Hot springs**: field stamina restore with wait time cost.
 
+**Settlement quote evolution**: the 3-stage × 6-settlement quote rewrite deferred from commit 6 — needs the rebuild mechanic to be real first.
+
 ---
 
 ## TLH session log
+
+### 2026-04-14 (v0.0.7 commit 6 — v0.0.7 complete)
+
+Final v0.0.7 commit. Shipped as four sequential file commits on branch: CSS (`60b4df9`) → HTML (`00e5a2b`) → JS (`c56e52c`) → this doc.
+
+**Logic:**
+- **distKm accumulator**: `KM_PER_EDGE = 4.2`, `posKm()`, `accumulateDist()` with rollover handling, transient `_lastDist*` trackers (null sentinel). Old derived `if (ticks%5===0) { distKm = round(...) }` removed. Runs every walking/carrying tick. Old saves self-heal.
+- **All-cargo drop**: `TRIP_LOST_DROP_CHANCE` → `TRIP_DROP_CHANCE_NORMAL = 0.20` + `TRIP_DROP_CHANCE_LOST = 0.30`. Drop check fires before tie-down in `maybeTrip()`. Normal pkg drops vanish locally (no worker); lost pkg drops go through `postLostDrop()`.
+
+**UI:**
+- Sandal at-cap stable green `#2a7a58`, no pulse.
+- Boots gear popover (`⚙`) collapses `[buy] [autobuy] [clip]` into dirty-checked inline popover via `_lastGearPopKey`. Sandal badge sits beside the gear button.
+- Settlements: trust bar on top (was bottom), continuous fill + 4 tick spans at 20/40/60/80%, rebuild bar dimmed (`.settle-bar-wip`), stage-2 opacity 0.65 (`.settle-stage2`).
+- Channels empty state: `"no callsigns trusted yet — deliver to depots to build trust"`.
+- Recovery presence badge `#recoveryBadge` in porter strip, shows `recovery ×N` when `activeRecoveryCount > 0`. Updated from `spawnRecoveryCargo`, `tryDeliver`, `init`.
+- Vertical canteen bar: CSS rewritten (`4px × 14px`, absolute-positioned fill, transition `height`). JS: `canteenBar.style.height = ...%`.
+
+**No save schema bump.** v5 stays; `_lastDist*` / `_lastGearPopKey` / `_gearPopHandler` are transient.
+
+v0.0.7 bundle complete. Next: sticky gun + terrain scanner mini-patch → refactor pass → v0.0.8.
 
 ### 2026-04-14 (v0.0.7 commits 4a/4b + wipe fix + commit 5)
 
@@ -348,7 +336,7 @@ Two upgrades shipping as a small mini-patch between commit 6 and v0.0.8. Acquisi
 Wipe fix: root cause was `beforeunload`/`visibilitychange`/`autosave` firing during `location.reload()`, calling `saveGame(true)` which re-wrote the surviving in-memory `S` after wipeSave() had cleared localStorage. Fix: `_wipeInProgress` module-level guard flag, set in `armWipe()` immediately before `wipeSave()`, never unset (module re-init on reload). `saveGame()` bails if flag set.
 
 Commit 5: Lost cargo recovery loop.
-- Constants: `TRIP_LOST_DROP_CHANCE=0.30`, `RECOVERY_BONUS_MULT=1.5`, `RECOVERY_SOFT_CAP=3`, `RECOVERY_POLL_INTERVAL=85`, `KNOWN_PEERS_CAP=10`.
+- Constants: `TRIP_LOST_DROP_CHANCE=0.30` (replaced in commit 6), `RECOVERY_BONUS_MULT=1.5`, `RECOVERY_SOFT_CAP=3`, `RECOVERY_POLL_INTERVAL=85`, `KNOWN_PEERS_CAP=10`.
 - `postLostDrop(pkg)` POSTs to worker, broadcasts `lost_drop`.
 - `fetchLostFromPeer(peerId)` GETs lost list.
 - `tickRecoveryAttempt()` async, throttled via `nextRecoveryAttemptTick`.
@@ -356,34 +344,26 @@ Commit 5: Lost cargo recovery loop.
 - `knownPeers` harvested in `pollFeed`, FIFO cap 10.
 - Recovery delivery is one-shot: clears worldCell fully, decrements activeRecoveryCount, broadcasts `lost_recovered` with `forPorter`, logs "recovered X — left by PTR-YYYY".
 
-User verified commit 4b + wipe fix live. Smart call on widening cargo drop: all cargo can drop on trip, not just lost (finalized for commit 6).
+### 2026-04-13 (v0.0.7 commit 3b: bug batch + handoff split)
 
-### 2026-04-13 (latest — v0.0.7 commit 3b: bug batch + handoff split)
-
-**Bug batch (commit 3b on `feature/the-long-haul`)**
-
-Shipped six bug list items + two new UI tweaks in a single batched patch.
-
-- **Wipe save fix (incomplete)**: `armWipe()` confirmed-wipe path triggers `location.reload()` after 400ms. This was partially broken — full fix landed in the wipe-fix commit above.
-- **Stamina drain bump**: `STAMINA_DRAIN` 0.28 → 0.40.
-- **`rebuildRoads` → `efficientConsumption` swap** with v3 → v4 save migration.
-- **Sandalweed cap + dial-back + satchel upgrade**: `SANDAL_CAP_BASE = 5`, `SANDAL_CAP_UPGRADED = 25`, `sandalCap()` helper, spawn rates dialed back.
-- **Sandalweed badge tooltip restyle**: `.has-tooltip` hoisted to generic class, cargo-style multi-line tooltip. Green tint, pink pulse at cap (**commit 6 changes this to stable green**).
-- **Weight pips moved right**: `margin-left: auto` on `.weight-segs`.
-- **Dispatch log fills shell**: `.tlh-shell` flex column, panels `flex: 1; min-height: 0; overflow-y: auto`.
-- **Custom scrollbars**: 6px, terminal palette.
+Six bug list items + two new UI tweaks in a single batched patch.
+- Wipe save fix (partial — completed in the wipe-fix commit above).
+- Stamina drain bump: `STAMINA_DRAIN` 0.28 → 0.40.
+- `rebuildRoads` → `efficientConsumption` swap with v3 → v4 save migration.
+- Sandalweed cap + dial-back + satchel upgrade.
+- Sandalweed badge tooltip restyle (pink pulse at cap; **commit 6 swaps to stable green**).
+- Weight pips moved right: `margin-left: auto` on `.weight-segs`.
+- Dispatch log fills shell.
+- Custom scrollbars, 6px terminal palette.
 
 **Save schema v3 → v4. Loader chain v4 → v3 → v2 → v1.**
-
 **Handoff split**: spun game-specific doc out from `HANDOFF.md`.
 
-### 2026-04-13 (mid-day — v0.0.7 commits 1-3 + bug list capture)
-
-Shipped four commits: Cloudflare Worker deployed, game-side multiplayer wiring, bugfix batch, identification stages.
+### 2026-04-13 (mid-day — v0.0.7 commits 1-3)
 
 **Commit 1: Cloudflare Worker** (`c9a57b9` + `8f7940f`) — worker/index.js + wrangler + README. KV namespace `c7bdbec95cd6476f9c87abf55c03fdcb`.
 
-**Commit 2: game-side wiring** (`6d3d56d` HTML, `4020307` CSS, `fc2820c` JS) — MULTIPLAYER block, postActivity/pollFeed/startPolling/checkDistMilestones, network panel rewrite, save schema v1 → v2. User verified via screenshot.
+**Commit 2: game-side wiring** (`6d3d56d` HTML, `4020307` CSS, `fc2820c` JS) — MULTIPLAYER block, postActivity/pollFeed/startPolling/checkDistMilestones, network panel rewrite, save schema v1 → v2.
 
 **Commit 3a: bugfix batch** (`c751caf`) — viewport fill, pickup loop fixes, sandalweed mechanic.
 
@@ -395,7 +375,7 @@ Music tracks added to shared player (`nav.js`). TLH v0.0.6 added full save/load 
 
 ### 2026-04-13 (v0.0.5 — earliest)
 
-Full rewrite of terrain + delivery systems. Persistent world map, world packages, proximity pickup scanning. Scroll is JS-driven via `translateX`. Bug-fixes including viewport fill, destination drift, cargo tooltip flicker, log line limit. Note: commit introduced the `distKm` derived formula that commit 6 replaces with a real accumulator.
+Full rewrite of terrain + delivery systems. Persistent world map, world packages, proximity pickup scanning. Scroll is JS-driven via `translateX`. Note: this commit introduced the `distKm` derived formula that commit 6 replaced with a real accumulator.
 
 ---
 
