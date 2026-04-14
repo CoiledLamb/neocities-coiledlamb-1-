@@ -69,14 +69,17 @@
               <button class="tie-down-btn boots-auto" id="tieDownBtn">tie-down: off</button>
             </div>
 
-            <!-- boots row -->
+            <!-- boots row. v0.0.7 commit 6: [buy] [autobuy] [clip] collapsed into
+                 a single gear icon popover. Sandal badge stays outside (status, not action). -->
             <div class="tlh-row boots-row">
               <span class="tlh-row-label">boots</span>
               <div class="boots-bar-wrap"><div class="boots-bar-fill" id="bootsBar" style="width:80%"></div></div>
               <span class="boots-val" id="bootsVal">80%</span>
               <span class="clip-badge" id="clipBadge" style="display:none">clip: 0/0</span>
-              <button class="buy-boots-btn boots-auto" id="buyBootsBtn">buy boots (15&#162;)</button>
-              <button class="boots-auto" id="autobuyBtn">autobuy: off</button>
+              <div class="boots-gear-wrap">
+                <button class="boots-gear-btn" id="bootsGearBtn" title="boot actions">&#x2699;</button>
+                <div class="boots-gear-pop" id="bootsGearPop"></div>
+              </div>
             </div>
 
             <!-- stamina row -->
