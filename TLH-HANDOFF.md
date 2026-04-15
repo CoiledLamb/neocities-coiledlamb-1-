@@ -1,5 +1,5 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-15 (v0.0.7.20 shipped: bugfix patch complete. Sticky gun + scanner mini-patch next. Roadmap section added.)_
+_last updated: 2026-04-15 (v0.0.7.20 shipped: bugfix patch complete. Multiplayer rate limiting promoted to next push (v0.0.7.21). Roadmap section added.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
@@ -15,10 +15,11 @@ Game is at `v0.0.7.20`. All four bugfix-patch commits shipped and verified green
 3. ✅ **Bugfix patch commit 1** (v0.0.7.18) — refactor housekeeping + low-risk gameplay bugs
 4. ✅ **Bugfix patch commit 2a** (v0.0.7.19) — distKm edge-math, trust unlock canonicalization, tooltip dedup, damage log clarity
 5. ✅ **Bugfix patch commit 2b** (v0.0.7.20) — distKm rounding-stomp, tie-down option B, rain restructure, wetland refill, pickup-fail logs, depotRestPending rename. See "commit 2b" section below.
-6. ⏳ Sticky gun + terrain scanner mini-patch — designed, not started. **First entry in [roadmap](#roadmap).**
-7. ⏳ v0.0.8 work — terrain expansion (deserts, rivers, slopes). See [roadmap](#roadmap).
+6. ⏳ **Multiplayer rate limiting + 429 UI** (v0.0.7.21) — promoted to next push. KV cap is easy to hit during testing and blocks downstream work. See [roadmap](#roadmap).
+7. ⏳ Sticky gun + terrain scanner mini-patch (v0.0.7.22) — designed, ready after rate limiting lands.
+8. ⏳ v0.0.8 work — terrain expansion (deserts, rivers, slopes). See [roadmap](#roadmap).
 
-**Resume next session**: see [roadmap](#roadmap) for full sequencing. Top of queue is sticky gun + scanner mini-patch (v0.0.7.21).
+**Resume next session**: see [roadmap](#roadmap) for full sequencing. Top of queue is multiplayer rate limiting + 429 UI (v0.0.7.21).
 
 ---
 
@@ -132,8 +133,8 @@ The v0.0.7.18/.19 session spent serious time on a few design questions. Recordin
 
 Most of the previous list is now closed. Remaining:
 
-**Multiplayer / worker (still TODO game-side):**
-1. **Cloudflare KV free-tier daily put quota (1000/day) easily exhausted by active testing.** Worker now returns 429 with `Retry-After` (deployed at worker v0.0.7.1) instead of crashing as 500. Game-side TODO:
+**Multiplayer / worker (NEXT UP — promoted to v0.0.7.21):**
+1. **Cloudflare KV free-tier daily put quota (1000/day) easily exhausted by active testing.** Worker now returns 429 with `Retry-After` (deployed at worker v0.0.7.1) instead of crashing as 500. **This is now the next push** because hitting cap blocks all downstream testing of new content. Game-side TODO:
    - **Client-side rate limit on `postActivity`**: minimum 5s cooldown between any two posts; drop duplicate types within the window.
    - **Coalesce milestone broadcasts**: if 5km/10km/15km cross in quick succession, batch into one event rather than three POSTs.
    - **429 detection UI signal**: when POSTs start 429ing, dim the network panel + show "feed throttled — broadcasts paused" instead of the misleading "no signal" (which means "empty feed", not "broken").
@@ -547,10 +548,10 @@ The game lives across `js/main.js` + the extracted modules listed in the file st
 
 ### game-side (in `js/multiplayer.js`)
 - Constants in `MULTIPLAYER` block: `FEED_URL`, `POLL_MS = 60000`, `FEED_DISPLAY_CAP = 8`.
-- `postActivity(type, data)` — fire-and-forget POST with `keepalive:true`. Silent on all errors. **Client-side rate limiting still TODO** (see [roadmap](#roadmap) cross-cutting infra).
+- `postActivity(type, data)` — fire-and-forget POST with `keepalive:true`. Silent on all errors. **Client-side rate limiting is the next push (v0.0.7.21)** — see [roadmap](#roadmap).
 - `pollFeed()` — incremental fetch via `?since=`, dedupes, harvests peer porter IDs into `knownPeers`.
 - `startPolling`/`stopPolling` tied to `visibilitychange`.
-- `checkDistMilestones()` broadcasts at [10, 25, 50, 100, 250, 500, 1000]km. **Coalescing still TODO** (see roadmap).
+- `checkDistMilestones()` broadcasts at [10, 25, 50, 100, 250, 500, 1000]km. **Coalescing also part of v0.0.7.21**.
 - Self events filtered from feed display.
 
 ### multiplayer tier ladder (spec)
@@ -586,34 +587,38 @@ Porter profiles, daily delivery boards, memorial events.
 ### now: v0.0.7.20 (live) → v0.0.7.21 (next push)
 
 ✅ **v0.0.7.20** — bugfix patch closed.
-🟢 **v0.0.7.21** — sticky gun + terrain scanner mini-patch. First half of the courier-equipment-v2 arc. **Schema bump v5 → v6** required (scanner manual cooldown must persist). Spec: [courier equipment v2](#specs-courier-equipment-v2).
+🟢 **v0.0.7.21** — **multiplayer rate limiting + 429 UI**. Promoted to next slot because KV cap is easy to hit during testing of any new content (sticky gun pickup events, scanner pings, mobile carrier events all add to broadcast volume), and 429 hits would confuse playtesting. Worker side already shipped at v0.0.7.1 (returns 429 with Retry-After); this is the game-side complement. Spec details: [bug list item 1](#queued-bug-list-post-2b-not-yet-picked-up). **No schema bump.**
+
+Three pieces, all in `js/multiplayer.js`:
+- 5s minimum cooldown between any two `postActivity` calls; drop duplicate types within window.
+- Coalesce milestone broadcasts (5/10/15km in quick succession → one event).
+- 429 detection → dim network panel + "feed throttled — broadcasts paused" indicator (distinct from "no signal" empty-feed state).
 
 ### near-term arc: courier equipment v2
 
-Three items, sequential mini-patches under one thematic umbrella. Sticky gun + scanner ship together; mobile carrier follows when designed.
+Three items, sequential mini-patches under one thematic umbrella. Sticky gun + scanner ship together; mobile carrier follows when designed. **Slotted after v0.0.7.21** to avoid pushing new broadcast-heavy content onto an unprotected client.
 
 | Version | Scope | State | Schema | Notes |
 |---|---|---|---|---|
-| v0.0.7.21 | Sticky gun + scanner (T1) | 🟢 ready | v5 → v6 | Battery designed but not implemented (scanner uses local timer for now) |
-| v0.0.7.22 | Scanner T2 + T3 tuning, mobile carrier kickoff | 🟡 | v6 → v7 likely | Carrier needs design conversation first |
+| v0.0.7.22 | Sticky gun + scanner (T1) | 🟢 ready | v5 → v6 | Battery designed but not implemented (scanner uses local timer for now) |
+| v0.0.7.23 | Scanner T2 + T3 tuning, mobile carrier kickoff | 🟡 | v6 → v7 likely | Carrier needs design conversation first |
 | or fold into v0.0.8 | Mobile carrier full | 🔴 | v6 → v7 | If carrier slips long enough, fold into v0.0.8 prelude |
 
-**Battery shared spec**: when scanner ships first, battery is a stub (scanner-local timer). When carrier lands, battery promotes to a real subsystem and scanner re-wires. Tradeoff documented in [courier equipment v2 spec](#specs-courier-equipment-v2). Alternative: design battery for real on the v0.0.7.21 push so scanner is right from day one — costs ~30% more time on .21 but eliminates the rewire later.
+**Battery shared spec**: when scanner ships first, battery is a stub (scanner-local timer). When carrier lands, battery promotes to a real subsystem and scanner re-wires. Tradeoff documented in [courier equipment v2 spec](#specs-courier-equipment-v2). Alternative: design battery for real on the v0.0.7.22 push so scanner is right from day one — costs ~30% more time on .22 but eliminates the rewire later.
 
-**Open question for next session**: do you want minimal or full battery on v0.0.7.21? Default plan is minimal (faster ship), but I'd lean full if carrier is going to land within 1-2 sub-versions.
+**Open question for next session**: do you want minimal or full battery on v0.0.7.22? Default plan is minimal (faster ship), but I'd lean full if carrier is going to land within 1-2 sub-versions.
 
 ### cross-cutting infra (parallel, not sequential)
 
-These can land in any order between or alongside the courier-equipment arc. Each is independently shippable.
+These can land in any order between or alongside the courier-equipment arc. Each is independently shippable. **Multiplayer rate limiting was promoted out of this category to v0.0.7.21** because it's a prerequisite for stable testing of every downstream content piece.
 
 | Item | State | Schema | Trigger to ship |
 |---|---|---|---|
 | Save export/import | 🟢 ready | none | Pick when context allows; modal pattern unlocks future UI work |
-| Multiplayer rate limiting + 429 UI | 🟢 ready | none | Whenever testing exhausts KV quota again |
 | Minimal admin (give scrip, set trust) | 🟢 ready | none | **Recommend ASAP** — pays for itself instantly during v0.0.8+ testing |
 | Polish pass (pkg variety, delivery anim, canteen visual) | 🟡 | none | Bundle into a sub-version when 2-3 polish items align |
 
-**Suggestion**: ship minimal admin alongside v0.0.7.21 if context allows. The trust-set tool especially makes scanner testing faster (need to test high-trust NPC interactions with the gear).
+**Suggestion**: ship minimal admin alongside v0.0.7.22 if context allows. The trust-set tool especially makes scanner testing faster (need to test high-trust NPC interactions with the gear).
 
 ### v0.0.8: terrain expansion
 
@@ -673,13 +678,15 @@ Unordered. Pick when motivated; design conversations needed for most.
 ```
 v0.0.7.20 ✅ (live)
    │
-   ├── v0.0.7.21 🟢 sticky gun + scanner (schema v5→v6)
+   ├── v0.0.7.21 🟢 multiplayer rate limit + 429 UI (no schema bump)
+   │      └── prerequisite for stable testing of all new content
+   │
+   ├── v0.0.7.22 🟢 sticky gun + scanner (schema v5→v6)
    │      │
-   │      ├── v0.0.7.22 🟡 mobile carrier (schema v6→v7) ──┐
+   │      ├── v0.0.7.23 🟡 mobile carrier (schema v6→v7) ──┐
    │      │                                                 │
    │      └── (parallel: cross-cutting infra)               │
    │            • save export/import 🟢                     │
-   │            • multiplayer rate limit 🟢                 │
    │            • minimal admin 🟢 ← recommend ASAP         │
    │            • polish pass 🟡                            │
    │                                                        │
@@ -708,11 +715,11 @@ v0.0.7.20 ✅ (live)
 
 If you're picking up cold and want the fastest "what do I do next":
 
-1. **Default**: ship v0.0.7.21 (sticky gun + scanner). Spec is in [courier equipment v2](#specs-courier-equipment-v2). Schema bump v5→v6.
-2. **If feeling tactical**: ship minimal admin alongside or before .21 — it'll speed up your own testing of every subsequent feature.
-3. **If KV quota is hot**: ship multiplayer rate limiting + 429 UI first.
+1. **Default**: ship v0.0.7.21 (multiplayer rate limiting + 429 UI). Spec is in [bug list item 1](#queued-bug-list-post-2b-not-yet-picked-up). No schema bump. This unblocks safe testing of every subsequent content piece.
+2. **Then**: ship v0.0.7.22 (sticky gun + scanner). Spec in [courier equipment v2](#specs-courier-equipment-v2). Schema bump v5→v6.
+3. **If feeling tactical**: ship minimal admin alongside or before .22 — it'll speed up your own testing of every subsequent feature.
 4. **If user wants a feature win**: save export/import is design-complete and unlocks cross-browser saves.
-5. **If carrier design conversation just happened**: fold v0.0.7.22 plan or push it into v0.0.8 prelude.
+5. **If carrier design conversation just happened**: fold v0.0.7.23 plan or push it into v0.0.8 prelude.
 
 ---
 
@@ -736,7 +743,9 @@ Picked up from the v0.0.7.19 dropoff handoff. All four commit-2b items had settl
 
 **Roadmap added (later in session, doc-only push).** User asked for a consolidated roadmap to replace scattered "next-step ordering" + "future upgrades" + "TLH future game features" + "multiplayer plan" sequencing. Bundling discussion settled three things: (1) sticky gun + scanner + mobile carrier under one "courier equipment v2" arc as sequential mini-patches, not one big bundle — keeps small stuff unblocked; (2) v0.0.8 splits into terrain (v0.0.8) before structures (v0.0.9) — closes wetland debt and gives structures more interesting placement options; (3) admin tools split into minimal (ship anytime, recommend ASAP) and full (parking lot). Roadmap landed near the bottom of the doc before session log; old sections trimmed and renamed to "specs:" with sequencing cross-linked to roadmap.
 
-**Dropoff:** v0.0.7.20 live. Next likely picks per roadmap: v0.0.7.21 (sticky gun + scanner) + minimal admin alongside if context allows.
+**Roadmap follow-up (doc-only).** User pointed out that multiplayer rate limiting was sitting in cross-cutting infra as "ship whenever" — but the KV cap is easy to hit during active testing, so any new content (sticky gun events, scanner pings, future broadcast-heavy features) makes 429 hits more likely. Promoted multiplayer rate limiting to v0.0.7.21 as a prerequisite, bumped sticky gun + scanner to v0.0.7.22, mobile carrier to v0.0.7.23. Cross-cutting infra table now contains save export/import, minimal admin, polish — multiplayer is no longer parallel/optional. Cheatsheet and ASCII viz updated to match.
+
+**Dropoff:** v0.0.7.20 live. Next push per roadmap: v0.0.7.21 (multiplayer rate limiting + 429 UI). Then v0.0.7.22 (sticky gun + scanner) + minimal admin alongside if context allows.
 
 ---
 
