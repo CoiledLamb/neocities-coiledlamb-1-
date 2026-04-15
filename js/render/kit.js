@@ -25,30 +25,38 @@ import { manualPing } from './../scanner.js';
 
 const els = S._transient.els;
 
-// Cache key so we only re-render when visible state changes.
-// Keep it stringly-typed; allocation is cheap and the key is a
-// handful of chars.
-let lastKey = null;
+// Structure cache — rebuild innerHTML only when the capsule set or
+// scanner state class changes. Timers and ammo counts update in
+// place via textContent so the sonar CSS animation on .scan-btn.on
+// doesn't restart every tick of the countdown.
+let lastStructure = null;
 
-function scannerLabel() {
+function scannerState() {
+  const sc = S.scanner;
+  if (sc.buffActive) return 'on';
+  if (sc.manualCooldown > 0) return 'cd';
+  return 'ready';
+}
+
+function timerTxt() {
   const sc = S.scanner;
   if (sc.buffActive) {
     const secs = Math.ceil(sc.buffRemaining * (C.TICK_MS / 1000));
-    return `scan [\u25cf ${secs}s]`;
+    return `[${secs}s]`;
   }
   if (sc.manualCooldown > 0) {
     const secs = Math.ceil(sc.manualCooldown * (C.TICK_MS / 1000));
-    return `scan [${secs}s]`;
+    return `[${secs}s]`;
   }
-  return 'scan';
+  return '';
 }
 
 export function renderKit() {
-  const row     = els.kitRow;
-  const caps    = els.kitCaps;
-  const battFill= els.kitBatteryFill;
-  const battVal = els.kitBatteryVal;
-  const batt    = els.kitBattery;
+  const row      = els.kitRow;
+  const caps     = els.kitCaps;
+  const battFill = els.kitBatteryFill;
+  const battVal  = els.kitBatteryVal;
+  const batt     = els.kitBattery;
   if (!row || !caps) return;
 
   const hasScanner = !!S.scanner.unlocked;
@@ -57,7 +65,7 @@ export function renderKit() {
 
   if (!anyGadget) {
     if (row.style.display !== 'none') row.style.display = 'none';
-    lastKey = null;
+    lastStructure = null;
     return;
   }
   if (row.style.display === 'none') row.style.display = '';
@@ -74,33 +82,43 @@ export function renderKit() {
   if (battVal) battVal.textContent = charge + '%';
   if (batt) batt.setAttribute('aria-valuenow', String(charge));
 
-  // capsules — diff via a single key; rebuild innerHTML only on change.
-  const scanLabel = hasScanner ? scannerLabel() : '';
-  const scanReady = hasScanner && !S.scanner.manualCooldown && !S.scanner.buffActive;
-  const gunAmmo   = hasGun ? `${S.stickyGun.ammo}/${S.stickyGun.ammoMax}` : '';
-  const key = `${hasScanner ? `s|${scanLabel}|${scanReady?'r':'x'}` : ''}` +
-              `||${hasGun ? `g|${gunAmmo}` : ''}`;
-  if (key === lastKey) return;
-  lastKey = key;
+  // Structural diff — only the pieces that change DOM shape.
+  const sState = hasScanner ? scannerState() : '';
+  const structureKey = `${hasScanner?`s|${sState}`:''}||${hasGun?'g':''}`;
 
-  let html = '';
-  if (hasScanner) {
-    const stateCls = S.scanner.buffActive ? ' on'
-                   : S.scanner.manualCooldown > 0 ? ' cd'
-                   : '';
-    html += `<button class="drink-btn${stateCls}" id="scannerBtn">${scanLabel}</button>`;
-  }
-  if (hasGun) {
-    html += `<span class="kit-cap">` +
-              `<span class="kit-cap-lbl">gun:</span>` +
-              `<span class="kit-cap-val">${gunAmmo}</span>` +
-            `</span>`;
-  }
-  caps.innerHTML = html;
+  if (structureKey !== lastStructure) {
+    lastStructure = structureKey;
+    let html = '';
+    if (hasScanner) {
+      const stateCls = sState === 'ready' ? '' : ' ' + sState;
+      html += `<button class="drink-btn scan-btn${stateCls}" id="scannerBtn" aria-label="scan">` +
+                `<span class="scan-dot" aria-hidden="true"></span>` +
+                `<span class="scan-txt">scan</span>` +
+                `<span class="scan-timer" id="scanTimer"></span>` +
+              `</button>`;
+    }
+    if (hasGun) {
+      html += `<span class="kit-cap">` +
+                `<span class="kit-cap-lbl">gun:</span>` +
+                `<span class="kit-cap-val" id="gunAmmoVal"></span>` +
+              `</span>`;
+    }
+    caps.innerHTML = html;
 
-  // Rebind scan button — innerHTML replaces the node each time the
-  // capsule set or label changes.
-  const newScan = document.getElementById('scannerBtn');
-  if (newScan) newScan.addEventListener('click', manualPing);
-  els.scannerBtn = newScan;
+    const newScan = document.getElementById('scannerBtn');
+    if (newScan) newScan.addEventListener('click', manualPing);
+    els.scannerBtn = newScan;
+    els.scanTimer  = document.getElementById('scanTimer');
+    els.gunAmmoVal = document.getElementById('gunAmmoVal');
+  }
+
+  // In-place text updates — no DOM swap, no animation restart.
+  if (hasScanner && els.scanTimer) {
+    const txt = timerTxt();
+    if (els.scanTimer.textContent !== txt) els.scanTimer.textContent = txt;
+  }
+  if (hasGun && els.gunAmmoVal) {
+    const txt = `${S.stickyGun.ammo}/${S.stickyGun.ammoMax}`;
+    if (els.gunAmmoVal.textContent !== txt) els.gunAmmoVal.textContent = txt;
+  }
 }

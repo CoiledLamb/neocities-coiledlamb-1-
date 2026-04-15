@@ -567,6 +567,63 @@ html, body {
 }
 .kit-cap-lbl { color: #3a6a68; }
 .kit-cap-val { color: #b1c9c3; font-weight: 700; }
+
+/* scan button — thematic rework (v0.0.7.25):
+   dot is always visible beside the label; during a buff, two
+   cyan rings pulse outward from the dot in a sonar pattern.
+   During cooldown the dot dims. The ring animation is CSS-only
+   and honors prefers-reduced-motion. */
+.scan-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  overflow: visible;    /* rings can extend past the button edge */
+}
+.scan-dot {
+  position: relative;
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #7aa8a6;
+  flex-shrink: 0;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.scan-btn.cd .scan-dot { background: #2a5c5a; }
+.scan-btn.on .scan-dot {
+  background: #77bfcf;
+  box-shadow: 0 0 5px rgba(119, 191, 207, 0.75);
+}
+.scan-btn.on .scan-dot::before,
+.scan-btn.on .scan-dot::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 6px; height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  border: 1px solid #77bfcf;
+  animation: sonar-pulse 1.4s ease-out infinite;
+  pointer-events: none;
+  opacity: 0;
+}
+.scan-btn.on .scan-dot::after { animation-delay: 0.7s; }
+@keyframes sonar-pulse {
+  0%   { transform: scale(1); opacity: 0.9; }
+  80%  { opacity: 0.1; }
+  100% { transform: scale(5); opacity: 0; }
+}
+.scan-timer {
+  color: #3a6a68;
+  font-size: 8px;
+  font-weight: 600;
+  margin-left: 1px;
+}
+.scan-timer:empty { display: none; }
+.scan-btn.on .scan-timer { color: #40a4b9; }
+@media (prefers-reduced-motion: reduce) {
+  .scan-btn.on .scan-dot::before,
+  .scan-btn.on .scan-dot::after { animation: none; opacity: 0; }
+}
 .drink-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
 .tlh-panels {
