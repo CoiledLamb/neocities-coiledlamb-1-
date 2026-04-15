@@ -27,7 +27,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.7<span style="opacity:0.6">.30</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.7<span style="opacity:0.6">.31</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -128,7 +128,10 @@
               <svg id="routeSvg" width="100%" height="220" style="overflow:visible"></svg>
             </div>
             <div class="tlh-network-panel">
-              <div class="tlh-ptitle" style="color:#9d78d4">// network</div>
+              <div class="tlh-ptitle net-ptitle" style="color:#9d78d4">
+                <span>// network</span>
+                <button class="boots-auto net-silent-btn" id="silentBtn" aria-pressed="false">silent: off</button>
+              </div>
               <div id="networkEl"></div>
             </div>
             <div class="tlh-channels-panel">

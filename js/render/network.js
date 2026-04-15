@@ -19,7 +19,7 @@
 'use strict';
 
 import { S } from '../state.js';
-import { getCachedPorterId, shortPorterId } from '../multiplayer.js';
+import { getCachedPorterId, shortPorterId, isSilent } from '../multiplayer.js';
 
 const els = S._transient.els;
 
@@ -33,6 +33,14 @@ export function renderNetwork() {
   // feed "no signal" state.
   const throttled = !!S._transient.feedThrottled;
   els.networkEl.classList.toggle('throttled', throttled);
+
+  // v0.0.7.31 — silent / appear-offline. Reads still run, outbound is
+  // suppressed. Indicator lives at the top of the feed.
+  const silent = isSilent();
+  els.networkEl.classList.toggle('silent', silent);
+  if (silent) {
+    lines.push('<div class="net-item net-silent">silent mode \u2014 broadcasts off</div>');
+  }
 
   if (throttled) {
     const remain = Math.max(0, Math.ceil((S._transient.throttledUntil - Date.now()) / 1000));

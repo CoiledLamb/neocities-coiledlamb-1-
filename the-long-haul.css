@@ -970,6 +970,22 @@ html, body {
   font-style: italic;
 }
 
+/* v0.0.7.31 — silent / appear-offline toggle lives in the network ptitle */
+.net-ptitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.net-silent-btn { border-color: #2a1a3a; color: #5a4a78; }
+.net-silent-btn.on { color: #da8bda; border-color: #9d78d4; border-style: solid; }
+#networkEl.silent { opacity: 0.55; }
+.net-item.net-silent {
+  color: #9d78d4;
+  font-style: italic;
+  border-bottom: 1px solid #2a1a3a;
+}
+
 /* save i/o modal */
 .tlh-modal {
   position: fixed;

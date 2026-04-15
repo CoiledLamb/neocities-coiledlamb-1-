@@ -66,6 +66,33 @@ export function getCachedPorterId() {
 }
 
 // ============================================================
+// SILENT MODE (v0.0.7.31)
+// Appear-offline toggle. Reads/polls still run so the feed
+// stays visible; outbound /activity + /lost are suppressed.
+// Persisted in localStorage so testing sessions don't leak
+// dummy events after a reload.
+// ============================================================
+const SILENT_LS_KEY = 'tlh-silent-mode';
+
+export function isSilent() {
+  try { return localStorage.getItem(SILENT_LS_KEY) === '1'; }
+  catch (e) { return false; }
+}
+
+export function setSilent(on) {
+  try {
+    if (on) localStorage.setItem(SILENT_LS_KEY, '1');
+    else    localStorage.removeItem(SILENT_LS_KEY);
+  } catch (e) {}
+  if (on) {
+    // Drop anything queued so flipping silent on mid-session
+    // doesn't leave pending events that would fire on toggle-off.
+    S._transient.postQueue.length = 0;
+  }
+  renderNetwork();
+}
+
+// ============================================================
 // RATE LIMITING + SEND (v0.0.7.21)
 // ============================================================
 function doSend(evt) {
@@ -182,10 +209,12 @@ function flushOne() {
 }
 
 export function postActivity(type, data) {
+  if (isSilent()) return;
   queuePost(type, data);
 }
 
 export function postLostDrop(pkg) {
+  if (isSilent()) return;
   const porterId = getCachedPorterId();
   if (porterId === 'PTR-OFFLINE') return;
   // /lost goes direct (recovery flow depends on it) but still respects

@@ -87,7 +87,7 @@ import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js';
 import {
   getPorterId, getCachedPorterId, postActivity, postLostDrop,
   fetchLostFromPeer, startPolling, stopPolling,
-  shortPorterId, checkDistMilestones,
+  shortPorterId, checkDistMilestones, isSilent, setSilent,
 } from './multiplayer.js';
 import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js';
 import {
@@ -228,6 +228,7 @@ function resolveEls() {
     settlementsEl:$('settlementsEl'),
     routeSvg:     $('routeSvg'),
     networkEl:    $('networkEl'),
+    silentBtn:    $('silentBtn'),
     channelsEl:   $('channelsEl'),
     saveBtn:      $('saveBtn'),
     wipeBtn:      $('wipeBtn'),
@@ -425,6 +426,23 @@ function init() {
     els.autodrinkBtn.classList.toggle('on',S.autodrink);
   });
   if (els.tieDownBtn) els.tieDownBtn.addEventListener('click', Boots.toggleTieDown);
+
+  // v0.0.7.31 — silent / appear-offline toggle. localStorage-backed so it
+  // survives reloads (critical: the whole point is to avoid dummy events
+  // while testing, and testing usually involves refreshes).
+  if (els.silentBtn) {
+    const paintSilent = () => {
+      const on = isSilent();
+      els.silentBtn.textContent = 'silent: ' + (on ? 'on' : 'off');
+      els.silentBtn.classList.toggle('on', on);
+      els.silentBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    };
+    paintSilent();
+    els.silentBtn.addEventListener('click', () => {
+      setSilent(!isSilent());
+      paintSilent();
+    });
+  }
 
   if (S.autodrink && els.autodrinkBtn) {
     els.autodrinkBtn.textContent = 'auto: on';
