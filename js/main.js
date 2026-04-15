@@ -106,7 +106,7 @@ import * as Boots from './boots.js';
 import * as Stamina from './stamina.js';
 import * as Upg from './upgrades.js';
 import { tickScanner, manualPing } from './scanner.js';
-import { initAdmin } from './admin.js';
+import { initAdminChannel } from './admin-channel.js';
 import { initSaveIo } from './save-io.js';
 import { addLog } from './render/log.js';
 import {
@@ -232,7 +232,6 @@ function resolveEls() {
     // v0.0.7.21
     scannerBtn:   $('scannerBtn'),
     saveIoBtn:    $('saveIoBtn'),
-    adminBar:     $('adminBar'),
   });
 }
 
@@ -445,10 +444,12 @@ function init() {
   if (els.saveBtn) els.saveBtn.addEventListener('click', () => saveGame(false));
   if (els.wipeBtn) els.wipeBtn.addEventListener('click', armWipe);
 
-  // v0.0.7.21 — scanner, save i/o, admin.
+  // v0.0.7.21 — scanner, save i/o. v0.0.7.22 — admin channel (replaces
+  // the in-game admin bar; commands arrive via BroadcastChannel from
+  // admin/blog-admin.html's TLH tab).
   if (els.scannerBtn) els.scannerBtn.addEventListener('click', manualPing);
   initSaveIo();
-  initAdmin();
+  initAdminChannel();
   updateScannerBtn();
 
   setInterval(() => saveGame(true), C.AUTOSAVE_MS);

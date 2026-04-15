@@ -727,57 +727,6 @@ html, body {
   font-style: italic;
 }
 
-/* admin bar */
-.tlh-admin-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  padding: 5px 8px;
-  margin-top: 4px;
-  background: #1a1528;
-  border: 1px dashed #9d78d4;
-  border-radius: 2px;
-  font-family: 'Source Code Pro', monospace;
-  font-size: 9px;
-  color: #b58df5;
-}
-.tlh-admin-bar .admin-label {
-  color: #9d78d4;
-  text-transform: lowercase;
-}
-.tlh-admin-bar .admin-btn {
-  background: transparent;
-  border: 1px solid #9d78d4;
-  border-radius: 1px;
-  color: #b58df5;
-  font-family: 'Source Code Pro', monospace;
-  font-size: 9px;
-  font-weight: 600;
-  padding: 2px 6px;
-  cursor: pointer;
-  text-transform: lowercase;
-}
-.tlh-admin-bar .admin-btn:hover {
-  color: #e0c0ff;
-  border-color: #c0a0ff;
-}
-.tlh-admin-bar .admin-trust-wrap {
-  display: inline-flex;
-  gap: 3px;
-  align-items: center;
-}
-.tlh-admin-bar .admin-num {
-  width: 44px;
-  background: #0b0a18;
-  border: 1px solid #4a3a7a;
-  border-radius: 1px;
-  color: #b58df5;
-  font-family: 'Source Code Pro', monospace;
-  font-size: 9px;
-  padding: 1px 3px;
-}
-
 /* save i/o modal */
 .tlh-modal {
   position: fixed;
