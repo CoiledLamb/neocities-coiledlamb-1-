@@ -359,6 +359,14 @@ function tick() {
   if (S.ticks % 9 === 0) updateSaveStrip();
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
 
+  // v0.0.7.28 — battery prototype drain (time-only, no gating). Only
+  // drains when at least one gadget is owned; otherwise the row is
+  // hidden and the charge value is inert. Full mechanic (per-device
+  // use + regen + upgrade) lands with schema v6→v7 in a later patch.
+  if ((S.scanner.unlocked || S.stickyGun) && S.battery.charge > 0) {
+    S.battery.charge = Math.max(0, S.battery.charge - C.BATTERY_DRAIN_PER_TICK);
+  }
+
   Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
   renderKit();
 }

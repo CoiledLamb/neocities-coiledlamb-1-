@@ -1,25 +1,42 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-15 (v0.0.7.20 shipped: bugfix patch complete. Multiplayer rate limiting promoted to next push (v0.0.7.21). Roadmap section added.)_
+_last updated: 2026-04-15 (v0.0.7.27 shipped; kit row + scan sonar + canteen rework + inline-gear pattern + preview server all live. Battery prototype drain in flight as v0.0.7.28.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.7.20 live on main — bugfix patch complete
+## ✅ CURRENT STATE: v0.0.7.27 live — kit row + scan sonar shipped; battery drain in flight
 
-Game is at `v0.0.7.20`. All four bugfix-patch commits shipped and verified green.
+Game is at `v0.0.7.27`. v0.0.7.28 is the battery prototype drain (time-only, no regen).
 
 **Where we are in the patch arc:**
 1. ✅ v0.0.7 multi-system bundle (multiplayer, identification, trust, settlements polish) — done
 2. ✅ Module refactor (monolith → 16 ES modules) — done, merged to main
-3. ✅ **Bugfix patch commit 1** (v0.0.7.18) — refactor housekeeping + low-risk gameplay bugs
-4. ✅ **Bugfix patch commit 2a** (v0.0.7.19) — distKm edge-math, trust unlock canonicalization, tooltip dedup, damage log clarity
-5. ✅ **Bugfix patch commit 2b** (v0.0.7.20) — distKm rounding-stomp, tie-down option B, rain restructure, wetland refill, pickup-fail logs, depotRestPending rename. See "commit 2b" section below.
-6. ⏳ **Multiplayer rate limiting + 429 UI** (v0.0.7.21) — promoted to next push. KV cap is easy to hit during testing and blocks downstream work. See [roadmap](#roadmap).
-7. ⏳ Sticky gun + terrain scanner mini-patch (v0.0.7.22) — designed, ready after rate limiting lands.
-8. ⏳ v0.0.8 work — terrain expansion (deserts, rivers, slopes). See [roadmap](#roadmap).
+3. ✅ **Bugfix patch** (v0.0.7.18 / .19 / .20) — done. See "commit 2b" section below.
+4. ✅ **v0.0.7.21 — 6-piece bundle**: multiplayer rate limit + 429 UI, sticky gun, scanner T1 (local autoTimer), minimal admin, save export/import, schema v5→v6.
+5. ✅ **v0.0.7.22 — admin channel**: ripped the in-game admin bar, moved commands to a BroadcastChannel from `admin/blog-admin.html`'s TLH tab.
+6. ✅ **v0.0.7.23 / .23b — inline gear pattern**: boots gear popover + save strip both converted to inline-reveal with a 180ms fade-slide animation. Save gear stays fixed; options expand rightward.
+7. ✅ **v0.0.7.23 — canteen rework**: `[ ]` bracket frame, top-anchored fill (water drains downward), warn/crit ramp at ≤50/≤25%.
+8. ✅ **v0.0.7.24 — kit row prototype**: new `<div class="tlh-row kit-row">` between stamina + panels. Stylized battery (10-tick gradient + terminal nub) + gadget capsules with hairline dividers. Scanner button moved from stamina row into the kit capsule container. Row is hidden until the courier owns ≥1 gadget.
+9. ✅ **v0.0.7.25 / .26 / .27 — scan visual thematic rework**: always-visible 6px dot beside "scan", two concentric halos (10px + 14px, fixed size, `border-box`) that fade in place during buff, dot "breathes" via background + box-shadow animation. Glow dialed to subtle; everything stays inside the button's vertical footprint.
+10. ⏳ **v0.0.7.28 — battery prototype drain** (IN PROGRESS): `S.battery.charge` decrements `BATTERY_DRAIN_PER_TICK = 0.03` per tick while any gadget is owned. ≈19.4 min to full drain. No regen, no per-device cost, not persisted. Just enough to see the fill animate through warn (35%) and crit (15%) thresholds during a session. Full mechanic queued — see "planned but not built" below.
+11. ⏳ v0.0.8 work — terrain expansion (deserts, rivers, slopes). See [roadmap](#roadmap).
 
-**Resume next session**: see [roadmap](#roadmap) for full sequencing. Top of queue is multiplayer rate limiting + 429 UI (v0.0.7.21).
+**Resume next session**: scan the "planned but not built" list immediately below. Top of queue candidates: full battery mechanic (regen + per-device drain + upgrade + schema v6→v7), sticky-gun capsule visual rework, stamina segment readability retrofit.
+
+## planned but not built (as of v0.0.7.28)
+
+Captured from this session's design conversation and UX feedback. Not yet spec-locked — revisit each before building.
+
+| Item | State | Schema | Notes |
+|---|---|---|---|
+| Battery full mechanic | 🟡 designed | v6 → v7 | Drain when scanner pings (and future electronic gadgets — exo). Regen when near a trust-40+ depot (+solar trickle when not raining). Upgrade to boost solar trickle. When it lands, also fold `BATTERY_DRAIN_PER_TICK` into per-device costs + remove the prototype blanket drain. |
+| Sticky-gun capsule rework | 🔴 design needed | none | Current `gun: 4/6` readout is bland. User has vision brewing but hasn't locked it. Keep read-only (gun fires automatically in-range; not a manual action). |
+| Stamina seg readability | 🟡 designed | none | Current discrete `.sseg` elements read as "dots" not "level." Retrofit the `.kit-battery` pattern (contiguous fill + `repeating-linear-gradient` tick lines). Non-breaking; same segCount, same thresholds. Iterate stamina visual in one pass. |
+| Scanner T2 / T3 tuning | 🟡 designed | none | Handoff sections for v2 spec still accurate. T2 adds auto-ping cadence upgrade; T3 adds edge-preview on pings. Folded into kit-row render already — only needs mechanic wiring + upgrade defs. |
+| Mobile carrier (exoskeleton) | 🔴 design conv | v6 → v7 | Needed design conversation. Will use battery — aligns with reason battery gets promoted. Shared battery pool concept already laid out in kit row. Original v0.0.7.23 target; reasonable to push into v0.0.8 prelude. |
+| Stray `v0.0.7.N` subtitle drift | ✅ closed | — | Feedback memory saved; subtitle now bumps alongside commit. |
+| Local preview over `file://` doesn't work | ✅ closed | — | `.claude/launch.json` + python http.server on :8744 in the worktree. Reference memory updated. |
 
 ---
 
@@ -600,13 +617,15 @@ Three items, sequential mini-patches under one thematic umbrella. Sticky gun + s
 
 | Version | Scope | State | Schema | Notes |
 |---|---|---|---|---|
-| v0.0.7.22 | Sticky gun + scanner (T1) | 🟢 ready | v5 → v6 | Battery designed but not implemented (scanner uses local timer for now) |
-| v0.0.7.23 | Scanner T2 + T3 tuning, mobile carrier kickoff | 🟡 | v6 → v7 likely | Carrier needs design conversation first |
-| or fold into v0.0.8 | Mobile carrier full | 🔴 | v6 → v7 | If carrier slips long enough, fold into v0.0.8 prelude |
+| v0.0.7.21 | Multiplayer rate limit, sticky gun, scanner T1, admin, save i/o | ✅ shipped | v5 → v6 | 6-piece bundle. Scanner uses local autoTimer (no battery). |
+| v0.0.7.22 | Admin channel (BroadcastChannel from blog-admin tab) | ✅ shipped | none | Replaced in-game admin bar. |
+| v0.0.7.23–.27 | UI/UX pass: inline gear, canteen rework, kit row, scan sonar | ✅ shipped | none | See top-of-doc for per-patch breakdown. |
+| v0.0.7.28 | Battery prototype drain (time-only, not persisted) | ⏳ in flight | none | Sets up the animation; full mechanic follows with v6→v7 bump. |
+| v0.0.7.29+ | Battery full mechanic + scanner rewire | 🟡 designed | v6 → v7 | Drain per-device, regen at depot/solar, upgrade trickle. Fold prototype blanket drain into per-device cost. |
+| v0.0.7.30+ (parallel) | Sticky gun visual rework + stamina seg retrofit | 🔴 design | none | See "planned but not built" table. |
+| or fold into v0.0.8 | Mobile carrier (exoskeleton) | 🔴 design conv | v6 → v7 | Uses shared battery. |
 
-**Battery shared spec**: when scanner ships first, battery is a stub (scanner-local timer). When carrier lands, battery promotes to a real subsystem and scanner re-wires. Tradeoff documented in [courier equipment v2 spec](#specs-courier-equipment-v2). Alternative: design battery for real on the v0.0.7.22 push so scanner is right from day one — costs ~30% more time on .22 but eliminates the rewire later.
-
-**Open question for next session**: do you want minimal or full battery on v0.0.7.22? Default plan is minimal (faster ship), but I'd lean full if carrier is going to land within 1-2 sub-versions.
+**Battery shared spec**: scanner shipped first with a local autoTimer (no battery gating). Kit row + prototype drain are in — full mechanic promotes `S.battery.charge` to a real persisted resource with per-device drain + depot-near/solar regen + upgrade. Scanner's autoTimer is expected to stay; manual ping would be what costs battery.
 
 ### cross-cutting infra (parallel, not sequential)
 
@@ -614,11 +633,10 @@ These can land in any order between or alongside the courier-equipment arc. Each
 
 | Item | State | Schema | Trigger to ship |
 |---|---|---|---|
-| Save export/import | 🟢 ready | none | Pick when context allows; modal pattern unlocks future UI work |
-| Minimal admin (give scrip, set trust) | 🟢 ready | none | **Recommend ASAP** — pays for itself instantly during v0.0.8+ testing |
-| Polish pass (pkg variety, delivery anim, canteen visual) | 🟡 | none | Bundle into a sub-version when 2-3 polish items align |
-
-**Suggestion**: ship minimal admin alongside v0.0.7.22 if context allows. The trust-set tool especially makes scanner testing faster (need to test high-trust NPC interactions with the gear).
+| Save export/import | ✅ shipped | v6 | Landed in v0.0.7.21. Modal with `TLH-SAVE:<base64>` envelope, optional porter-id opt-in. |
+| Minimal admin (give scrip, set trust) | ✅ shipped | none | Landed in v0.0.7.21; relocated to admin tab in .22. |
+| Canteen visual | ✅ shipped | none | Bracket frame + top-anchored drain in v0.0.7.23b. |
+| Package variety / delivery anim | 🟡 | none | Still parked; no design conversation yet. |
 
 ### v0.0.8: terrain expansion
 
@@ -676,22 +694,23 @@ Unordered. Pick when motivated; design conversations needed for most.
 ### roadmap visualization
 
 ```
-v0.0.7.20 ✅ (live)
+v0.0.7.20 ✅ (bugfix patch complete)
    │
-   ├── v0.0.7.21 🟢 multiplayer rate limit + 429 UI (no schema bump)
-   │      └── prerequisite for stable testing of all new content
+   ├── v0.0.7.21 ✅ 6-piece bundle: rate limit, gun, scanner T1, admin, save i/o (v5→v6)
+   ├── v0.0.7.22 ✅ admin channel (BroadcastChannel from blog-admin tab)
+   ├── v0.0.7.23–.23b ✅ inline gear pattern + canteen bracket-frame rework
+   ├── v0.0.7.24 ✅ kit row prototype (battery stub + scanner/gun capsules)
+   ├── v0.0.7.25–.27 ✅ scan sonar visual rework (dot + halos, gentler glow)
    │
-   ├── v0.0.7.22 🟢 sticky gun + scanner (schema v5→v6)
-   │      │
-   │      ├── v0.0.7.23 🟡 mobile carrier (schema v6→v7) ──┐
-   │      │                                                 │
-   │      └── (parallel: cross-cutting infra)               │
-   │            • save export/import 🟢                     │
-   │            • minimal admin 🟢 ← recommend ASAP         │
-   │            • polish pass 🟡                            │
-   │                                                        │
-   ├── v0.0.8 🟡 terrain (deserts, rivers, slopes, wetland slowdown) ──┘
-   │      └── closes wetland debt + S.inRiver stub
+   ├── v0.0.7.28 ⏳ battery prototype drain (time-only, not persisted)
+   │
+   ├── v0.0.7.29+ 🟡 battery full mechanic (v6→v7): per-device drain,
+   │      depot/solar regen, upgradeable trickle, scanner rewire
+   │      └── (parallel: gun capsule rework 🔴, stamina seg retrofit 🟡)
+   │
+   ├── v0.0.8 🟡 terrain (deserts, rivers, slopes, wetland slowdown)
+   │      ├── closes wetland debt + S.inRiver stub
+   │      └── prelude slot available for mobile carrier if design settles
    │
    ├── v0.0.9 🔴 structures + bigger map
    │      ├── multiplayer Tier 2
@@ -715,15 +734,38 @@ v0.0.7.20 ✅ (live)
 
 If you're picking up cold and want the fastest "what do I do next":
 
-1. **Default**: ship v0.0.7.21 (multiplayer rate limiting + 429 UI). Spec is in [bug list item 1](#queued-bug-list-post-2b-not-yet-picked-up). No schema bump. This unblocks safe testing of every subsequent content piece.
-2. **Then**: ship v0.0.7.22 (sticky gun + scanner). Spec in [courier equipment v2](#specs-courier-equipment-v2). Schema bump v5→v6.
-3. **If feeling tactical**: ship minimal admin alongside or before .22 — it'll speed up your own testing of every subsequent feature.
-4. **If user wants a feature win**: save export/import is design-complete and unlocks cross-browser saves.
-5. **If carrier design conversation just happened**: fold v0.0.7.23 plan or push it into v0.0.8 prelude.
+1. **Default**: ship full battery mechanic (v0.0.7.29). Drain per-device, depot/solar regen, upgrade. Schema v6→v7 bump. Adds `battery` to `buildSavePayload` + ratchet. Removes prototype blanket drain from `main.js` tick. Scanner rewires (manual ping pays battery; local autoTimer unchanged).
+2. **If UI-tuning mood**: retrofit stamina segs with the contiguous-fill + tick-line pattern from `.kit-battery`. Non-breaking, low-risk, improves readability. Good 1-commit sub-version.
+3. **If user brings gun-visual vision**: rework the `gun: X/Y` capsule per whatever they describe. Capsule shape is already wired in `js/render/kit.js`.
+4. **If carrier design conversation just happened**: spec mobile carrier (exoskeleton). Uses shared battery — aligns with why battery gets promoted in step 1. Can land as its own sub-version or fold into v0.0.8 prelude.
+5. **If larger arc**: v0.0.8 terrain (deserts, rivers, slopes, wetland slowdown) closes wetland debt + `S.inRiver` stub. Substantial.
+
+**Preview:** `.claude/launch.json` runs `python -m http.server 8744` — use `preview_start tlh-static` before verifying any UI change.
 
 ---
 
 ## TLH session log
+
+### 2026-04-15 (v0.0.7.23–.28 — UI pass + kit row + preview server)
+
+Back-to-back sub-versions in one session. Started at v0.0.7.22 (admin channel), shipped six more sub-versions, set up the local preview workflow, bumped the handoff.
+
+**What shipped:**
+- `.23 / .23b` — inline gear reveal pattern for boots row + save strip (fade-slide 180ms animation; save gear position-fixed with options expanding rightward). Canteen bracket-frame rework + top-anchored fill, warn/crit ramp.
+- `.24` — kit row prototype (new `<div class="tlh-row kit-row">`). Stylized battery (10px ticks via `repeating-linear-gradient`, terminal nub via `::after`), hairline-divided gadget capsules. Scanner button moved out of stamina row. New `js/render/kit.js`.
+- `.25 / .26 / .27` — scan visual thematic rework. Always-visible 6px dot beside label; during buff, dot breathes (color + box-shadow on 1.8s loop) and two fixed-size concentric halos materialize in place. Caught a `content-box` + `border:1px` centering bug via `preview_inspect` — fixed with `box-sizing: border-box`.
+- `.28` (this commit) — battery prototype drain, time-only, `0.03 per tick` (~19.4 min full drain). Not persisted. Just enough to animate through warn/crit thresholds.
+
+**Process wins:**
+- Set up `.claude/launch.json` running `python -m http.server 8744`. ES modules now work locally. `preview_eval` + `preview_inspect` caught the 1px halo bug that would have needed another user-flag round-trip otherwise. Memory updated; "preview doesn't work" feedback entry retired.
+- User caught that I'd shipped .22–.24 without bumping the HTML subtitle. Saved a feedback memory so subtitle bump now rides with its sub-version commit, not as a trailer.
+
+**What didn't ship:**
+- Full battery mechanic (drain per-device + regen + upgrade + schema v6→v7).
+- Sticky-gun capsule visual rework (user has vision brewing but hasn't locked).
+- Stamina seg readability retrofit (design settled, not built).
+
+All three queued in "planned but not built" table at top of doc.
 
 ### 2026-04-15 (v0.0.7.20 — commit 2b ships, bugfix patch complete)
 

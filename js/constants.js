@@ -151,6 +151,14 @@ export const SCANNER_MANUAL_BUFF_TICKS    = 34;   // ~12s
 export const SCANNER_MANUAL_COOLDOWN_TICKS = 86;  // ~30s
 export const SCANNER_BUFF_MAGNITUDE       = 0.5;  // trip chance ×0.5 while buffed
 
+// ----- battery (v0.0.7.28 prototype drain) -----
+// Time-only drain for now — no gadget-use cost, no regen. Just enough
+// for the kit-row battery animation to move through thresholds during
+// a session. At 0.03/tick on a 350ms tick, full drain ≈ 19.4 min.
+// Full mechanic (per-device drain + regen + upgrade) lands with a
+// schema v6→v7 bump in a later patch.
+export const BATTERY_DRAIN_PER_TICK = 0.03;
+
 // ----- admin (v0.0.7.21) -----
 // SHA-256 (hex) of the admin token. Admin is OFF when null. To enable:
 //   1. Open devtools console on the live site.
