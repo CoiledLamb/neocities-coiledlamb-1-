@@ -16,6 +16,12 @@
      resets it). saveGame() bails immediately if the flag is set,
      preventing beforeunload/visibilitychange/autosave from
      re-saving in-memory state over the freshly-cleared store.
+
+   v0.0.7.18: silent saves now surface a one-time warning when
+   they fail (handoff bug list item 3 — quota exhaustion / Safari
+   private mode were silently losing progress). Flag lives on
+   _transient.silentSaveErrorShown so the warning fires once,
+   not every 30 seconds for the rest of the session.
    ============================================== */
 'use strict';
 
@@ -81,7 +87,15 @@ export function saveGame(silent) {
     if (!silent) addLog('<span class="log-ok">progress saved</span>');
     return true;
   } catch (e) {
-    if (!silent) addLog('<span class="log-wn">save failed: ' + (e && e.message ? e.message : 'storage error') + '</span>');
+    const msg = e && e.message ? e.message : 'storage error';
+    if (!silent) {
+      addLog('<span class="log-wn">save failed: ' + msg + '</span>');
+    } else if (!S._transient.silentSaveErrorShown) {
+      // Surface silent-save failures ONCE per session so quota exhaustion /
+      // Safari private mode can't quietly burn progress for hours.
+      S._transient.silentSaveErrorShown = true;
+      addLog('<span class="log-wn">autosave failed (' + msg + ') \u2014 progress not being saved. try the [save] button to retry.</span>');
+    }
     return false;
   }
 }

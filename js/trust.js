@@ -5,14 +5,16 @@
    TRUST_THRESHOLDS [20, 40, 60, 80] (realigned in
    pre-refactor commit A from 25/50/75/100).
 
-   Tier behaviors (function names still reflect old
-   thresholds — rename to tryWarning/tryPreview/
-   tryRestPrompt deferred to a follow-up commit, see
-   bug list item 1):
+   Tier behaviors:
      t20: stage-1 reveal of NPC_ADJACENT nodes
-     t40: tryT50Warning — trip-risk > rain > stamina
-     t60: tryT75Preview — outbound edge package preview
-     t80: tryT100RestPrompt — [rest] log button
+     t40: tryWarning — trip-risk > rain > stamina
+     t60: tryPreview — outbound edge package preview
+     t80: tryRestPrompt — [rest] log button
+
+   v0.0.7.18: function renames (tryT50Warning → tryWarning
+   etc) — function names no longer lie about the threshold.
+   pickRandom now imported from util.js (was duplicated
+   between channels.js and recovery.js).
    ============================================== */
 'use strict';
 
@@ -22,7 +24,8 @@ import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js';
 import { NPC_LINES } from './data/npc-lines.js';
 import { postActivity } from './multiplayer.js';
 import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js';
-import { speak, pickRandom } from './channels.js';
+import { speak } from './channels.js';
+import { pickRandom } from './util.js';
 import { staminaSegCount, renderStamina } from './stamina.js';
 import { addLog } from './render/log.js';
 import { updateHUD } from './render/hud.js';
@@ -39,7 +42,13 @@ export function getNpc(depotId) {
 
 export function addTrust(depotId, amount, reason) {
   if (!NPC_DEFS[depotId]) return;
-  if (!S.npcs[depotId]) S.npcs[depotId] = { trust: 0, lastSpokeTick: 0 };
+  if (!S.npcs[depotId]) {
+    S.npcs[depotId] = {
+      trust: 0,
+      unlocks: { t20:false, t40:false, t60:false, t80:false },
+      nextChatterTick: 0,
+    };
+  }
   const npc = S.npcs[depotId];
   const before = npc.trust;
   npc.trust = Math.max(0, Math.min(100, npc.trust + amount));
@@ -79,7 +88,7 @@ function onTrustUnlock(depotId, threshold, tierIndex) {
   }
 }
 
-export function tryT50Warning(arrivedNodeId) {
+export function tryWarning(arrivedNodeId) {
   if (!NPC_DEFS[arrivedNodeId]) return;
   const npc = S.npcs[arrivedNodeId];
   if (!npc || !npc.t40) return;
@@ -107,7 +116,7 @@ export function tryT50Warning(arrivedNodeId) {
   }
 }
 
-export function tryT75Preview(arrivedNodeId) {
+export function tryPreview(arrivedNodeId) {
   if (!NPC_DEFS[arrivedNodeId]) return;
   const npc = S.npcs[arrivedNodeId];
   if (!npc || !npc.t60) return;
@@ -129,7 +138,7 @@ export function tryT75Preview(arrivedNodeId) {
   speak(arrivedNodeId, msg, 'preview');
 }
 
-export function tryT100RestPrompt(arrivedNodeId) {
+export function tryRestPrompt(arrivedNodeId) {
   if (!NPC_DEFS[arrivedNodeId]) return;
   const npc = S.npcs[arrivedNodeId];
   if (!npc || !npc.t80) return;

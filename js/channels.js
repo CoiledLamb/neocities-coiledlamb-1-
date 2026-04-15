@@ -10,9 +10,9 @@
    Per-NPC color via the [data-depot] CSS selector:
      A teal, B pink, H purple.
 
-   Imports note (commit 9 / v0.0.7.9):
-     Imports addLog... actually no, channels doesn't log.
-     Just NPC_DEFS + NPC_LINES + state + constants. Clean.
+   v0.0.7.18: pickRandom moved to util.js (was duplicated
+   here and in recovery.js). getNpc imported from trust.js
+   (was duplicated here too).
    ============================================== */
 'use strict';
 
@@ -20,18 +20,10 @@ import { S } from './state.js';
 import * as C from './constants.js';
 import { NPC_DEFS } from './data/npc-defs.js';
 import { NPC_LINES } from './data/npc-lines.js';
+import { pickRandom } from './util.js';
+import { getNpc } from './trust.js';
 
 const els = S._transient.els;
-
-function getNpc(depotId) {
-  if (!NPC_DEFS[depotId] || !S.npcs || !S.npcs[depotId]) return null;
-  return S.npcs[depotId];
-}
-
-export function pickRandom(arr) {
-  if (!arr || arr.length === 0) return null;
-  return arr[Math.floor(Math.random() * arr.length)];
-}
 
 export function speak(depotId, text) {
   const def = NPC_DEFS[depotId];

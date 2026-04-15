@@ -1,15 +1,16 @@
-/* render/settlements.js — extracted commit 16 (v0.0.7.16)
+/* render/settlements.js
 
-   renderSettlements paints the settlements panel. Currently
-   reaches into S.npcs[s.id] directly — encapsulation leak
-   noted in bug list item 5 (use getNpc once that's properly
-   shared). Leaving the leak for now since this commit is
-   pure mechanical move, no behavior change.
+   renderSettlements paints the settlements panel.
+
+   v0.0.7.18: now uses getNpc() instead of reaching into
+   S.npcs[s.id] directly (handoff bug list item 5 — the
+   encapsulation leak introduced commit 9 is closed).
 
    Imports:
      S — game state (state.js)
      NPC_DEFS — NPC metadata (data/npc-defs.js)
      getNodeStage — identification.js
+     getNpc — trust.js (canonical npc accessor)
 
    Local aliases:
      els — live ref into S._transient.els (never reassign).
@@ -19,6 +20,7 @@
 import { S } from '../state.js';
 import { NPC_DEFS } from '../data/npc-defs.js';
 import { getNodeStage } from '../identification.js';
+import { getNpc } from '../trust.js';
 
 const els = S._transient.els;
 
@@ -35,7 +37,7 @@ export function renderSettlements() {
       const quote = s.stage >= 3 ? s.quote : `"reports of a ${s.tier} along this route"`;
       let trustBlock = '';
       const npcDef = NPC_DEFS[s.id];
-      const npc    = (S.npcs && S.npcs[s.id]) || null;
+      const npc    = getNpc(s.id);
       if (npcDef && npc && s.stage >= 3) {
         const tPct = Math.max(0, Math.min(100, npc.trust));
         trustBlock = `

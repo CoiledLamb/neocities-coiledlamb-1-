@@ -10,21 +10,19 @@
    lost cargo (pink), but pays 1.5× scrip and is one-shot —
    no respawn after delivery. The carrier badge in the
    porter strip (#recoveryBadge) shows the active count.
+
+   v0.0.7.18: pickRandom now imported from util.js.
    ============================================== */
 'use strict';
 
 import { S } from './state.js';
 import * as C from './constants.js';
 import { fetchLostFromPeer } from './multiplayer.js';
+import { pickRandom } from './util.js';
 import { addLog } from './render/log.js';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
-
-function pickRandom(arr) {
-  if (!arr || arr.length === 0) return null;
-  return arr[Math.floor(Math.random() * arr.length)];
-}
 
 export async function tickRecoveryAttempt() {
   if (S.ticks < S.nextRecoveryAttemptTick) return;
