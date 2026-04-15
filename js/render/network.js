@@ -28,6 +28,17 @@ export function renderNetwork() {
   const myId = getCachedPorterId();
   const lines = [];
 
+  // v0.0.7.21 — feed-throttled state. Dim the panel + show a distinct
+  // indicator so the player doesn't misread a 429 cooldown as the empty-
+  // feed "no signal" state.
+  const throttled = !!S._transient.feedThrottled;
+  els.networkEl.classList.toggle('throttled', throttled);
+
+  if (throttled) {
+    const remain = Math.max(0, Math.ceil((S._transient.throttledUntil - Date.now()) / 1000));
+    lines.push(`<div class="net-item net-throttled">feed throttled \u2014 broadcasts paused${remain > 0 ? ` (${remain}s)` : ''}</div>`);
+  }
+
   if (S.networkConnected) {
     const others = Math.max(0, S.networkCensus - 1);
     if (others === 0) {
@@ -43,7 +54,7 @@ export function renderNetwork() {
 
   if (!S.networkConnected) {
     lines.push('<div class="net-item net-quiet">connecting to feed...</div>');
-  } else if (visible.length === 0) {
+  } else if (visible.length === 0 && !throttled) {
     lines.push('<div class="net-item net-quiet">no signal</div>');
   } else {
     visible.slice().reverse().forEach(e => {
@@ -62,6 +73,10 @@ function formatEvent(e) {
       return `${who} delivered to <span class="net-ac">${data.destLabel || '?'}</span>`;
     case 'milestone':
       if (data.kind === 'distance') {
+        // v0.0.7.21 — coalesced milestones carry values[]; render as a list.
+        if (Array.isArray(data.values) && data.values.length > 1) {
+          return `${who} hit <span class="net-ac">${data.values.join('km, ')}km</span>`;
+        }
         return `${who} hit <span class="net-ac">${data.value}km</span>`;
       }
       return `${who} reached a milestone`;

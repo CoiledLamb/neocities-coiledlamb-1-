@@ -33,6 +33,29 @@ export const S = {
     cargoSling: false, cargoPack: false, cargoWeight: false,
     efficientConsumption: false, steadyFeet: false,
     sandalSatchel: false,
+    // v0.0.7.21 — courier equipment v2
+    stickyGun: false, stickyHolster: false,
+    scannerT1: false,
+  },
+
+  // v0.0.7.21 — sticky gun state. null when not owned; object when owned.
+  // ammo refills on H arrival. holstered frees the cargo slot.
+  // Schema v6.
+  stickyGun: null,  // { ammo, ammoMax, holstered } | null
+
+  // v0.0.7.21 — terrain scanner state. unlocked flips when the upgrade is
+  // purchased. level is forward-compat for T2/T3 in v0.0.7.23.
+  // manualCooldown persists (no save-scum). buff fields are transient-ish
+  // but persisted so the buff survives a page reload mid-effect.
+  // Schema v6.
+  scanner: {
+    unlocked: false,
+    level: 0,
+    manualCooldown: 0,      // ticks remaining on manual ping cooldown
+    autoTimer: 0,           // ticks until next auto ping
+    buffActive: false,
+    buffRemaining: 0,       // ticks remaining on current buff
+    buffMagnitude: 1,       // tripChance() *= this while buffActive
   },
 
   settlements: {
@@ -99,6 +122,26 @@ export const S = {
     // Multiplayer plumbing
     porterIdCached: null,
     pollTimer: null,
+
+    // v0.0.7.21 — multiplayer rate limiting.
+    // postQueue holds events waiting for the cooldown window to elapse.
+    // lastPostAt is the wall-clock ms timestamp of the last actual fetch.
+    // flushTimer is the pending setTimeout handle; null when idle.
+    // feedThrottled flips true when the worker returns 429, flips back
+    //   once the server's Retry-After (or THROTTLE_COOLDOWN_MS fallback)
+    //   has elapsed. The network panel reads this to dim + show a
+    //   "feed throttled" indicator (distinct from "no signal" empty-feed).
+    // throttledUntil is the wall-clock ms when we can resume sending.
+    postQueue: [],
+    lastPostAt: 0,
+    flushTimer: null,
+    feedThrottled: false,
+    throttledUntil: 0,
+
+    // v0.0.7.21 — admin auth. Flips true if URL hash #admin=<token>
+    // matches the SHA in constants.js. Never persisted. Admin panel
+    // only renders when this is true.
+    adminAuthed: false,
 
     // Persistence plumbing
     lastSaveAt: 0,

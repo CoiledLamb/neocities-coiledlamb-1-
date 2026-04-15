@@ -1,9 +1,18 @@
 /* ==============================================
    THE LONG HAUL — save / load / wipe persistence
 
-   Schema v5. Loader chain v5 → v4 → v3 → v2 → v1 with on-load
-   migration: legacy keys are removed and the save is re-written
-   as v5 immediately.
+   Schema v6 (as of v0.0.7.21). Loader chain
+   v6 → v5 → v4 → v3 → v2 → v1 with on-load migration: legacy
+   keys are removed and the save is re-written as v6 immediately.
+
+   v6 adds: stickyGun, scanner, scanner.manualCooldown (no
+   save-scum on the manual ping gate). Old v5 saves upgrade
+   cleanly — stickyGun is null and scanner uses its default
+   (not unlocked).
+
+   The save export/import feature (js/save-io.js) wraps
+   buildSavePayload output in a TLH-SAVE:<base64> envelope.
+   Import routes through the existing loadGame migration chain.
 
    See TLH-HANDOFF.md "persistence" section for the full list of
    saved/transient fields and the trust-unlock legacy migration
@@ -31,7 +40,7 @@ import { addLog } from './render/log.js';
 
 const els = S._transient.els;
 
-function buildSavePayload() {
+export function buildSavePayload() {
   return {
     version: C.SAVE_VERSION,
     savedAt: Date.now(),
@@ -74,6 +83,21 @@ function buildSavePayload() {
       acc[k] = { trust: n.trust, unlocks: { ...n.unlocks } };
       return acc;
     }, {}),
+    // v0.0.7.21 (schema v6)
+    stickyGun: S.stickyGun ? {
+      ammo: S.stickyGun.ammo,
+      ammoMax: S.stickyGun.ammoMax,
+      holstered: !!S.stickyGun.holstered,
+    } : null,
+    scanner: {
+      unlocked: !!S.scanner.unlocked,
+      level: S.scanner.level,
+      manualCooldown: S.scanner.manualCooldown,
+      autoTimer: S.scanner.autoTimer,
+      buffActive: S.scanner.buffActive,
+      buffRemaining: S.scanner.buffRemaining,
+      buffMagnitude: S.scanner.buffMagnitude,
+    },
   };
 }
 
@@ -81,7 +105,7 @@ export function saveGame(silent) {
   if (S._transient.wipeInProgress) return false;
   try {
     const payload = buildSavePayload();
-    localStorage.setItem(C.SAVE_KEY_V5, JSON.stringify(payload));
+    localStorage.setItem(C.SAVE_KEY_V6, JSON.stringify(payload));
     S._transient.lastSaveAt = payload.savedAt;
     updateSaveStrip();
     if (!silent) addLog('<span class="log-ok">progress saved</span>');
@@ -100,9 +124,19 @@ export function saveGame(silent) {
   }
 }
 
+// v0.0.7.21 — extracted from loadGame so save-io.js can feed an in-memory
+// payload through the same migration chain as a localStorage read. Mutates
+// S in place. Returns true on success, false on any parse/schema failure.
+export function applySavePayload(data) {
+  if (!data) return false;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== C.SAVE_VERSION) return false;
+  return _applyValidated(data);
+}
+
 export function loadGame() {
   let raw;
-  try { raw = localStorage.getItem(C.SAVE_KEY_V5); } catch (e) { return false; }
+  try { raw = localStorage.getItem(C.SAVE_KEY_V6); } catch (e) { return false; }
+  if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V5); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V4); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V3); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V2); } catch (e) { return false; } }
@@ -111,7 +145,11 @@ export function loadGame() {
   let data;
   try { data = JSON.parse(raw); } catch (e) { return false; }
   if (!data) return false;
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== C.SAVE_VERSION) return false;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== C.SAVE_VERSION) return false;
+  return _applyValidated(data);
+}
+
+function _applyValidated(data) {
 
   try {
     const p = data.progress || {};
@@ -208,6 +246,29 @@ export function loadGame() {
       });
     }
 
+    // v0.0.7.21 (schema v6) — sticky gun + scanner.
+    // Missing fields (v5 save being migrated up) leave defaults intact.
+    if (data.stickyGun && typeof data.stickyGun === 'object') {
+      const g = data.stickyGun;
+      S.stickyGun = {
+        ammo: typeof g.ammo === 'number' ? Math.max(0, Math.floor(g.ammo)) : 0,
+        ammoMax: typeof g.ammoMax === 'number' ? g.ammoMax : C.STICKY_GUN_AMMO_MAX,
+        holstered: !!g.holstered,
+      };
+    } else {
+      S.stickyGun = null;
+    }
+    if (data.scanner && typeof data.scanner === 'object') {
+      const sc = data.scanner;
+      if (typeof sc.unlocked === 'boolean') S.scanner.unlocked = sc.unlocked;
+      if (typeof sc.level === 'number') S.scanner.level = Math.max(0, Math.floor(sc.level));
+      if (typeof sc.manualCooldown === 'number') S.scanner.manualCooldown = Math.max(0, Math.floor(sc.manualCooldown));
+      if (typeof sc.autoTimer === 'number') S.scanner.autoTimer = Math.max(0, Math.floor(sc.autoTimer));
+      if (typeof sc.buffActive === 'boolean') S.scanner.buffActive = sc.buffActive;
+      if (typeof sc.buffRemaining === 'number') S.scanner.buffRemaining = Math.max(0, Math.floor(sc.buffRemaining));
+      if (typeof sc.buffMagnitude === 'number') S.scanner.buffMagnitude = sc.buffMagnitude;
+    }
+
     S._transient.lastSaveAt = data.savedAt || 0;
     S.status = S.inventory.length > 0 ? 'carrying' : 'walking';
 
@@ -217,6 +278,7 @@ export function loadGame() {
         localStorage.removeItem(C.SAVE_KEY_V2);
         localStorage.removeItem(C.SAVE_KEY_V3);
         localStorage.removeItem(C.SAVE_KEY_V4);
+        localStorage.removeItem(C.SAVE_KEY_V5);
         saveGame(true);
       } catch (e) {}
     }
@@ -228,6 +290,7 @@ export function loadGame() {
 
 export function wipeSave() {
   try {
+    localStorage.removeItem(C.SAVE_KEY_V6);
     localStorage.removeItem(C.SAVE_KEY_V5);
     localStorage.removeItem(C.SAVE_KEY_V4);
     localStorage.removeItem(C.SAVE_KEY_V3);

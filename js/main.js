@@ -105,6 +105,9 @@ import * as Trip from './trip.js';
 import * as Boots from './boots.js';
 import * as Stamina from './stamina.js';
 import * as Upg from './upgrades.js';
+import { tickScanner, manualPing } from './scanner.js';
+import { initAdmin } from './admin.js';
+import { initSaveIo } from './save-io.js';
 import { addLog } from './render/log.js';
 import {
   updateHUD, renderCargoSlots, renderCourierStack,
@@ -226,7 +229,38 @@ function resolveEls() {
     saveBtn:      $('saveBtn'),
     wipeBtn:      $('wipeBtn'),
     saveAgo:      $('saveAgo'),
+    // v0.0.7.21
+    scannerBtn:   $('scannerBtn'),
+    saveIoBtn:    $('saveIoBtn'),
+    adminBar:     $('adminBar'),
   });
+}
+
+// v0.0.7.21 — scanner button visibility + label. Called every tick (cheap —
+// just a couple of DOM writes when state changes). Shows the button once
+// the upgrade is purchased; label flips between ready / cooldown / buffed.
+function updateScannerBtn() {
+  const btn = els.scannerBtn;
+  if (!btn) return;
+  if (!S.scanner.unlocked) {
+    if (btn.style.display !== 'none') btn.style.display = 'none';
+    return;
+  }
+  if (btn.style.display === 'none') btn.style.display = '';
+  let label;
+  if (S.scanner.buffActive) {
+    const secs = Math.ceil(S.scanner.buffRemaining * (C.TICK_MS / 1000));
+    label = `scan [\u25cf ${secs}s]`;
+    btn.classList.add('on');
+  } else if (S.scanner.manualCooldown > 0) {
+    const secs = Math.ceil(S.scanner.manualCooldown * (C.TICK_MS / 1000));
+    label = `scan [${secs}s]`;
+    btn.classList.remove('on');
+  } else {
+    label = 'scan';
+    btn.classList.remove('on');
+  }
+  if (btn.textContent !== label) btn.textContent = label;
 }
 
 // ============================================================
@@ -276,6 +310,8 @@ function tick() {
     Trip.maybeTrip();
     Boots.checkAutobuy();
     Pkg.scanForPickup();
+    // v0.0.7.21 — scanner tick. No-op unless unlocked.
+    tickScanner();
 
     if (S.stamina<50 && S.status==='walking' && Math.random()<0.03) {
       S.status='resting'; S.restTimer=C.REST_TICKS_MIN+Math.floor(Math.random()*(C.REST_TICKS_MAX-C.REST_TICKS_MIN));
@@ -343,6 +379,7 @@ function tick() {
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
 
   Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
+  updateScannerBtn();
 }
 
 // ============================================================
@@ -407,6 +444,12 @@ function init() {
 
   if (els.saveBtn) els.saveBtn.addEventListener('click', () => saveGame(false));
   if (els.wipeBtn) els.wipeBtn.addEventListener('click', armWipe);
+
+  // v0.0.7.21 — scanner, save i/o, admin.
+  if (els.scannerBtn) els.scannerBtn.addEventListener('click', manualPing);
+  initSaveIo();
+  initAdmin();
+  updateScannerBtn();
 
   setInterval(() => saveGame(true), C.AUTOSAVE_MS);
   document.addEventListener('visibilitychange', () => {

@@ -27,7 +27,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.7<span style="opacity:0.6">.20</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.7<span style="opacity:0.6">.21</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -87,6 +87,7 @@
               <div class="canteen-bar-wrap" title="canteen"><div class="canteen-bar-fill" id="canteenBar"></div></div>
               <button class="drink-btn" id="drinkBtn">drink (100%)</button>
               <button class="boots-auto" id="autodrinkBtn">auto: off</button>
+              <button class="boots-auto" id="scannerBtn" style="display:none">scan</button>
             </div>
 
             <div class="tlh-panels">
@@ -107,9 +108,12 @@
             <div class="tlh-save-strip">
               <span class="tlh-save-label">// session:</span>
               <button class="save-btn" id="saveBtn">save</button>
+              <button class="save-btn" id="saveIoBtn">save i/o</button>
               <button class="save-btn wipe" id="wipeBtn">wipe save</button>
               <span class="tlh-save-ago">last save: <span id="saveAgo">no save yet</span></span>
             </div>
+
+            <div class="tlh-admin-bar" id="adminBar" style="display:none"></div>
 
           </div>
 

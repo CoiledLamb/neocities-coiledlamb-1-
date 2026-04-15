@@ -43,13 +43,34 @@ import { renderSettlements } from './render/settlements.js';
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
 
+// v0.0.7.21 — sticky gun occupies one cargo slot unless holstered.
+// Every pkg slot accounting goes through this helper so cargo
+// cap math stays in one place. renderCargoSlots also reads this
+// to paint the right slot count.
+export function effectiveMaxSlots() {
+  if (S.stickyGun && !S.stickyGun.holstered) return Math.max(0, S.maxSlots - 1);
+  return S.maxSlots;
+}
+
+// v0.0.7.21 — effective pickup range. Base C.PKG_PICKUP_RANGE when
+// bare-handed; extended to C.STICKY_GUN_RANGE when gun is owned and
+// has ammo. Holstering does NOT extend range — you can't shoot
+// through the holster.
+function pickupRange() {
+  if (S.stickyGun && !S.stickyGun.holstered && S.stickyGun.ammo > 0) {
+    return C.STICKY_GUN_RANGE;
+  }
+  return C.PKG_PICKUP_RANGE;
+}
+
 // ============================================================
 // PACKAGE PICKUP
 // ============================================================
 export function scanForPickup() {
   if (S.status !== 'walking' && S.status !== 'carrying') return;
   const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
-  for (let offset = 0; offset <= C.PKG_PICKUP_RANGE; offset++) {
+  const range = pickupRange();
+  for (let offset = 0; offset <= range; offset++) {
     const ci   = (courierCell + offset) % C.TOTAL_CELLS;
     const cell = worldCells[ci];
     if (!cell) continue;
@@ -70,7 +91,9 @@ export function scanForPickup() {
     // (ci:usedSlots:usedWeight) so we don't spam the log each tick
     // while walking past a too-heavy pkg, but DO re-fire after the
     // player drops or delivers cargo and walks past again.
-    const slotsShort  = pkg.slots > S.maxSlots  - S.usedSlots;
+    // v0.0.7.21 — slot capacity now goes through effectiveMaxSlots()
+    // so the sticky gun occupying a slot is accounted for.
+    const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
     const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
     if (slotsShort || weightShort) {
       const key = `${ci}:${S.usedSlots}:${S.usedWeight}`;
@@ -83,6 +106,13 @@ export function scanForPickup() {
     }
 
     pkg.picked = true;
+    // v0.0.7.21 — sticky gun ammo decrement. Only on cross-range picks:
+    // if offset > C.PKG_PICKUP_RANGE, the gun reached past bare-hand range
+    // and a shot was spent. Offsets within bare-hand range don't consume
+    // ammo (courier just walked up to it).
+    if (S.stickyGun && !S.stickyGun.holstered && offset > C.PKG_PICKUP_RANGE && S.stickyGun.ammo > 0) {
+      S.stickyGun.ammo--;
+    }
     const carried = {
       size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
       scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
@@ -109,6 +139,14 @@ export function scanForPickup() {
 // PACKAGE DELIVERY
 // ============================================================
 export function tryDeliver(arrivedNodeId) {
+  // v0.0.7.21 — sticky gun ammo refill at H, regardless of whether
+  // there's a pkg to deliver. Home = rearm station.
+  if (arrivedNodeId === 'H' && S.stickyGun && S.stickyGun.ammo < S.stickyGun.ammoMax) {
+    const refilled = S.stickyGun.ammoMax - S.stickyGun.ammo;
+    S.stickyGun.ammo = S.stickyGun.ammoMax;
+    addLog(`<span class="log-ok">sticky gun</span> refilled \u2014 +${refilled} shots`);
+  }
+
   const toDeliver = S.inventory.filter(p => p.destId === arrivedNodeId);
   if (toDeliver.length === 0) return;
   const settle = S.settlements[arrivedNodeId];

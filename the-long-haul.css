@@ -704,3 +704,189 @@ html, body {
   .tlh-layout { grid-template-columns: 1fr; }
   .tlh-right { flex-direction: row; }
 }
+
+/* ==========================================================
+   v0.0.7.21 — courier equipment v2 + admin + save i/o + throttle
+   ========================================================== */
+
+/* sticky gun cargo slot */
+.cslot.gun {
+  background: #132e2d;
+  border: 1px solid #9d78d4;
+  color: #b58df5;
+  text-shadow: 0 0 4px #7a58a4;
+}
+
+/* scanner buff indicator (reuses .boots-auto button class; only a tiny
+   tweak is needed for the "on" / buffed visual already covered by .on) */
+
+/* network panel: throttled state */
+#networkEl.throttled { opacity: 0.5; }
+.net-throttled {
+  color: #da8bda;
+  font-style: italic;
+}
+
+/* admin bar */
+.tlh-admin-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 8px;
+  margin-top: 4px;
+  background: #1a1528;
+  border: 1px dashed #9d78d4;
+  border-radius: 2px;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  color: #b58df5;
+}
+.tlh-admin-bar .admin-label {
+  color: #9d78d4;
+  text-transform: lowercase;
+}
+.tlh-admin-bar .admin-btn {
+  background: transparent;
+  border: 1px solid #9d78d4;
+  border-radius: 1px;
+  color: #b58df5;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  cursor: pointer;
+  text-transform: lowercase;
+}
+.tlh-admin-bar .admin-btn:hover {
+  color: #e0c0ff;
+  border-color: #c0a0ff;
+}
+.tlh-admin-bar .admin-trust-wrap {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.tlh-admin-bar .admin-num {
+  width: 44px;
+  background: #0b0a18;
+  border: 1px solid #4a3a7a;
+  border-radius: 1px;
+  color: #b58df5;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  padding: 1px 3px;
+}
+
+/* save i/o modal */
+.tlh-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  font-family: 'Source Code Pro', monospace;
+}
+.tlh-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 12, 12, 0.82);
+}
+.tlh-modal-body {
+  position: relative;
+  background: #0b2e2d;
+  border: 1px solid #40a4b9;
+  border-radius: 2px;
+  padding: 14px 16px;
+  width: min(520px, 92vw);
+  max-height: 88vh;
+  overflow: auto;
+  color: #b1c9c3;
+  font-size: 10px;
+  box-shadow: 0 0 30px rgba(64, 164, 185, 0.3);
+}
+.tlh-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #1e5554;
+}
+.tlh-modal-title {
+  color: #77bfcf;
+  font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+}
+.tlh-modal-close {
+  background: transparent;
+  border: none;
+  color: #7aa8a6;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.tlh-modal-close:hover { color: #da8bda; }
+.tlh-modal-section { margin: 10px 0; }
+.tlh-modal-sectitle {
+  color: #77bfcf;
+  font-size: 9px;
+  margin-bottom: 4px;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+}
+.tlh-modal-txt {
+  width: 100%;
+  min-height: 70px;
+  background: #050f0f;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  color: #b1c9c3;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  padding: 5px 6px;
+  resize: vertical;
+  box-sizing: border-box;
+  word-break: break-all;
+}
+.tlh-modal-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+.tlh-modal-btn {
+  background: transparent;
+  border: 1px solid #3a6a68;
+  border-radius: 1px;
+  color: #77bfcf;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+  text-transform: lowercase;
+}
+.tlh-modal-btn:hover {
+  color: #b1c9c3;
+  border-color: #77bfcf;
+}
+.tlh-modal-check {
+  font-size: 9px;
+  color: #7aa8a6;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.tlh-modal-msg {
+  font-size: 9px;
+  color: #7aa8a6;
+  margin-left: auto;
+}
+.tlh-modal-msg.ok { color: #4a9a78; }
+.tlh-modal-msg.wn { color: #da8bda; }

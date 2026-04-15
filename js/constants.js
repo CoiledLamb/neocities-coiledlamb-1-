@@ -116,8 +116,52 @@ export const POLL_MS          = 60000;
 export const FEED_DISPLAY_CAP = 8;
 export const DIST_MILESTONES  = [10, 25, 50, 100, 250, 500, 1000];
 
-// ----- edges with elevated trip risk -----
-export const RISKY_EDGE_DEST = new Set(['C', '?']);
+// ----- multiplayer rate limiting (v0.0.7.21) -----
+// KV free-tier is 1000 puts/day. Client-side rate limiting stops a single
+// active porter from blowing the whole cap and 500ing every other porter
+// downstream. Worker already returns 429 with Retry-After (deployed at
+// worker v0.0.7.1); this is the game-side complement.
+// - POST_MIN_INTERVAL_MS: minimum wall time between any two fetch-POSTs.
+// - MILESTONE_COALESCE_MS: milestones that land within this window after
+//   a previous milestone are batched into one event with a values[] array.
+// - THROTTLE_COOLDOWN_MS: fallback cooldown when 429 comes back without a
+//   usable Retry-After header.
+export const POST_MIN_INTERVAL_MS  = 5000;
+export const MILESTONE_COALESCE_MS = 1500;
+export const THROTTLE_COOLDOWN_MS  = 60000;
+
+// ----- sticky gun (v0.0.7.21) -----
+// Pickup range while gun is equipped + ammo loaded. Ammo refills on H arrival.
+// Gun occupies one cargo slot unless holstered. See js/packages.js for the
+// effectiveMaxSlots accounting.
+export const STICKY_GUN_RANGE       = 16;
+export const STICKY_GUN_AMMO_MAX    = 8;
+
+// ----- terrain scanner T1 (v0.0.7.21) -----
+// T1 only for this patch. Framework (level field, manualCooldown persistence)
+// is forward-compatible for T2/T3 in v0.0.7.23.
+// Auto pings fire every SCANNER_AUTO_INTERVAL_TICKS while equipped; each
+// grants a buff lasting SCANNER_BUFF_DURATION_TICKS ticks.
+// Manual ping (player-triggered) uses the longer MANUAL buff but has a
+// SCANNER_MANUAL_COOLDOWN_TICKS gate so it can't be spammed.
+// Buff multiplies tripChance() by SCANNER_BUFF_MAGNITUDE when active.
+export const SCANNER_AUTO_INTERVAL_TICKS  = 86;   // ~30s at 350ms/tick
+export const SCANNER_BUFF_DURATION_TICKS  = 17;   // ~6s
+export const SCANNER_MANUAL_BUFF_TICKS    = 34;   // ~12s
+export const SCANNER_MANUAL_COOLDOWN_TICKS = 86;  // ~30s
+export const SCANNER_BUFF_MAGNITUDE       = 0.5;  // trip chance ×0.5 while buffed
+
+// ----- admin (v0.0.7.21) -----
+// SHA-256 (hex) of the admin token. Admin is OFF when null. To enable:
+//   1. Open devtools console on the live site.
+//   2. Run:  await window._tlhAdminHash('your-token-here')
+//   3. Paste the returned hex here and redeploy.
+//   4. Visit with  #admin=your-token-here
+// The plaintext token lives only in your memory/URL bar; only the hash
+// ships in source (and on Neocities). Any devtools-enabled player can
+// still call admin functions directly — this gate stops casual
+// URL-guessing + repo-scraping, not a determined inspector.
+export const ADMIN_TOKEN_SHA = null;
 
 // ----- persistence -----
 export const SAVE_KEY     = 'tlh-save-v1';
@@ -125,5 +169,9 @@ export const SAVE_KEY_V2  = 'tlh-save-v2';
 export const SAVE_KEY_V3  = 'tlh-save-v3';
 export const SAVE_KEY_V4  = 'tlh-save-v4';
 export const SAVE_KEY_V5  = 'tlh-save-v5';
-export const SAVE_VERSION = 5;
+export const SAVE_KEY_V6  = 'tlh-save-v6';
+export const SAVE_VERSION = 6;
 export const AUTOSAVE_MS  = 30000;
+
+// ----- edges with elevated trip risk -----
+export const RISKY_EDGE_DEST = new Set(['C', '?']);

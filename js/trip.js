@@ -115,6 +115,9 @@ export function tripChance() {
   let chance = C.TRIP_CHANCE_BASE * bootFail * (1+segsLost*0.5);
   if (S.upgrades.steadyFeet) chance *= 0.70;
   if (currentCellIsRisky())  chance *= 1.40;
+  // v0.0.7.21 — terrain scanner buff. When active, multiplies trip
+  // chance by S.scanner.buffMagnitude (set per ping in js/scanner.js).
+  if (S.scanner.buffActive) chance *= S.scanner.buffMagnitude;
   return chance;
 }
 
