@@ -1,5 +1,5 @@
 /* ==============================================
-   THE LONG HAUL — state (v0.0.7.2)
+   THE LONG HAUL — state (v0.0.7.18)
 
    Single source of truth for all mutable game state. Every logic module
    imports this and mutates S in place.
@@ -108,6 +108,10 @@ export const S = {
     // from re-writing in-memory state during the 400ms between wipeSave()
     // and location.reload(). Once set, never unset — page is reloading.
     wipeInProgress: false,
+    // Once-per-session flag so silent-save failures (quota exhaustion,
+    // Safari private mode) surface a single visible warning instead of
+    // silently dropping progress every 30 seconds. v0.0.7.18.
+    silentSaveErrorShown: false,
 
     // Pending log-button prompts (one at a time)
     depotRestPending: null,

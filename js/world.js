@@ -5,11 +5,15 @@
    = 1,560 cells at startup. World is regenerated fresh
    each page load — never persisted.
 
-   Each cell: { html, pkg, sandal, risky, edgeIdx }.
+   Each cell: { html, pkg, sandal, risky, wetland, edgeIdx }.
    Packages get destId stamped at gen time (far end of edge).
 
    Risky cells: edges leading to C or '·' get risky:true,
    applying a x1.4 trip chance multiplier.
+
+   Wetland cells: tagged with wetland:true so main's tick can
+   refill canteen when courier passes through (v0.0.7.18 —
+   wires up the long-stubbed refillsCanteen zone flag).
 
    Scroll is JS-driven: renderFieldstrip() computes
    worldPosFromRoute() then translateX on .tlh-fieldstrip.
@@ -52,6 +56,7 @@ export function buildWorld() {
       const zoneKey = weightedPick(Object.keys(ZONE_TYPES), k => ZONE_TYPES[k].weight);
       const zone    = ZONE_TYPES[zoneKey];
       const zoneLen = zone.width[0] + Math.floor(Math.random() * (zone.width[1] - zone.width[0]));
+      const isWetland = !!zone.refillsCanteen;
 
       if (zone.isDepotApproach && Math.random() < 0.4 && ci + 3 <= C.CELLS_PER_EDGE) {
         worldCells.push({ html: `<span class="fc fc-fl">   </span>`,     pkg: null, risky: isRisky, edgeIdx: ei });
@@ -64,21 +69,21 @@ export function buildWorld() {
         const r = Math.random();
         if (r < zone.pkgChance && (ci % 8 === 0) && ci + 2 < C.CELLS_PER_EDGE) {
           const pkg = makeWorldPkg(ei);
-          worldCells.push({ html: '', pkg, risky: isRisky, edgeIdx: ei });
+          worldCells.push({ html: '', pkg, risky: isRisky, wetland: isWetland, edgeIdx: ei });
           i += 2; ci += 2;
           continue;
         }
         if (r < zone.pkgChance + zone.sandalChance) {
-          worldCells.push({ html: `<span class="fc fc-sw-plant" title="sandalweed"> * </span>`, pkg: null, sandal: true, risky: isRisky, edgeIdx: ei });
+          worldCells.push({ html: `<span class="fc fc-sw-plant" title="sandalweed"> * </span>`, pkg: null, sandal: true, risky: isRisky, wetland: isWetland, edgeIdx: ei });
           i++; ci++;
           continue;
         }
         const c = weightedPick(zone.chars, x => x.w);
-        worldCells.push({ html: `<span class="fc ${c.cls}"> ${c.ch} </span>`, pkg: null, risky: isRisky, edgeIdx: ei });
+        worldCells.push({ html: `<span class="fc ${c.cls}"> ${c.ch} </span>`, pkg: null, risky: isRisky, wetland: isWetland, edgeIdx: ei });
       }
 
       if (ci < C.CELLS_PER_EDGE) {
-        worldCells.push({ html: `<span class="fc fc-fl">  </span>`, pkg: null, risky: isRisky, edgeIdx: ei });
+        worldCells.push({ html: `<span class="fc fc-fl">  </span>`, pkg: null, risky: isRisky, wetland: isWetland, edgeIdx: ei });
         ci++;
       }
     }

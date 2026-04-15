@@ -7,9 +7,17 @@
    and behavioral flags (risky, refillsCanteen,
    isDepotApproach).
 
-   Verbatim extract from main.js (commit 3 / SHA 077f9e8).
+   sandalChance values pulled from constants.js as of
+   v0.0.7.18 — sandalweed is a cross-zone resource
+   whose tuning belongs above any single zone def.
+
+   refillsCanteen on wetlands is now actually wired
+   (v0.0.7.18). World.js stamps a wetland flag on the
+   cell at gen time; main.js tick reads it.
    ============================================== */
 'use strict';
+
+import * as C from '../constants.js';
 
 export const ZONE_TYPES = {
   road: {
@@ -20,7 +28,7 @@ export const ZONE_TYPES = {
       { ch: '_',      cls: 'fc-rn', w: 3 },
       { ch: '\u00b7', cls: 'fc-fl', w: 2 },
     ],
-    pkgChance: 0.07, sandalChance: 0.002,
+    pkgChance: 0.07, sandalChance: C.SANDAL_RATE_ROAD,
   },
   scrub: {
     weight: 25, width: [8, 16],
@@ -31,7 +39,7 @@ export const ZONE_TYPES = {
       { ch: '.', cls: 'fc-fl', w: 3 },
       { ch: '*', cls: 'fc-sw-plant', w: 1 },
     ],
-    pkgChance: 0.08, sandalChance: 0.008,
+    pkgChance: 0.08, sandalChance: C.SANDAL_RATE_SCRUB,
   },
   wetlands: {
     weight: 12, width: [6, 14],
@@ -41,7 +49,7 @@ export const ZONE_TYPES = {
       { ch: '~', cls: 'fc-sw', w: 6 },
       { ch: ',', cls: 'fc-fl', w: 1 },
     ],
-    pkgChance: 0.04, sandalChance: 0.00, refillsCanteen: true,
+    pkgChance: 0.04, sandalChance: C.SANDAL_RATE_WETLANDS, refillsCanteen: true,
   },
   ruins: {
     weight: 15, width: [10, 20],
@@ -53,7 +61,7 @@ export const ZONE_TYPES = {
       { ch: '[', cls: 'fc-sg', w: 1 },
       { ch: ']', cls: 'fc-sg', w: 1 },
     ],
-    pkgChance: 0.12, sandalChance: 0.002, risky: true,
+    pkgChance: 0.12, sandalChance: C.SANDAL_RATE_RUINS, risky: true,
   },
   depot_approach: {
     weight: 8, width: [6, 10],
@@ -62,6 +70,6 @@ export const ZONE_TYPES = {
       { ch: '-', cls: 'fc-rn', w: 3 },
       { ch: ',', cls: 'fc-fl', w: 2 },
     ],
-    pkgChance: 0.10, sandalChance: 0.00, isDepotApproach: true,
+    pkgChance: 0.10, sandalChance: C.SANDAL_RATE_DEPOT_APPROACH, isDepotApproach: true,
   },
 };
