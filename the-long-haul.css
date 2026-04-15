@@ -241,21 +241,34 @@ html, body {
 }
 .tlh-row-label { color: #3a6a68; min-width: 36px; flex-shrink: 0; text-transform: lowercase; }
 
-.cargo-slots { display: flex; gap: 2px; flex-shrink: 0; }
+/* v0.0.8.1 \u2014 cargo slots are a 2-row CSS grid. Packages render as
+   single multi-cell divs (grid-column/row span) rather than N adjacent
+   1-cell boxes. Size glyph centers on the shape. .cslot size tuned via
+   --cslot-size (default 15px matches the old 13px+2px gap footprint
+   but is now a single cell unit \u2014 borders can overlap cleanly). */
+.cargo-slots {
+  --cslot-size: 15px;
+  display: grid;
+  gap: 2px;
+  flex-shrink: 0;
+}
 .cslot {
-  width: 13px; height: 13px;
   border: 1px solid #1e5554;
   border-radius: 1px;
-  font-size: 8px;
+  font-size: 9px;
   display: flex; align-items: center; justify-content: center;
   color: #3a6a68;
   font-family: 'Source Code Pro', monospace;
   position: relative;
+  min-width: 0; /* grid children shouldn't expand beyond track */
 }
-.cslot.s { background: #1e5554; color: #77bfcf; border-color: #40a4b9; }
-.cslot.m { background: #1a3040; color: #9d78d4; border-color: #9d78d4; }
-.cslot.l { background: #2a1a3a; color: #da8bda; border-color: #da8bda; }
-.cslot.e { background: transparent; }
+.cslot.s  { background: #1e5554; color: #77bfcf; border-color: #40a4b9; }
+.cslot.m  { background: #1a3040; color: #9d78d4; border-color: #9d78d4; }
+.cslot.l  { background: #2a1a3a; color: #da8bda; border-color: #da8bda; }
+.cslot.xl { background: #3a2050; color: #f5b6ff; border-color: #f5b6ff; font-size: 10px; }
+.cslot.e  { background: transparent; }
+/* phantom \u2014 cells past maxSlots ceiling (when cols*rows > maxSlots). */
+.cslot.phantom { background: transparent; border-color: transparent; }
 
 /* v0.0.7.19: tooltip content now reads from `data-tooltip` attribute,
    NOT `title`. Decouples the custom hover overlay from the browser-native
