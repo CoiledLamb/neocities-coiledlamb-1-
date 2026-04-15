@@ -12,6 +12,9 @@
    porter strip (#recoveryBadge) shows the active count.
 
    v0.0.7.18: pickRandom now imported from util.js.
+   v0.0.7.19: recoveryBadge tooltip swapped from `title` to
+     `data-tooltip` + `aria-label` (matches sandal badge fix
+     in boots.js — no more duplicate browser-native overlay).
    ============================================== */
 'use strict';
 
@@ -97,7 +100,12 @@ export function updatePorterStripBadges() {
       else      els.porterStrip.appendChild(badge);
     }
     badge.textContent = 'recovery \u00d7' + n;
-    badge.setAttribute('title', n + ' recovery cargo in the world\nfrom other porters\ndeliver for 1.5\u00d7 scrip');
+    // v0.0.7.19: data-tooltip + aria-label, no `title` (kills the duplicate
+    // browser-native overlay).
+    const tip = n + ' recovery cargo in the world\nfrom other porters\ndeliver for 1.5\u00d7 scrip';
+    badge.setAttribute('data-tooltip', tip);
+    badge.setAttribute('aria-label', tip);
+    badge.removeAttribute('title');
     badge.style.display = 'inline';
   } else if (badge) {
     badge.style.display = 'none';

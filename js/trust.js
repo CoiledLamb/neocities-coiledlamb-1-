@@ -12,9 +12,20 @@
      t80: tryRestPrompt — [rest] log button
 
    v0.0.7.18: function renames (tryT50Warning → tryWarning
-   etc) — function names no longer lie about the threshold.
-   pickRandom now imported from util.js (was duplicated
-   between channels.js and recovery.js).
+     etc) — function names no longer lie about the threshold.
+     pickRandom now imported from util.js (was duplicated
+     between channels.js and recovery.js).
+
+   v0.0.7.19 (commit 2a): unlock storage canonicalization.
+     onTrustUnlock previously wrote to npc[tierKey] (a phantom
+     property), but state.js declares the canonical home as
+     npc.unlocks[tierKey] and that's what channels.js's
+     tickAmbientChatter reads. Result: ambient chatter never
+     fired in fresh sessions — only after a save+reload, when
+     loadGame's ratchet would populate unlocks from the trust
+     value. Fix: write to npc.unlocks.tN, read from npc.unlocks.tN.
+     Existing players auto-migrate via the loadGame ratchet on
+     next load, no schema bump needed.
    ============================================== */
 'use strict';
 
@@ -64,7 +75,12 @@ function onTrustUnlock(depotId, threshold, tierIndex) {
   const npc = NPC_DEFS[depotId];
   if (!npc) return;
   const tierKey = `t${threshold}`;
-  S.npcs[depotId][tierKey] = true;
+  // v0.0.7.19: write to canonical npc.unlocks[tierKey] (was npc[tierKey],
+  // a phantom property that bypassed channels.js's chatter gate).
+  if (!S.npcs[depotId].unlocks) {
+    S.npcs[depotId].unlocks = { t20:false, t40:false, t60:false, t80:false };
+  }
+  S.npcs[depotId].unlocks[tierKey] = true;
 
   const lines = (NPC_LINES[depotId] && NPC_LINES[depotId].threshold && NPC_LINES[depotId].threshold[threshold]) || [];
   if (lines.length > 0) speak(depotId, pickRandom(lines), 'unlock');
@@ -91,7 +107,7 @@ function onTrustUnlock(depotId, threshold, tierIndex) {
 export function tryWarning(arrivedNodeId) {
   if (!NPC_DEFS[arrivedNodeId]) return;
   const npc = S.npcs[arrivedNodeId];
-  if (!npc || !npc.t40) return;
+  if (!npc || !npc.unlocks || !npc.unlocks.t40) return;
   const def = NPC_DEFS[arrivedNodeId];
   const lines = NPC_LINES[arrivedNodeId] || {};
 
@@ -119,7 +135,7 @@ export function tryWarning(arrivedNodeId) {
 export function tryPreview(arrivedNodeId) {
   if (!NPC_DEFS[arrivedNodeId]) return;
   const npc = S.npcs[arrivedNodeId];
-  if (!npc || !npc.t60) return;
+  if (!npc || !npc.unlocks || !npc.unlocks.t60) return;
   const lines = (NPC_LINES[arrivedNodeId] && NPC_LINES[arrivedNodeId].preview) || [];
   if (!lines.length) return;
   const nextEdgeIdx = (S.edgeIdx + 1) % S.edges.length;
@@ -141,7 +157,7 @@ export function tryPreview(arrivedNodeId) {
 export function tryRestPrompt(arrivedNodeId) {
   if (!NPC_DEFS[arrivedNodeId]) return;
   const npc = S.npcs[arrivedNodeId];
-  if (!npc || !npc.t80) return;
+  if (!npc || !npc.unlocks || !npc.unlocks.t80) return;
   if (S._transient.restPromptPending) return;
   if (S.stamina >= S.staminaMax * 0.85) return;
   if (S.scrip < 5) return;

@@ -23,10 +23,22 @@
                             adds to S.distKm.
 
    Drop semantics (v0.0.7 commit 6):
-     Drop check fires BEFORE tie-down. Tie-down only protects
-     against damage fallback, not drops. Normal pkgs vanish
-     locally (log only). Lost pkgs go through postLostDrop()
-     so other porters can recover them.
+     Drop check fires BEFORE tie-down. Tie-down protects against
+     damage fallback only, not drops. Normal pkgs vanish locally
+     (log only). Lost pkgs go through postLostDrop() so other
+     porters can recover them.
+
+   v0.0.7.19 (commit 2a):
+     - accumulateDist() math fix. Old behavior: at every edge
+       transition (dotT 1→0, edgeIdx+1), the delta was a small
+       negative, the rollover correction added a full ring length
+       (~25.2km), and then the > 2*KM_PER_EDGE cap discarded the
+       result as 0. Net: full lap of km lost per wrap. Fix: only
+       add ring length when the negative is LARGE (< -KM_PER_EDGE),
+       meaning real wrap or load skew. Edge crossings produce small
+       negatives that we trust as the partial-edge step.
+     - Damage log now names the package and shows the actual scrip
+       delta instead of a generic 'reduced payout'.
    ============================================== */
 'use strict';
 
@@ -42,7 +54,7 @@ const els = S._transient.els;
 const worldCells = S._transient.worldCells;
 
 // ============================================================
-// DISTANCE ACCUMULATOR (v0.0.7 commit 6)
+// DISTANCE ACCUMULATOR (v0.0.7 commit 6, math fixed v0.0.7.19)
 // ============================================================
 function posKm(edgeIdx, dotT) {
   return (edgeIdx + dotT) * C.KM_PER_EDGE;
@@ -58,10 +70,14 @@ export function accumulateDist() {
   const prev = posKm(t.lastDistEdgeIdx, t.lastDistDotT);
   const now  = posKm(S.edgeIdx, S.dotT);
   let delta  = now - prev;
-  if (delta < 0) {
+  // Only add ring length when delta is LARGE negative (true wrap or load
+  // skew). Edge transitions produce small negatives in (-KM_PER_EDGE, 0)
+  // which are the partial-edge step we want to count.
+  if (delta < -C.KM_PER_EDGE) {
     delta += S.edges.length * C.KM_PER_EDGE;
   }
-  if (delta > C.KM_PER_EDGE * 2) delta = 0;
+  // Safety cap: anything still negative or absurdly large is load skew.
+  if (delta < 0 || delta > C.KM_PER_EDGE * 2) delta = 0;
   S.distKm = Math.round((S.distKm + delta) * 10) / 10;
   t.lastDistEdgeIdx = S.edgeIdx;
   t.lastDistDotT    = S.dotT;
@@ -130,7 +146,13 @@ export function maybeTrip() {
   S.bootDurability=Math.max(0,S.bootDurability-5);
 
   if (!dropped) {
-    if (S.inventory.length>0) { S.inventory[0].scrip=Math.max(1,Math.floor(S.inventory[0].scrip*0.75)); addLog('<span class="log-wn">tripped! package damaged \u2014 reduced payout</span>'); }
+    if (S.inventory.length>0) {
+      const target = S.inventory[0];
+      const oldScrip = target.scrip;
+      target.scrip = Math.max(1, Math.floor(oldScrip * 0.75));
+      const lost = oldScrip - target.scrip;
+      addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> damaged \u2014 payout <span class="log-wn">-${lost}\u00a2</span>`);
+    }
     else addLog('<span class="log-wn">tripped on loose rubble!</span>');
   }
   if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }

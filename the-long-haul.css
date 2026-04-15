@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — game stylesheet
-   v0.0.7
+   v0.0.7.19
    ============================================== */
 
 html, body {
@@ -81,9 +81,6 @@ html, body {
   text-align: right;
 }
 
-/* v0.0.7 commit 6: recovery cargo presence indicator.
-   Small, subtle — ambient presence, not a call-to-action. Hidden via JS
-   when count is 0 (see updatePorterStripBadges). */
 .tlh-porter-recovery {
   font-size: 9px;
   color: #da8bda;
@@ -95,9 +92,6 @@ html, body {
   opacity: 0.75;
 }
 
-/* ============================================================
-   VIEWPORT — 3 layers
-   ============================================================ */
 .tlh-viewport {
   height: 110px;
   background: #081f1e;
@@ -263,9 +257,13 @@ html, body {
 .cslot.l { background: #2a1a3a; color: #da8bda; border-color: #da8bda; }
 .cslot.e { background: transparent; }
 
+/* v0.0.7.19: tooltip content now reads from `data-tooltip` attribute,
+   NOT `title`. Decouples the custom hover overlay from the browser-native
+   tooltip so you don't get both at once. JS sets data-tooltip + aria-label
+   on .has-tooltip elements (boots.js sandalBadge, recovery.js recoveryBadge). */
 .has-tooltip { cursor: help; position: relative; }
 .has-tooltip::after {
-  content: attr(title);
+  content: attr(data-tooltip);
   position: absolute;
   bottom: calc(100% + 5px);
   left: 50%;
@@ -338,9 +336,6 @@ html, body {
   flex-shrink: 0;
 }
 
-/* v0.0.7 commit 6: sandal at-cap now shows stable green (matches fc-sw-plant).
-   Pink pulse removed — cap is fine, not urgent; the pulse was visually noisy
-   without carrying meaning. */
 .sandal-badge {
   color: #2a7a58;
   border-color: #2a7a58;
@@ -348,13 +343,8 @@ html, body {
 .sandal-badge.at-cap {
   color: #2a7a58;
   border-color: #2a7a58;
-  /* no animation — stable green */
 }
 
-/* v0.0.7 commit 6: boots gear popover.
-   Collapses [buy boots] [autobuy] [clip] into a single \u2699 icon that opens
-   a small inline popover, reclaiming ~30% of the boots row width. The sandal
-   badge stays outside the popover as a status indicator. */
 .boots-gear-btn {
   background: transparent;
   border: 1px solid #1e5554;
@@ -438,9 +428,6 @@ html, body {
   50%       { opacity: 0.5; }
 }
 
-/* v0.0.7 commit 6: vertical canteen bar.
-   Was 28px x 3px horizontal. Now narrow width x full row height, fill
-   grows bottom-to-top. Saves horizontal space on the stamina row. */
 .canteen-bar-wrap {
   width: 4px;
   height: 14px;
@@ -558,13 +545,6 @@ html, body {
 .upg-btn:hover:not(:disabled) { border-color: #40a4b9; color: #b1c9c3; }
 .upg-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
-/* v0.0.7 commit 6: settlement panel rebuild.
-   - Trust bar moved ABOVE the name (was at the bottom).
-   - Trust bar: continuous fill + 4 vertical tick marks at 20/40/60/80
-     (visual-only; gameplay thresholds are 25/50/75/100 — realignment
-     scheduled in the post-commit-6 refactor pass).
-   - Rebuild bar faded/recessed — placeholder for real rebuild mechanic.
-   - Stage-2 (unconfirmed) settlements get a subtle opacity reduction. */
 .settle-item { padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
 .settle-item:last-child { border-bottom: none; }
 .settle-item.settle-stage2 { opacity: 0.65; }
@@ -680,7 +660,6 @@ html, body {
 .net-item.net-quiet { color: #2a5c5a; font-style: italic; }
 .net-item.net-census { color: #4a7a78; font-size: 9px; padding-bottom: 4px; margin-bottom: 2px; border-bottom: 1px solid #1e5554; }
 
-/* v0.0.7 commit 4b: channels panel — NPC chatter feed */
 .chan-item {
   font-size: 9px;
   color: #b1c9c3;

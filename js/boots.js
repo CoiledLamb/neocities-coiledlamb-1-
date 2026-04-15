@@ -12,21 +12,18 @@
        AND boots aren't already at 100 (v0.0.7.18 — was happily
        charging full price for nothing).
 
-   sandalCap() returns SANDAL_CAP_BASE (5) or SANDAL_CAP_UPGRADED
-     (25) with sandalSatchel; packages.js imports this for the
-     harvest-cap check in scanForPickup.
-
-   Clip refill prompts at depots (A/B/H) via refillBootClip(),
-     fires a log-line button → confirmClipRefill() consumes scrip.
-
    v0.0.7.18 changes:
      - All hardcoded `15` replaced with C.BOOT_PRICE (handoff bug 7)
      - buyBoots() guards against full meter (bug list player feedback)
      - checkAutobuy: clip-equip ladder reordered. Clip now fires
-       regardless of autobuy (it's a failsafe), only the *purchase*
-       requires autobuy intent. Sandalweed is now a tier below clip
-       in the priority order — clip is "real spare boots", sandalweed
-       is the makeshift fallback when nothing else is left.
+       regardless of autobuy (failsafe). Sandalweed sits below clip.
+
+   v0.0.7.19 (commit 2a): sandalBadge tooltip swapped from `title`
+     attribute to `data-tooltip` + `aria-label`. The CSS custom
+     tooltip now reads from data-tooltip; aria-label preserves
+     screen-reader behavior. Fixes the duplicate-tooltip bug
+     (browser was rendering native `title` overlay alongside the
+     custom CSS one).
    ============================================== */
 'use strict';
 
@@ -177,12 +174,17 @@ export function renderBoots() {
       const atCap = S.sandalweedCount >= cap;
       sandalBadge.textContent = '* ' + S.sandalweedCount + '/' + cap;
       sandalBadge.classList.toggle('at-cap', atCap);
-      sandalBadge.setAttribute('title',
+      // v0.0.7.19: data-tooltip drives the custom CSS overlay; aria-label
+      // preserves screen-reader behavior. No `title` attribute = no
+      // duplicate browser-native tooltip.
+      const tip =
         'sandalweed: ' + S.sandalweedCount + '/' + cap +
         '\nmakeshift footwear' +
         '\nauto-equipped when boots fail (after clip)' +
-        (atCap ? '\n[hoard full \u2014 leaving plants standing]' : '')
-      );
+        (atCap ? '\n[hoard full \u2014 leaving plants standing]' : '');
+      sandalBadge.setAttribute('data-tooltip', tip);
+      sandalBadge.setAttribute('aria-label', tip);
+      sandalBadge.removeAttribute('title');
       sandalBadge.style.display = 'inline';
     }
   } else if (sandalBadge) {
