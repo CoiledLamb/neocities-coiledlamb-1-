@@ -24,7 +24,7 @@ export const UPGRADE_DEFS = [
   { id:'bootClip2',   name:'extended clip',      desc:'carry 2 spare pairs of boots',  cost:100, requires:'bootClip1',   apply:()=>{ S.bootClipMax=2; S.bootClipCount=Math.min(2,S.bootClipCount+1); } },
   { id:'steadyFeet',  name:'steady feet',        desc:'-30% trip chance, +15% catch',  cost:120, requires:null,          apply:()=>{} },
   { id:'cargoSling',  name:'cargo sling',        desc:'+2 carry slots',                cost:80,  requires:null,          apply:()=>{ S.maxSlots+=2; } },
-  { id:'cargoPack',   name:'expedition pack',    desc:'+3 more carry slots',           cost:180, requires:'cargoSling',  apply:()=>{ S.maxSlots+=3; } },
+  { id:'cargoPack',   name:'expedition pack',    desc:'+4 more carry slots',           cost:180, requires:'cargoSling',  apply:()=>{ S.maxSlots+=4; } },
   { id:'cargoWeight', name:'pack mule rig',      desc:'+5 kg capacity',                cost:150, requires:null,          apply:()=>{ S.maxWeight+=5; } },
   { id:'efficientConsumption', name:'efficient consumption', desc:'-40% canteen drain per drink', cost:120, requires:null, apply:()=>{} },
   { id:'sandalSatchel', name:'sandalweed satchel', desc:'hoard cap 5 \u2192 25', cost:60, requires:null, apply:()=>{} },

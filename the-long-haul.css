@@ -270,6 +270,28 @@ html, body {
 /* phantom \u2014 cells past maxSlots ceiling (when cols*rows > maxSlots). */
 .cslot.phantom { background: transparent; border-color: transparent; }
 
+/* v0.0.8.3 \u2014 modifier visuals. Border-only / background-only treatments
+   layer over the base size colors so at 15px cells they read as "same
+   pkg, extra property" rather than a new category.
+   - fragile: diagonal caution-tape stripes at the size's OWN accent
+     color (saturated, not diluted). Each size gets its own stripe
+     color so fragile-l reads as pink-on-pink-bg, fragile-s as teal-
+     on-teal-bg, etc. Communicates intensity rather than warning hue.
+   - lightweight: dashed border, inherits size color.
+   - heavy: 2px border, inherits size color (no bright-white override).
+   - unwieldy: trail cell renders flush with the primary shape via
+     negative margin + dropped left border \u2014 looks like one contiguous
+     L-shape, not two adjacent divs. */
+.cslot.s.mod-fragile  { background-image: repeating-linear-gradient(135deg, transparent 0 4px, #40a4b9 4px 7px); }
+.cslot.m.mod-fragile  { background-image: repeating-linear-gradient(135deg, transparent 0 4px, #9d78d4 4px 7px); }
+.cslot.l.mod-fragile  { background-image: repeating-linear-gradient(135deg, transparent 0 4px, #da8bda 4px 7px); }
+.cslot.xl.mod-fragile { background-image: repeating-linear-gradient(135deg, transparent 0 4px, #f5b6ff 4px 7px); }
+.cslot.mod-lightweight { border-style: dashed; }
+.cslot.mod-heavy       { border-width: 2px; }
+/* unwieldy: trail cell is a separate 1x1 div (see render/hud.js) that
+   inherits its size class — no dedicated trail CSS. The 2px grid gap
+   between main and trail carries the "awkward extra bit" signal. */
+
 /* v0.0.7.19: tooltip content now reads from `data-tooltip` attribute,
    NOT `title`. Decouples the custom hover overlay from the browser-native
    tooltip so you don't get both at once. JS sets data-tooltip + aria-label
@@ -300,8 +322,12 @@ html, body {
 }
 .has-tooltip:hover::after { opacity: 1; }
 
+/* v0.0.8.3 \u2014 weight segs mirror the cargo grid's 2-row layout.
+   Previously a flex row that expanded linearly with maxWeight, which
+   became overwhelming at 10+ kg. Grid track sizes are set inline from
+   renderCargoSlots (not in CSS) because they depend on maxWeight. */
 .weight-segs {
-  display: flex;
+  display: grid;
   gap: 2px;
   flex-shrink: 0;
   align-items: center;
@@ -312,12 +338,12 @@ html, body {
   border-radius: 1px;
   border: 1px solid #1e5554;
   background: #132e2d;
-  flex-shrink: 0;
 }
 .wseg.filled     { background: #4a7a78; border-color: #3a6a68; }
 .wseg.heavy      { background: #9d78d4; border-color: #7a58a4; }
 .wseg.overloaded { background: #da8bda; border-color: #a4589a; }
 .wseg.empty      { background: #132e2d; border-color: #1e5554; }
+.wseg.phantom    { background: transparent; border-color: transparent; }
 
 .log-btn {
   background: transparent;

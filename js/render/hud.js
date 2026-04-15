@@ -54,40 +54,56 @@ const PKG_SHAPES = {
   xl: { w: 4, h: 2 },
 };
 
-// binPack — simple first-fit packer. Sorts by footprint (w*h) desc so
-// larger shapes land first, then fills in smaller ones around them.
-// Returns { placements: [{pkg, x, y, w, h}], grid: [[pkg|null|...]] }.
+// v0.0.8.3 — pkg footprint. Base shape from PKG_SHAPES plus modifier
+// extensions. Unwieldy adds one extra cell to the right of the bottom
+// row; it renders as the base div + a separate 1x1 trail div (both
+// use the same size class, no special trail styling). The 2px grid
+// gap between them IS the visual — reads as "main pkg with an awkward
+// extra bit." Honest slot accounting — total rendered cells match
+// pkg.slots.
+function pkgFootprint(pkg) {
+  const base = PKG_SHAPES[pkg.size] || PKG_SHAPES.s;
+  const cells = [];
+  for (let dy = 0; dy < base.h; dy++)
+    for (let dx = 0; dx < base.w; dx++)
+      cells.push({ dx, dy });
+  const hasTrail = pkg.modifier === 'unwieldy';
+  if (hasTrail) cells.push({ dx: base.w, dy: base.h - 1, trail: true });
+  return { base, cells, hasTrail };
+}
+
+// binPack — first-fit packer. Sorts by cell count desc so larger
+// footprints land first, then smaller fill in. Multi-cell aware:
+// checks every cell in pkg.cells (not just a bounding rect).
+// Returns { placements: [{pkg, x, y, base, hasTrail}], grid }.
 function binPack(pkgs, cols, rows, blockedCells) {
   const grid = Array.from({length: rows}, () => Array(cols).fill(null));
-  // Pre-block unavailable cells (phantoms + gun slot) so the packer avoids them.
   for (const { x, y } of (blockedCells || [])) {
     if (y >= 0 && y < rows && x >= 0 && x < cols) grid[y][x] = '_blocked';
   }
-  const sorted = [...pkgs].sort((a, b) => {
-    const sa = PKG_SHAPES[a.size] || PKG_SHAPES.s;
-    const sb = PKG_SHAPES[b.size] || PKG_SHAPES.s;
-    return (sb.w * sb.h) - (sa.w * sa.h);
-  });
+  const withFootprint = pkgs.map(p => ({ pkg: p, fp: pkgFootprint(p) }));
+  withFootprint.sort((a, b) => b.fp.cells.length - a.fp.cells.length);
   const placements = [];
-  for (const pkg of sorted) {
-    const shape = PKG_SHAPES[pkg.size] || PKG_SHAPES.s;
+  for (const { pkg, fp } of withFootprint) {
+    const { base, cells, hasTrail } = fp;
+    // Scan bounds: unwieldy extends width by 1 (trail cell is at x=base.w).
+    const fpW = hasTrail ? base.w + 1 : base.w;
+    const fpH = base.h;
     let placed = false;
-    for (let y = 0; y + shape.h <= rows && !placed; y++) {
-      for (let x = 0; x + shape.w <= cols && !placed; x++) {
+    for (let y = 0; y + fpH <= rows && !placed; y++) {
+      for (let x = 0; x + fpW <= cols && !placed; x++) {
         let free = true;
-        for (let dy = 0; dy < shape.h && free; dy++)
-          for (let dx = 0; dx < shape.w && free; dx++)
-            if (grid[y+dy][x+dx]) free = false;
+        for (const c of cells) {
+          if (grid[y + c.dy][x + c.dx]) { free = false; break; }
+        }
         if (free) {
-          for (let dy = 0; dy < shape.h; dy++)
-            for (let dx = 0; dx < shape.w; dx++)
-              grid[y+dy][x+dx] = pkg;
-          placements.push({ pkg, x, y, w: shape.w, h: shape.h });
+          for (const c of cells) grid[y + c.dy][x + c.dx] = pkg;
+          placements.push({ pkg, x, y, base, hasTrail });
           placed = true;
         }
       }
     }
-    if (!placed) placements.push({ pkg, overflow: true, w: shape.w, h: shape.h });
+    if (!placed) placements.push({ pkg, overflow: true, base, hasTrail });
   }
   return { placements, grid };
 }
@@ -143,21 +159,36 @@ export function renderCargoSlots(force) {
   // Pack packages into the remaining cells.
   const { placements, grid } = binPack(S.inventory, cols, rows, blocked);
 
-  // Render placed packages as multi-cell shapes.
+  // Render placed packages. Primary shape + optional trail div for
+  // unwieldy. Trail has no special styling — inherits the size class
+  // so it reads as "same pkg, awkward extra piece" with a visible
+  // 2px grid gap communicating the asymmetry.
   for (const p of placements) {
     if (p.overflow) continue;
-    const d = document.createElement('div');
-    d.className = `cslot ${p.pkg.size} has-tooltip`;
-    d.style.gridColumn = `${p.x + 1} / span ${p.w}`;
-    d.style.gridRow    = `${p.y + 1} / span ${p.h}`;
-    d.textContent = p.pkg.size;
     const destLabel = getDisplayLabel(p.pkg.destId);
     const recoveryTag = p.pkg.isRecovery ? ' [recovery]' : (p.pkg.isLost ? ' [lost]' : '');
     const modTag = p.pkg.modifier ? ` (${p.pkg.modifier})` : '';
     const tip = `[${p.pkg.size}] ${p.pkg.label}${modTag}${recoveryTag}\n\u2192 ${destLabel}\n${p.pkg.scrip}\u00a2`;
-    d.setAttribute('data-tooltip', tip);
-    d.setAttribute('aria-label', tip);
-    els.cargoSlots.appendChild(d);
+    const modClass = p.pkg.modifier ? ` mod-${p.pkg.modifier}` : '';
+
+    const main = document.createElement('div');
+    main.className = `cslot ${p.pkg.size}${modClass} has-tooltip`;
+    main.style.gridColumn = `${p.x + 1} / span ${p.base.w}`;
+    main.style.gridRow    = `${p.y + 1} / span ${p.base.h}`;
+    main.textContent = p.pkg.size;
+    main.setAttribute('data-tooltip', tip);
+    main.setAttribute('aria-label', tip);
+    els.cargoSlots.appendChild(main);
+
+    if (p.hasTrail) {
+      const trail = document.createElement('div');
+      trail.className = `cslot ${p.pkg.size}${modClass} has-tooltip`;
+      trail.style.gridColumn = `${p.x + p.base.w + 1}`;
+      trail.style.gridRow    = `${p.y + p.base.h}`;
+      trail.setAttribute('data-tooltip', tip);
+      trail.setAttribute('aria-label', tip);
+      els.cargoSlots.appendChild(trail);
+    }
   }
 
   // Render gun slot.
@@ -196,13 +227,25 @@ export function renderCargoSlots(force) {
   }
 
   if (els.weightSegs) {
+    // v0.0.8.3 — weight segs mirror cargo's 2-row grid so the HUD row
+    // doesn't grow linearly with maxWeight. Row-major fill (left-to-
+    // right, top-to-bottom) preserves the "fills up as you load"
+    // reading of the old flex-row layout.
     els.weightSegs.innerHTML = '';
+    const wRows = 2;
+    const wCols = Math.max(1, Math.ceil(S.maxWeight / wRows));
+    els.weightSegs.style.gridTemplateColumns = `repeat(${wCols}, 8px)`;
+    els.weightSegs.style.gridTemplateRows    = `repeat(${wRows}, 8px)`;
     const loadPct = S.usedWeight / S.maxWeight;
-    for (let i = 0; i < S.maxWeight; i++) {
+    for (let i = 0; i < wCols * wRows; i++) {
       const pip = document.createElement('div');
-      pip.className = i < S.usedWeight
-        ? (loadPct <= 0.5 ? 'wseg filled' : loadPct <= 0.8 ? 'wseg heavy' : 'wseg overloaded')
-        : 'wseg empty';
+      if (i >= S.maxWeight) {
+        pip.className = 'wseg phantom';
+      } else if (i < S.usedWeight) {
+        pip.className = loadPct <= 0.5 ? 'wseg filled' : loadPct <= 0.8 ? 'wseg heavy' : 'wseg overloaded';
+      } else {
+        pip.className = 'wseg empty';
+      }
       els.weightSegs.appendChild(pip);
     }
   }
