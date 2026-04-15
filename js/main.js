@@ -238,7 +238,7 @@ function resolveEls() {
     // v0.0.7.24 — kit row
     kitRow:        $('kitRow'),
     kitBattery:    document.querySelector('.kit-battery'),
-    kitBatteryFill:$('kitBatteryFill'),
+    batterySegs:   $('kitBatterySegs'),
     kitBatteryVal: $('kitBatteryVal'),
     kitCaps:       $('kitCaps'),
   });

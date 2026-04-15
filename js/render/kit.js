@@ -52,11 +52,10 @@ function timerTxt() {
 }
 
 export function renderKit() {
-  const row      = els.kitRow;
-  const caps     = els.kitCaps;
-  const battFill = els.kitBatteryFill;
-  const battVal  = els.kitBatteryVal;
-  const batt     = els.kitBattery;
+  const row     = els.kitRow;
+  const caps    = els.kitCaps;
+  const battVal = els.kitBatteryVal;
+  const batt    = els.kitBattery;
   if (!row || !caps) return;
 
   const hasScanner = !!S.scanner.unlocked;
@@ -70,14 +69,18 @@ export function renderKit() {
   }
   if (row.style.display === 'none') row.style.display = '';
 
-  // battery (stub)
+  // battery (stub) — 10 discrete segs. Each seg represents 10% of
+  // full charge. Color ramp (teal → purple → magenta) applies to
+  // the *filled* segs when overall charge drops below a threshold.
   const charge = Math.max(0, Math.min(100, Math.round(S.battery.charge)));
-  if (battFill) {
-    battFill.style.width = charge + '%';
-    const cls = charge <= 15 ? 'kit-battery-fill crit'
-              : charge <= 35 ? 'kit-battery-fill warn'
-              : 'kit-battery-fill';
-    if (battFill.className !== cls) battFill.className = cls;
+  const filledCount = Math.ceil(charge / 10);
+  const segCls = charge <= 15 ? 'crit' : charge <= 35 ? 'warn' : 'on';
+  if (els.batterySegs) {
+    const children = els.batterySegs.children;
+    for (let i = 0; i < children.length; i++) {
+      const target = i < filledCount ? 'bseg ' + segCls : 'bseg';
+      if (children[i].className !== target) children[i].className = target;
+    }
   }
   if (battVal) battVal.textContent = charge + '%';
   if (batt) batt.setAttribute('aria-valuenow', String(charge));

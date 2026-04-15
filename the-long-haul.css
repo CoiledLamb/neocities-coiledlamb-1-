@@ -402,23 +402,45 @@ html, body {
 .boots-auto.on { color: #77bfcf; border-color: #40a4b9; }
 .boots-auto:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
-.stamina-segs { display: flex; gap: 3px; flex-shrink: 0; }
-.sseg {
-  width: 22px; height: 8px;
-  border-radius: 1px;
-  border: 1px solid #1e5554;
+/* v0.0.7.29 — stamina gets the contiguous bar + tick-line visual
+   (previously on kit-battery). Width is driven by JS; ticks every
+   25% are baked into a repeating-linear-gradient overlay that sits
+   above the fill. Overboost extends past staminaMax visually
+   by keeping fill at 100% and pulsing the background via the
+   existing overboost-pulse keyframes. */
+.stamina-bar {
+  position: relative;
+  width: 100px; height: 8px;
+  border: 1px solid #3a6a68;
   background: #132e2d;
-  transition: background 0.3s, border-color 0.3s;
+  flex-shrink: 0;
 }
-.sseg.full      { background: #4a7a78; border-color: #3a6a68; }
-.sseg.half      { background: #9d78d4; border-color: #7a58a4; }
-.sseg.empty     { background: #132e2d; border-color: #1e5554; }
-.sseg.crit      { background: #da8bda; border-color: #a4589a; }
-.sseg.overboost {
+.stamina-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(25% - 1px),
+    #081f1e calc(25% - 1px),
+    #081f1e 25%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+.stamina-bar-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 100%;
+  background: #4a7a78;
+  transition: width 0.3s, background-color 0.3s;
+}
+.stamina-bar-fill.half { background: #9d78d4; }
+.stamina-bar-fill.crit { background: #da8bda; }
+.stamina-bar-fill.overboost {
   background: #77bfcf;
-  border-color: #40a4b9;
   animation: overboost-pulse 1.2s ease-in-out infinite;
-  width: 14px;
 }
 @keyframes overboost-pulse {
   0%, 100% { opacity: 1; }
@@ -496,26 +518,19 @@ html, body {
    with a schema bump.
 */
 .kit-row { gap: 8px; }
+/* v0.0.7.29 — battery visual swapped to 10 discrete segments
+   (previously on stamina). Battery shell (border + terminal nub)
+   stays — identity is preserved. Inside, a flex row of 10 bsegs
+   each representing 10% charge. JS assigns .on / .warn / .crit /
+   .empty per seg based on current charge threshold. */
 .kit-battery {
   position: relative;
   width: 80px; height: 10px;
   border: 1px solid #3a6a68;
   background: #132e2d;
   flex-shrink: 0;
-}
-.kit-battery::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-    to right,
-    transparent 0,
-    transparent calc(10% - 1px),
-    #081f1e calc(10% - 1px),
-    #081f1e 10%
-  );
-  pointer-events: none;
-  z-index: 1;
+  padding: 1px;
+  box-sizing: border-box;
 }
 .kit-battery::after {
   content: '';
@@ -527,15 +542,19 @@ html, body {
   background: #3a6a68;
   border-radius: 0 1px 1px 0;
 }
-.kit-battery-fill {
-  position: absolute;
-  top: 0; left: 0; bottom: 0;
-  width: 80%;
-  background: #4a7a78;
-  transition: width 0.4s, background-color 0.4s;
+.battery-segs {
+  display: flex;
+  gap: 1px;
+  width: 100%; height: 100%;
 }
-.kit-battery-fill.warn { background: #9d78d4; }
-.kit-battery-fill.crit { background: #da8bda; }
+.bseg {
+  flex: 1;
+  background: #132e2d;
+  transition: background 0.3s;
+}
+.bseg.on   { background: #4a7a78; }
+.bseg.warn { background: #9d78d4; }
+.bseg.crit { background: #da8bda; }
 .kit-battery-val {
   color: #b1c9c3;
   font-size: 10px;

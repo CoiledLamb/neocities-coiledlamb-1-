@@ -1,17 +1,22 @@
 /* ==============================================
    THE LONG HAUL — stamina, canteen, drink, speed
 
-   Stamina is rendered as 4 segments (sseg0–3) plus a 5th
-   overboost segment (sseg4) shown only when stamina has been
-   pushed past staminaMax (the 1.25x post-rest boost).
+   v0.0.7.29: stamina render swapped from discrete .sseg divs to a
+   single contiguous .stamina-bar (border + repeating-linear-gradient
+   tick overlay at 25% divisions). Same thresholds and segCount API,
+   different paint surface. Overboost now pulses the full-width bar
+   via the existing overboost-pulse keyframes rather than showing a
+   dedicated 5th segment.
 
    staminaSegCount() returns 0–4 — current segment count, used
      by trip.js (trip chance scales with segments lost) and
-     stamina.js itself (autodrink trigger).
+     stamina.js itself (autodrink trigger). Unchanged by the
+     visual swap — callers don't know or care about the render.
 
-   renderStamina() repaints all five segments, the canteen bar,
-     and the drink button label. Triggers autodrink when a
-     segment threshold is crossed downward.
+   renderStamina() repaints the fill width + color state class,
+     updates the canteen column, and sets the drink button label.
+     Triggers autodrink when a segment threshold is crossed
+     downward (driven by staminaSegCount, not the new fill %).
 
    drinkWater() consumes canteen, restores stamina. Has the
      `efficientConsumption` upgrade as a 0.60x drain multiplier.
@@ -53,19 +58,28 @@ function canDrink() {
 // renderStamina is exported for trust.js (confirmDepotRest)
 // and called by main's tick + init.
 export function renderStamina() {
-  const perSeg = S.staminaMax/4, disp = Math.min(S.stamina,S.staminaMax);
-  for (let i=0;i<4;i++) {
-    const seg = document.getElementById('sseg'+i); if(!seg) continue;
-    const fl=i*perSeg, ce=(i+1)*perSeg;
-    if (disp>=ce)      seg.className='sseg full';
-    else if (disp>fl)  seg.className='sseg '+((disp-fl)/perSeg>0.5?'half':'crit');
-    else               seg.className='sseg empty';
+  const disp = Math.min(S.stamina, S.staminaMax);
+  const pct  = Math.max(0, Math.min(100, (disp / S.staminaMax) * 100));
+  const overboost = S.staminaOverboost && S.stamina > S.staminaMax;
+
+  const fill = document.getElementById('staminaBarFill');
+  if (fill) {
+    fill.style.width = overboost ? '100%' : pct + '%';
+    // Color ramp keyed off segment count so the thresholds line up
+    // with the 25% tick divisions drawn in CSS.
+    const cls = overboost      ? 'stamina-bar-fill overboost'
+              : pct <= 25      ? 'stamina-bar-fill crit'
+              : pct <= 50      ? 'stamina-bar-fill half'
+              :                  'stamina-bar-fill';
+    if (fill.className !== cls) fill.className = cls;
   }
-  const over = document.getElementById('sseg4');
-  if (over) {
-    if (S.staminaOverboost&&S.stamina>S.staminaMax) { over.className='sseg overboost'; over.style.display='block'; }
-    else over.style.display='none';
+  const bar = document.getElementById('staminaBar');
+  if (bar) {
+    const val = overboost ? 100 : Math.round(pct);
+    bar.setAttribute('aria-valuenow', String(val));
+    bar.setAttribute('aria-valuetext', overboost ? 'overboost' : val + '% stamina');
   }
+
   const nowSegs = staminaSegCount();
   if (S.autodrink && nowSegs < S.prevStaminaSeg && canDrink()) drinkWater();
   S.prevStaminaSeg = nowSegs;
