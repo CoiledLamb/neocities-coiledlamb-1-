@@ -11,20 +11,20 @@
    - UPGRADE_DEFS — game data with closures, going to upgrades.js
    - NODE_GLYPHS / STATUS_COLORS — presentation data, staying in main.js for now
    ============================================== */
-"use strict";
+'use strict';
 
 // ----- world / map -----
-export const CELLS_PER_EDGE = 260;
-export const VIEWPORT_CELLS = 90;
-export const COURIER_CELL = 16;
-export const PKG_PICKUP_RANGE = 8;
-export const PKG_MAX_PER_EDGE = 18;
+export const CELLS_PER_EDGE    = 260;
+export const VIEWPORT_CELLS    = 90;
+export const COURIER_CELL      = 16;
+export const PKG_PICKUP_RANGE  = 8;
+export const PKG_MAX_PER_EDGE  = 18;
 export const PKG_RESPAWN_TICKS = 500;
-export const TOTAL_CELLS = CELLS_PER_EDGE * 6;
-export const KM_PER_EDGE = 4.2;
+export const TOTAL_CELLS       = CELLS_PER_EDGE * 6;
+export const KM_PER_EDGE       = 4.2;
 
 // ----- sandalweeds -----
-export const SANDAL_CAP_BASE = 5;
+export const SANDAL_CAP_BASE     = 5;
 export const SANDAL_CAP_UPGRADED = 25;
 
 // ----- environmental spawn rates (v0.0.7.18) -----
@@ -41,11 +41,11 @@ export const SANDAL_CAP_UPGRADED = 25;
 //
 // Conservative tuning to avoid trivializing boots — wetlands give a
 // noticeable but not overwhelming yield. Watch and retune if needed.
-export const SANDAL_RATE_WETLANDS = 0.006;
+export const SANDAL_RATE_WETLANDS       = 0.006;
 export const SANDAL_RATE_DEPOT_APPROACH = 0.003;
-export const SANDAL_RATE_SCRUB = 0.001;
-export const SANDAL_RATE_ROAD = 0.0005;
-export const SANDAL_RATE_RUINS = 0.001;
+export const SANDAL_RATE_SCRUB          = 0.001;
+export const SANDAL_RATE_ROAD           = 0.0005;
+export const SANDAL_RATE_RUINS          = 0.001;
 
 // Wetland canteen refill (v0.0.7.18, wired v0.0.7.19 commit 2b). When
 // the courier's current cell is a wetland, canteen refills by this much
@@ -70,13 +70,13 @@ export const RAIN_WET_MAX_TICKS = 100;
 export const RAIN_INCOMING_WARN_TICKS = 25;
 
 // ----- tick / stamina / trip -----
-export const TICK_MS = 350;
-export const STAMINA_DRAIN = 0.4;
-export const BOOT_DRAIN = 0.12;
-export const TRIP_CHANCE_BASE = 0.006;
+export const TICK_MS           = 350;
+export const STAMINA_DRAIN     = 0.40;
+export const BOOT_DRAIN        = 0.12;
+export const TRIP_CHANCE_BASE  = 0.006;
 export const CATCH_CHANCE_BASE = 0.35;
-export const REST_TICKS_MIN = 43;
-export const REST_TICKS_MAX = 86;
+export const REST_TICKS_MIN    = 43;
+export const REST_TICKS_MAX    = 86;
 
 // ----- boots -----
 export const BOOT_PRICE = 15;
@@ -86,35 +86,35 @@ export const BOOT_PRICE = 15;
 // can now drop on trip, not just lost pkgs.
 // v0.0.7.18: tie-down semantics changed — tie-down now absorbs drops too
 // (option B). See trip.js maybeTrip() for the new flow.
-export const TRIP_DROP_CHANCE_NORMAL = 0.2;
-export const TRIP_DROP_CHANCE_LOST = 0.3;
+export const TRIP_DROP_CHANCE_NORMAL = 0.20;
+export const TRIP_DROP_CHANCE_LOST   = 0.30;
 
 // ----- recovery cargo (v0.0.7 commit 5) -----
-export const RECOVERY_BONUS_MULT = 1.5; // scrip multiplier for recovery deliveries
-export const RECOVERY_SOFT_CAP = 3; // max active recovery cargo in world
-export const RECOVERY_POLL_INTERVAL = 85; // ticks between recovery spawn attempts (~30s)
-export const KNOWN_PEERS_CAP = 10; // FIFO cap on tracked peer porter IDs
+export const RECOVERY_BONUS_MULT    = 1.5;  // scrip multiplier for recovery deliveries
+export const RECOVERY_SOFT_CAP      = 3;    // max active recovery cargo in world
+export const RECOVERY_POLL_INTERVAL = 85;   // ticks between recovery spawn attempts (~30s)
+export const KNOWN_PEERS_CAP        = 10;   // FIFO cap on tracked peer porter IDs
 
 // ----- trust / NPC gains (v0.0.7 commits 4a/4b, realigned in commit A) -----
-export const TRUST_THRESHOLDS = [20, 40, 60, 80];
-export const TRUST_GAIN_DELIVERY = 1;
+export const TRUST_THRESHOLDS       = [20, 40, 60, 80];
+export const TRUST_GAIN_DELIVERY      = 1;
 export const TRUST_GAIN_LOST_DELIVERY = 2;
-export const TRUST_GAIN_DISCOVERY = 3;
+export const TRUST_GAIN_DISCOVERY     = 3;
 
 // ----- channels / chatter (v0.0.7 commit 4b) -----
-export const CHANNELS_DISPLAY_CAP = 6;
+export const CHANNELS_DISPLAY_CAP       = 6;
 export const CHATTER_INTERVAL_MIN_TICKS = 170;
 export const CHATTER_INTERVAL_MAX_TICKS = 345;
-export const CHATTER_BASE_CHANCE = 0.005;
+export const CHATTER_BASE_CHANCE        = 0.005;
 
 // ----- depot rest (t80 prompt reward) -----
 export const DEPOT_REST_BONUS_SCRIP = 10;
 
 // ----- multiplayer -----
-export const FEED_URL = "https://coiledlamb.tlh-feed.workers.dev";
-export const POLL_MS = 60000;
+export const FEED_URL         = 'https://coiledlamb.tlh-feed.workers.dev';
+export const POLL_MS          = 60000;
 export const FEED_DISPLAY_CAP = 8;
-export const DIST_MILESTONES = [10, 25, 50, 100, 250, 500, 1000];
+export const DIST_MILESTONES  = [10, 25, 50, 100, 250, 500, 1000];
 
 // ----- multiplayer rate limiting (v0.0.7.21) -----
 // KV free-tier is 1000 puts/day. Client-side rate limiting stops a single
@@ -126,16 +126,16 @@ export const DIST_MILESTONES = [10, 25, 50, 100, 250, 500, 1000];
 //   a previous milestone are batched into one event with a values[] array.
 // - THROTTLE_COOLDOWN_MS: fallback cooldown when 429 comes back without a
 //   usable Retry-After header.
-export const POST_MIN_INTERVAL_MS = 5000;
+export const POST_MIN_INTERVAL_MS  = 5000;
 export const MILESTONE_COALESCE_MS = 1500;
-export const THROTTLE_COOLDOWN_MS = 60000;
+export const THROTTLE_COOLDOWN_MS  = 60000;
 
 // ----- sticky gun (v0.0.7.21) -----
 // Pickup range while gun is equipped + ammo loaded. Ammo refills on H arrival.
 // Gun occupies one cargo slot unless holstered. See js/packages.js for the
 // effectiveMaxSlots accounting.
-export const STICKY_GUN_RANGE = 16;
-export const STICKY_GUN_AMMO_MAX = 8;
+export const STICKY_GUN_RANGE       = 16;
+export const STICKY_GUN_AMMO_MAX    = 8;
 
 // ----- terrain scanner T1 (v0.0.7.21) -----
 // T1 only for this patch. Framework (level field, manualCooldown persistence)
@@ -145,11 +145,11 @@ export const STICKY_GUN_AMMO_MAX = 8;
 // Manual ping (player-triggered) uses the longer MANUAL buff but has a
 // SCANNER_MANUAL_COOLDOWN_TICKS gate so it can't be spammed.
 // Buff multiplies tripChance() by SCANNER_BUFF_MAGNITUDE when active.
-export const SCANNER_AUTO_INTERVAL_TICKS = 86; // ~30s at 350ms/tick
-export const SCANNER_BUFF_DURATION_TICKS = 17; // ~6s
-export const SCANNER_MANUAL_BUFF_TICKS = 34; // ~12s
-export const SCANNER_MANUAL_COOLDOWN_TICKS = 86; // ~30s
-export const SCANNER_BUFF_MAGNITUDE = 0.5; // trip chance ×0.5 while buffed
+export const SCANNER_AUTO_INTERVAL_TICKS  = 86;   // ~30s at 350ms/tick
+export const SCANNER_BUFF_DURATION_TICKS  = 17;   // ~6s
+export const SCANNER_MANUAL_BUFF_TICKS    = 34;   // ~12s
+export const SCANNER_MANUAL_COOLDOWN_TICKS = 86;  // ~30s
+export const SCANNER_BUFF_MAGNITUDE       = 0.5;  // trip chance ×0.5 while buffed
 
 // ----- admin (v0.0.7.21) -----
 // SHA-256 (hex) of the admin token. Admin is OFF when null. To enable:
@@ -161,18 +161,17 @@ export const SCANNER_BUFF_MAGNITUDE = 0.5; // trip chance ×0.5 while buffed
 // ships in source (and on Neocities). Any devtools-enabled player can
 // still call admin functions directly — this gate stops casual
 // URL-guessing + repo-scraping, not a determined inspector.
-export const ADMIN_TOKEN_SHA =
-  "e1115c32991e23b06c78bf498d33b51da89da69fbcd2e8b1989c4a4fabaa0805";
+export const ADMIN_TOKEN_SHA = 'e1115c32991e23b06c78bf498d33b51da89da69fbcd2e8b1989c4a4fabaa0805';
 
 // ----- persistence -----
-export const SAVE_KEY = "tlh-save-v1";
-export const SAVE_KEY_V2 = "tlh-save-v2";
-export const SAVE_KEY_V3 = "tlh-save-v3";
-export const SAVE_KEY_V4 = "tlh-save-v4";
-export const SAVE_KEY_V5 = "tlh-save-v5";
-export const SAVE_KEY_V6 = "tlh-save-v6";
+export const SAVE_KEY     = 'tlh-save-v1';
+export const SAVE_KEY_V2  = 'tlh-save-v2';
+export const SAVE_KEY_V3  = 'tlh-save-v3';
+export const SAVE_KEY_V4  = 'tlh-save-v4';
+export const SAVE_KEY_V5  = 'tlh-save-v5';
+export const SAVE_KEY_V6  = 'tlh-save-v6';
 export const SAVE_VERSION = 6;
-export const AUTOSAVE_MS = 30000;
+export const AUTOSAVE_MS  = 30000;
 
 // ----- edges with elevated trip risk -----
-export const RISKY_EDGE_DEST = new Set(["C", "?"]);
+export const RISKY_EDGE_DEST = new Set(['C', '?']);
