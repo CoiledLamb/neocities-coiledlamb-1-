@@ -1,7 +1,7 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-15 (v0.0.7.20 shipped: bugfix patch complete. Sticky gun + scanner mini-patch next.)_
+_last updated: 2026-04-15 (v0.0.7.20 shipped: bugfix patch complete. Sticky gun + scanner mini-patch next. Roadmap section added.)_
 
-> Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, future feature backlog, and game-specific session log.
+> Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
@@ -15,10 +15,10 @@ Game is at `v0.0.7.20`. All four bugfix-patch commits shipped and verified green
 3. ✅ **Bugfix patch commit 1** (v0.0.7.18) — refactor housekeeping + low-risk gameplay bugs
 4. ✅ **Bugfix patch commit 2a** (v0.0.7.19) — distKm edge-math, trust unlock canonicalization, tooltip dedup, damage log clarity
 5. ✅ **Bugfix patch commit 2b** (v0.0.7.20) — distKm rounding-stomp, tie-down option B, rain restructure, wetland refill, pickup-fail logs, depotRestPending rename. See "commit 2b" section below.
-6. ⏳ Sticky gun + terrain scanner mini-patch — designed, not started.
-7. ⏳ v0.0.8 work — structures tab, new terrain, bigger map.
+6. ⏳ Sticky gun + terrain scanner mini-patch — designed, not started. **First entry in [roadmap](#roadmap).**
+7. ⏳ v0.0.8 work — terrain expansion (deserts, rivers, slopes). See [roadmap](#roadmap).
 
-**Resume next session**: sticky gun + scanner mini-patch, or pick a different priority from "next-step ordering" near the bottom.
+**Resume next session**: see [roadmap](#roadmap) for full sequencing. Top of queue is sticky gun + scanner mini-patch (v0.0.7.21).
 
 ---
 
@@ -139,18 +139,139 @@ Most of the previous list is now closed. Remaining:
    - **429 detection UI signal**: when POSTs start 429ing, dim the network panel + show "feed throttled — broadcasts paused" instead of the misleading "no signal" (which means "empty feed", not "broken").
 
 **Noticed but not formally on the bug list (no rush):**
-2. **`S.inRiver` is a stub.** Declared in `state.js` (`inRiver: false`), read in main.js tick (`if (S.isRaining||S.inRiver) S.canteen += 0.4`), never set by any code. Likely intended for future "courier wades river" mechanic. Remove or wire when terrain patch lands.
+2. **`S.inRiver` is a stub.** Declared in `state.js` (`inRiver: false`), read in main.js tick (`if (S.isRaining||S.inRiver) S.canteen += 0.4`), never set by any code. Likely intended for future "courier wades river" mechanic. Will be wired when v0.0.8 terrain lands (rivers are part of that scope).
 3. ~~State shape inconsistency: `_transient.depotRestPending` vs `restPromptPending`~~ — ✅ closed in commit 2b. Renamed trust.js to use the canonical declared slot.
-4. **Sub-version naming**: HTML subtitle is now at `v0.0.7.20` and growing. The dimmed `.N` rendering is charming up to a point but starts looking weird after a dozen sub-versions. Consider tagging `v0.0.8` cleanly when next significant feature lands (sticky gun? mobile carrier?). Don't drag v0.0.7.* much further.
+4. **Sub-version naming**: HTML subtitle is now at `v0.0.7.20` and growing. The dimmed `.N` rendering is charming up to a point but starts looking weird after a dozen sub-versions. Roadmap recommends tagging `v0.0.8` cleanly when terrain lands. Mini-patches between now and then will be `v0.0.7.21`, `.22` — try to keep the runway short.
 
 ---
 
-## user-discussed features deferred (not started)
+## specs: courier equipment v2
 
-These came up during the patch session and were discussed at the design level but not built. Pickup notes attached so the next agent doesn't have to rebuild context from scratch.
+> Sequencing for these items lives in [roadmap](#roadmap) under "near-term arc: courier equipment v2." Specs preserved here verbatim.
 
-### Save export/import (cross-browser saves)
-**Status**: design settled, not implemented.
+Three items form the courier-equipment-v2 thematic arc: sticky gun, terrain scanner, mobile carrier. Acquisition: upgrades menu now; long-term plan to migrate to NPC trust rewards once map expands (v0.0.9).
+
+### sticky gun
+
+**Concept**: extends pickup radius from a reduced base. Has ammo, refills only at H. Takes a cargo slot; holster upgrade frees the slot.
+
+**Tuning**:
+- `PKG_PICKUP_RANGE` from 8 → 6 when gun owned; with gun: ~16.
+- Ammo: 8 shots. Auto-refill on H arrival.
+
+**State**: `S.stickyGun = null | { ammo, ammoMax, holstered }`.
+
+**Pickup flow**: if gun + ammo > 0, scan range = 16; on cross-range pickup, decrement ammo, store `S.lastStickyShot` for fade-out visual overlay.
+
+**Holster upgrade**: new `stickyHolster` (~80¢), requires gun. Frees cargo slot.
+
+**Slot accounting**: `effectiveMax = S.maxSlots - (gun && !holstered ? 1 : 0)`.
+
+### terrain scanner
+
+**Concept**: periodic pings + manual ping (30s cooldown), buff against trip chances, bigger buff on risky terrain.
+
+**Tuning sketch**:
+- T1 (60¢): 30s interval, 6s buff, manual 30s cooldown.
+- T2 (140¢, req T1): 20s interval, 8s buff.
+- T3 (240¢, req T2): 15s interval, 10s buff (~66% auto-uptime).
+- Manual always 12s buff (longer than any auto) — keeps manual valuable.
+
+**State**: `S.scanner = { unlocked, level, manualCooldown, autoTimer, buffActive, buffRemaining, buffMagnitude }`.
+
+**Trip integration**: `tripChance() *= buffMagnitude` when active (0.5 baseline, 0.3 on risky).
+
+**Save schema**: needs v5 → v6 bump (manual cooldown must persist — no save-scum).
+
+### mobile carrier
+
+**Status**: design-incomplete. User flagged as substantial standalone item.
+
+**Known design notes**:
+- Battery (stub for now, **terrain scanner could share** — when scanner ships first, design battery as a real subsystem from day one rather than scanner-local timer).
+- Separate inventory on cargo bar.
+- Visible cart trail behind character.
+- Cart cargo susceptible to bumps not tumbles.
+
+**Save schema**: separate inventory means another bump (v6 → v7 likely). If shipped close enough to scanner in time, could fold into one bump — but don't block scanner waiting for carrier design.
+
+**Open design questions** (need a conversation before building):
+- How does carrier interact with tie-down? (Carrier cargo isn't on the courier's back — does tie-down protect it? Probably no, carrier needs its own protection mechanic.)
+- Drop-and-leave-cart mechanic? Trust impact if a cart is left in the open?
+- Can other porters interact with abandoned carts (multiplayer hook)?
+
+### shared spec: battery subsystem (design ahead)
+
+If sticky gun + scanner + carrier all eventually use battery, design it once when scanner ships:
+- `S.battery = { charge, max, drainRates: {...} }` keyed by consumer.
+- Recharge: at H by default, at any depot via upgrade.
+- Each consumer registers a drain rate; tick subtracts sum.
+- When `charge <= 0`, all consumers degrade to "off" gracefully (scanner stops pinging, carrier becomes manual-pull-only, etc.).
+
+If carrier isn't built until much later, scanner gets a local timer instead and battery is introduced when carrier lands. Tradeoff: cleaner-now vs less-rework-later.
+
+---
+
+## specs: longer-horizon features
+
+> Sequencing lives in [roadmap](#roadmap). Design notes preserved here.
+
+### structures (v0.0.9 scope)
+
+Postboxes, rainfall canopies, generators, lookout posts, ziplines, shelters, drone bays. Built on paths, degrade, upgradeable. Pulls in **multiplayer Tier 2** (per-region structure stewardship via KV).
+
+KV schema sketch: `structures:{regionKey}` → list of `{ id, type, builder_porterId, condition, last_maintained_ts }`.
+
+### terrain types (v0.0.8 scope)
+
+Deserts, rivers (bridgeable), slopes/elevation/mountains. Wetlands "slow to travel" mechanic also fits here (currently wetlands only do canteen refill — half-implemented).
+
+Closes the `S.inRiver` stub bug — rivers will actually set the flag when the courier wades.
+
+### bigger map (v0.0.9 scope)
+
+Grow route beyond 6 nodes. Unlocks trust-reward acquisition for sticky gun + scanner (currently only purchasable from upgrades menu — bigger map gives room to make them trust unlocks at new NPCs).
+
+### radio chatter NPCs (v0.1 scope)
+
+Player-authored radio messages, trust meter pooled with NPCs. Multiplayer Tier 3 territory.
+
+### sign system (v0.1 scope)
+
+Porters leave preset messages on cooldown. Sprout-emoji styled, animate in like sandalweed spawn. Pre-structure-tier social layer — could ship before structures if we want a social win without the structure-stewardship complexity.
+
+### settlement quote evolution (v0.1 scope)
+
+3-stage × 6-settlement quote rewrite. Needs the rebuild mechanic to be real first (so probably post-structures).
+
+### admin debug/moderation tools (split: minimal early, full later)
+
+**Minimal admin (cross-cutting infra, ship anytime)**:
+- Give scrip
+- Set trust per NPC
+- Hidden URL hash gating (`#admin=<token>`) or a key combo
+
+This pays for itself instantly during v0.0.8+ testing — manually grinding to t80 to test rest prompts is slow.
+
+**Full admin (post-v0.1 parking lot)**:
+- Edit porter hex
+- Teleport to node/cell
+- Toggle meters on/off
+- Force-spawn pkgs / sandalweed / lost cargo
+
+### post-v0.1 parking lot
+
+- Day/night cycle (substantial, probably its own patch)
+- Hot springs (field stamina restore with wait-time cost)
+- Music-track-to-event integration (cross-cuts with `nav.js`)
+- Porter profiles, daily delivery boards, memorial events (multiplayer Tier 4)
+- Polish list from `tlh-postrefactorpatch.txt`: more varied package weights, package types (XL, fragile, durable), names tied to delivery destination, delivery animation, canteen visual (invert fill, bracket frame)
+
+---
+
+## save export/import (spec — design settled, not built)
+
+> Sequencing in [roadmap](#roadmap) under "cross-cutting infra."
 
 **Format** (locked):
 ```
@@ -172,42 +293,7 @@ Where payload is `{ v: 5, ts: <export time>, porterId: <opt-in>, save: <buildSav
 
 **Multiplayer trust risk**: opt-in-on-export (default off) protects against accidental ID sharing.
 
-### "Save before browser close"
-Already handled. `beforeunload` + `visibilitychange` + autosave interval. `localStorage.setItem` is synchronous. Nothing to do.
-
-### Sticky gun + terrain scanner mini-patch
-Full design preserved in "future upgrades" section below. Save schema bump (v5 → v6) needed for terrain scanner manual cooldown persistence.
-
-### Mobile carrier
-User wants this as a substantial standalone item: battery (stub for now, terrain scanner could share), separate inventory on cargo bar, visible cart trail behind character, cart cargo susceptible to bumps not tumbles. **Not designed in detail yet** — defer to its own design conversation when picked up.
-
-### Polish list (from `tlh-postrefactorpatch.txt`)
-- More varied package weights (lighter, heavier)
-- Package types (XL, fragile, durable)
-- Names for packages tied to delivery destination
-- Delivery animation (visual feedback when dropoff happens)
-- Canteen visual: invert fill (bright = how full), bracket frame
-- Day/night cycle integration (substantial, probably its own patch)
-- Music-track-to-event integration (cross-cuts with `nav.js`)
-- Sign system: preset messages other porters can leave on cooldown, sprout-emoji styled, animate in like sandalweed spawn
-
-### Admin debug/moderation tools
-User wants: edit porter hex, give scrip, teleport, trust manipulation, meters on/off. Probably gated to a hidden URL hash or password field. Design conversation needed.
-
----
-
-## next-step ordering (recommended; user can override)
-
-The bug list is in good shape. With 2b landed, the natural priorities in order:
-
-1. **Save export/import** — design is settled, just needs to be built. Highest value-per-effort outside the bugfix arc: cross-browser saves are a major feature, and the modal pattern unlocks future UI work.
-2. **Sticky gun + terrain scanner mini-patch** — designed in handoff, ready to build. Save schema bump v5 → v6 needed.
-3. **Multiplayer rate limiting + 429 UI** — final outstanding item from the original bug list.
-4. **Polish pass** — package variety, delivery animation, canteen visual.
-
-After that: tag v0.0.8 cleanly and start structures/terrain work.
-
-**Mobile carrier** is a wildcard. It's player-asked-for and substantial. Could fit anywhere now. Recommend a design conversation before queuing it.
+**"Save before browser close"**: already handled. `beforeunload` + `visibilitychange` + autosave interval. `localStorage.setItem` is synchronous. Nothing to do.
 
 ---
 
@@ -262,8 +348,8 @@ worker/
 - **`els` and `worldCells` as module-local aliases** over `S._transient.els` / `S._transient.worldCells`. `resolveEls()` uses `Object.assign`, `buildWorld()` uses `.length=0+push` — both preserve the alias by mutating in place. **Never reassign these aliases.** Every module that uses them does `const els = S._transient.els; const worldCells = S._transient.worldCells;` at the top.
 - **Constants imported as namespace**: `import * as C from './constants.js'` → `C.TICK_MS`, `C.TRIP_CHANCE_BASE` etc.
 - **Data files flat in `js/data/`** (not nested). `UPGRADE_DEFS` imports `S` because `apply` closures mutate state — unusual for a data file but cleaner than a dispatch table.
-- **HTML subtitle dimmed sub-version**: `v0.0.7<span style="opacity:0.6">.N</span>` — oil-text gradient renders the dimmed `.N` nearly invisible against background. User finds this charming. Gets less charming as N climbs (currently `.19`, will be `.20` after 2b). See "noticed but not on bug list" item 4 about tagging v0.0.8 when next significant feature lands.
-- **No save schema bump during refactor or bugfix patch**. Stays at v5. Old saves self-heal via existing ratchet in `loadGame`. Will need a bump for terrain scanner (manual cooldown persistence — see future upgrades).
+- **HTML subtitle dimmed sub-version**: `v0.0.7<span style="opacity:0.6">.N</span>` — oil-text gradient renders the dimmed `.N` nearly invisible against background. User finds this charming. Gets less charming as N climbs (currently `.20`). Roadmap tags v0.0.8 when terrain lands to reset the runway.
+- **No save schema bump during refactor or bugfix patch**. Stays at v5. Old saves self-heal via existing ratchet in `loadGame`. Will need a bump for terrain scanner (manual cooldown persistence — see [courier equipment v2 spec](#specs-courier-equipment-v2)).
 - **Circular-import-by-file pattern**: many sub-modules import from each other and from `render/*`. Circular by file but NOT by initialization — every cross-call happens inside a function body, never at module load. ES modules handle this correctly (live bindings, populated by the time anything runs).
 - **Namespace imports for modules with 3+ functions called from main.js tick/init**: `Pkg`, `Trip`, `Boots`, `Stamina`, `Upg`. Smaller modules use named imports. `render/*` modules use named imports too since each surface is small.
 - **Cross-zone resource constants live in `constants.js`**, not in zone defs. Sandalweed rates + wetland canteen refill are centralized — single-file balance pass.
@@ -348,7 +434,7 @@ The v0.0.7 bundle interlocks **four systems** that mutually reinforce each other
 3. **Trust meter with NPCs** — ✅ shipped
 4. **Settlement UI polish** — ✅ shipped
 
-v0.0.7 is complete. The patch arc on top of it (v0.0.7.18 housekeeping, v0.0.7.19 bug fixes, v0.0.7.20 in queue) cleans up known issues without adding scope.
+v0.0.7 is complete. The patch arc on top of it (v0.0.7.18 housekeeping, v0.0.7.19 bug fixes, v0.0.7.20) cleans up known issues without adding scope.
 
 ---
 
@@ -406,7 +492,7 @@ The game lives across `js/main.js` + the extracted modules listed in the file st
 - `S.npcs.{A,B,H}` = `{ trust, unlocks: {t20,t40,t60,t80}, nextChatterTick }`.
 - `TRUST_THRESHOLDS = [20, 40, 60, 80]`. Gains: delivery +1, lost-delivery +2, discovery +3.
 - t20: reveal stage-0 adjacent nodes to stage 1.
-- t40: `tryWarning()` on arrival — trip-risk edge > rain-incoming > low-stamina (rain check restructure pending in 2b).
+- t40: `tryWarning()` on arrival — trip-risk edge > rain-incoming > low-stamina (rain check restructured in 2b).
 - t60: `tryPreview()` scans outbound edge for any package, speaks preview line.
 - t80: `tryRestPrompt()` posts log button → `confirmDepotRest` restores stamina to 105% + 30 canteen − 10¢.
 - **v0.0.7.18**: function renames swept (was `tryT50Warning`/`tryT75Preview`/`tryT100RestPrompt`).
@@ -461,26 +547,28 @@ The game lives across `js/main.js` + the extracted modules listed in the file st
 
 ### game-side (in `js/multiplayer.js`)
 - Constants in `MULTIPLAYER` block: `FEED_URL`, `POLL_MS = 60000`, `FEED_DISPLAY_CAP = 8`.
-- `postActivity(type, data)` — fire-and-forget POST with `keepalive:true`. Silent on all errors. **Client-side rate limiting still TODO** (queued bug list item 1).
+- `postActivity(type, data)` — fire-and-forget POST with `keepalive:true`. Silent on all errors. **Client-side rate limiting still TODO** (see [roadmap](#roadmap) cross-cutting infra).
 - `pollFeed()` — incremental fetch via `?since=`, dedupes, harvests peer porter IDs into `knownPeers`.
 - `startPolling`/`stopPolling` tied to `visibilitychange`.
-- `checkDistMilestones()` broadcasts at [10, 25, 50, 100, 250, 500, 1000]km. **Coalescing still TODO** (queued bug list item 1).
+- `checkDistMilestones()` broadcasts at [10, 25, 50, 100, 250, 500, 1000]km. **Coalescing still TODO** (see roadmap).
 - Self events filtered from feed display.
 
-### multiplayer plan (full design)
+### multiplayer tier ladder (spec)
+
+> Sequencing in [roadmap](#roadmap). Tier descriptions preserved here for design reference.
 
 Designed to fit the game's actual shape: each player has their own procedural world; multiplayer is **a presence layer**, not shared world state.
 
-#### Tier 1 status (v0.0.7) — ✅ shipped
+#### Tier 1 (v0.0.7) — ✅ shipped
 Activity log, census, lost cargo recovery, echo events (trust-gated).
 
-#### Tier 2 — fits with structures
+#### Tier 2 — fits with structures (v0.0.9)
 Structure stewardship, postbox dead-drops, structure naming, roads as collective infrastructure, ziplines as gifts.
 
-#### Tier 3 — fits with radio chatter NPCs
+#### Tier 3 — fits with radio chatter NPCs (v0.1)
 Player-authored radio messages, trust meter pooled with NPCs.
 
-#### Tier 4 — long-tail (v0.1+)
+#### Tier 4 — long-tail (post-v0.1)
 Porter profiles, daily delivery boards, memorial events.
 
 #### KV schema (current + anticipated)
@@ -489,65 +577,142 @@ Porter profiles, daily delivery boards, memorial events.
 
 ---
 
-## future upgrades — mini-patch (post-2b)
+## roadmap
 
-Two upgrades shipping as a small mini-patch. Acquisition: upgrades menu now; long-term plan to migrate to NPC trust rewards once map expands.
+> Single source of truth for sequencing. Specs live in their own sections (cross-linked below). Past completions live in the session log. This section is forward-looking only.
+>
+> Conventions: ✅ done, 🟢 designed and ready to build, 🟡 partially designed, 🔴 needs design conversation. Schema bumps flagged inline.
 
-### sticky gun
+### now: v0.0.7.20 (live) → v0.0.7.21 (next push)
 
-**Concept**: extends pickup radius from a reduced base. Has ammo, refills only at H. Takes a cargo slot; holster upgrade frees the slot.
+✅ **v0.0.7.20** — bugfix patch closed.
+🟢 **v0.0.7.21** — sticky gun + terrain scanner mini-patch. First half of the courier-equipment-v2 arc. **Schema bump v5 → v6** required (scanner manual cooldown must persist). Spec: [courier equipment v2](#specs-courier-equipment-v2).
 
-**Tuning**:
-- `PKG_PICKUP_RANGE` from 8 → 6 when gun owned; with gun: ~16.
-- Ammo: 8 shots. Auto-refill on H arrival.
+### near-term arc: courier equipment v2
 
-**State**: `S.stickyGun = null | { ammo, ammoMax, holstered }`.
+Three items, sequential mini-patches under one thematic umbrella. Sticky gun + scanner ship together; mobile carrier follows when designed.
 
-**Pickup flow**: if gun + ammo > 0, scan range = 16; on cross-range pickup, decrement ammo, store `S.lastStickyShot` for fade-out visual overlay.
+| Version | Scope | State | Schema | Notes |
+|---|---|---|---|---|
+| v0.0.7.21 | Sticky gun + scanner (T1) | 🟢 ready | v5 → v6 | Battery designed but not implemented (scanner uses local timer for now) |
+| v0.0.7.22 | Scanner T2 + T3 tuning, mobile carrier kickoff | 🟡 | v6 → v7 likely | Carrier needs design conversation first |
+| or fold into v0.0.8 | Mobile carrier full | 🔴 | v6 → v7 | If carrier slips long enough, fold into v0.0.8 prelude |
 
-**Holster upgrade**: new `stickyHolster` (~80¢), requires gun. Frees cargo slot.
+**Battery shared spec**: when scanner ships first, battery is a stub (scanner-local timer). When carrier lands, battery promotes to a real subsystem and scanner re-wires. Tradeoff documented in [courier equipment v2 spec](#specs-courier-equipment-v2). Alternative: design battery for real on the v0.0.7.21 push so scanner is right from day one — costs ~30% more time on .21 but eliminates the rewire later.
 
-**Slot accounting**: `effectiveMax = S.maxSlots - (gun && !holstered ? 1 : 0)`.
+**Open question for next session**: do you want minimal or full battery on v0.0.7.21? Default plan is minimal (faster ship), but I'd lean full if carrier is going to land within 1-2 sub-versions.
 
-### terrain scanner
+### cross-cutting infra (parallel, not sequential)
 
-**Concept**: periodic pings + manual ping (30s cooldown), buff against trip chances, bigger buff on risky terrain.
+These can land in any order between or alongside the courier-equipment arc. Each is independently shippable.
 
-**Tuning sketch**:
-- T1 (60¢): 30s interval, 6s buff, manual 30s cooldown.
-- T2 (140¢, req T1): 20s interval, 8s buff.
-- T3 (240¢, req T2): 15s interval, 10s buff (~66% auto-uptime).
-- Manual always 12s buff (longer than any auto) — keeps manual valuable.
+| Item | State | Schema | Trigger to ship |
+|---|---|---|---|
+| Save export/import | 🟢 ready | none | Pick when context allows; modal pattern unlocks future UI work |
+| Multiplayer rate limiting + 429 UI | 🟢 ready | none | Whenever testing exhausts KV quota again |
+| Minimal admin (give scrip, set trust) | 🟢 ready | none | **Recommend ASAP** — pays for itself instantly during v0.0.8+ testing |
+| Polish pass (pkg variety, delivery anim, canteen visual) | 🟡 | none | Bundle into a sub-version when 2-3 polish items align |
 
-**State**: `S.scanner = { unlocked, level, manualCooldown, autoTimer, buffActive, buffRemaining, buffMagnitude }`.
+**Suggestion**: ship minimal admin alongside v0.0.7.21 if context allows. The trust-set tool especially makes scanner testing faster (need to test high-trust NPC interactions with the gear).
 
-**Trip integration**: `tripChance() *= buffMagnitude` when active (0.5 baseline, 0.3 on risky).
+### v0.0.8: terrain expansion
 
-**Save schema**: needs v5 → v6 bump (manual cooldown must persist — no save-scum).
+🟡 Partially designed. Closes wetland debt (currently wetlands only do canteen refill — mechanics half-implemented).
 
----
+**Scope**:
+- Deserts (visual + canteen drain modifier)
+- Rivers (bridgeable; wires the `S.inRiver` stub from bug list)
+- Slopes / elevation / mountains (speed modifier)
+- Wetland "slow to travel" mechanic (closes debt)
 
-## TLH future game features (not started)
+**Schema**: probably no bump if terrain is world-generated only (worldCells already non-persisted). If new persistent state is needed (e.g. discovered terrain regions), bump.
 
-**Structures tab**: postboxes, rainfall canopies, generators, lookout posts, ziplines, shelters, drone bays. Built on paths, degrade, upgradeable. Multiplayer per Tier 2.
+**Why terrain before structures**: (1) wetland debt is real and embarrassing, (2) structure placement on a 6-node ring feels different than across varied terrain, (3) terrain is more self-contained — structures pull in multiplayer Tier 2 KV schema which is more cross-cutting.
 
-**New terrain types**: deserts, rivers (bridgeable), slopes/elevation/mountains. Wetlands "slow to travel" mechanic also fits here.
+**Tags v0.0.8 cleanly** — resets the dimmed `.N` runway from `.20+`.
 
-**Bigger map**: grow route beyond 6 nodes. Unlocks trust-reward acquisition for sticky gun + scanner.
+### v0.0.9: structures + bigger map
 
-**Hot springs**: field stamina restore with wait time cost.
+🔴 Needs design conversation. Heavy lift — pulls in multiplayer Tier 2.
 
-**Settlement quote evolution**: 3-stage × 6-settlement quote rewrite — needs the rebuild mechanic to be real first.
+**Scope**:
+- Structures: postboxes, rainfall canopies, generators, lookout posts, ziplines, shelters, drone bays. Built on paths, degrade, upgradeable. Spec: [longer-horizon features](#specs-longer-horizon-features).
+- Bigger map: route grows beyond 6 nodes.
+- **Trust-reward acquisition unlocks**: sticky gun + scanner migrate from upgrades menu to NPC trust rewards at new depots.
+- Multiplayer Tier 2: structure stewardship via KV (`structures:{regionKey}`).
 
-**Mobile carrier**: substantial standalone item per user notes — battery, separate inventory, visible cart trail, cart-cargo physics. Design conversation needed.
+**Schema**: bump for structures (per-structure persistence, multiplayer sync state).
 
-**Day/night cycle**: substantial, probably its own patch.
+**Dependencies**: terrain (v0.0.8) should land first — placing a postbox in a desert vs a wetland creates different play patterns.
 
-**Music-track-to-event integration**: cross-cuts with `nav.js`. Specific tracks for rainfall, depot arrival, home arrival, etc.
+### v0.1: radio chatter + social layer
 
-**Sign system**: porters leave preset messages on cooldown. Sprout-emoji styled, animate in like sandalweed spawn. Pre-structure-tier social layer.
+🔴 Needs design conversation. Multiplayer Tier 3 territory.
 
-**Admin debug/moderation tools**: edit porter hex, give scrip, teleport, trust manipulation, meters on/off. Hidden URL hash gating.
+**Scope**:
+- Player-authored radio messages (Tier 3 KV: `radio:queue`)
+- Trust meter pooled with NPCs (radio messages affect NPC trust)
+- Sign system (preset porter messages on cooldown — could ship earlier as a pre-structures social win; flag for discussion)
+- Settlement quote evolution (3-stage × 6-settlement quote rewrite — needs rebuild mechanic real, so post-structures)
+
+**Schema**: probably bump for radio queue subscription state.
+
+### post-v0.1 parking lot
+
+Unordered. Pick when motivated; design conversations needed for most.
+
+- **Day/night cycle** — substantial, probably its own patch
+- **Hot springs** — field stamina restore with wait-time cost
+- **Music-track-to-event integration** — cross-cuts with `nav.js`; specific tracks for rainfall, depot arrival, home arrival
+- **Full admin tools** — porter hex edit, teleport, meters on/off, force-spawn pkgs/sandalweed/lost cargo (minimal admin already shipped per cross-cutting infra)
+- **Multiplayer Tier 4** — porter profiles, daily delivery boards, memorial events
+- **Polish leftovers** — package types (XL, fragile, durable), names tied to delivery destination, delivery animation, canteen visual rework
+
+### roadmap visualization
+
+```
+v0.0.7.20 ✅ (live)
+   │
+   ├── v0.0.7.21 🟢 sticky gun + scanner (schema v5→v6)
+   │      │
+   │      ├── v0.0.7.22 🟡 mobile carrier (schema v6→v7) ──┐
+   │      │                                                 │
+   │      └── (parallel: cross-cutting infra)               │
+   │            • save export/import 🟢                     │
+   │            • multiplayer rate limit 🟢                 │
+   │            • minimal admin 🟢 ← recommend ASAP         │
+   │            • polish pass 🟡                            │
+   │                                                        │
+   ├── v0.0.8 🟡 terrain (deserts, rivers, slopes, wetland slowdown) ──┘
+   │      └── closes wetland debt + S.inRiver stub
+   │
+   ├── v0.0.9 🔴 structures + bigger map
+   │      ├── multiplayer Tier 2
+   │      └── trust-reward acquisition for sticky gun/scanner
+   │
+   ├── v0.1 🔴 radio chatter + social layer
+   │      ├── multiplayer Tier 3
+   │      ├── sign system (could land earlier)
+   │      └── settlement quote evolution (post-structures)
+   │
+   └── post-v0.1 parking lot 🔴
+          • day/night cycle
+          • hot springs
+          • music-event integration
+          • full admin tools
+          • multiplayer Tier 4
+          • polish leftovers
+```
+
+### resume-here cheatsheet
+
+If you're picking up cold and want the fastest "what do I do next":
+
+1. **Default**: ship v0.0.7.21 (sticky gun + scanner). Spec is in [courier equipment v2](#specs-courier-equipment-v2). Schema bump v5→v6.
+2. **If feeling tactical**: ship minimal admin alongside or before .21 — it'll speed up your own testing of every subsequent feature.
+3. **If KV quota is hot**: ship multiplayer rate limiting + 429 UI first.
+4. **If user wants a feature win**: save export/import is design-complete and unlocks cross-browser saves.
+5. **If carrier design conversation just happened**: fold v0.0.7.22 plan or push it into v0.0.8 prelude.
 
 ---
 
@@ -569,7 +734,9 @@ Picked up from the v0.0.7.19 dropoff handoff. All four commit-2b items had settl
 
 **Workflow note.** Working in a git worktree with local Edit + Bash tools rather than the GitHub MCP push pattern. Remote moved during the session (the v0.0.7.19 handoff doc rewrite landed while I was working from the stale v0.0.7.17 handoff). Caught it via `git status` reporting "behind by 1 commit" before pushing — fast-forwarded cleanly because my code edits didn't conflict with the doc rewrite. Lesson: with worktrees, check remote state right before push, not just at session start.
 
-**Dropoff:** v0.0.7.20 live. Next likely picks: sticky gun + scanner mini-patch (full design already in handoff), save export/import (also pre-designed), or multiplayer rate limiting (bug list item 1).
+**Roadmap added (later in session, doc-only push).** User asked for a consolidated roadmap to replace scattered "next-step ordering" + "future upgrades" + "TLH future game features" + "multiplayer plan" sequencing. Bundling discussion settled three things: (1) sticky gun + scanner + mobile carrier under one "courier equipment v2" arc as sequential mini-patches, not one big bundle — keeps small stuff unblocked; (2) v0.0.8 splits into terrain (v0.0.8) before structures (v0.0.9) — closes wetland debt and gives structures more interesting placement options; (3) admin tools split into minimal (ship anytime, recommend ASAP) and full (parking lot). Roadmap landed near the bottom of the doc before session log; old sections trimmed and renamed to "specs:" with sequencing cross-linked to roadmap.
+
+**Dropoff:** v0.0.7.20 live. Next likely picks per roadmap: v0.0.7.21 (sticky gun + scanner) + minimal admin alongside if context allows.
 
 ---
 
