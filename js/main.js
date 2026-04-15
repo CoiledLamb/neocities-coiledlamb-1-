@@ -1,47 +1,35 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.17
+   v0.0.7.18
 
-   Refactor commit 17: dropped the re-export layer from
-   commit 16. Every dependent module now imports directly
-   from render/* — main.js is finally just orchestration.
+   v0.0.7.18 commit 1 (housekeeping):
+     - Trust function renames swept (tryT50Warning →
+       tryWarning, tryT75Preview → tryPreview,
+       tryT100RestPrompt → tryRestPrompt). Names no
+       longer lie about thresholds.
+     - pickRandom + getNpc dedup'd into util.js / trust.js.
+     - BOOT_PRICE constant replaces 6 hardcoded 15s.
+     - Boots: full-meter purchase guard, clip-equip
+       failsafe fires regardless of autobuy.
+     - Stamina: drink only when ≥5% lost.
+     - Sandalweed rates redistributed (wetlands primary,
+       depot approach secondary, rest trace) and centralized
+       to constants.js. World cells now tag wetland: true
+       at gen for canteen-refill wiring (in commit 2).
+     - Save errors during silent saves now surface once
+       per session.
+     - Settlements panel uses getNpc (encapsulation leak
+       closed).
 
-   Net export reduction in main: 7 → 0 (for real this time).
-   main.js is purely an entry point: imports + helpers +
-   tick + init + the init() call at the bottom.
-
-   Helpers still local:
-     updateDestDrift — the dest label scroller (one call site,
-       drags in NODE_GLYPHS + getDisplayLabel; not worth its
-       own module).
-     buildRain, setRain — weather. Stays here until v0.0.8
-       weather work creates a proper home.
-     resolveEls — DOM lookup, init-only.
-
-   Imports from render/route-map.js:
-     drawRouteMap, updateRouteDot, layoutRouteNodes used by
-     init + tick. currentEdge used by updateDestDrift.
-
-   Cross-module updates this commit (import path rewrites):
-     persistence.js: addLog from ./render/log.js
-     multiplayer.js: addLog → render/log.js,
-                     renderNetwork → render/network.js
-     recovery.js:    addLog → render/log.js
-     trust.js:       addLog/updateHUD/drawRouteMap/renderSettlements
-                     split across log/hud/route-map/settlements
-     boots.js:       addLog → render/log.js,
-                     updateHUD → render/hud.js
-     stamina.js:     addLog → render/log.js
-     packages.js:    addLog/renderCourierStack/renderCargoSlots/
-                     drawRouteMap/renderSettlements split similarly
-     trip.js:        addLog/renderCourierStack/renderCargoSlots split
-     upgrades.js:    addLog/updateHUD/renderCargoSlots split
-
-   Refactor on tlh-modules is now structurally complete.
-   Next step: merge tlh-modules → main, drop sub-version
-   suffix v0.0.7.17 → v0.0.7, ship as live deploy. After
-   that: bugfix patch (collate refactor housekeeping items
-   1–9 from the handoff bug list with player feedback).
+   v0.0.7.18 commit 2 (gameplay logic) will land:
+     - distKm accumulator math fix (edge rollover bug)
+     - Trust unlock storage canonicalization (write to
+       npc.unlocks.tN, not npc.tN)
+     - Tie-down option B (absorbs drops too)
+     - Rain restructure (nextRainStartTick/EndTick) +
+       pre-rain warning wired to the new field
+     - Wetland canteen refill wiring
+     - Pickup-fail logs (too heavy / no slot, with cooldown)
 
    Imports:
      S — game state singleton (state.js)
@@ -57,8 +45,7 @@
      tickRecoveryAttempt, updatePorterStripBadges — recovery
      getNodeStage, setNodeStage, markEdgeAdjacent,
        getDisplayLabel — identification
-     addTrust, tryT50Warning, tryT75Preview,
-       tryT100RestPrompt — trust
+     addTrust, tryWarning, tryPreview, tryRestPrompt — trust
      renderChannels, tickAmbientChatter — channels
      buildWorld, calcCellPxWidth, worldPosFromRoute,
        renderFieldstrip — world
@@ -100,7 +87,7 @@ import {
   getNodeStage, setNodeStage, markEdgeAdjacent, getDisplayLabel,
 } from './identification.js';
 import {
-  addTrust, tryT50Warning, tryT75Preview, tryT100RestPrompt,
+  addTrust, tryWarning, tryPreview, tryRestPrompt,
 } from './trust.js';
 import { renderChannels, tickAmbientChatter } from './channels.js';
 import {
@@ -296,9 +283,9 @@ function tick() {
     Pkg.tryDeliver(arrivedAt);
 
     if (NPC_DEFS[arrivedAt]) {
-      tryT50Warning(arrivedAt);
-      tryT75Preview(arrivedAt);
-      tryT100RestPrompt(arrivedAt);
+      tryWarning(arrivedAt);
+      tryPreview(arrivedAt);
+      tryRestPrompt(arrivedAt);
     }
   } else {
     updateRouteDot();

@@ -5,32 +5,28 @@
      - Drains every walking/carrying tick (BOOT_DRAIN, modulated
        by upgrades + makeshift penalty in main's tick loop).
      - At 0, checkAutobuy() runs the fallback ladder:
-         1. sandalweed in stash → lash on makeshift (+30%, 1.30x drain)
-         2. otherwise, if autobuy on + clip > 0 → consume clip
-         3. otherwise, if autobuy on + scrip ≥ 15 → buy
-     - Manual buyBoots() restores to 100% if you've got 15¢.
+         1. clip > 0 → consume clip (failsafe, fires regardless of autobuy)
+         2. otherwise, if sandalweed in stash → lash on makeshift (+30%, 1.30x drain)
+         3. otherwise, if autobuy on + scrip ≥ BOOT_PRICE → buy
+     - Manual buyBoots() restores to 100% if you've got BOOT_PRICE
+       AND boots aren't already at 100 (v0.0.7.18 — was happily
+       charging full price for nothing).
 
-   sandalCap() returns 6 (base) or 12 (with sandalSatchel upgrade);
-     packages.js imports this for the harvest-cap check in
-     scanForPickup.
+   sandalCap() returns SANDAL_CAP_BASE (5) or SANDAL_CAP_UPGRADED
+     (25) with sandalSatchel; packages.js imports this for the
+     harvest-cap check in scanForPickup.
 
    Clip refill prompts at depots (A/B/H) via refillBootClip(),
      fires a log-line button → confirmClipRefill() consumes scrip.
 
-   Boots gear popover (⚙) collapses [buy] [autobuy] [clip] into
-     one popover, opened/closed by toggleBootsGear(). Outside-click
-     handler stored on S._transient.gearPopHandler so it can be
-     cleaned up on close.
-
-   toggleAutobuy() flips S.autobuyBoots and rerenders.
-
-   tie-down lives here too (toggleTieDown). It's not strictly boots,
-     but the boots/clip/tie-down block was always one section in main.
-     Trip.js reads S.tieDownActive directly (no call into boots).
-
-   renderBoots() repaints the boots row: durability bar, clip badge,
-     sandal badge, gear popover contents. Gear popover is dirty-
-     checked via S._transient.lastGearPopKey.
+   v0.0.7.18 changes:
+     - All hardcoded `15` replaced with C.BOOT_PRICE (handoff bug 7)
+     - buyBoots() guards against full meter (bug list player feedback)
+     - checkAutobuy: clip-equip ladder reordered. Clip now fires
+       regardless of autobuy (it's a failsafe), only the *purchase*
+       requires autobuy intent. Sandalweed is now a tier below clip
+       in the priority order — clip is "real spare boots", sandalweed
+       is the makeshift fallback when nothing else is left.
    ============================================== */
 'use strict';
 
@@ -48,36 +44,40 @@ export function sandalCap() {
 }
 
 export function buyBoots() {
-  if (S.scrip<15) return;
-  S.scrip-=15; S.bootDurability=100; S.usingMakeshift=false;
-  addLog('purchased new <span class="log-hi">boots</span> (15\u00a2)');
+  if (S.bootDurability >= 100) return;
+  if (S.scrip < C.BOOT_PRICE) return;
+  S.scrip -= C.BOOT_PRICE; S.bootDurability = 100; S.usingMakeshift = false;
+  addLog(`purchased new <span class="log-hi">boots</span> (${C.BOOT_PRICE}\u00a2)`);
   renderBoots(); updateHUD();
 }
 
 export function checkAutobuy() {
-  if (S.bootDurability<=0 && S.bootClipCount<=0 && S.sandalweedCount>0) {
-    S.sandalweedCount--; S.bootDurability=30; S.usingMakeshift=true;
-    addLog('<span class="log-wn">boots failed</span> \u2014 lashed on a <span class="log-hi">sandalweed</span> (' + S.sandalweedCount + '/' + sandalCap() + ' left)');
-    renderBoots(); return;
-  }
-  if (!S.autobuyBoots) return;
-  if (S.bootDurability<=0 && S.bootClipCount>0) {
-    S.bootClipCount--; S.bootDurability=100; S.usingMakeshift=false;
+  // Failsafe ladder when boots hit 0 — runs regardless of autobuy setting.
+  // Clip first (real spare pair), sandalweed second (makeshift).
+  if (S.bootDurability <= 0 && S.bootClipCount > 0) {
+    S.bootClipCount--; S.bootDurability = 100; S.usingMakeshift = false;
     addLog('<span class="log-hi">boot clip</span>: spare pair auto-equipped');
     renderBoots(); return;
   }
-  if (S.bootDurability<=20 && S.scrip>=15) {
-    S.scrip-=15; S.bootDurability=100; S.usingMakeshift=false;
-    addLog('autobuy: new <span class="log-hi">boots</span> purchased (15\u00a2)');
+  if (S.bootDurability <= 0 && S.sandalweedCount > 0) {
+    S.sandalweedCount--; S.bootDurability = 30; S.usingMakeshift = true;
+    addLog('<span class="log-wn">boots failed</span> \u2014 lashed on a <span class="log-hi">sandalweed</span> (' + S.sandalweedCount + '/' + sandalCap() + ' left)');
+    renderBoots(); return;
+  }
+  // Auto-PURCHASE requires autobuy intent (it costs scrip, player needs to opt in).
+  if (!S.autobuyBoots) return;
+  if (S.bootDurability <= 20 && S.scrip >= C.BOOT_PRICE) {
+    S.scrip -= C.BOOT_PRICE; S.bootDurability = 100; S.usingMakeshift = false;
+    addLog(`autobuy: new <span class="log-hi">boots</span> purchased (${C.BOOT_PRICE}\u00a2)`);
     updateHUD();
   }
 }
 
 export function refillBootClip(nodeId) {
-  if (S.bootClipMax===0 || !['A','B','H'].includes(nodeId)) return;
-  if (S.bootClipCount>=S.bootClipMax) return;
+  if (S.bootClipMax === 0 || !['A','B','H'].includes(nodeId)) return;
+  if (S.bootClipCount >= S.bootClipMax) return;
   if (S._transient.clipRefillPending) return;
-  const cost = (S.bootClipMax-S.bootClipCount)*15;
+  const cost = (S.bootClipMax - S.bootClipCount) * C.BOOT_PRICE;
   if (S.scrip < cost) return;
   const settle = S.settlements[nodeId];
   S._transient.clipRefillPending = { nodeId, cost };
@@ -141,18 +141,19 @@ export function renderBoots() {
   if (els.bootsBar) { els.bootsBar.style.width = d+'%'; els.bootsBar.className = 'boots-bar-fill'+(d>50?'':d>25?' worn':' bad'); }
 
   if (els.bootsGearPop) {
-    const popKey = `${S.bootClipMax}|${S.bootClipCount}|${S.scrip < 15 ? 'x' : 'o'}|${S.autobuyBoots ? 'on' : 'off'}`;
+    const canBuy = S.scrip >= C.BOOT_PRICE && S.bootDurability < 100;
+    const popKey = `${S.bootClipMax}|${S.bootClipCount}|${canBuy ? 'o' : 'x'}|${S.autobuyBoots ? 'on' : 'off'}`;
     if (popKey !== S._transient.lastGearPopKey) {
       S._transient.lastGearPopKey = popKey;
       const clipLine = S.bootClipMax > 0
         ? `<div class="gear-line">clip: <span class="gear-val">${S.bootClipCount}/${S.bootClipMax}</span></div>`
         : '';
-      const buyDisabled = S.scrip < 15 ? 'disabled' : '';
+      const buyDisabled = canBuy ? '' : 'disabled';
       const autobuyOn = S.autobuyBoots ? ' on' : '';
       const autobuyTxt = S.autobuyBoots ? 'autobuy: on' : 'autobuy: off';
       els.bootsGearPop.innerHTML =
         clipLine +
-        `<button class="boots-auto gear-btn" id="buyBootsBtn" ${buyDisabled}>buy boots (15\u00a2)</button>` +
+        `<button class="boots-auto gear-btn" id="buyBootsBtn" ${buyDisabled}>buy boots (${C.BOOT_PRICE}\u00a2)</button>` +
         `<button class="boots-auto gear-btn${autobuyOn}" id="autobuyBtn">${autobuyTxt}</button>`;
       const newBuy = document.getElementById('buyBootsBtn');
       const newAuto = document.getElementById('autobuyBtn');
@@ -179,7 +180,7 @@ export function renderBoots() {
       sandalBadge.setAttribute('title',
         'sandalweed: ' + S.sandalweedCount + '/' + cap +
         '\nmakeshift footwear' +
-        '\nauto-equipped when boots fail' +
+        '\nauto-equipped when boots fail (after clip)' +
         (atCap ? '\n[hoard full \u2014 leaving plants standing]' : '')
       );
       sandalBadge.style.display = 'inline';

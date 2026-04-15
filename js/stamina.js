@@ -15,13 +15,17 @@
 
    drinkWater() consumes canteen, restores stamina. Has the
      `efficientConsumption` upgrade as a 0.60x drain multiplier.
+     v0.0.7.18: gated so the player can't waste canteen on a
+     ~0% restore — must have lost ≥5% stamina to drink. Threshold
+     applies both to the manual button and to the early-return
+     in drinkWater itself, so autodrink also won't fire trivially.
 
    speedMultiplier() — locomotion speed factor, scales with
      stamina segments and zeroes-out broken boots (×0.5).
      Used only by main's tick loop.
 
    trust.js imports staminaSegCount + renderStamina:
-     staminaSegCount for tryT50Warning's low-stamina advisory,
+     staminaSegCount for tryWarning's low-stamina advisory,
      renderStamina from confirmDepotRest after restoring stamina.
    ============================================== */
 'use strict';
@@ -31,10 +35,19 @@ import { addLog } from './render/log.js';
 
 const els = S._transient.els;
 
-// staminaSegCount is exported for trust.js (tryT50Warning) and
+// Drink threshold (v0.0.7.18): must have lost at least this fraction of
+// stamina to drink. Prevents wasting a canteen sip on a 1% restore.
+const DRINK_MIN_LOSS_PCT = 0.05;
+
+// staminaSegCount is exported for trust.js (tryWarning) and
 // trip.js (tripChance scales with segs lost).
 export function staminaSegCount() {
   return Math.min(4, Math.ceil(Math.min(S.stamina,S.staminaMax)/(S.staminaMax/4)));
+}
+
+function canDrink() {
+  if (S.canteen <= 0) return false;
+  return S.stamina < S.staminaMax * (1 - DRINK_MIN_LOSS_PCT);
 }
 
 // renderStamina is exported for trust.js (confirmDepotRest)
@@ -54,20 +67,20 @@ export function renderStamina() {
     else over.style.display='none';
   }
   const nowSegs = staminaSegCount();
-  if (S.autodrink && nowSegs < S.prevStaminaSeg && S.canteen>0) drinkWater();
+  if (S.autodrink && nowSegs < S.prevStaminaSeg && canDrink()) drinkWater();
   S.prevStaminaSeg = nowSegs;
   const canteenPct = Math.round((S.canteen/S.canteenMax)*100);
   if (els.drinkBtn) {
     els.drinkBtn.textContent = `drink (${canteenPct}%)`;
-    els.drinkBtn.disabled    = S.canteen<=0 || S.stamina>=S.staminaMax;
+    els.drinkBtn.disabled    = !canDrink();
   }
   if (els.canteenBar) els.canteenBar.style.height = canteenPct+'%';
 }
 
 export function drinkWater() {
-  if (S.canteen<=0 || S.stamina>=S.staminaMax) return;
-  const need = S.staminaMax-S.stamina;
-  const rest = Math.min(need,(S.canteen/S.canteenMax)*S.staminaMax);
+  if (!canDrink()) return;
+  const need = S.staminaMax - S.stamina;
+  const rest = Math.min(need, (S.canteen/S.canteenMax) * S.staminaMax);
   S.stamina  = Math.min(S.staminaMax, S.stamina+rest);
   const drainMult = S.upgrades.efficientConsumption ? 0.60 : 1.0;
   S.canteen  = Math.max(0, S.canteen-(rest/S.staminaMax)*S.canteenMax*drainMult);
