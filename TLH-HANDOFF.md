@@ -1,42 +1,120 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-15 (v0.0.7.27 shipped; kit row + scan sonar + canteen rework + inline-gear pattern + preview server all live. Battery prototype drain in flight as v0.0.7.28.)_
+_last updated: 2026-04-15 (v0.0.8.3 shipped; v0.0.8 arc redefined around packages/trust/rain, not terrain. Packages done; trust queued next — see [trust thread primer](#trust-thread-primer-v008-next) before picking up.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.7.27 live — kit row + scan sonar shipped; battery drain in flight
+## ✅ CURRENT STATE: v0.0.8.3 live — package rework + cargo UI rework done; trust next
 
-Game is at `v0.0.7.27`. v0.0.7.28 is the battery prototype drain (time-only, no regen).
+Game is at `v0.0.8.3`. Three commits ahead of `origin/main` on branch `claude/elastic-visvesvaraya`, ready to push. After push, the next patch thread is trust — see [trust thread primer](#trust-thread-primer-v008-next).
+
+**v0.0.8 scope redefinition (important):** the handoff previously framed v0.0.8 as terrain expansion (deserts, rivers, slopes). User rescoped it around **three mechanical-depth threads**: packages, trust, rain. Terrain moved to v0.0.9. Packages + cargo UI complete; trust and rain still to build.
 
 **Where we are in the patch arc:**
-1. ✅ v0.0.7 multi-system bundle (multiplayer, identification, trust, settlements polish) — done
-2. ✅ Module refactor (monolith → 16 ES modules) — done, merged to main
-3. ✅ **Bugfix patch** (v0.0.7.18 / .19 / .20) — done. See "commit 2b" section below.
-4. ✅ **v0.0.7.21 — 6-piece bundle**: multiplayer rate limit + 429 UI, sticky gun, scanner T1 (local autoTimer), minimal admin, save export/import, schema v5→v6.
-5. ✅ **v0.0.7.22 — admin channel**: ripped the in-game admin bar, moved commands to a BroadcastChannel from `admin/blog-admin.html`'s TLH tab.
-6. ✅ **v0.0.7.23 / .23b — inline gear pattern**: boots gear popover + save strip both converted to inline-reveal with a 180ms fade-slide animation. Save gear stays fixed; options expand rightward.
-7. ✅ **v0.0.7.23 — canteen rework**: `[ ]` bracket frame, top-anchored fill (water drains downward), warn/crit ramp at ≤50/≤25%.
-8. ✅ **v0.0.7.24 — kit row prototype**: new `<div class="tlh-row kit-row">` between stamina + panels. Stylized battery (10-tick gradient + terminal nub) + gadget capsules with hairline dividers. Scanner button moved from stamina row into the kit capsule container. Row is hidden until the courier owns ≥1 gadget.
-9. ✅ **v0.0.7.25 / .26 / .27 — scan visual thematic rework**: always-visible 6px dot beside "scan", two concentric halos (10px + 14px, fixed size, `border-box`) that fade in place during buff, dot "breathes" via background + box-shadow animation. Glow dialed to subtle; everything stays inside the button's vertical footprint.
-10. ⏳ **v0.0.7.28 — battery prototype drain** (IN PROGRESS): `S.battery.charge` decrements `BATTERY_DRAIN_PER_TICK = 0.03` per tick while any gadget is owned. ≈19.4 min to full drain. No regen, no per-device cost, not persisted. Just enough to see the fill animate through warn (35%) and crit (15%) thresholds during a session. Full mechanic queued — see "planned but not built" below.
-11. ⏳ v0.0.8 work — terrain expansion (deserts, rivers, slopes). See [roadmap](#roadmap).
 
-**Resume next session**: scan the "planned but not built" list immediately below. Top of queue candidates: full battery mechanic (regen + per-device drain + upgrade + schema v6→v7), sticky-gun capsule visual rework, stamina segment readability retrofit.
+**v0.0.7 arc (done):**
+1. ✅ v0.0.7 multi-system bundle (multiplayer, identification, trust, settlements polish)
+2. ✅ Module refactor (monolith → 16 ES modules)
+3. ✅ Bugfix patch (v0.0.7.18 / .19 / .20)
+4. ✅ v0.0.7.21 — 6-piece bundle: multiplayer rate limit + 429 UI, sticky gun, scanner T1, minimal admin, save export/import, schema v5→v6
+5. ✅ v0.0.7.22 — admin channel (BroadcastChannel from blog-admin tab)
+6. ✅ v0.0.7.23–.27 — UI/UX pass: inline gear pattern, canteen bracket-frame rework, kit row prototype, scan sonar visual rework
+7. ✅ v0.0.7.28 — battery prototype drain (time-only, not persisted)
+8. ✅ v0.0.7.29 — swap stamina/battery visual language
+9. ✅ v0.0.7.30 — battery pixel-dissolve + canteen cap
+10. ✅ v0.0.7.31 — silent / appear-offline toggle
+11. ✅ v0.0.7.32 — UI polish pass: canteen RGB lerp, stamina/battery swap formalized, staircase dissolve, network toggle, bugfixes
 
-## planned but not built (as of v0.0.7.28)
+**v0.0.8 arc (in progress):**
+12. ✅ **v0.0.8.1 — package rework: composable spawn roller + dest-tagged label pool**. `data/packages.js` full rewrite (PKG_BASES, PKG_SIZE_WEIGHTS + RISKY variant, PKG_MODIFIERS, PKG_LABELS_BY_SIZE with ~73 dest-tagged labels, PKG_LOST_LABELS fallback). New `rollPkg(destId, cellRisky, forceLost)` in `js/packages.js`. `world.js makeWorldPkg` routed through it. Old `NPC_PKGS` / `LOST_PKGS` tables retired.
+13. ✅ **v0.0.8.2 — cargo inventory rework: unified pkg shapes + 2D autosort**. `renderCargoSlots` switched from flex-row of N 1-cell boxes to 2-row CSS grid with multi-cell shapes (s=1×1, m=2×1, l=2×2, xl=4×2). First-fit bin-pack sorted by footprint desc. Gun slot reserved bottom-right; phantom cells for odd maxSlots. Modifier field carried through pickup. Added `.claude/launch.json` for local preview on :8745.
+14. ✅ **v0.0.8.3 — cargo polish: modifier visuals, weight 2-row, +4 pack**. Modifier visuals: fragile = per-size saturated caution-tape stripes (teal/purple/pink matching size accent); lightweight = dashed border in size color; heavy = 2px border in size color (no white override); unwieldy = separate 1×1 trail div with 2px grid gap, inherits size class. binPack handles cell-list footprints (unwieldy = base cells + trail cell). Weight segs mirror cargo's 2-row grid. `cargoPack` upgrade: +3 → +4 slots (fixes maxSlots=11 odd stop; new progression 6 → 8 → 12).
+15. ⏳ **v0.0.8.4+ — trust thread** (NEXT): identify `?` waystone, map trust gain to package weight (like scrip), audit upgrades → move some to NPC trust rewards. See [trust thread primer](#trust-thread-primer-v008-next).
+16. ⏳ **v0.0.8.later — rain rework**: drizzle/rain/downpour intensity states, storms as travelling world objects (not localized to player), minimap cloud rendering, biome-biased spawning (wetlands more rain-prone). Encumbrance trip scaling folded in.
 
-Captured from this session's design conversation and UX feedback. Not yet spec-locked — revisit each before building.
+**Resume next session**: read the [trust thread primer](#trust-thread-primer-v008-next). It covers the three sub-threads (identify `?`, weight→trust, upgrade audit), open design questions, and how the new package dest-tagging sets up future shelter-dispatch pools.
+
+## planned but not built (as of v0.0.8.3)
+
+Captured from design conversations and UX feedback. Not yet spec-locked — revisit each before building.
 
 | Item | State | Schema | Notes |
 |---|---|---|---|
+| Fragile readability at s-size | 🟡 noted | none | Per-size diagonal stripes communicate fragile, but at the 15px `s` cell the stripes crowd the size letter. User's suggestion: let the shape carry size identity, free the letter slot for modifier info. Revisit during trust work if the label audit reshapes small pkgs. |
+| Modifier stacking | 🔴 deferred | none | Current roller picks exactly one modifier per pkg (or none). "Fragile + lightweight" combos etc. were discussed and skipped for clarity/balance. Could revisit once base modifiers have shipped long enough to measure feel. |
+| Unwieldy visual refinement | 🟡 iterated | none | V1 shipped (trail cell with 2px gap). Clip-path L-shape was tried (v4) — broke tooltips and left top-left border incomplete. If revisited, prefer single-div + tooltip-safe technique; do NOT reuse clip-path approach without solving the tooltip + border-completeness issues. |
+| Modifier-aware pickup-fail logs | 🔴 not built | none | Pickup-fail lines currently read "can't lift [m] tool roll — too heavy". Could surface modifier ("can't lift [m] tool roll (heavy) — too heavy"). Cheap win, not done to avoid scope creep in v0.0.8.1. |
+| Package dispatch from shelters/NPCs | 🟡 design partial | TBD | Dest-tagging on labels (each label has `dests:[]`) already sets this up — same data powers "pkg spawned at NPC X, destined for Y in that label's dests list". Implementation waits for trust (trust-reward NPCs dispatching high-trust pkgs). |
 | Battery full mechanic | 🟡 designed | v6 → v7 | Drain when scanner pings (and future electronic gadgets — exo). Regen when near a trust-40+ depot (+solar trickle when not raining). Upgrade to boost solar trickle. When it lands, also fold `BATTERY_DRAIN_PER_TICK` into per-device costs + remove the prototype blanket drain. |
 | Sticky-gun capsule rework | 🔴 design needed | none | Current `gun: 4/6` readout is bland. User has vision brewing but hasn't locked it. Keep read-only (gun fires automatically in-range; not a manual action). |
-| Stamina seg readability | ✅ shipped (v0.0.7.29) | none | Stamina now uses the contiguous-bar + tick-line pattern; battery swapped to 10 discrete segs inside the battery shell. staminaSegCount() API unchanged, same thresholds. |
 | Scanner T2 / T3 tuning | 🟡 designed | none | Handoff sections for v2 spec still accurate. T2 adds auto-ping cadence upgrade; T3 adds edge-preview on pings. Folded into kit-row render already — only needs mechanic wiring + upgrade defs. |
-| Mobile carrier (exoskeleton) | 🔴 design conv | v6 → v7 | Needed design conversation. Will use battery — aligns with reason battery gets promoted. Shared battery pool concept already laid out in kit row. Original v0.0.7.23 target; reasonable to push into v0.0.8 prelude. |
+| Mobile carrier (exoskeleton) | 🔴 design conv | v6 → v7 | Needed design conversation. Will use battery — aligns with reason battery gets promoted. Shared battery pool concept already laid out in kit row. Likely v0.0.8 later or v0.0.9. |
+| `data/packages.js` atomization | 🟡 flagged | none | File grew from 26 → ~170 lines with the v0.0.8.1 rewrite. Flat + section-commented for now. Trust rework will likely add per-NPC outbound dispatch pools — natural moment to split into `pkg-labels.js` / `pkg-modifiers.js` / `pkg-dispatch.js`. Carve along the dispatch seam, not the size boundary. |
+| Local preview per-worktree | ✅ closed | — | `.claude/launch.json` on :8745 per worktree (parent worktree uses :8744). Serving files from the current worktree, not the parent. |
 | Stray `v0.0.7.N` subtitle drift | ✅ closed | — | Feedback memory saved; subtitle now bumps alongside commit. |
-| Local preview over `file://` doesn't work | ✅ closed | — | `.claude/launch.json` + python http.server on :8744 in the worktree. Reference memory updated. |
+
+---
+
+## trust thread primer (v0.0.8 next)
+
+The v0.0.8 arc has three threads: ✅ packages (done v0.0.8.1–.3), ⏳ trust (next), ⏳ rain rework (after trust). This section is the pickup brief for a fresh agent taking on trust.
+
+### user's three stated sub-threads (verbatim-ish)
+
+1. **Give identity to the `?` square.** It's been unidentified from the start; user dislikes that since identification is a core game concept. Don't care what the identity is — just pick one that fits. Proposed lore (landed in v0.0.8.1 label pool): it's a **waystone** — a large stone travelers use to orient themselves, where they traditionally leave trinkets and travelling supplies. An **orphan lives there alone**. The existing `?` label pool reflects this — small gifts (beaded bracelet, carved charm, pressed flowers) and practical supplies the orphan needs (pantry crate, book bundle, hearth kit, patched coat, firewood stack).
+2. **Map trust gain onto package weight** (like scrip does). Today trust is `+1 per delivery`, `+2 for lost-delivery`, `+3 for discovery` ([constants.js](js/constants.js) `TRUST_GAIN_*`). Proposal: make trust scale with `pkg.slots` (or `pkg.kg`) so heavier/harder deliveries reward more trust. Discussed formula: `1 + floor(slots / 2)` → xl gives +5, l gives +3, m gives +2, s gives +1. Compresses vs raw slots so xl doesn't dominate.
+3. **Audit upgrades and move a number of them into "given by NPCs at x trust" rewards.** Currently all 13 upgrades in [data/upgrades.js](js/data/upgrades.js) are purchasable with scrip. Some should be NPC trust rewards — makes trust feel meaningful and gives each NPC distinct identity.
+
+### design sketch from the earlier session (not implemented, not locked)
+
+Tentative upgrade-to-NPC mapping I proposed during the package sketch:
+
+| upgrade | current cost | → NPC | → trust tier | reasoning |
+|---|---|---|---|---|
+| `bootClip1` | 40¢ | rho (A) | t20 | A is starting depot; clip is core-loop |
+| `sandalSatchel` | 60¢ | iota (B) | t40 | B wetlands-adjacent; thematic fit |
+| `steadyFeet` | 120¢ | tau (H) | t40 | home-base substantial upgrade |
+| `scannerT1` | 60¢ | `?` (waystone orphan) | t20 | if `?` is specialty node |
+| `stickyHolster` | 80¢ | tau (H) | t60 | polish on existing gun |
+| `bootsT2` | 90¢ | rho (A) | t60 | builds A's "boot depot" identity |
+| `efficientConsumption` | 120¢ | iota (B) | t60 | B water-adjacent |
+
+The rest (`bootsT1`, `bootClip2`, `cargoSling/Pack/Weight/Straps`, `stickyGun`) stay purchasable — gives players who don't grind trust a path.
+
+### open design questions (unresolved, ask the user)
+
+- **Does `?` get an NPC with real dialogue** (like rho/iota/tau), or just a name and no NPC lines yet? User said "i may end up adding an NPC to every location" — suggests yes, but timing isn't locked.
+- **What's the orphan's callsign?** Greek letter to match rho/iota/tau? User hasn't picked.
+- **Trust threshold retuning.** If weight-based trust gain lands, `TRUST_THRESHOLDS = [20, 40, 60, 80]` may need to grow (e.g. `[25, 60, 110, 180]`) to preserve pacing. Decide empirically after weight-based gain is live — could ship first, measure, retune.
+- **Per-tier upgrade cadence.** One upgrade per tier per NPC, or multiple at high tiers? The table above assumes one per tier.
+- **Scrip sink rebalancing.** Moving half the upgrades to trust rewards reduces scrip utility mid-game. Either add new scrip sinks (insurance, rainfall canopy at depot, etc.) or accept reduced scrip utility.
+
+### how packages v0.0.8.1 sets up trust work
+
+Relevant architecture from the just-shipped package rework:
+
+- **`pkg.slots` is the scaling axis.** Roller applies modifier slotDelta (unwieldy: +1) before persisting. Weight-based trust formula should read `pkg.slots` not `pkg.kg`, since slots already include modifier effects.
+- **Dest-tagging (`PKG_LABELS_BY_SIZE[size][].dests`)** sets up future dispatch-from-NPCs: same data can power "NPC at trust-60 dispatches pkg whose label's dests includes other NPCs" for outbound deliveries. Each label's `dests[]` is a shipping manifest.
+- **Waystone labels exist.** `?` has a curated label pool with both orphan-supplies and trinket-offerings. When trust-rewards start dispatching pkgs from `?`, the outbound pool is already semantically authored.
+- **Package list revisit likely.** User flagged: "this will probably require revisiting our package list again." Expect trust discussions to surface new label ideas tied to NPC personality. The ~73 labels are a starting point, not locked.
+
+### deferred from packages that intersect trust
+
+- **Fragile readability at s-size** — if trust makes small pkgs carry more weight (pun intended), the fragile visual cramping becomes worse. Consider whether the shape alone should carry size identity, freeing the letter slot.
+- **Label audit for personality.** Once NPC trust-reward dispatch lands, each NPC's outbound vibe may sharpen — some labels may need rewriting or cutting. Good moment to revisit the ~73 current labels with each NPC's dispatch role in mind.
+
+### rain thread (queued after trust)
+
+Not in scope for the trust session but captured so the next planning pass has context. Previously sketched (see chat history ~v0.0.8 planning):
+
+- Three intensity states: drizzle → rain → downpour (lifecycle progression)
+- Storm as world object living in `_transient.storms[]`, not as player-local `S.isRaining` boolean
+- Storm arc travels around the 6-edge ring; represented on minimap as a stylized cloud
+- Biome bias: wetland cells more prone to storm spawning
+- Downpour → river flooding (finally activates `S.inRiver` stub), reduced pickup range, higher trip chance
+- Encumbrance folded into `tripChance()` alongside rain multiplier
+- Shape constants: `weatherAtCourier()` derives current intensity from storm arcs; replaces every `if (S.isRaining)` callsite ([main.js](js/main.js), [trust.js](js/trust.js) t40 warning, [admin-channel.js](js/admin-channel.js))
 
 ---
 
@@ -601,17 +679,15 @@ Porter profiles, daily delivery boards, memorial events.
 >
 > Conventions: ✅ done, 🟢 designed and ready to build, 🟡 partially designed, 🔴 needs design conversation. Schema bumps flagged inline.
 
-### now: v0.0.7.20 (live) → v0.0.7.21 (next push)
+### now: v0.0.8.3 (live locally) → trust (next session)
 
-✅ **v0.0.7.20** — bugfix patch closed.
-🟢 **v0.0.7.21** — **multiplayer rate limiting + 429 UI**. Promoted to next slot because KV cap is easy to hit during testing of any new content (sticky gun pickup events, scanner pings, mobile carrier events all add to broadcast volume), and 429 hits would confuse playtesting. Worker side already shipped at v0.0.7.1 (returns 429 with Retry-After); this is the game-side complement. Spec details: [bug list item 1](#queued-bug-list-post-2b-not-yet-picked-up). **No schema bump.**
+✅ **v0.0.8.1–.3** — package rework + cargo UI rework. Shipped this session. See [session log](#2026-04-15-v0081--2--3--packages--cargo-ui-rework).
 
-Three pieces, all in `js/multiplayer.js`:
-- 5s minimum cooldown between any two `postActivity` calls; drop duplicate types within window.
-- Coalesce milestone broadcasts (5/10/15km in quick succession → one event).
-- 429 detection → dim network panel + "feed throttled — broadcasts paused" indicator (distinct from "no signal" empty-feed state).
+🟢 **v0.0.8.4+ (trust)** — next push. Three sub-threads: identify `?` waystone, weight-based trust gain, upgrade audit (move half to NPC trust rewards). See [trust thread primer](#trust-thread-primer-v008-next) for the full brief.
 
-### near-term arc: courier equipment v2
+⏳ **v0.0.8.later (rain rework)** — drizzle → rain → downpour intensity states; storms as travelling world objects on the 6-edge ring; biome-biased spawning; downpour flooding wires `S.inRiver`; encumbrance folded into trip chance. Queued after trust.
+
+### v0.0.7 near-term arc: courier equipment v2 (DONE)
 
 Three items, sequential mini-patches under one thematic umbrella. Sticky gun + scanner ship together; mobile carrier follows when designed. **Slotted after v0.0.7.21** to avoid pushing new broadcast-heavy content onto an unprotected client.
 
@@ -638,35 +714,52 @@ These can land in any order between or alongside the courier-equipment arc. Each
 | Canteen visual | ✅ shipped | none | Bracket frame + top-anchored drain in v0.0.7.23b. |
 | Package variety / delivery anim | 🟡 | none | Still parked; no design conversation yet. |
 
-### v0.0.8: terrain expansion
+### v0.0.8: packages + trust + rain (RESCOPED)
 
-🟡 Partially designed. Closes wetland debt (currently wetlands only do canteen refill — mechanics half-implemented).
+🟡 In progress. Originally scoped as terrain expansion; user rescoped around three mechanical-depth threads.
 
-**Scope**:
+**Thread 1 — packages (✅ done v0.0.8.1–.3)**:
+- Composable spawn roller (sizes + modifiers + dest-tagged labels)
+- Cargo inventory UI rework (2-row grid, multi-cell shapes, autosort, modifier visuals)
+- See [session log](#2026-04-15-v0081--2--3--packages--cargo-ui-rework) for details.
+
+**Thread 2 — trust (⏳ next)**:
+- Identify `?` waystone (orphan living at traveler's landmark — label pool already authored)
+- Map trust gain to package slots/weight (like scrip does)
+- Audit 13 upgrades, move ~half to NPC trust rewards
+- See [trust thread primer](#trust-thread-primer-v008-next) for the fresh-agent brief.
+
+**Thread 3 — rain rework (⏳ after trust)**:
+- Three intensity states (drizzle → rain → downpour)
+- Storms as travelling world objects (`_transient.storms[]`), not player-local `S.isRaining`
+- Storm arc travels the 6-edge ring; minimap cloud rendering
+- Biome-biased spawning (wetlands more rain-prone)
+- Downpour floods rivers (finally activates `S.inRiver` stub), reduces pickup range
+- Encumbrance trip scaling folded into `tripChance()` alongside rain multiplier
+
+**Schema**: no bumps expected for packages or rain (both can live on `_transient`). Trust may want a bump if per-NPC dispatch pools or outbound-pkg state get persisted — decide during trust design.
+
+**Tags v0.0.8 cleanly** — resets the dimmed `.N` runway from `.31+`.
+
+### v0.0.9: terrain + structures + bigger map
+
+🔴 Heavy lift. Pushed here from v0.0.8 after the v0.0.8 rescope. Pulls in multiplayer Tier 2.
+
+**Scope — terrain** (was v0.0.8):
 - Deserts (visual + canteen drain modifier)
-- Rivers (bridgeable; wires the `S.inRiver` stub from bug list)
+- Rivers (bridgeable; works with downpour flooding from v0.0.8 rain thread)
 - Slopes / elevation / mountains (speed modifier)
-- Wetland "slow to travel" mechanic (closes debt)
+- Wetland "slow to travel" mechanic (closes the half-implemented wetland debt)
 
-**Schema**: probably no bump if terrain is world-generated only (worldCells already non-persisted). If new persistent state is needed (e.g. discovered terrain regions), bump.
-
-**Why terrain before structures**: (1) wetland debt is real and embarrassing, (2) structure placement on a 6-node ring feels different than across varied terrain, (3) terrain is more self-contained — structures pull in multiplayer Tier 2 KV schema which is more cross-cutting.
-
-**Tags v0.0.8 cleanly** — resets the dimmed `.N` runway from `.20+`.
-
-### v0.0.9: structures + bigger map
-
-🔴 Needs design conversation. Heavy lift — pulls in multiplayer Tier 2.
-
-**Scope**:
-- Structures: postboxes, rainfall canopies, generators, lookout posts, ziplines, shelters, drone bays. Built on paths, degrade, upgradeable. Spec: [longer-horizon features](#specs-longer-horizon-features).
+**Scope — structures**:
+- Postboxes, rainfall canopies, generators, lookout posts, ziplines, shelters, drone bays. Built on paths, degrade, upgradeable. Spec: [longer-horizon features](#specs-longer-horizon-features).
 - Bigger map: route grows beyond 6 nodes.
-- **Trust-reward acquisition unlocks**: sticky gun + scanner migrate from upgrades menu to NPC trust rewards at new depots.
+- **Trust-reward acquisition unlocks**: some courier equipment (sticky gun, scanner) may migrate from upgrades menu to NPC trust rewards at new depots — may fold into v0.0.8 trust work earlier than v0.0.9.
 - Multiplayer Tier 2: structure stewardship via KV (`structures:{regionKey}`).
 
-**Schema**: bump for structures (per-structure persistence, multiplayer sync state).
+**Schema**: bump for structures (per-structure persistence, multiplayer sync state). Terrain itself probably no bump (worldCells non-persisted).
 
-**Dependencies**: terrain (v0.0.8) should land first — placing a postbox in a desert vs a wetland creates different play patterns.
+**Dependencies**: rain (v0.0.8) should land before terrain's rivers (flooding interaction). Trust (v0.0.8) may eat some of the "equipment as trust reward" scope.
 
 ### v0.1: radio chatter + social layer
 
@@ -694,32 +787,38 @@ Unordered. Pick when motivated; design conversations needed for most.
 ### roadmap visualization
 
 ```
-v0.0.7.20 ✅ (bugfix patch complete)
+v0.0.7 arc ✅ DONE
+   │ (refactor, bundle, UI/UX pass, battery prototype, silent/offline, polish pass)
    │
-   ├── v0.0.7.21 ✅ 6-piece bundle: rate limit, gun, scanner T1, admin, save i/o (v5→v6)
-   ├── v0.0.7.22 ✅ admin channel (BroadcastChannel from blog-admin tab)
-   ├── v0.0.7.23–.23b ✅ inline gear pattern + canteen bracket-frame rework
-   ├── v0.0.7.24 ✅ kit row prototype (battery stub + scanner/gun capsules)
-   ├── v0.0.7.25–.27 ✅ scan sonar visual rework (dot + halos, gentler glow)
+   ├── v0.0.8.1 ✅ package rework: composable spawn roller + dest-tagged label pool
+   ├── v0.0.8.2 ✅ cargo inventory rework: unified pkg shapes + 2D autosort
+   ├── v0.0.8.3 ✅ cargo polish: modifier visuals, weight 2-row, +4 pack
    │
-   ├── v0.0.7.28 ⏳ battery prototype drain (time-only, not persisted)
+   ├── v0.0.8.4+ ⏳ TRUST THREAD (next session — see trust thread primer)
+   │      ├── identify `?` waystone + orphan NPC
+   │      ├── weight-based trust gain (pkg.slots → trust)
+   │      └── upgrade audit: move ~half to NPC trust rewards
    │
-   ├── v0.0.7.29+ 🟡 battery full mechanic (v6→v7): per-device drain,
-   │      depot/solar regen, upgradeable trickle, scanner rewire
-   │      └── (parallel: gun capsule rework 🔴, stamina seg retrofit 🟡)
+   ├── v0.0.8.later ⏳ rain rework
+   │      ├── drizzle/rain/downpour intensity states
+   │      ├── storms as travelling world objects (_transient.storms[])
+   │      ├── minimap cloud rendering + biome-biased spawning
+   │      └── downpour floods rivers (wires S.inRiver) + encumbrance trip scaling
    │
-   ├── v0.0.8 🟡 terrain (deserts, rivers, slopes, wetland slowdown)
-   │      ├── closes wetland debt + S.inRiver stub
-   │      └── prelude slot available for mobile carrier if design settles
-   │
-   ├── v0.0.9 🔴 structures + bigger map
-   │      ├── multiplayer Tier 2
-   │      └── trust-reward acquisition for sticky gun/scanner
+   ├── v0.0.9 🔴 terrain + structures + bigger map
+   │      ├── terrain: deserts, rivers, slopes, wetland slowdown
+   │      ├── structures: postboxes, canopies, generators, lookouts, ziplines, shelters
+   │      ├── multiplayer Tier 2 (structure stewardship via KV)
+   │      └── bigger map: route grows beyond 6 nodes
    │
    ├── v0.1 🔴 radio chatter + social layer
    │      ├── multiplayer Tier 3
    │      ├── sign system (could land earlier)
    │      └── settlement quote evolution (post-structures)
+   │
+   ├── (parallel, unscheduled) full battery mechanic (v6→v7)
+   │      ├── per-device drain + depot/solar regen + upgradeable trickle
+   │      └── scanner rewire; retire prototype blanket drain
    │
    └── post-v0.1 parking lot 🔴
           • day/night cycle
@@ -727,26 +826,75 @@ v0.0.7.20 ✅ (bugfix patch complete)
           • music-event integration
           • full admin tools
           • multiplayer Tier 4
-          • polish leftovers
 ```
 
 ### resume-here cheatsheet
 
 If you're picking up cold and want the fastest "what do I do next":
 
-1. **Default**: ship full battery mechanic (v0.0.7.29). Drain per-device, depot/solar regen, upgrade. Schema v6→v7 bump. Adds `battery` to `buildSavePayload` + ratchet. Removes prototype blanket drain from `main.js` tick. Scanner rewires (manual ping pays battery; local autoTimer unchanged).
-2. **If UI-tuning mood**: retrofit stamina segs with the contiguous-fill + tick-line pattern from `.kit-battery`. Non-breaking, low-risk, improves readability. Good 1-commit sub-version.
-3. **If user brings gun-visual vision**: rework the `gun: X/Y` capsule per whatever they describe. Capsule shape is already wired in `js/render/kit.js`.
-4. **If carrier design conversation just happened**: spec mobile carrier (exoskeleton). Uses shared battery — aligns with why battery gets promoted in step 1. Can land as its own sub-version or fold into v0.0.8 prelude.
-5. **If larger arc**: v0.0.8 terrain (deserts, rivers, slopes, wetland slowdown) closes wetland debt + `S.inRiver` stub. Substantial.
+1. **Default (recommended)**: start [trust thread primer](#trust-thread-primer-v008-next). Three sub-threads settled verbally; open design questions listed. User expects a planning conversation before implementation. Package dest-tagging from v0.0.8.1 sets up future NPC-dispatch cleanly.
+2. **If user brings rain thread instead**: storms-as-world-objects design sketch is in the trust primer's "rain thread (queued after trust)" subsection. Rain is less designed than trust — expect a longer sketch phase.
+3. **If UI polish mood**: fragile readability at s-size is the live concern — stripes crowd the size letter. If trust's label audit doesn't address it, consider letting shape carry size identity.
+4. **If full battery mechanic becomes priority**: schema v6→v7 bump, per-device drain, depot/solar regen, scanner rewire. Queued in parallel with v0.0.8; can land anytime.
+5. **Structures / terrain**: v0.0.9. Don't touch before v0.0.8 threads are complete; rain wires `S.inRiver` for terrain-rivers interaction.
 
-**Preview:** `.claude/launch.json` runs `python -m http.server 8744` — use `preview_start tlh-static` before verifying any UI change.
+**Preview:** `.claude/launch.json` in this worktree runs `python -m http.server 8745` (parent worktree uses :8744 — different port per worktree). Use `preview_start tlh-static` before verifying any UI change.
 
 ---
 
 ## TLH session log
 
-### 2026-04-15 (v0.0.7.23–.28 — UI pass + kit row + preview server)
+### 2026-04-15 (v0.0.8.1 → .2 → .3 — packages + cargo UI rework)
+
+Long session, three commits, v0.0.8 arc opened and reframed.
+
+**Scope reframe up front.** Prior roadmap had v0.0.8 = terrain expansion (deserts, rivers, slopes). User rescoped around three mechanical-depth threads — packages, trust, rain — with terrain pushed to v0.0.9. Packages was the "easiest win" per user so it went first.
+
+**v0.0.8.1 — package data + roller.** Full rewrite of [data/packages.js](js/data/packages.js): old 9-entry flat tables (NPC_PKGS + LOST_PKGS) replaced with composable shape — PKG_BASES (s/m/l/xl), PKG_SIZE_WEIGHTS with risky-cell variant that bumps xl \u22486x on C/\u00b7 edges, PKG_MODIFIERS (null:70 dominant + fragile/lightweight/heavy/unwieldy weighted \u223c30%), PKG_LABELS_BY_SIZE with \u223c73 labels each tagged `dests:[]` for destination-filtered picking, PKG_LOST_LABELS 12-entry fallback pool (reserved for later recovery pipeline inversion).
+
+New `rollPkg(destId, cellRisky, forceLost)` in [packages.js](js/packages.js) \u2014 composable roll: size \u2192 modifier (size-incompat filtered) \u2192 apply kgDelta/slotDelta/scripMult \u2192 filter labels by dest \u2192 lost flag + scrip bonus. [world.js](js/world.js) `makeWorldPkg` routed through it; 15% ambient isLost preserved (recovery inversion deferred). Dead `NPC_PKGS`/`LOST_PKGS` imports removed from main.js.
+
+**Label design conversations.** Three key decisions:
+- Waystone (`?`) identity: orphan living at a traveler's landmark. Labels split between trinkets (beaded bracelet, carved charm, pressed flowers, wrapped offering) and practical supplies (pantry crate, book bundle, hearth kit, patched coat, firewood stack). Tone explicitly NOT religious/shrine \u2014 incense/icon/altar vocabulary rejected.
+- Destination intermingling: labels allow multi-dest assignment (e.g. `salvage kit` dests `[C, A, B]` \u2192 "C sent salvage for A's repairs"). Cuts weak/redundant labels; sets up shelter-dispatch seamlessly.
+- Lost cargo priority: peer-dropped pkgs already preserve identity across the wire. Ambient world-spawn lost uses normal label pool + isLost flag. Fallback pool reserved for future recovery-pipeline inversion. User chose Option 2: keep current density, peer-preferred semantics later.
+
+**v0.0.8.2 \u2014 cargo UI rework.** User flagged: each slot rendered independently, so a 4-slot lumber bundle looked like four separate `l` boxes. Rewrote [render/hud.js](js/render/hud.js) `renderCargoSlots` \u2014 now a 2-row CSS grid with `ceil(maxSlots/2)` cols; pkgs render as single multi-cell divs via `grid-column`/`grid-row` spans. PKG_SHAPES: s=1\u00d71, m=2\u00d71, l=2\u00d72, xl=4\u00d72. xl got a new deep-purple color ramp (#3a2050) to distinguish from l.
+
+Simple first-fit `binPack` packer sorted by footprint desc. Gun slot reserved bottom-right. Phantom cells fill trailing grid positions when `cols*rows > maxSlots`. Modifier field carried through pickup into inventory.
+
+**Preview infrastructure.** [.claude/launch.json](.claude/launch.json) added for this worktree, serving on :8745. Side preview panel is now live for iterative CSS work \u2014 paid off immediately in v0.0.8.3 variant iteration.
+
+**v0.0.8.3 \u2014 modifier visuals + weight 2-row + pack bump.** User asked for 4 items: weight segs 2-row, confirm 2-row cargo as default (already yes), fix maxSlots=11 awkward odd stop, and tackle modifier-visual deferrals from v0.0.8.2.
+
+- Weight-segs: flex-row \u2192 2-row grid mirroring cargo. Compact at 10+kg.
+- `cargoPack` upgrade: +3 \u2192 +4 slots. Progression was 6 base + sling2 + pack3 = 11 (odd). New: 6 \u2192 8 \u2192 12, aligns on 6 cols \u00d7 2 rows.
+- Modifier visuals went through **significant iteration** with user signoff on each:
+  - **Fragile V1** (pink inset + outer glow): rejected, "looks like highlight/hover".
+  - **Fragile V2** (dashed pink border): rejected, conflicts with lightweight's visual language.
+  - **Fragile V3** (diagonal stripe overlay): initial version diluted pink. User pushed back: stripes should match package color, no dilution. Final: per-size saturated stripes \u2014 teal for s, purple for m, pink for l, bright pink for xl.
+  - **Heavy**: initially bright-white 2px border. User: border should match object color. Final: 2px in size color.
+  - **Lightweight**: dashed border in size color (accepted first pass).
+  - **Unwieldy V1** (trail cell with 2px gap): first ship.
+  - **Unwieldy V2** (trail flush via negative margin + no left border): user saw the seam line, rejected. "Breaks the illusion."
+  - **Unwieldy V4** (single div + clip-path L-shape): elegant on xl, but broke tooltips (clip-path clips ::after pseudo) and top-left border became incomplete. User reverted to V1.
+  - **Final: V1 shipped** \u2014 trail cell with 2px gap, inherits size class. User accepted the gap as the "awkward extra bit" signal. Tooltips work, border edges clean.
+
+**Lessons from iteration.**
+- CSS-only variant iteration via injected `<style>` blocks in the preview is fast. Clip-path touches tooltip behavior and border completeness \u2014 more expensive to iterate.
+- User strongly values tooltip reliability. Do not break them for aesthetic wins.
+- Border-completeness around shape outline matters. Partial edges read as broken even when silhouette is intentional.
+- Pink as warning color collides with l/xl which are already pink. Per-size accent approach sidesteps it.
+
+**Deferred / flagged.**
+- Fragile readability at s-size (stripes cramp size letter). Revisit if trust work reshapes small pkg identity.
+- Modifier stacking \u2014 one per pkg for now.
+- Modifier-aware pickup-fail logs.
+- `data/packages.js` atomization at \u223c170 lines. Split when trust adds dispatch pools.
+
+**Dropoff.** v0.0.8.3 live locally; commits `a5c579e`, `49b8ce4`, `ae3237a` three ahead of origin. User to push/merge. Next session = trust; fresh agent recommended per context budget. [trust thread primer](#trust-thread-primer-v008-next) is the brief.
+
+### 2026-04-15 (v0.0.7.23\u2013.28 \u2014 UI pass + kit row + preview server)
 
 Back-to-back sub-versions in one session. Started at v0.0.7.22 (admin channel), shipped six more sub-versions, set up the local preview workflow, bumped the handoff.
 
