@@ -58,6 +58,14 @@ export const S = {
     buffMagnitude: 1,       // tripChance() *= this while buffActive
   },
 
+  // v0.0.7.24 — kit-row battery (prototype stub). Shared charge pool
+  // that powers scanner + future electronic gadgets (exoskeleton, etc).
+  // NOT persisted this patch (not in buildSavePayload) — drain/regen
+  // lands in a later sub-version with a schema bump.
+  battery: {
+    charge: 80,             // 0-100; stub, no drain logic yet
+  },
+
   settlements: {
     'A':        { label:'depot a',  tier:'waypoint', supply:65, rebuild:65, quote:'"a fire and four walls"'   },
     'B':        { label:'depot b',  tier:'outpost',  supply:34, rebuild:34, quote:'"new roof going up"'       },

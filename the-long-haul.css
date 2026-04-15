@@ -482,6 +482,91 @@ html, body {
   flex-shrink: 0;
 }
 .drink-btn:hover { border-color: #40a4b9; color: #b1c9c3; }
+.drink-btn.on    { color: #77bfcf; border-color: #40a4b9; }
+.drink-btn.cd    { color: #2a5c5a; border-color: #132e2d; cursor: default; }
+
+/* v0.0.7.24 — kit row: battery + gadget capsules (scanner, sticky-gun
+   ammo, future devices). Battery is stylized like a classic cell
+   (rounded rectangle + terminal nub). Ticks every 10% via a
+   repeating-linear-gradient overlay so segments read even when the
+   fill is low. Capsules separated by hairline dividers.
+
+   Battery mechanic (drain/regen) is stubbed in this patch — see
+   S.battery in state.js. Full mechanic lands in a later sub-version
+   with a schema bump.
+*/
+.kit-row { gap: 8px; }
+.kit-battery {
+  position: relative;
+  width: 80px; height: 10px;
+  border: 1px solid #3a6a68;
+  background: #132e2d;
+  flex-shrink: 0;
+}
+.kit-battery::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(10% - 1px),
+    #081f1e calc(10% - 1px),
+    #081f1e 10%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+.kit-battery::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  background: #3a6a68;
+  border-radius: 0 1px 1px 0;
+}
+.kit-battery-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 80%;
+  background: #4a7a78;
+  transition: width 0.4s, background-color 0.4s;
+}
+.kit-battery-fill.warn { background: #9d78d4; }
+.kit-battery-fill.crit { background: #da8bda; }
+.kit-battery-val {
+  color: #b1c9c3;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 30px;
+  flex-shrink: 0;
+  font-family: 'Source Code Pro', monospace;
+}
+
+.kit-caps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.kit-caps > * + * {
+  border-left: 1px solid #1e5554;
+  padding-left: 8px;
+}
+.kit-cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-family: 'Source Code Pro', monospace;
+  color: #7aa8a6;
+  flex-shrink: 0;
+}
+.kit-cap-lbl { color: #3a6a68; }
+.kit-cap-val { color: #b1c9c3; font-weight: 700; }
 .drink-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
 .tlh-panels {
