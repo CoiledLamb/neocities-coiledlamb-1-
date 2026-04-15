@@ -26,6 +26,16 @@
      value. Fix: write to npc.unlocks.tN, read from npc.unlocks.tN.
      Existing players auto-migrate via the loadGame ratchet on
      next load, no schema bump needed.
+
+   v0.0.7.19 (commit 2b):
+     - tryWarning rain check rewired to the new rain scheduler:
+       speaks when nextRainStartTick - S.ticks is within
+       RAIN_INCOMING_WARN_TICKS of now. Replaces the old
+       ambiguous `rainTimer > 0 && rainTimer < 25` test that
+       fired both during and between rain events.
+     - Renamed local `restPromptPending` writes/reads to
+       `depotRestPending` to match the canonical slot declared
+       in state.js. Pure name fix, no behavior change.
    ============================================== */
 'use strict';
 
@@ -123,7 +133,12 @@ export function tryWarning(arrivedNodeId) {
     speak(arrivedNodeId, pickRandom(lines.warningTrip), 'warn');
     return;
   }
-  if (!S.isRaining && S.rainTimer > 0 && S.rainTimer < 25 && lines.warningRain && lines.warningRain.length) {
+  // v0.0.7.19 commit 2b — rain warning wired to the new scheduler.
+  // Fires only when: dry right now, next rain is scheduled, and it's
+  // within the warn window. Old condition (rainTimer > 0 && < 25)
+  // fired ambiguously both during and between rain events.
+  const ticksUntilRain = S._transient.nextRainStartTick - S.ticks;
+  if (!S.isRaining && ticksUntilRain > 0 && ticksUntilRain < C.RAIN_INCOMING_WARN_TICKS && lines.warningRain && lines.warningRain.length) {
     speak(arrivedNodeId, pickRandom(lines.warningRain), 'warn');
     return;
   }
@@ -158,13 +173,13 @@ export function tryRestPrompt(arrivedNodeId) {
   if (!NPC_DEFS[arrivedNodeId]) return;
   const npc = S.npcs[arrivedNodeId];
   if (!npc || !npc.unlocks || !npc.unlocks.t80) return;
-  if (S._transient.restPromptPending) return;
+  if (S._transient.depotRestPending) return;
   if (S.stamina >= S.staminaMax * 0.85) return;
   if (S.scrip < 5) return;
   const def = NPC_DEFS[arrivedNodeId];
   const lines = (NPC_LINES[arrivedNodeId] && NPC_LINES[arrivedNodeId].rest) || [];
   if (!lines.length) return;
-  S._transient.restPromptPending = { nodeId: arrivedNodeId };
+  S._transient.depotRestPending = { nodeId: arrivedNodeId };
   speak(arrivedNodeId, pickRandom(lines), 'rest');
   addLog(`<button class="log-btn" id="depotRestBtn">accept rest at ${def.callsign}</button>`);
   setTimeout(() => {
@@ -174,9 +189,9 @@ export function tryRestPrompt(arrivedNodeId) {
 }
 
 function confirmDepotRest() {
-  if (!S._transient.restPromptPending) return;
-  const { nodeId } = S._transient.restPromptPending;
-  S._transient.restPromptPending = null;
+  if (!S._transient.depotRestPending) return;
+  const { nodeId } = S._transient.depotRestPending;
+  S._transient.depotRestPending = null;
   const def = NPC_DEFS[nodeId];
   S.scrip = Math.max(0, S.scrip - 10);
   S.stamina = S.staminaMax * 1.05;

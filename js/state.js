@@ -25,7 +25,7 @@ export const S = {
   sandalweedCount: 0,
   stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
   canteen: 100, canteenMax: 100, autodrink: false,
-  isRaining: false, rainTimer: 0, inRiver: false,
+  isRaining: false, inRiver: false,  // rainTimer removed in commit 2b — replaced by _transient.nextRainStart/EndTick
 
   upgrades: {
     bootsT1: false, bootsT2: false,
@@ -116,6 +116,21 @@ export const S = {
     // Pending log-button prompts (one at a time)
     depotRestPending: null,
     clipRefillPending: null,
+
+    // Rain scheduler (v0.0.7.19 commit 2b). Replaces the old S.rainTimer
+    // that counted down both during and between rain events (ambiguous
+    // semantics). These are absolute tick targets: if !isRaining, next
+    // rain starts when S.ticks reaches nextRainStartTick; if isRaining,
+    // rain ends when S.ticks reaches nextRainEndTick. Seeded at init
+    // based on S.isRaining so loaded saves behave correctly.
+    nextRainStartTick: 0,
+    nextRainEndTick: 0,
+
+    // Pickup-fail log dedupe (v0.0.7.19 commit 2b). Key is
+    // `${ci}:${usedSlots}:${usedWeight}` — a change to any part refires
+    // the log line. Prevents per-tick spam while still re-firing after
+    // the player drops/delivers cargo and walks past the same pkg again.
+    lastPickupFailKey: '',
 
     // Render dirty-check keys
     lastCargoKey: '',

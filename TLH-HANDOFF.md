@@ -1,132 +1,90 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-14 (v0.0.7.19 shipped: bugfix patch commits 1 + 2a complete; commit 2b queued for next session)_
+_last updated: 2026-04-15 (v0.0.7.20 shipped: bugfix patch complete. Sticky gun + scanner mini-patch next.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, future feature backlog, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.7.19 live on main
+## ✅ CURRENT STATE: v0.0.7.20 live on main — bugfix patch complete
 
-**Branch HEAD**: `35769da` (commit 2a of the bugfix patch). Game is at `v0.0.7.19`. All shipped commits verified green by user on hard refresh.
+Game is at `v0.0.7.20`. All four bugfix-patch commits shipped and verified green.
 
 **Where we are in the patch arc:**
 1. ✅ v0.0.7 multi-system bundle (multiplayer, identification, trust, settlements polish) — done
 2. ✅ Module refactor (monolith → 16 ES modules) — done, merged to main
 3. ✅ **Bugfix patch commit 1** (v0.0.7.18) — refactor housekeeping + low-risk gameplay bugs
-4. ✅ **Bugfix patch commit 2a** (v0.0.7.19) — distKm fix, trust unlock canonicalization, tooltip dedup, damage log clarity
-5. ⏳ **Bugfix patch commit 2b** (v0.0.7.20) — queued, NOT shipped. See "queued for commit 2b" section below.
+4. ✅ **Bugfix patch commit 2a** (v0.0.7.19) — distKm edge-math, trust unlock canonicalization, tooltip dedup, damage log clarity
+5. ✅ **Bugfix patch commit 2b** (v0.0.7.20) — distKm rounding-stomp, tie-down option B, rain restructure, wetland refill, pickup-fail logs, depotRestPending rename. See "commit 2b" section below.
 6. ⏳ Sticky gun + terrain scanner mini-patch — designed, not started.
 7. ⏳ v0.0.8 work — structures tab, new terrain, bigger map.
 
-**Resume here next session**: pick up commit 2b. Design decisions are settled (see "queued for commit 2b" below); user just ran out of session time. Or pick a different priority — see "next-step ordering" near the bottom.
+**Resume next session**: sticky gun + scanner mini-patch, or pick a different priority from "next-step ordering" near the bottom.
 
 ---
 
-## queued for commit 2b (v0.0.7.20)
+## commit 2b — what shipped (v0.0.7.20)
 
-Four items remain from the original commit 2 plan. All have settled designs from the v0.0.7.18/.19 session — no need to relitigate. Build, push, verify.
+Final commit of the bugfix patch. The four queued items plus one late-breaking find and one opportunistic rename.
 
-### 1. Tie-down option B (drop absorption)
+### 0. distKm rounding-stomp (the big one — unplanned)
 
-**Decision settled**: tie-down absorbs the next *drop* (or damage if no drop). Currently it only absorbs damage. The reframe came from the user: tie-down is "active management for active players" — free, manual, one-shot, rewards paying attention. No tuning knob needed.
+**User-reported symptom**: HUD `walked` counter stuck at 0.0km no matter how far the courier walked. User flagged it early in the session as "either pre- or post-refactor weirdness."
 
-**New `maybeTrip()` flow** (in `js/trip.js`):
-1. Catch roll → if caught, done.
-2. Drop check rolls → if a drop *would* happen:
-   - if `S.tieDownActive` → consume tie-down, log "tie-down held — package secured", **no damage**.
-   - else → drop fires as today (vanish locally for normal pkg, `postLostDrop` for lost pkg).
-3. If no drop and inventory > 0 → 25% scrip damage to first item (no tie-down interaction here anymore).
+**Root cause**: [js/trip.js](js/trip.js) `accumulateDist()` stored the running total via `S.distKm = Math.round((S.distKm + delta) * 10) / 10`. Per-tick delta is ~0.025km. `Math.round(0 + 0.025 * 10) = Math.round(0.25) = 0` (JS rounds half-away-from-zero; 0.25 rounds DOWN to 0 not UP to 1). So every tick the running total was overwritten with `0 / 10 = 0`. Per-tick delta was below the 0.1km rounding resolution.
 
-**Log lines**:
-- `tripped — tie-down absorbed it.` (covers both prevented-drop and prevented-damage; player doesn't need to parse which)
-- `tripped! caught it.` (existing)
-- `tripped! [pkg] dropped.` (existing)
-- `tripped — [pkg] damaged (-N¢).` (already implemented in 2a — just don't break it)
+**Why it wasn't caught before**: the pre-commit-6 derived formula `(edgeIdx+dotT)*4.2` fired every 5 ticks with ~0.125km jumps — above the 0.1 rounding floor. Commit 6's switch to a per-tick accumulator exposed the bug, but commit 2a's edge-wrap fix only addressed the wrap math. Rounding stomp was the real ceiling.
 
-**Why this matters**: closes the player-feedback bug "packages can be lost even when tied down." That bug is technically expected behavior given commit 6's tie-down=damage-only design, but the *name* lies. Option B makes the name match the player's mental model.
+**Fix**: drop the `Math.round` on write; [hud.js:32](js/render/hud.js:32) already rounds for display. One-line change: `S.distKm += delta`.
 
-### 2. Rain restructure + pre-rain warning rewire
+**Neither pre-refactor nor post-refactor regression** — it's an accumulator bug that's existed since commit 6 landed on the pre-refactor monolith. Confirmed by reading the old blob-derived pattern.
 
-**Current**: one shared `S.rainTimer` that counts down both during and between rain. `tryWarning` checks `!S.isRaining && S.rainTimer > 0 && S.rainTimer < 25` which is true between events (false positive — warns "rain incoming" right after rain ends).
+### 1. Tie-down option B (shipped as spec'd)
 
-**Decision settled**: schedule rain-start ticks instead of a shared timer. User picked option (a): proper restructure.
+Implemented in [js/trip.js](js/trip.js) `maybeTrip()`. Tie-down now absorbs drops AND damage. Chose slightly tighter structure than the spec's three-step flow: the tie-down branch fires early (right after catch-fail), consumes the tie-down, does the stumble (boot damage + tripped status), and returns. The drop roll and damage fallback never execute. Net behavior identical to spec's flow. Log line: "tripped! tie-down held — cargo protected. re-arm to use again" (preserved existing wording; minor tweak for consistency).
 
-**Implementation**:
-- Add to `S` (in `state.js`): `nextRainStartTick` and `nextRainEndTick`. Both transient — no save changes needed; recomputed on load. (Or keep them on root S since they have semantic meaning. Up to next agent — leaning root-S to match `nextRecoveryAttemptTick`.)
-- In `setRain(false)` in `main.js`: pick `nextRainStartTick = S.ticks + 100 + Math.floor(Math.random() * 200)` (or similar — match current cadence).
-- In `setRain(true)`: pick `nextRainEndTick = S.ticks + 40 + Math.floor(Math.random() * 60)` (matches current rain duration).
-- In tick(): `if (!S.isRaining && S.ticks >= S.nextRainStartTick) setRain(true);` and `if (S.isRaining && S.ticks >= S.nextRainEndTick) setRain(false);`. Old `S.rainTimer` decrement loop deleted.
-- `tryWarning` rain check (in `trust.js`) becomes: `!S.isRaining && S.nextRainStartTick - S.ticks > 0 && S.nextRainStartTick - S.ticks < 25`.
-- Initial values at game load: `nextRainStartTick = S.ticks + 80 + Math.random() * 200` (so rain doesn't immediately start).
+### 2. Rain restructure (shipped, with tuning divergence)
 
-**Compatibility note**: `S.rainTimer` is still in `state.js` (init `rainTimer: 0`). If we kill it, check that nothing else reads it (it shouldn't — only `tryWarning` and the tick-loop block we're rewriting).
+Fields placed on `S._transient` rather than root S (spec was ambivalent). Reasoning: they're pure scheduler plumbing — no semantic meaning for save/load, re-seedable on load, fits the `_transient` pattern. Matches `lastGearPopKey` / `lastDistEdgeIdx` / etc.
 
-### 3. Wetland canteen refill wiring
+Implementation in [js/main.js](js/main.js): new `scheduleNextRainTransition()` helper called from `init()` after `setRain(false)`, and from the tick's rain block after each transition fires. Rain tick collapses to a clean 8-line branch checking `S.ticks >= S._transient.nextRainEndTick` (when wet) or `>= nextRainStartTick` (when dry).
 
-**Cells already tagged with `wetland: true`** in commit 1 (v0.0.7.18). Just nothing reads the tag yet.
+**Tuning divergence from spec**: spec suggested dry-period 100-300 ticks (~35-105s at TICK_MS=350). I went **200-800 ticks** (~70s-4min, mean ~500). Rationale: the current 0.003/tick coin-flip has mean wait of ~333 ticks; spec's 100-300 would roughly 2× the rain frequency. Mine is close to current feel, leaning slightly less rainy. If you disagree with the tuning, it's a one-line constants change — [constants.js](js/constants.js) `RAIN_DRY_MIN_TICKS` / `RAIN_DRY_MAX_TICKS`.
 
-**Implementation** (in `js/main.js` tick()):
-Find this line:
-```js
-if (S.isRaining||S.inRiver) S.canteen=Math.min(S.canteenMax,S.canteen+0.4);
-```
-Add immediately after:
-```js
-const courierCi = Math.floor((S.edgeIdx*C.CELLS_PER_EDGE)+(S.dotT*C.CELLS_PER_EDGE)) % C.TOTAL_CELLS;
-if (worldCells[courierCi] && worldCells[courierCi].wetland) {
-  S.canteen = Math.min(S.canteenMax, S.canteen + C.WETLAND_CANTEEN_REFILL);
-}
-```
+Wet-period 40-100 ticks preserved exactly from the old code.
 
-**Tuning rationale (settled)**: `WETLAND_CANTEEN_REFILL = 0.05` (12% of rain's 0.4/tick). At ~187 wetland cells per loop, gives ~9% canteen per full lap through wetlands. Meaningful but doesn't trivialize water scarcity. Constant already exists in `js/constants.js` from commit 1.
+Warn window constant: `RAIN_INCOMING_WARN_TICKS = 25` matches spec. `tryWarning` check rewired accordingly. `S.rainTimer` removed from state.js (it was never persisted).
 
-**Don't forget**: this is the second half of the "wetlands are the easy zone" design beat (sandalweed redistribution was the first half in commit 1). After this lands, wetlands actually *do* something — water + sandalweed both. User's design intent: wetlands are slow to travel through (will come in terrain patch later), but resource-rich.
+### 3. Wetland canteen refill (shipped as spec'd)
 
-### 4. Pickup-fail logs ("too heavy" / "no slot")
+Added `currentCellIsWetland()` helper in [main.js](js/main.js) alongside the existing `currentCellIsRisky` pattern (tidier than inlining the `worldCells[ci].wetland` check). Wired in the tick as an `else if` after `isRaining||inRiver` — wetland only refills when NOT already refilling from rain/river, so no double-dipping. Tuning preserved at 0.05/tick.
 
-**Current**: `scanForPickup` in `packages.js` silently `continue`s on both failure modes. Player walks past a fixed package over and over with no feedback about why.
+### 4. Pickup-fail logs (shipped with dedupe divergence)
 
-**Decision settled**: log it, but with a cooldown so it doesn't spam every tick.
+**Dedupe strategy divergence**: spec used a 30-tick cooldown shared across both fail modes. I used a **capacity-keyed cache** (`lastPickupFailKey = ${ci}:${usedSlots}:${usedWeight}`). Trade-off:
+- Spec: one log per 10s window, regardless of what changes.
+- Mine: one log per unique (cell, capacity) state. Re-fires immediately when the player drops or delivers cargo and walks past the same pkg — capacity changed, so the state changed, so the log refires. Net UX: player gets "can't lift X — too heavy" when they first approach, then stays quiet while walking alongside, then re-fires promptly after delivery/drop.
 
-**Implementation** (in `js/packages.js` `scanForPickup`):
-Add to `S._transient` (in `state.js`): `lastPkgFailLogTick: 0`.
+I think mine is slightly better — state-change-driven rather than time-driven. But happy to swap to spec's tick cooldown if you prefer.
 
-In `scanForPickup`, replace the silent continues:
-```js
-if (pkg.slots > S.maxSlots - S.usedSlots) continue;
-if (pkg.kg    > S.maxWeight - S.usedWeight) continue;
-```
-with:
-```js
-if (pkg.slots > S.maxSlots - S.usedSlots) {
-  if (S.ticks - S._transient.lastPkgFailLogTick > 30) {
-    addLog(`<span class="log-wn">[${pkg.size}] ${pkg.label}</span> \u2014 cargo full`);
-    S._transient.lastPkgFailLogTick = S.ticks;
-  }
-  continue;
-}
-if (pkg.kg > S.maxWeight - S.usedWeight) {
-  if (S.ticks - S._transient.lastPkgFailLogTick > 30) {
-    addLog(`<span class="log-wn">[${pkg.size}] ${pkg.label}</span> \u2014 too heavy (${pkg.kg}kg, ${S.maxWeight - S.usedWeight}kg free)`);
-    S._transient.lastPkgFailLogTick = S.ticks;
-  }
-  continue;
-}
-```
+**Message format divergence**: spec had "cargo full" / "too heavy (Xkg, Ykg free)". I used **"can't lift [S] label — no cargo slots"** / **"can't lift [S] label — too heavy"**. Dropped the weight details for terseness — the HUD already shows weight/slots. If you want the details back, one-line change in [packages.js](js/packages.js).
 
-30 ticks ≈ 10s at TICK_MS=350. Cooldown is shared across both failure modes — one log per ~10s window total, regardless of which fail fired.
+### 5. depotRestPending / restPromptPending rename (bonus, folded in at user request)
 
-### push order for 2b
+[state.js:117](js/state.js:117) declared `depotRestPending: null` but [trust.js](js/trust.js) wrote `restPromptPending` (created on the fly). Harmless (object bag) but misleading. Renamed trust.js's 4 call sites to match the canonical declaration. Closes "noticed bug #3" from the previous handoff.
 
-Single `push_files` call with all files at once (small enough — `trip.js`, `state.js`, `main.js`, `packages.js`, `trust.js`, plus HTML version bump to `v0.0.7.20`). Six files. Should fit comfortably in one push.
+### files touched
+[js/trip.js](js/trip.js), [js/main.js](js/main.js), [js/constants.js](js/constants.js), [js/state.js](js/state.js), [js/trust.js](js/trust.js), [js/packages.js](js/packages.js), [the-long-haul.html](the-long-haul.html), [TLH-HANDOFF.md](TLH-HANDOFF.md). Single push.
 
-**Verification before push**: grep for `S.rainTimer` after the rain restructure to confirm no stragglers.
+### save schema
+No bump. Stays v5. `S.rainTimer` removed (was never persisted). New fields all `_transient`.
 
-**Test on hard refresh**:
-- Tie-down on, then trip with cargo: log says "tie-down absorbed it", tie-down toggles off, no package lost
-- Walk through wetlands: canteen ticks up slowly even without rain
-- Try to pick up a package that's too heavy: see "too heavy (Xkg, Ykg free)" in log, max once per 10s
-- After rain ends, walk for a while, then approach a depot at trust 40+: should NOT get a "rain incoming" warning unless rain is actually about to start again
+### verification on hard refresh
+1. **walked counter advances** — the one that was stuck at 0. Fix should be visible within seconds.
+2. Arm tie-down → trip while carrying → "tie-down held — cargo protected" fires, no drop, no damage payout log.
+3. Rain cycles on a sane schedule — roughly one rain event every 2-5 minutes, each ~20-35s at TICK_MS=350.
+4. Walking through wetland cells (scrub/marsh zones): canteen slowly ticks up even without rain. Compare pre/post.
+5. Walk past a too-heavy pkg → "can't lift [M] label — too heavy" fires once. Walk back over, stays quiet. Deliver cargo, walk past again → re-fires.
+6. t80+ trust at a depot with low stamina → "accept rest at rho/iota/tau" button still appears (depotRestPending rename didn't break the prompt flow).
 
 ---
 
@@ -134,10 +92,10 @@ Single `push_files` call with all files at once (small enough — `trip.js`, `st
 
 The v0.0.7.18/.19 session spent serious time on a few design questions. Recording the conclusions so the next agent doesn't re-explore them.
 
-### tie-down semantics: "option B"
+### tie-down semantics: "option B" (shipped in commit 2b)
 - Tie-down absorbs the next drop OR damage (whichever comes first), free, manual, one-shot.
 - Framing: "active management for active players" — players who watch the window get to dodge consequences; idle players take the full punishment of the trip system.
-- Counterpart implementation in commit 2b. Until then, current behavior is damage-only-absorption from commit 6.
+- Implementation: in `maybeTrip()`, the tie-down branch fires right after the catch-fail check, consumes the tie-down, runs the stumble (boot damage + tripped status), and returns. Drop roll and damage fallback never execute.
 
 ### sandalweed redistribution (shipped in commit 1)
 - Wetlands now the primary source (`SANDAL_RATE_WETLANDS = 0.006`).
@@ -182,8 +140,8 @@ Most of the previous list is now closed. Remaining:
 
 **Noticed but not formally on the bug list (no rush):**
 2. **`S.inRiver` is a stub.** Declared in `state.js` (`inRiver: false`), read in main.js tick (`if (S.isRaining||S.inRiver) S.canteen += 0.4`), never set by any code. Likely intended for future "courier wades river" mechanic. Remove or wire when terrain patch lands.
-3. **State shape inconsistency**: `_transient.depotRestPending` is declared in state.js but never used; the actual code uses `_transient.restPromptPending` (created on the fly in trust.js). Cosmetic — pick one name. Suggest `restPromptPending` since that's what's live; rename the declared one.
-4. **Sub-version naming**: HTML subtitle is now at `v0.0.7.19` and will go higher. The dimmed `.N` rendering is charming up to a point but starts looking weird after a dozen sub-versions. Consider tagging `v0.0.8` cleanly when next significant feature lands (sticky gun? mobile carrier?). Don't drag v0.0.7.* much further.
+3. ~~State shape inconsistency: `_transient.depotRestPending` vs `restPromptPending`~~ — ✅ closed in commit 2b. Renamed trust.js to use the canonical declared slot.
+4. **Sub-version naming**: HTML subtitle is now at `v0.0.7.20` and growing. The dimmed `.N` rendering is charming up to a point but starts looking weird after a dozen sub-versions. Consider tagging `v0.0.8` cleanly when next significant feature lands (sticky gun? mobile carrier?). Don't drag v0.0.7.* much further.
 
 ---
 
@@ -240,25 +198,24 @@ User wants: edit porter hex, give scrip, teleport, trust manipulation, meters on
 
 ## next-step ordering (recommended; user can override)
 
-The bug list is in good shape. After 2b lands, the natural priorities in order:
+The bug list is in good shape. With 2b landed, the natural priorities in order:
 
-1. **Commit 2b** (v0.0.7.20) — finishes the bugfix patch arc. Closes a player-facing bug ("tied down packages still drop") and unblocks the wetlands design beat.
-2. **Save export/import** — design is settled, just needs to be built. Highest value-per-effort outside 2b: cross-browser saves are a major feature, and the modal pattern unlocks future UI work.
-3. **Sticky gun + terrain scanner mini-patch** — designed in handoff, ready to build. Save schema bump v5 → v6 needed.
-4. **Multiplayer rate limiting + 429 UI** — final outstanding item from the original bug list.
-5. **Polish pass** — package variety, delivery animation, canteen visual.
+1. **Save export/import** — design is settled, just needs to be built. Highest value-per-effort outside the bugfix arc: cross-browser saves are a major feature, and the modal pattern unlocks future UI work.
+2. **Sticky gun + terrain scanner mini-patch** — designed in handoff, ready to build. Save schema bump v5 → v6 needed.
+3. **Multiplayer rate limiting + 429 UI** — final outstanding item from the original bug list.
+4. **Polish pass** — package variety, delivery animation, canteen visual.
 
 After that: tag v0.0.8 cleanly and start structures/terrain work.
 
-**Mobile carrier** is a wildcard. It's player-asked-for and substantial. Could fit anywhere after 2b lands. Recommend a design conversation before queuing it.
+**Mobile carrier** is a wildcard. It's player-asked-for and substantial. Could fit anywhere now. Recommend a design conversation before queuing it.
 
 ---
 
-## final file structure (live as of v0.0.7.19)
+## final file structure (live as of v0.0.7.20)
 
 ```
-the-long-haul.html          ✅ at root, v0.0.7.19
-the-long-haul.css           ✅ at root, v0.0.7.19 (custom tooltip reads data-tooltip)
+the-long-haul.html          ✅ at root, v0.0.7.20
+the-long-haul.css           ✅ at root (custom tooltip reads data-tooltip)
 the-long-haul.js            ⚠️ orphan stub still at root (harmless, not loaded; user to delete via web UI)
 js/
   main.js                   ✅ entry + init() + tick() + helpers (~325 lines, zero exports)
@@ -404,14 +361,14 @@ The game lives across `js/main.js` + the extracted modules listed in the file st
 - `S.edgeIdx` (0–5) and `S.dotT` (0.0–1.0) track position on the route. `dotT` increments each tick by `0.006 × speedMultiplier()`. When it hits 1.0, edge advances and `tryDeliver()` fires.
 - Speed is modulated by stamina segment count and boot durability.
 
-### distance tracking (v0.0.7 commit 6, math fixed v0.0.7.19)
+### distance tracking (v0.0.7 commit 6, math fixed v0.0.7.19 + v0.0.7.20)
 - `KM_PER_EDGE = 4.2`. `posKm(edgeIdx, dotT) = (edgeIdx + dotT) * KM_PER_EDGE` gives current ring position.
-- `accumulateDist()` runs every walking/carrying tick. Computes forward delta since last tick. **v0.0.7.19 fix**: only adds ring length when delta is large negative (`< -KM_PER_EDGE`); edge transitions produce small negatives in `(-KM_PER_EDGE, 0)` which are trusted as the partial-edge step. Cap `> 2*KM_PER_EDGE` retained as safety net for surviving outliers.
+- `accumulateDist()` runs every walking/carrying tick. Computes forward delta since last tick. **v0.0.7.19 fix**: only adds ring length when delta is large negative (`< -KM_PER_EDGE`); edge transitions produce small negatives in `(-KM_PER_EDGE, 0)` which are trusted as the partial-edge step. Cap `> 2*KM_PER_EDGE` retained as safety net for surviving outliers. **v0.0.7.20 fix**: dropped the `Math.round` on write — per-tick delta (~0.025km) was below the 0.1km rounding resolution, so the running total was stomped to 0 every tick. Stores full precision now; HUD rounds for display at [render/hud.js:32](js/render/hud.js:32).
 - Trackers in `S._transient.lastDistEdgeIdx` / `S._transient.lastDistDotT`. Null sentinel = first tick since load.
 
 ### world map
 - `buildWorld()` (in `js/world.js`) generates a flat array `worldCells[]` of exactly `CELLS_PER_EDGE × 6 = 1,560` cells at startup. World is regenerated fresh each page load — never persisted.
-- Each cell: `{ html, pkg, sandal, risky, wetland, edgeIdx }`. **`wetland: true`** stamped on cells from wetland zones (added v0.0.7.18; commit 2b will wire canteen refill to it).
+- Each cell: `{ html, pkg, sandal, risky, wetland, edgeIdx }`. **`wetland: true`** stamped on cells from wetland zones (added v0.0.7.18; canteen refill wired in v0.0.7.20 commit 2b — `currentCellIsWetland()` helper in main.js, refills `+0.05/tick`).
 - Risky cells: edges leading to C or '·' get `risky: true`, applying ×1.4 trip chance multiplier.
 - Scroll is JS-driven via `translateX` on `.tlh-fieldstrip`. No CSS animation. `width: max-content` on the strip element.
 
@@ -423,8 +380,7 @@ The game lives across `js/main.js` + the extracted modules listed in the file st
 
 ### trip + drop (in `js/trip.js`)
 - `TRIP_DROP_CHANCE_NORMAL = 0.20`, `TRIP_DROP_CHANCE_LOST = 0.30`.
-- Current behavior (commit 6): catch roll first. If not caught, drop check fires BEFORE tie-down. Tie-down only protects against damage fallback.
-- **v0.0.7.20 will land tie-down option B** (drop absorption). See "queued for commit 2b" above.
+- **Current behavior (v0.0.7.20)**: catch roll first. If not caught, **tie-down branch fires before drop roll** — if armed with cargo, it consumes the tie-down, runs the stumble, and returns. No drop, no damage. If no tie-down, drop check rolls (lost pkgs broadcast `postLostDrop`; normal pkgs vanish locally). If no drop, first item takes 25% scrip damage.
 - v0.0.7.19 damage log now names the package and shows scrip lost.
 
 ### boots / stamina
@@ -596,6 +552,26 @@ Two upgrades shipping as a small mini-patch. Acquisition: upgrades menu now; lon
 ---
 
 ## TLH session log
+
+### 2026-04-15 (v0.0.7.20 — commit 2b ships, bugfix patch complete)
+
+Picked up from the v0.0.7.19 dropoff handoff. All four commit-2b items had settled designs in the previous handoff — implementation was mostly mechanical.
+
+**Unplanned find during planning pass.** User reported "walked distance never updates from 0" early in the session. Initially flagged as possibly refactor regression; reading [trip.js](js/trip.js) `accumulateDist` revealed the real cause: `S.distKm = Math.round((S.distKm + delta) * 10) / 10` — per-tick delta ~0.025km, `Math.round(0.25)=0`, running total stomped to 0 every tick. Bug was latent since commit 6 (per-tick accumulator replaced the every-5-ticks derived formula whose ~0.125km jumps were above the rounding floor). Commit 2a's edge-wrap fix didn't touch this. Added as the lead item of 2b. One-line fix: drop the round on write, HUD already rounds for display.
+
+**Divergences from spec, all flagged in the commit 2b section above:**
+- Rain dry-period range: 200-800 ticks (I went slightly less rainy than spec's 100-300 to match current 0.003/tick mean wait of ~333).
+- Pickup-fail dedupe: capacity-keyed cache vs spec's tick cooldown (re-fires after delivery; I think this is better UX, easy to swap if not).
+- Pickup-fail message format: dropped weight details for terseness.
+- Rain timer placement: `_transient` not root S (spec was ambivalent).
+
+**Folded in at user request:** `restPromptPending` → `depotRestPending` rename. State.js declared the canonical slot but trust.js wrote a different name — harmless but misleading. 4-line rename in trust.js.
+
+**Workflow note.** Working in a git worktree with local Edit + Bash tools rather than the GitHub MCP push pattern. Remote moved during the session (the v0.0.7.19 handoff doc rewrite landed while I was working from the stale v0.0.7.17 handoff). Caught it via `git status` reporting "behind by 1 commit" before pushing — fast-forwarded cleanly because my code edits didn't conflict with the doc rewrite. Lesson: with worktrees, check remote state right before push, not just at session start.
+
+**Dropoff:** v0.0.7.20 live. Next likely picks: sticky gun + scanner mini-patch (full design already in handoff), save export/import (also pre-designed), or multiplayer rate limiting (bug list item 1).
+
+---
 
 ### 2026-04-14 (v0.0.7.18 + v0.0.7.19 — bugfix patch commits 1, 2a)
 

@@ -1,35 +1,42 @@
 /* ==============================================
    THE LONG HAUL — game logic
-   v0.0.7.18
+   v0.0.7.19
+
+   v0.0.7.19 commit 2b (gameplay logic):
+     - distKm accumulator rounding-stomp fix (trip.js).
+       Per-tick delta was below Math.round's 0.1 resolution
+       so the counter never advanced from 0.
+     - Tie-down option B (trip.js): tie-down absorbs drops
+       AND damage. Consumed on trip, re-arm to reuse.
+     - Rain restructure: single S.rainTimer replaced with
+       absolute-tick targets _transient.nextRainStartTick
+       and nextRainEndTick. tryWarning's rain-incoming check
+       is now unambiguous.
+     - Wetland canteen refill wired (+0.05/tick on wetland
+       cells). Constant + world tag already shipped in 2b's
+       predecessor commits.
+     - Pickup-fail log lines ("too heavy" / "no cargo slots")
+       with per-key dedupe on (ci, usedSlots, usedWeight).
+     - depotRestPending canonical slot name enforced (trust.js
+       was writing restPromptPending which didn't match the
+       state.js declaration — harmless but misleading).
+
+   v0.0.7.19 commit 2a (already landed):
+     - accumulateDist edge-rollover math fix
+     - Trust unlock storage canonicalization
+       (write to npc.unlocks.tN, not npc.tN)
+     - Damage log names package + scrip delta
+     - Custom tooltip decoupled from native title
 
    v0.0.7.18 commit 1 (housekeeping):
-     - Trust function renames swept (tryT50Warning →
-       tryWarning, tryT75Preview → tryPreview,
-       tryT100RestPrompt → tryRestPrompt). Names no
-       longer lie about thresholds.
+     - Trust function renames (tryT50Warning → tryWarning etc).
      - pickRandom + getNpc dedup'd into util.js / trust.js.
      - BOOT_PRICE constant replaces 6 hardcoded 15s.
-     - Boots: full-meter purchase guard, clip-equip
-       failsafe fires regardless of autobuy.
+     - Boots: full-meter purchase guard, clip-equip failsafe.
      - Stamina: drink only when ≥5% lost.
-     - Sandalweed rates redistributed (wetlands primary,
-       depot approach secondary, rest trace) and centralized
-       to constants.js. World cells now tag wetland: true
-       at gen for canteen-refill wiring (in commit 2).
-     - Save errors during silent saves now surface once
-       per session.
-     - Settlements panel uses getNpc (encapsulation leak
-       closed).
-
-   v0.0.7.18 commit 2 (gameplay logic) will land:
-     - distKm accumulator math fix (edge rollover bug)
-     - Trust unlock storage canonicalization (write to
-       npc.unlocks.tN, not npc.tN)
-     - Tie-down option B (absorbs drops too)
-     - Rain restructure (nextRainStartTick/EndTick) +
-       pre-rain warning wired to the new field
-     - Wetland canteen refill wiring
-     - Pickup-fail logs (too heavy / no slot, with cooldown)
+     - Sandalweed rates redistributed + centralized.
+     - World cells tag wetland: true at gen.
+     - Silent save errors surface once per session.
 
    Imports:
      S — game state singleton (state.js)
@@ -155,6 +162,28 @@ function setRain(on) {
   else      addLog('rain clears');
 }
 
+// v0.0.7.19 commit 2b — rain scheduler. Absolute-tick targets replace
+// the old single S.rainTimer. On init and on every transition, schedule
+// the next transition time. Called from init() and from the tick-level
+// rain check below.
+function scheduleNextRainTransition() {
+  const t = S._transient;
+  if (S.isRaining) {
+    const span = C.RAIN_WET_MAX_TICKS - C.RAIN_WET_MIN_TICKS;
+    t.nextRainEndTick = S.ticks + C.RAIN_WET_MIN_TICKS + Math.floor(Math.random() * span);
+  } else {
+    const span = C.RAIN_DRY_MAX_TICKS - C.RAIN_DRY_MIN_TICKS;
+    t.nextRainStartTick = S.ticks + C.RAIN_DRY_MIN_TICKS + Math.floor(Math.random() * span);
+  }
+}
+
+// v0.0.7.19 commit 2b — wetland check for canteen refill.
+function currentCellIsWetland() {
+  const ci = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE)) % C.TOTAL_CELLS;
+  const cell = worldCells[ci];
+  return !!(cell && cell.wetland);
+}
+
 // ============================================================
 // DOM REFS
 // ============================================================
@@ -237,6 +266,7 @@ function tick() {
     S.bootDurability=Math.max(0,S.bootDurability-bd);
 
     if (S.isRaining||S.inRiver) S.canteen=Math.min(S.canteenMax,S.canteen+0.4);
+    else if (currentCellIsWetland()) S.canteen=Math.min(S.canteenMax,S.canteen+C.WETLAND_CANTEEN_REFILL);
 
     Trip.accumulateDist();
     if (S.ticks%5===0) {
@@ -296,8 +326,18 @@ function tick() {
 
   if (S.ticks%10===0) Pkg.tickPkgRespawns();
 
-  if (S.rainTimer>0) S.rainTimer--;
-  else if (Math.random()<0.003) { setRain(!S.isRaining); S.rainTimer=40+Math.floor(Math.random()*60); }
+  // v0.0.7.19 commit 2b — scheduled rain transitions.
+  if (S.isRaining) {
+    if (S.ticks >= S._transient.nextRainEndTick) {
+      setRain(false);
+      scheduleNextRainTransition();
+    }
+  } else {
+    if (S.ticks >= S._transient.nextRainStartTick) {
+      setRain(true);
+      scheduleNextRainTransition();
+    }
+  }
 
   if (S.ticks % 9 === 0) updateSaveStrip();
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
@@ -325,6 +365,11 @@ function init() {
   S.worldPos = worldPosFromRoute();
 
   buildRain(); setRain(false);
+  // v0.0.7.19 commit 2b — seed rain scheduler after initial state is
+  // settled. On fresh start S.isRaining is false and S.ticks is 0, so
+  // this sets nextRainStartTick to 200-800. Loaded saves don't persist
+  // rain state (see persistence.js) so they also start dry.
+  scheduleNextRainTransition();
   layoutRouteNodes(); drawRouteMap(); updateDestDrift();
   Upg.renderUpgrades(); renderSettlements(); renderNetwork();
   renderChannels();

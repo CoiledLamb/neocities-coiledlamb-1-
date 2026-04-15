@@ -47,11 +47,27 @@ export const SANDAL_RATE_SCRUB          = 0.001;
 export const SANDAL_RATE_ROAD           = 0.0005;
 export const SANDAL_RATE_RUINS          = 0.001;
 
-// Wetland canteen refill (v0.0.7.18). Wired in main's tick: when the
-// courier's current cell is a wetland, canteen refills by this much
+// Wetland canteen refill (v0.0.7.18, wired v0.0.7.19 commit 2b). When
+// the courier's current cell is a wetland, canteen refills by this much
 // per tick. Much weaker than rain (+0.4/tick) so wetlands feel like
 // a steady drip, not a faucet — water scarcity stays meaningful.
 export const WETLAND_CANTEEN_REFILL = 0.05;
+
+// ----- rain timing (v0.0.7.19 commit 2b) -----
+// Replaces the old S.rainTimer / 0.003-per-tick coin-flip with two
+// absolute-tick targets (S._transient.nextRainStartTick /
+// nextRainEndTick). Rain events have clear start/end moments, and
+// tryWarning's "rain incoming" check is no longer ambiguous (the
+// old condition fired both during and between rain events).
+// Mean dry period ~500 ticks matches the old 0.003/tick feel
+// (1/0.003 ≈ 333 ticks). Wet period bounds preserved from old code.
+export const RAIN_DRY_MIN_TICKS = 200;
+export const RAIN_DRY_MAX_TICKS = 800;
+export const RAIN_WET_MIN_TICKS = 40;
+export const RAIN_WET_MAX_TICKS = 100;
+// "Rain incoming" warning window: trust's tryWarning speaks when
+// nextRainStartTick - S.ticks < this value.
+export const RAIN_INCOMING_WARN_TICKS = 25;
 
 // ----- tick / stamina / trip -----
 export const TICK_MS           = 350;

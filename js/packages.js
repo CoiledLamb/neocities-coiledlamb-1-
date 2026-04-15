@@ -66,8 +66,21 @@ export function scanForPickup() {
 
     if (!cell.pkg || cell.pkg.picked) continue;
     const pkg = cell.pkg;
-    if (pkg.slots > S.maxSlots - S.usedSlots) continue;
-    if (pkg.kg    > S.maxWeight - S.usedWeight) continue;
+    // v0.0.7.19 commit 2b — pickup-fail log lines. Dedupe by
+    // (ci:usedSlots:usedWeight) so we don't spam the log each tick
+    // while walking past a too-heavy pkg, but DO re-fire after the
+    // player drops or delivers cargo and walks past again.
+    const slotsShort  = pkg.slots > S.maxSlots  - S.usedSlots;
+    const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
+    if (slotsShort || weightShort) {
+      const key = `${ci}:${S.usedSlots}:${S.usedWeight}`;
+      if (S._transient.lastPickupFailKey !== key) {
+        S._transient.lastPickupFailKey = key;
+        const reason = slotsShort ? 'no cargo slots' : 'too heavy';
+        addLog(`<span class="log-wn">can't lift</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
+      }
+      continue;
+    }
 
     pkg.picked = true;
     const carried = {

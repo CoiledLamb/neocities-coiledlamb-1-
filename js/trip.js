@@ -39,6 +39,21 @@
        negatives that we trust as the partial-edge step.
      - Damage log now names the package and shows the actual scrip
        delta instead of a generic 'reduced payout'.
+
+   v0.0.7.19 (commit 2b):
+     - accumulateDist() rounding-stomp fix. Old code rounded
+       S.distKm to 1 decimal on every write. Per-tick delta is
+       ~0.025km, so (S.distKm + delta) = 0.025 → Math.round(0.25)
+       = 0 → stored as 0. Accumulator was overwriting itself with
+       zero every tick because the increment was below the rounding
+       resolution. Fix: store full precision; HUD already rounds
+       for display at render/hud.js:32. Commit 2a's edge-wrap fix
+       was necessary but not sufficient — this was the real ceiling.
+     - maybeTrip() tie-down option B: tie-down now absorbs drops
+       as well as damage. If tie-down is active and cargo is held,
+       the trip consumes the tie-down and skips both the drop roll
+       and the damage fallback. Universal absorption regardless of
+       lost/normal pkg, matching the constants.js intent comment.
    ============================================== */
 'use strict';
 
@@ -78,7 +93,10 @@ export function accumulateDist() {
   }
   // Safety cap: anything still negative or absurdly large is load skew.
   if (delta < 0 || delta > C.KM_PER_EDGE * 2) delta = 0;
-  S.distKm = Math.round((S.distKm + delta) * 10) / 10;
+  // Store full precision. HUD rounds for display at render/hud.js:32.
+  // Old behavior rounded-and-stored per tick, which truncated the
+  // ~0.025km/tick delta to zero (see header comment for 2b).
+  S.distKm += delta;
   t.lastDistEdgeIdx = S.edgeIdx;
   t.lastDistDotT    = S.dotT;
 }
@@ -112,6 +130,20 @@ export function maybeTrip() {
   if (Math.random() >= tripChance()) return;
   if (Math.random() < catchChance()) { addLog('stumbled on debris \u2014 <span class="log-ok">caught yourself</span>'); return; }
 
+  // v0.0.7.19 commit 2b — tie-down option B.
+  // Tie-down now absorbs drops AND damage. If armed with cargo, the
+  // trip consumes it and skips the drop roll + damage fallback entirely.
+  // Stumble (boot damage + tripped status) still fires.
+  if (S.tieDownActive && S.inventory.length > 0) {
+    S.tieDownActive=false;
+    if (els.tieDownBtn) { els.tieDownBtn.textContent='tie-down: off'; els.tieDownBtn.classList.remove('on'); }
+    addLog('<span class="log-wn">tripped!</span> tie-down held \u2014 <span class="log-ok">cargo protected</span>. re-arm to use again');
+    S.bootDurability=Math.max(0,S.bootDurability-5);
+    S.status='tripped'; S.tripTimer=6;
+    if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
+    return;
+  }
+
   let dropped = false;
   if (S.inventory.length > 0) {
     const target = S.inventory[0];
@@ -130,16 +162,6 @@ export function maybeTrip() {
       renderCargoSlots(true);
       dropped = true;
     }
-  }
-
-  if (!dropped && S.tieDownActive && S.inventory.length > 0) {
-    S.tieDownActive=false;
-    if (els.tieDownBtn) { els.tieDownBtn.textContent='tie-down: off'; els.tieDownBtn.classList.remove('on'); }
-    addLog('<span class="log-wn">tripped!</span> tie-down held \u2014 <span class="log-ok">cargo protected</span>. re-arm to use again');
-    S.bootDurability=Math.max(0,S.bootDurability-5);
-    S.status='tripped'; S.tripTimer=6;
-    if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
-    return;
   }
 
   S.status='tripped'; S.tripTimer=6;
