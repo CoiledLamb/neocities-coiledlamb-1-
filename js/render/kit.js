@@ -72,14 +72,39 @@ export function renderKit() {
   // battery (stub) — 10 discrete segs. Each seg represents 10% of
   // full charge. Color ramp (teal → purple → magenta) applies to
   // the *filled* segs when overall charge drops below a threshold.
-  const charge = Math.max(0, Math.min(100, Math.round(S.battery.charge)));
-  const filledCount = Math.ceil(charge / 10);
-  const segCls = charge <= 15 ? 'crit' : charge <= 35 ? 'warn' : 'on';
+  // v0.0.7.30: the boundary seg (the one currently draining) gets
+  // a .dissolving state with a dot-pattern mask + fractional opacity
+  // so it reads as pixels dropping out before the next seg starts
+  // depleting.
+  const raw          = Math.max(0, Math.min(100, S.battery.charge));
+  const charge       = Math.round(raw);
+  const fullSegs     = Math.floor(raw / 10);
+  const subFill      = (raw - fullSegs * 10) / 10;   // 0..1 within boundary seg
+  const segCls       = charge <= 15 ? 'crit' : charge <= 35 ? 'warn' : 'on';
+
   if (els.batterySegs) {
     const children = els.batterySegs.children;
     for (let i = 0; i < children.length; i++) {
-      const target = i < filledCount ? 'bseg ' + segCls : 'bseg';
-      if (children[i].className !== target) children[i].className = target;
+      const seg = children[i];
+      let target, sub;
+      if (i < fullSegs) {
+        target = 'bseg ' + segCls;
+        sub = null;
+      } else if (i === fullSegs && subFill > 0.02) {
+        target = 'bseg ' + segCls + ' dissolving';
+        sub = subFill.toFixed(2);
+      } else {
+        target = 'bseg';
+        sub = null;
+      }
+      if (seg.className !== target) seg.className = target;
+      if (sub !== null) {
+        if (seg.style.getPropertyValue('--sub') !== sub) {
+          seg.style.setProperty('--sub', sub);
+        }
+      } else if (seg.style.getPropertyValue('--sub')) {
+        seg.style.removeProperty('--sub');
+      }
     }
   }
   if (battVal) battVal.textContent = charge + '%';
