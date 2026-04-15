@@ -577,7 +577,6 @@ html, body {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  overflow: visible;    /* rings can extend past the button edge */
 }
 .scan-dot {
   position: relative;
@@ -591,26 +590,39 @@ html, body {
 .scan-btn.cd .scan-dot { background: #2a5c5a; }
 .scan-btn.on .scan-dot {
   background: #77bfcf;
-  box-shadow: 0 0 5px rgba(119, 191, 207, 0.75);
+  animation: scan-dot-breathe 1.8s ease-in-out infinite;
 }
+/* Concentric halos — fixed-size rings that materialize and fade in
+   place, staggered. No scale transform, so everything stays inside
+   the button's vertical footprint. */
 .scan-btn.on .scan-dot::before,
 .scan-btn.on .scan-dot::after {
   content: '';
   position: absolute;
   top: 50%; left: 50%;
-  width: 6px; height: 6px;
-  margin: -3px 0 0 -3px;
-  border-radius: 50%;
   border: 1px solid #77bfcf;
-  animation: sonar-pulse 1.4s ease-out infinite;
+  border-radius: 50%;
   pointer-events: none;
   opacity: 0;
 }
-.scan-btn.on .scan-dot::after { animation-delay: 0.7s; }
-@keyframes sonar-pulse {
-  0%   { transform: scale(1); opacity: 0.9; }
-  80%  { opacity: 0.1; }
-  100% { transform: scale(5); opacity: 0; }
+.scan-btn.on .scan-dot::before {
+  width: 10px; height: 10px;
+  margin: -5px 0 0 -5px;
+  animation: scan-halo 1.8s ease-in-out infinite;
+}
+.scan-btn.on .scan-dot::after {
+  width: 14px; height: 14px;
+  margin: -7px 0 0 -7px;
+  animation: scan-halo 1.8s ease-in-out infinite 0.45s;
+}
+@keyframes scan-dot-breathe {
+  0%, 100% { background: #77bfcf; box-shadow: 0 0 2px rgba(119,191,207,0.4); }
+  50%      { background: #b1e0e8; box-shadow: 0 0 5px rgba(119,191,207,0.9); }
+}
+@keyframes scan-halo {
+  0%, 100% { opacity: 0; }
+  35%      { opacity: 0.55; }
+  70%      { opacity: 0.12; }
 }
 .scan-timer {
   color: #3a6a68;
@@ -621,8 +633,9 @@ html, body {
 .scan-timer:empty { display: none; }
 .scan-btn.on .scan-timer { color: #40a4b9; }
 @media (prefers-reduced-motion: reduce) {
+  .scan-btn.on .scan-dot          { animation: none; }
   .scan-btn.on .scan-dot::before,
-  .scan-btn.on .scan-dot::after { animation: none; opacity: 0; }
+  .scan-btn.on .scan-dot::after   { animation: none; opacity: 0; }
 }
 .drink-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
