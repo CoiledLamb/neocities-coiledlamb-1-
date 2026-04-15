@@ -74,7 +74,26 @@ export function renderStamina() {
     els.drinkBtn.textContent = `drink (${canteenPct}%)`;
     els.drinkBtn.disabled    = !canDrink();
   }
-  if (els.canteenBar) els.canteenBar.style.height = canteenPct+'%';
+  if (els.canteenBar) {
+    // Fill represents remaining water. Top-anchored (inverted from the
+    // pre-v0.0.7.22 bottom-anchored fill) so water "drains down" the
+    // column as the canteen empties. Bright cyan at full, shifts toward
+    // warning hues as water runs low.
+    els.canteenBar.style.height = canteenPct+'%';
+    const cls = canteenPct <= 25 ? 'canteen-bar-fill crit'
+              : canteenPct <= 50 ? 'canteen-bar-fill warn'
+              : 'canteen-bar-fill';
+    if (els.canteenBar.className !== cls) els.canteenBar.className = cls;
+    const wrap = els.canteenBar.parentElement;
+    if (wrap) {
+      wrap.setAttribute('role', 'progressbar');
+      wrap.setAttribute('aria-label', 'canteen');
+      wrap.setAttribute('aria-valuemin', '0');
+      wrap.setAttribute('aria-valuemax', '100');
+      wrap.setAttribute('aria-valuenow', String(canteenPct));
+      wrap.setAttribute('aria-valuetext', canteenPct + '% water');
+    }
+  }
 }
 
 export function drinkWater() {

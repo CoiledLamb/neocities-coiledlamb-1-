@@ -103,25 +103,12 @@ export function toggleAutobuy() {
 }
 
 export function toggleBootsGear() {
-  if (!els.bootsGearPop) return;
-  const isOpen = els.bootsGearPop.classList.toggle('open');
-  if (els.bootsGearBtn) els.bootsGearBtn.classList.toggle('on', isOpen);
-  if (isOpen) {
-    setTimeout(() => {
-      S._transient.gearPopHandler = (ev) => {
-        if (!els.bootsGearPop.contains(ev.target) && ev.target !== els.bootsGearBtn) {
-          els.bootsGearPop.classList.remove('open');
-          if (els.bootsGearBtn) els.bootsGearBtn.classList.remove('on');
-          document.removeEventListener('click', S._transient.gearPopHandler);
-          S._transient.gearPopHandler = null;
-        }
-      };
-      document.addEventListener('click', S._transient.gearPopHandler);
-    }, 0);
-  } else if (S._transient.gearPopHandler) {
-    document.removeEventListener('click', S._transient.gearPopHandler);
-    S._transient.gearPopHandler = null;
-  }
+  if (!els.bootsGearInline || !els.bootsGearBtn) return;
+  const isOpen = els.bootsGearInline.hasAttribute('hidden');
+  if (isOpen) els.bootsGearInline.removeAttribute('hidden');
+  else els.bootsGearInline.setAttribute('hidden', '');
+  els.bootsGearBtn.classList.toggle('on', isOpen);
+  els.bootsGearBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 }
 
 export function toggleTieDown() {
@@ -137,21 +124,21 @@ export function renderBoots() {
   if (els.bootsVal) els.bootsVal.textContent = d+'%';
   if (els.bootsBar) { els.bootsBar.style.width = d+'%'; els.bootsBar.className = 'boots-bar-fill'+(d>50?'':d>25?' worn':' bad'); }
 
-  if (els.bootsGearPop) {
+  if (els.bootsGearInline) {
     const canBuy = S.scrip >= C.BOOT_PRICE && S.bootDurability < 100;
     const popKey = `${S.bootClipMax}|${S.bootClipCount}|${canBuy ? 'o' : 'x'}|${S.autobuyBoots ? 'on' : 'off'}`;
     if (popKey !== S._transient.lastGearPopKey) {
       S._transient.lastGearPopKey = popKey;
       const clipLine = S.bootClipMax > 0
-        ? `<div class="gear-line">clip: <span class="gear-val">${S.bootClipCount}/${S.bootClipMax}</span></div>`
+        ? `<span class="gear-line">clip: <span class="gear-val">${S.bootClipCount}/${S.bootClipMax}</span></span>`
         : '';
       const buyDisabled = canBuy ? '' : 'disabled';
       const autobuyOn = S.autobuyBoots ? ' on' : '';
       const autobuyTxt = S.autobuyBoots ? 'autobuy: on' : 'autobuy: off';
-      els.bootsGearPop.innerHTML =
+      els.bootsGearInline.innerHTML =
         clipLine +
-        `<button class="boots-auto gear-btn" id="buyBootsBtn" ${buyDisabled}>buy boots (${C.BOOT_PRICE}\u00a2)</button>` +
-        `<button class="boots-auto gear-btn${autobuyOn}" id="autobuyBtn">${autobuyTxt}</button>`;
+        `<button class="boots-auto" id="buyBootsBtn" ${buyDisabled}>buy boots (${C.BOOT_PRICE}\u00a2)</button>` +
+        `<button class="boots-auto${autobuyOn}" id="autobuyBtn">${autobuyTxt}</button>`;
       const newBuy = document.getElementById('buyBootsBtn');
       const newAuto = document.getElementById('autobuyBtn');
       if (newBuy) newBuy.addEventListener('click', buyBoots);

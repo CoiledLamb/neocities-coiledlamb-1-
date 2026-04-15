@@ -362,33 +362,21 @@ html, body {
 .boots-gear-btn:hover { color: #b1c9c3; border-color: #40a4b9; }
 .boots-gear-btn.on    { color: #77bfcf; border-color: #40a4b9; }
 
-.boots-gear-wrap {
-  position: relative;
+.inline-gear-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
 }
-.boots-gear-pop {
-  display: none;
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  background: #0b2e2d;
-  border: 1px solid #40a4b9;
-  border-radius: 1px;
-  padding: 6px 7px;
-  z-index: 50;
-  min-width: 130px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-}
-.boots-gear-pop.open { display: flex; flex-direction: column; gap: 4px; }
-.boots-gear-pop .gear-line {
+.inline-gear-wrap[hidden] { display: none; }
+.inline-gear-wrap .gear-line {
   font-size: 9px;
   color: #3a6a68;
-  padding: 2px 0;
-  border-bottom: 1px solid #132e2d;
-  margin-bottom: 2px;
+  padding: 0 2px;
+  border-left: 1px solid #132e2d;
+  border-right: 1px solid #132e2d;
 }
-.boots-gear-pop .gear-val { color: #77bfcf; font-weight: 700; }
-.boots-gear-pop .gear-btn { width: 100%; text-align: center; }
+.inline-gear-wrap .gear-val { color: #77bfcf; font-weight: 700; }
 
 .boots-auto {
   background: transparent;
@@ -429,25 +417,48 @@ html, body {
 }
 
 .canteen-bar-wrap {
-  width: 4px;
-  height: 14px;
+  width: 10px;
+  height: 16px;
   background: #132e2d;
-  border-radius: 1px;
+  border-radius: 0;
   overflow: hidden;
   flex-shrink: 0;
-  opacity: 0.6;
+  opacity: 0.85;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.canteen-bar-wrap::before,
+.canteen-bar-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  border-color: #40a4b9;
+  border-style: solid;
+  pointer-events: none;
+}
+.canteen-bar-wrap::before {
+  left: 0;
+  border-width: 1px 0 1px 1px;
+}
+.canteen-bar-wrap::after {
+  right: 0;
+  border-width: 1px 1px 1px 0;
 }
 .canteen-bar-fill {
-  width: 100%;
   background: #40a4b9;
-  transition: height 0.4s;
+  transition: height 0.4s, background-color 0.4s;
   position: absolute;
-  bottom: 0;
-  left: 0;
+  top: 1px;
+  left: 2px;
+  right: 2px;
   height: 100%;
-  border-radius: 1px;
+  border-radius: 0;
 }
+.canteen-bar-fill.warn { background: #9d78d4; }
+.canteen-bar-fill.crit { background: #da8bda; }
 
 .drink-btn {
   background: transparent;

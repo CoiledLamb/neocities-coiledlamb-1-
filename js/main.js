@@ -211,8 +211,10 @@ function resolveEls() {
     weightSegs:   $('weightSegs'),
     bootsBar:     $('bootsBar'),
     bootsVal:     $('bootsVal'),
-    bootsGearBtn: $('bootsGearBtn'),
-    bootsGearPop: $('bootsGearPop'),
+    bootsGearBtn:   $('bootsGearBtn'),
+    bootsGearInline:$('bootsGearInline'),
+    saveGearBtn:    $('saveGearBtn'),
+    saveGearInline: $('saveGearInline'),
     autobuyBtn:   $('autobuyBtn'),
     buyBootsBtn:  $('buyBootsBtn'),
     clipBadge:    $('clipBadge'),
@@ -443,6 +445,15 @@ function init() {
 
   if (els.saveBtn) els.saveBtn.addEventListener('click', () => saveGame(false));
   if (els.wipeBtn) els.wipeBtn.addEventListener('click', armWipe);
+  if (els.saveGearBtn && els.saveGearInline) {
+    els.saveGearBtn.addEventListener('click', () => {
+      const isOpen = els.saveGearInline.hasAttribute('hidden');
+      if (isOpen) els.saveGearInline.removeAttribute('hidden');
+      else els.saveGearInline.setAttribute('hidden', '');
+      els.saveGearBtn.classList.toggle('on', isOpen);
+      els.saveGearBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+  }
 
   // v0.0.7.21 — scanner, save i/o. v0.0.7.22 — admin channel (replaces
   // the in-game admin bar; commands arrive via BroadcastChannel from

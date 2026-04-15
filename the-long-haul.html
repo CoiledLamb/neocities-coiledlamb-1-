@@ -69,10 +69,8 @@
               <div class="boots-bar-wrap"><div class="boots-bar-fill" id="bootsBar" style="width:80%"></div></div>
               <span class="boots-val" id="bootsVal">80%</span>
               <span class="clip-badge" id="clipBadge" style="display:none">clip: 0/0</span>
-              <div class="boots-gear-wrap">
-                <button class="boots-gear-btn" id="bootsGearBtn" title="boot actions">&#x2699;</button>
-                <div class="boots-gear-pop" id="bootsGearPop"></div>
-              </div>
+              <span class="inline-gear-wrap" id="bootsGearInline" hidden></span>
+              <button class="boots-gear-btn" id="bootsGearBtn" aria-label="boot actions" aria-expanded="false" aria-controls="bootsGearInline">&#x2699;</button>
             </div>
 
             <div class="tlh-row stamina-row">
@@ -84,7 +82,7 @@
                 <div class="sseg full" id="sseg3"></div>
                 <div class="sseg" id="sseg4" style="display:none"></div>
               </div>
-              <div class="canteen-bar-wrap" title="canteen"><div class="canteen-bar-fill" id="canteenBar"></div></div>
+              <div class="canteen-bar-wrap"><div class="canteen-bar-fill" id="canteenBar"></div></div>
               <button class="drink-btn" id="drinkBtn">drink (100%)</button>
               <button class="boots-auto" id="autodrinkBtn">auto: off</button>
               <button class="boots-auto" id="scannerBtn" style="display:none">scan</button>
@@ -108,8 +106,11 @@
             <div class="tlh-save-strip">
               <span class="tlh-save-label">// session:</span>
               <button class="save-btn" id="saveBtn">save</button>
-              <button class="save-btn" id="saveIoBtn">save i/o</button>
-              <button class="save-btn wipe" id="wipeBtn">wipe save</button>
+              <span class="inline-gear-wrap" id="saveGearInline" hidden>
+                <button class="save-btn" id="saveIoBtn">save i/o</button>
+                <button class="save-btn wipe" id="wipeBtn">wipe save</button>
+              </span>
+              <button class="boots-gear-btn save-gear-btn" id="saveGearBtn" aria-label="save actions" aria-expanded="false" aria-controls="saveGearInline">&#x2699;</button>
               <span class="tlh-save-ago">last save: <span id="saveAgo">no save yet</span></span>
             </div>
 
