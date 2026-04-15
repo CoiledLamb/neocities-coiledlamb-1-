@@ -367,8 +367,17 @@ html, body {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  animation: gear-reveal 0.18s ease-out;
+  transform-origin: left center;
 }
 .inline-gear-wrap[hidden] { display: none; }
+@keyframes gear-reveal {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inline-gear-wrap { animation: none; }
+}
 .inline-gear-wrap .gear-line {
   font-size: 9px;
   color: #3a6a68;
@@ -435,7 +444,7 @@ html, body {
   position: absolute;
   top: 0; bottom: 0;
   width: 2px;
-  border-color: #40a4b9;
+  border-color: #3a6a68;
   border-style: solid;
   pointer-events: none;
 }
@@ -451,7 +460,7 @@ html, body {
   background: #40a4b9;
   transition: height 0.4s, background-color 0.4s;
   position: absolute;
-  top: 1px;
+  bottom: 1px;
   left: 2px;
   right: 2px;
   height: 100%;
