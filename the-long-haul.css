@@ -594,7 +594,9 @@ html, body {
 }
 /* Concentric halos — fixed-size rings that materialize and fade in
    place, staggered. No scale transform, so everything stays inside
-   the button's vertical footprint. */
+   the button's vertical footprint. box-sizing: border-box so the
+   declared size is the RENDERED outer size (border included) —
+   otherwise content-box + 1px border offsets center by 1px. */
 .scan-btn.on .scan-dot::before,
 .scan-btn.on .scan-dot::after {
   content: '';
@@ -602,6 +604,7 @@ html, body {
   top: 50%; left: 50%;
   border: 1px solid #77bfcf;
   border-radius: 50%;
+  box-sizing: border-box;
   pointer-events: none;
   opacity: 0;
 }
@@ -616,13 +619,13 @@ html, body {
   animation: scan-halo 1.8s ease-in-out infinite 0.45s;
 }
 @keyframes scan-dot-breathe {
-  0%, 100% { background: #77bfcf; box-shadow: 0 0 2px rgba(119,191,207,0.4); }
-  50%      { background: #b1e0e8; box-shadow: 0 0 5px rgba(119,191,207,0.9); }
+  0%, 100% { background: #77bfcf; box-shadow: 0 0 1px rgba(119,191,207,0.25); }
+  50%      { background: #9fcad4; box-shadow: 0 0 3px rgba(119,191,207,0.55); }
 }
 @keyframes scan-halo {
   0%, 100% { opacity: 0; }
-  35%      { opacity: 0.55; }
-  70%      { opacity: 0.12; }
+  35%      { opacity: 0.4; }
+  70%      { opacity: 0.08; }
 }
 .scan-timer {
   color: #3a6a68;
