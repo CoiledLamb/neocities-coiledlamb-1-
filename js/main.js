@@ -430,17 +430,26 @@ function init() {
   // v0.0.7.31 — silent / appear-offline toggle. localStorage-backed so it
   // survives reloads (critical: the whole point is to avoid dummy events
   // while testing, and testing usually involves refreshes).
+  // v0.0.7.32 — button LABEL inverted to "online: on/off" so the state is
+  // self-explanatory at a glance (online = broadcasting, offline = silent).
+  // Internal state still uses isSilent/setSilent — silent is accurate at
+  // the wire layer and the localStorage key stays stable for existing users.
   if (els.silentBtn) {
-    const paintSilent = () => {
-      const on = isSilent();
-      els.silentBtn.textContent = 'silent: ' + (on ? 'on' : 'off');
-      els.silentBtn.classList.toggle('on', on);
-      els.silentBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const paintOnline = () => {
+      const online = !isSilent();
+      els.silentBtn.textContent = online ? 'online' : 'offline';
+      els.silentBtn.classList.toggle('on', online);
+      // aria-pressed: true when the toggle is "engaged" (i.e., on/online)
+      els.silentBtn.setAttribute('aria-pressed', online ? 'true' : 'false');
+      // v0.0.7.32 — dim the whole network ptitle (// network + slashes)
+      // to #5a4a78 when offline so the panel header reads disconnected.
+      const ptitle = els.silentBtn.parentElement;
+      if (ptitle) ptitle.classList.toggle('offline', !online);
     };
-    paintSilent();
+    paintOnline();
     els.silentBtn.addEventListener('click', () => {
       setSilent(!isSilent());
-      paintSilent();
+      paintOnline();
     });
   }
 

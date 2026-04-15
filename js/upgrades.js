@@ -30,8 +30,25 @@ import * as Boots from './boots.js';
 
 const els = S._transient.els;
 
+// v0.0.7.32 — cache the structural state so renderUpgrades doesn't
+// rebuild innerHTML every tick. Before: updateHUD → renderUpgrades
+// called per tick destroyed hovered .upg-btn mid-animation, restarting
+// the oil-border keyframe from 0% and producing the "flicker." Now the
+// list rebuilds only when a purchased / reqMet / canAfford flag flips.
+let lastUpgKey = null;
+
 export function renderUpgrades() {
   if (!els.upgradesEl) return;
+
+  const key = UPGRADE_DEFS.map(def => {
+    const o = S.upgrades[def.id] ? 'o' : 'x';
+    const r = !def.requires || S.upgrades[def.requires] ? 'r' : '-';
+    const a = S.scrip >= def.cost ? 'a' : 'n';
+    return o + r + a;
+  }).join('|');
+  if (key === lastUpgKey) return;
+  lastUpgKey = key;
+
   els.upgradesEl.innerHTML = '';
   UPGRADE_DEFS.forEach(def => {
     const purchased = S.upgrades[def.id];

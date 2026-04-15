@@ -64,13 +64,12 @@ export function renderStamina() {
 
   const fill = document.getElementById('staminaBarFill');
   if (fill) {
-    fill.style.width = overboost ? '100%' : pct + '%';
-    // Color ramp keyed off segment count so the thresholds line up
-    // with the 25% tick divisions drawn in CSS.
-    const cls = overboost      ? 'stamina-bar-fill overboost'
-              : pct <= 25      ? 'stamina-bar-fill crit'
-              : pct <= 50      ? 'stamina-bar-fill half'
-              :                  'stamina-bar-fill';
+    // Main bar always represents 0..staminaMax. Overboost spills into
+    // the side-segment; the main bar stops at 100% and doesn't pulse.
+    fill.style.width = (overboost ? 100 : pct) + '%';
+    const cls = pct <= 25 ? 'stamina-bar-fill crit'
+              : pct <= 50 ? 'stamina-bar-fill half'
+              :             'stamina-bar-fill';
     if (fill.className !== cls) fill.className = cls;
   }
   const bar = document.getElementById('staminaBar');
@@ -78,6 +77,21 @@ export function renderStamina() {
     const val = overboost ? 100 : Math.round(pct);
     bar.setAttribute('aria-valuenow', String(val));
     bar.setAttribute('aria-valuetext', overboost ? 'overboost' : val + '% stamina');
+  }
+  // v0.0.7.31 — overboost side-segment. Represents 0..25% of
+  // staminaMax (the overboost ceiling). Appears only when overboosted.
+  const overWrap = document.getElementById('staminaOverboost');
+  const overFill = document.getElementById('staminaOverboostFill');
+  if (overWrap && overFill) {
+    if (overboost) {
+      overWrap.style.display = '';
+      const excess   = Math.max(0, S.stamina - S.staminaMax);
+      const ceiling  = S.staminaMax * 0.25;
+      const overPct  = ceiling > 0 ? Math.max(0, Math.min(100, (excess / ceiling) * 100)) : 0;
+      overFill.style.width = overPct + '%';
+    } else if (overWrap.style.display !== 'none') {
+      overWrap.style.display = 'none';
+    }
   }
 
   const nowSegs = staminaSegCount();
@@ -89,15 +103,19 @@ export function renderStamina() {
     els.drinkBtn.disabled    = !canDrink();
   }
   if (els.canteenBar) {
-    // Fill represents remaining water. Top-anchored (inverted from the
-    // pre-v0.0.7.22 bottom-anchored fill) so water "drains down" the
-    // column as the canteen empties. Bright cyan at full, shifts toward
-    // warning hues as water runs low.
-    els.canteenBar.style.height = canteenPct+'%';
-    const cls = canteenPct <= 25 ? 'canteen-bar-fill crit'
-              : canteenPct <= 50 ? 'canteen-bar-fill warn'
-              : 'canteen-bar-fill';
-    if (els.canteenBar.className !== cls) els.canteenBar.className = cls;
+    // v0.0.7.31: water is the filled column. Color lerps smoothly
+    // from bright cyan (#77bfcf, full) to muted forest green
+    // (#2a7a58, empty) across the 100..0 range — continuous hue
+    // shift rather than threshold steps, so the middle of the
+    // range never collides with stamina's muted-teal family.
+    els.canteenBar.style.setProperty('--fillp', (canteenPct / 100).toFixed(3));
+    if (els.canteenBar.style.height) els.canteenBar.style.height = '';
+    if (els.canteenBar.style.opacity) els.canteenBar.style.opacity = '';
+    const t = 1 - (canteenPct / 100);      // 0 full, 1 empty
+    const r = Math.round(0x77 + (0x2a - 0x77) * t);
+    const g = Math.round(0xbf + (0x7a - 0xbf) * t);
+    const b = Math.round(0xcf + (0x58 - 0xcf) * t);
+    els.canteenBar.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
     const wrap = els.canteenBar.parentElement;
     if (wrap) {
       wrap.setAttribute('role', 'progressbar');

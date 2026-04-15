@@ -91,8 +91,16 @@ export function renderKit() {
         target = 'bseg ' + segCls;
         sub = null;
       } else if (i === fullSegs && subFill > 0.02) {
-        target = 'bseg ' + segCls + ' dissolving';
-        sub = subFill.toFixed(2);
+        // Staircase mask: quantize subFill into 4 discrete steps, each
+        // mapped to a pre-baked clip-path polygon whose vertices land on
+        // tile boundaries. Squares are always fully in or fully out —
+        // no mid-pixel diagonal cuts.
+        const step = subFill < 0.25 ? 'step1'
+                   : subFill < 0.50 ? 'step2'
+                   : subFill < 0.75 ? 'step3'
+                   :                   'step4';
+        target = 'bseg ' + segCls + ' dissolving ' + step;
+        sub = null; // --sub var no longer used — clip-path is stepwise
       } else {
         target = 'bseg';
         sub = null;

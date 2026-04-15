@@ -362,6 +362,7 @@ html, body {
 .boots-gear-btn:hover { color: #b1c9c3; border-color: #40a4b9; }
 .boots-gear-btn.on    { color: #77bfcf; border-color: #40a4b9; }
 
+
 .inline-gear-wrap {
   display: flex;
   align-items: center;
@@ -438,9 +439,28 @@ html, body {
 }
 .stamina-bar-fill.half { background: #9d78d4; }
 .stamina-bar-fill.crit { background: #da8bda; }
-.stamina-bar-fill.overboost {
+
+/* v0.0.7.31 — overboost is now a separate small bar to the right
+   of the main stamina bar, hidden until stamina > staminaMax.
+   Represents 0..25% of staminaMax (the overboost ceiling) so the
+   player can actually read how much buffer they've got. Main bar
+   stays steady at 100% during overboost; the side-segment pulses. */
+.stamina-overboost {
+  position: relative;
+  width: 25px; height: 8px;
+  border: 1px solid #40a4b9;
+  background: #132e2d;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+.stamina-overboost-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 100%;
   background: #77bfcf;
   animation: overboost-pulse 1.2s ease-in-out infinite;
+  transition: width 0.3s;
 }
 @keyframes overboost-pulse {
   0%, 100% { opacity: 1; }
@@ -452,13 +472,25 @@ html, body {
   height: 16px;
   background: #132e2d;
   border-radius: 0;
-  overflow: hidden;
   flex-shrink: 0;
   opacity: 0.85;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+/* Cap sits ABOVE the wrap — no overflow:hidden on the wrap so the
+   cap can protrude. Fixed position, color matches the brackets. */
+.canteen-cap {
+  position: absolute;
+  top: -1px;
+  left: 3px;
+  right: 3px;
+  height: 1px;
+  background: #3a6a68;
+  border-radius: 1px 1px 0 0;
+  pointer-events: none;
+  z-index: 2;
 }
 .canteen-bar-wrap::before,
 .canteen-bar-wrap::after {
@@ -478,32 +510,24 @@ html, body {
   right: 0;
   border-width: 1px 1px 1px 0;
 }
+/* v0.0.7.31 — canteen water is a filled column, bottom-anchored,
+   that shrinks top-down as drained. The cap (.canteen-cap) rides
+   above at a fixed position — it's the small always-on-top lid,
+   separate from the water level. Fill color traverses the cool
+   palette: bright cyan (fresh) → muted teal (mid) → dark teal
+   (low). All existing palette colors; no opacity fade. */
 .canteen-bar-fill {
-  background: #40a4b9;
+  background: #77bfcf;  /* default; JS lerps this each render */
   transition: height 0.4s, background-color 0.4s;
   position: absolute;
   bottom: 1px;
   left: 2px;
   right: 2px;
-  height: 100%;
+  /* JS sets --fillp as a decimal (0..1). The 2px headroom is
+     reserved proportionally across the whole 0..100 range so the
+     visual height scales smoothly (not clamped at the top). */
+  height: calc((100% - 2px) * var(--fillp, 1));
   border-radius: 0;
-}
-.canteen-bar-fill.warn { background: #9d78d4; }
-.canteen-bar-fill.crit { background: #da8bda; }
-/* v0.0.7.30 — canteen cap: protrudes slightly above the bracket
-   frame so the column reads as a sealed canteen/bottle rather than
-   a blank rectangle. Sits z-index 2 above the water fill so at 100%
-   water, the fill meets the underside of the cap. */
-.canteen-cap {
-  position: absolute;
-  top: -3px;
-  left: 3px;
-  right: 3px;
-  height: 3px;
-  background: #3a6a68;
-  border-radius: 1px 1px 0 0;
-  pointer-events: none;
-  z-index: 2;
 }
 
 .drink-btn {
@@ -581,26 +605,66 @@ html, body {
 .bseg.on::before   { background: #4a7a78; }
 .bseg.warn::before { background: #9d78d4; }
 .bseg.crit::before { background: #da8bda; }
-/* Dissolve state: the seg is the fractional boundary. --sub drives
-   the SIZE of each pixel dot in a 2px tile grid — at sub=0.95 dots
-   are ~95% tile coverage (nearly solid with tiny empty corners), at
-   sub=0.2 they're sparse points. Reads as pixels shrinking away
-   rather than everything dimming uniformly. */
-.bseg.dissolving::before {
-  opacity: 1;
-  -webkit-mask-image: radial-gradient(
-    circle at center,
-    black calc(var(--sub, 0) * 100%),
-    transparent calc(var(--sub, 0) * 100%)
-  );
-          mask-image: radial-gradient(
-    circle at center,
-    black calc(var(--sub, 0) * 100%),
-    transparent calc(var(--sub, 0) * 100%)
-  );
-  -webkit-mask-size: 2px 2px;
-          mask-size: 2px 2px;
+/* Dissolve state (v0.0.7.32: diagonal depletion of a fixed brickwork).
+   The pattern — two 2x2 squares per 4x4 tile in offset brickwork —
+   is now FIXED SIZE and always "full" inside each pseudo. Instead
+   of shrinking squares, a diagonal wipe mask on the .dissolving
+   seg itself progressively hides squares from bottom-right toward
+   top-left as --sub drops. Individual pixel-squares are picked off
+   along the diagonal wavefront, rather than every square shrinking
+   in place. */
+/* Dissolve state uses a staircase clip-path (not a smooth diagonal wipe)
+   so the visible region's boundary always falls on tile edges — squares
+   are always fully inside or fully outside the staircase, never cut
+   diagonally mid-pixel. JS quantizes the sub-fill into 4 discrete
+   stepped states (step1..step4) and applies the matching class.
+   Polygon vertices are at 25/50/75% of the seg box, aligning to the
+   4px tile grid in the typical 7×8px seg. */
+.bseg.dissolving.step1 {
+  clip-path: polygon(0% 100%, 0% 75%, 25% 75%, 25% 100%);
 }
+.bseg.dissolving.step2 {
+  clip-path: polygon(0% 100%, 0% 50%, 50% 50%, 50% 100%);
+}
+.bseg.dissolving.step3 {
+  clip-path: polygon(0% 100%, 0% 25%, 25% 25%, 25% 50%, 75% 50%, 75% 100%);
+}
+.bseg.dissolving.step4 {
+  clip-path: polygon(0% 100%, 0% 0%, 50% 0%, 50% 25%, 75% 25%, 75% 75%, 100% 75%, 100% 100%);
+}
+.bseg.dissolving::before {
+  /* Top-left 2x2 of each 4x4 tile */
+  -webkit-mask-image:
+    linear-gradient(to right, #000 50%, transparent 50%),
+    linear-gradient(to bottom, #000 50%, transparent 50%);
+          mask-image:
+    linear-gradient(to right, #000 50%, transparent 50%),
+    linear-gradient(to bottom, #000 50%, transparent 50%);
+  -webkit-mask-composite: source-in;
+          mask-composite: intersect;
+  -webkit-mask-size: 4px 4px;
+          mask-size: 4px 4px;
+}
+.bseg.dissolving::after {
+  /* Bottom-right 2x2 of each 4x4 tile — offset brickwork partner */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 50%, #000 50%),
+    linear-gradient(to bottom, transparent 50%, #000 50%);
+          mask-image:
+    linear-gradient(to right, transparent 50%, #000 50%),
+    linear-gradient(to bottom, transparent 50%, #000 50%);
+  -webkit-mask-composite: source-in;
+          mask-composite: intersect;
+  -webkit-mask-size: 4px 4px;
+          mask-size: 4px 4px;
+}
+.bseg.dissolving.on::after   { background: #4a7a78; }
+.bseg.dissolving.warn::after { background: #9d78d4; }
+.bseg.dissolving.crit::after { background: #da8bda; }
 .kit-battery-val {
   color: #b1c9c3;
   font-size: 10px;
@@ -785,7 +849,10 @@ html, body {
   transition: border-color 0.12s, color 0.12s;
   flex-shrink: 0;
 }
-.upg-btn:hover:not(:disabled) { border-color: #40a4b9; color: #b1c9c3; }
+.upg-btn:hover:not(:disabled) {
+  color: #b1c9c3;
+  animation: oil-border 4s linear infinite;
+}
 .upg-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
 .settle-item { padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
@@ -970,13 +1037,19 @@ html, body {
   font-style: italic;
 }
 
-/* v0.0.7.31 — silent / appear-offline toggle lives in the network ptitle */
+/* v0.0.7.31 — silent / appear-offline toggle lives in the network ptitle.
+   v0.0.7.32 — when offline, the "// network" label + slashes dim to the
+   same muted purple (#5a4a78) used by the button's OFF state, so the
+   whole ptitle reads as "disconnected" at a glance. */
 .net-ptitle {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  color: #9d78d4;
+  transition: color 0.2s;
 }
+.net-ptitle.offline { color: #5a4a78; }
 .net-silent-btn { border-color: #2a1a3a; color: #5a4a78; }
 .net-silent-btn.on { color: #da8bda; border-color: #9d78d4; border-style: solid; }
 #networkEl.silent { opacity: 0.55; }

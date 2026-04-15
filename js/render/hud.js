@@ -66,7 +66,13 @@ export function renderCargoSlots(force) {
     if (isGunHere) {
       d.className = 'cslot gun';
       d.textContent = '\u26a1'; // lightning bolt — the sticky gun marker
-      d.setAttribute('title', `sticky gun\nammo ${S.stickyGun.ammo}/${S.stickyGun.ammoMax}\nrefill at H`);
+      // v0.0.7.31: data-tooltip drives the custom CSS overlay; aria-label
+      // preserves screen-reader behavior. Native `title` caused the default
+      // browser tooltip to render while the pretty one stayed empty (matches
+      // sandal-badge fix pattern from v0.0.7.19).
+      const gunTip = `sticky gun\nammo ${S.stickyGun.ammo}/${S.stickyGun.ammoMax}\nrefill at H`;
+      d.setAttribute('data-tooltip', gunTip);
+      d.setAttribute('aria-label', gunTip);
       d.classList.add('has-tooltip');
     } else {
       d.className   = 'cslot '+(pkg?pkg.size:'e');
@@ -74,7 +80,9 @@ export function renderCargoSlots(force) {
       if (pkg) {
         const destLabel = getDisplayLabel(pkg.destId);
         const recoveryTag = pkg.isRecovery ? ' [recovery]' : (pkg.isLost ? ' [lost]' : '');
-        d.setAttribute('title', `[${pkg.size}] ${pkg.label}${recoveryTag}\n\u2192 ${destLabel}\n${pkg.scrip}\u00a2`);
+        const tip = `[${pkg.size}] ${pkg.label}${recoveryTag}\n\u2192 ${destLabel}\n${pkg.scrip}\u00a2`;
+        d.setAttribute('data-tooltip', tip);
+        d.setAttribute('aria-label', tip);
         d.classList.add('has-tooltip');
       }
     }

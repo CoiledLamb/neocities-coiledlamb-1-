@@ -27,7 +27,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.7<span style="opacity:0.6">.31</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.7<span style="opacity:0.6">.32</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -77,6 +77,9 @@
               <span class="tlh-row-label">stamina</span>
               <div class="stamina-bar" id="staminaBar" role="progressbar" aria-label="stamina" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
                 <div class="stamina-bar-fill" id="staminaBarFill"></div>
+              </div>
+              <div class="stamina-overboost" id="staminaOverboost" aria-hidden="true" style="display:none">
+                <div class="stamina-overboost-fill" id="staminaOverboostFill"></div>
               </div>
               <div class="canteen-bar-wrap"><span class="canteen-cap" aria-hidden="true"></span><div class="canteen-bar-fill" id="canteenBar"></div></div>
               <button class="drink-btn" id="drinkBtn">drink (100%)</button>
@@ -128,9 +131,9 @@
               <svg id="routeSvg" width="100%" height="220" style="overflow:visible"></svg>
             </div>
             <div class="tlh-network-panel">
-              <div class="tlh-ptitle net-ptitle" style="color:#9d78d4">
+              <div class="tlh-ptitle net-ptitle">
                 <span>// network</span>
-                <button class="boots-auto net-silent-btn" id="silentBtn" aria-pressed="false">silent: off</button>
+                <button class="boots-auto net-silent-btn" id="silentBtn" aria-pressed="true">online</button>
               </div>
               <div id="networkEl"></div>
             </div>
