@@ -27,7 +27,7 @@
 import { S } from './state.js';
 import * as C from './constants.js';
 import { ZONE_TYPES } from './data/zones.js';
-import { NPC_PKGS, LOST_PKGS } from './data/packages.js';
+import { rollPkg } from './packages.js';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
@@ -39,11 +39,13 @@ function weightedPick(arr, getW) {
   return arr[0];
 }
 
-function makeWorldPkg(edgeIdx) {
+// v0.0.8.1 — routed through rollPkg. The 15% isLost roll is preserved
+// here; recovery pipeline inversion (v0.0.8.2+) will reclaim ownership
+// of all isLost spawning, at which point this stays false unconditionally.
+function makeWorldPkg(edgeIdx, cellRisky) {
   const isLost = Math.random() < 0.15;
-  const pool   = isLost ? LOST_PKGS : NPC_PKGS;
-  const def    = pool[Math.floor(Math.random() * pool.length)];
-  return { ...def, isLost: isLost || false, destId: S.edges[edgeIdx][1], picked: false, respawnIn: 0 };
+  const destId = S.edges[edgeIdx][1];
+  return rollPkg(destId, cellRisky, isLost);
 }
 
 export function buildWorld() {
@@ -68,7 +70,7 @@ export function buildWorld() {
       for (let i = 0; i < zoneLen && ci < C.CELLS_PER_EDGE; i++, ci++) {
         const r = Math.random();
         if (r < zone.pkgChance && (ci % 8 === 0) && ci + 2 < C.CELLS_PER_EDGE) {
-          const pkg = makeWorldPkg(ei);
+          const pkg = makeWorldPkg(ei, isRisky);
           worldCells.push({ html: '', pkg, risky: isRisky, wetland: isWetland, edgeIdx: ei });
           i += 2; ci += 2;
           continue;

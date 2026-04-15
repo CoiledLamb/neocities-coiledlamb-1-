@@ -42,7 +42,6 @@
      S — game state singleton (state.js)
      C — tuning constants namespace (constants.js)
      NPC_LINES, NPC_DEFS, NPC_ADJACENT — NPC data
-     NPC_PKGS, LOST_PKGS — cargo definitions
      ZONE_TYPES — terrain weights/chars/spawn rates
      NODE_GLYPHS — visual map (used by updateDestDrift)
      saveGame, loadGame, armWipe, updateSaveStrip — persistence
@@ -80,7 +79,6 @@ import { S } from './state.js';
 import * as C from './constants.js';
 import { NPC_LINES } from './data/npc-lines.js';
 import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js';
-import { NPC_PKGS, LOST_PKGS } from './data/packages.js';
 import { ZONE_TYPES } from './data/zones.js';
 import { NODE_GLYPHS } from './data/glyphs.js';
 import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js';

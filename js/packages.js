@@ -1,12 +1,17 @@
 /* ==============================================
-   THE LONG HAUL — package pickup + delivery + respawn
+   THE LONG HAUL — package pickup + delivery + respawn + roll
 
-   Three functions moved from main.js:
+   Four functions live here:
+     rollPkg(destId, risky, forceLost)
+                         — v0.0.8.1. Spawn roller. Rolls base
+                           size \u2192 modifier \u2192 label filtered by
+                           destination. Replaces world.js's
+                           old NPC_PKGS/LOST_PKGS table-pick.
      scanForPickup()     — proximity pickup scan (runs every
                            walking/carrying tick). Also handles
                            sandalweed harvest.
      tryDeliver(nodeId)  — fires on node arrival. Most cross-
-                           system function in the codebase —
+                           system function in the codebase \u2014
                            touches recovery, multiplayer, trust,
                            identification, render, and log.
      tickPkgRespawns()   — periodic (every 10 ticks) rescan
@@ -29,6 +34,10 @@
 import { S } from './state.js';
 import * as C from './constants.js';
 import { NPC_DEFS } from './data/npc-defs.js';
+import {
+  PKG_BASES, PKG_SIZE_WEIGHTS, PKG_SIZE_WEIGHTS_RISKY,
+  PKG_MODIFIERS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
+} from './data/packages.js';
 import { postActivity, shortPorterId } from './multiplayer.js';
 import { updatePorterStripBadges } from './recovery.js';
 import { addTrust } from './trust.js';
@@ -61,6 +70,80 @@ function pickupRange() {
     return C.STICKY_GUN_RANGE;
   }
   return C.PKG_PICKUP_RANGE;
+}
+
+// ============================================================
+// PACKAGE ROLL (v0.0.8.1)
+// ============================================================
+// Weighted pick from a {key: weight} map. Returns a key.
+function weightedKey(weights) {
+  const keys = Object.keys(weights);
+  const total = keys.reduce((s, k) => s + weights[k], 0);
+  let r = Math.random() * total;
+  for (const k of keys) { r -= weights[k]; if (r <= 0) return k; }
+  return keys[0];
+}
+
+// Weighted pick from an array via a weight-getter fn. Returns the item.
+function weightedArr(arr, getW) {
+  const total = arr.reduce((s, x) => s + getW(x), 0);
+  let r = Math.random() * total;
+  for (const x of arr) { r -= getW(x); if (r <= 0) return x; }
+  return arr[0];
+}
+
+// rollPkg — unified package spawn roll.
+//
+//   destId     — where the pkg is going (filters the label pool)
+//   cellRisky  — risky cells bump xl spawn chance ~6x
+//   forceLost  — when true, flags isLost + applies lost scrip mult.
+//                Ambient world-spawn lost rolls through here today;
+//                v0.0.8.2 recovery pipeline inversion will own all
+//                isLost spawning.
+//
+// Returns a world-ready pkg object. Modifier effects (fragile damage
+// branch, HUD badges, cargoStraps) are inert in v0.0.8.1 — the
+// `modifier` field is set on the pkg but nothing reads it yet.
+export function rollPkg(destId, cellRisky, forceLost) {
+  // 1. Size roll. Risky cells use the bumped xl table.
+  const sizeWeights = cellRisky ? PKG_SIZE_WEIGHTS_RISKY : PKG_SIZE_WEIGHTS;
+  const size = weightedKey(sizeWeights);
+  const base = PKG_BASES[size];
+
+  // 2. Modifier roll (filtered by size incompatibility).
+  const validMods = PKG_MODIFIERS.filter(m => !m.incompat || !m.incompat.includes(size));
+  const mod = weightedArr(validMods, m => m.weight);
+
+  // 3. Apply modifier deltas to the base.
+  let kg    = base.kg;
+  let slots = base.slots;
+  let scrip = base.scrip;
+  if (mod.id) {
+    if (mod.kgDelta === 'halve')   kg = Math.max(1, Math.floor(kg / 2));
+    if (mod.kgDelta === 'add1to3') kg = kg + 1 + Math.floor(Math.random() * 3);
+    if (mod.slotDelta)             slots = slots + mod.slotDelta;
+    if (mod.scripMult)             scrip = Math.floor(scrip * mod.scripMult);
+  }
+
+  // 4. Label — filter the size's flat list by dest inclusion.
+  // Fallback: if no label matches (shouldn't happen with the current
+  // pool but defensive), use a generic placeholder.
+  const candidates = (PKG_LABELS_BY_SIZE[size] || []).filter(l => l.dests.includes(destId));
+  const label = candidates.length > 0
+    ? candidates[Math.floor(Math.random() * candidates.length)].label
+    : 'unmarked cargo';
+
+  // 5. Lost flag + scrip bonus.
+  if (forceLost) scrip = Math.floor(scrip * PKG_LOST_SCRIP_MULT);
+
+  return {
+    size, label, kg, slots, scrip,
+    modifier: mod.id || null,
+    isLost: !!forceLost,
+    destId,
+    picked: false,
+    respawnIn: 0,
+  };
 }
 
 // ============================================================
@@ -116,6 +199,7 @@ export function scanForPickup() {
     const carried = {
       size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
       scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
+      modifier: pkg.modifier || null,
       isRecovery: !!pkg.isRecovery,
       recoveryFromPorter: pkg.recoveryFromPorter || null,
       _worldCell: ci,
