@@ -37,22 +37,23 @@ const GREEK = {
 };
 function nodeGlyph(id) { return GREEK[id] || id; }
 
-// v0.0.9.2 — route map is now a 2D plane in a 280×280 viewBox.
-// Nodes spread hexagonally around the rim; final rounded-square rim
-// with 4 corner NPCs waits for the world-map regen pass (→ v0.0.9.7).
+// v0.0.9.2 — route map is now a 2D plane in a 400×240 viewBox (wider
+// than tall, so the info panels can fit side-by-side below it).
+// Nodes spread hexagonally; final rounded-square rim with 4 corner
+// NPCs waits for the world-map regen pass (→ v0.0.9.7).
 export function layoutRouteNodes() {
-  [{ id:'A',      x:140, y: 40 }, // top
-   { id:'?',      x:230, y: 70 }, // upper-right (φ / weather station)
-   { id:'B',      x:240, y:190 }, // lower-right
-   { id:'C',      x:140, y:240 }, // bottom
-   { id:'H',      x: 40, y:190 }, // lower-left
-   { id:'\u00b7', x: 50, y: 70 }, // upper-left (ψ / orphan-scavenger)
+  [{ id:'A',      x:200, y: 30 }, // top
+   { id:'?',      x:340, y: 70 }, // upper-right (φ / weather station)
+   { id:'B',      x:340, y:170 }, // lower-right
+   { id:'C',      x:200, y:210 }, // bottom
+   { id:'H',      x: 60, y:170 }, // lower-left
+   { id:'\u00b7', x: 60, y: 70 }, // upper-left (ψ / orphan-scavenger)
   ].forEach(p => { const n = S.routeNodes.find(n => n.id === p.id); if (n) { n.x = p.x; n.y = p.y; } });
 }
 
 // Centroid of the ring — used for label placement and point-in-polygon.
-const RING_CX = 140;
-const RING_CY = 140;
+const RING_CX = 200;
+const RING_CY = 120;
 
 // Point-in-polygon test using the current ring nodes as vertices.
 // Used by drawInterior to mask the texture to the crossable area.
@@ -85,8 +86,9 @@ function drawInterior(svg, ns) {
   g.setAttribute('opacity', '0.35');
   const rand = makeSeededRand(9111);
   const step = 12;
-  for (let yy = 30; yy <= 250; yy += step) {
-    for (let xx = 30; xx <= 250; xx += step) {
+  // v0.0.9.2 — ranges tuned for the 400×240 viewBox.
+  for (let yy = 20; yy <= 220; yy += step) {
+    for (let xx = 50; xx <= 350; xx += step) {
       if (!pointInRing(xx, yy)) continue;
       const r = rand();
       const ch = r < 0.7 ? '.' : r < 0.9 ? ',' : '\u00b7';
