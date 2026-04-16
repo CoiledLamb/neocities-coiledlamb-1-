@@ -41,12 +41,18 @@ export const S = {
     // v0.0.7.21 — courier equipment v2
     stickyGun: false, stickyHolster: false,
     scannerT1: false,
+    // v0.0.8.6 — trust-reward upgrades
+    weatherRadio: false, sandalEfficiency: false, scavengerEye: false,
   },
 
   // v0.0.7.21 — sticky gun state. null when not owned; object when owned.
   // ammo refills on H arrival. holstered frees the cargo slot.
   // Schema v6.
   stickyGun: null,  // { ammo, ammoMax, holstered } | null
+
+  // v0.0.8.6 — weather radio state. null when not owned; object when granted
+  // by phi at t20. Tick hook in main.js fires log warnings before rain.
+  weatherRadio: null,  // { unlocked: true } | null
 
   // v0.0.7.21 — terrain scanner state. unlocked flips when the upgrade is
   // purchased. level is forward-compat for T2/T3 in v0.0.7.23.
@@ -72,21 +78,24 @@ export const S = {
   },
 
   settlements: {
-    'A':        { label:'depot a',  tier:'waypoint', supply:65, rebuild:65, quote:'"a fire and four walls"'   },
-    'B':        { label:'depot b',  tier:'outpost',  supply:34, rebuild:34, quote:'"new roof going up"'       },
-    '?':        { label:'???',      tier:'unknown',  supply:5,  rebuild:5,  quote:'"signal detected west"'   },
-    'C':        { label:'ruins',    tier:'ruins',    supply:10, rebuild:8,  quote:'"danger. high trip risk."' },
-    'H':        { label:'home',     tier:'shelter',  supply:80, rebuild:70, quote:'"hot food. safe walls."'   },
-    '\u00b7':   { label:'waypoint', tier:'waypoint', supply:40, rebuild:30, quote:'"a painted stone marker"' },
+    // v0.0.8.4: ? now weather station (phi), C hosts xi, · hosts psi.
+    // Labels/tiers updated for stage-2/3 display through identification.js
+    // (stage 2 shows tier; stage 3 shows routeNodes.label).
+    'A':        { label:'depot a',         tier:'waypoint', supply:65, rebuild:65, quote:'"a fire and four walls"'         },
+    'B':        { label:'depot b',         tier:'outpost',  supply:34, rebuild:34, quote:'"new roof going up"'             },
+    '?':        { label:'weather station', tier:'station',  supply:5,  rebuild:5,  quote:'"barometers click in the wind"' },
+    'C':        { label:'ruins',           tier:'ruins',    supply:10, rebuild:8,  quote:'"someone digs through rubble"'  },
+    'H':        { label:'home',            tier:'shelter',  supply:80, rebuild:70, quote:'"hot food. safe walls."'         },
+    '\u00b7':   { label:'waypoint',        tier:'waypoint', supply:40, rebuild:30, quote:'"a painted stone, tended"'      },
   },
 
   routeNodes: [
-    { id:'A',       label:'depot a',  x:0, y:0 },
-    { id:'?',       label:'???',      x:0, y:0 },
-    { id:'B',       label:'depot b',  x:0, y:0 },
-    { id:'C',       label:'ruins',    x:0, y:0 },
-    { id:'H',       label:'home',     x:0, y:0 },
-    { id:'\u00b7',  label:'waypoint', x:0, y:0 },
+    { id:'A',       label:'depot a',         x:0, y:0 },
+    { id:'?',       label:'weather station', x:0, y:0 },
+    { id:'B',       label:'depot b',         x:0, y:0 },
+    { id:'C',       label:'ruins',           x:0, y:0 },
+    { id:'H',       label:'home',            x:0, y:0 },
+    { id:'\u00b7',  label:'waypoint',        x:0, y:0 },
   ],
   nodeStages: { 'A':3, '?':0, 'B':0, 'C':0, 'H':3, '\u00b7':0 },
   edges: [['A','?'],['?','B'],['B','C'],['C','H'],['H','\u00b7'],['\u00b7','A']],
@@ -101,9 +110,15 @@ export const S = {
   lastFeedTimestamp: 0,
 
   npcs: {
-    'A': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'B': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'H': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    // v0.0.8.4: six NPCs now. addTrust() auto-inits on first gain, but
+    // declaring up-front keeps state shape explicit and ensures the
+    // persistence ratchet covers everyone on first save without surprise.
+    'A':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'B':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'H':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '?':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'C':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '\u00b7': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
   },
 
   channels: [],
@@ -180,6 +195,11 @@ export const S = {
     lastWeatherIntensity: 'none',
     stormIdCounter: 0,
     wetlandEdges: [],   // populated by buildWorld() — which edgeIdx values have wetland cells
+
+    // v0.0.8.7: weather radio warn dedupe. Set to the current
+    // nextStormSpawnTick when the warn fires; resets implicitly
+    // when a new storm is scheduled (its spawn tick will be higher).
+    lastWeatherRadioWarnTick: 0,
 
     // Pickup-fail log dedupe (v0.0.7.19 commit 2b). Key is
     // `${ci}:${usedSlots}:${usedWeight}` — a change to any part refires

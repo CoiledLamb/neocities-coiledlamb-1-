@@ -1,13 +1,13 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-15 (v0.0.8.3 shipped; v0.0.8 arc redefined around packages/trust/rain, not terrain. Packages done; trust queued next — see [trust thread primer](#trust-thread-primer-v008-next) before picking up.)_
+_last updated: 2026-04-15 (v0.0.8.6 shipped; trust thread complete. Packages + trust done; rain rework next. See session logs for [.4](#commit-v0084--identity-patch), [.5](#commit-v0085--weight-scaled-trust), [.6](#commit-v0086--upgrade-migration--trust-rewards).)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.8.3 live — package rework + cargo UI rework done; trust next
+## ✅ CURRENT STATE: v0.0.8.6 — trust thread complete; rain rework next
 
-Game is at `v0.0.8.3`. Three commits ahead of `origin/main` on branch `claude/elastic-visvesvaraya`, ready to push. After push, the next patch thread is trust — see [trust thread primer](#trust-thread-primer-v008-next).
+Game is at `v0.0.8.6` on branch `claude/vigilant-shannon`. The full trust thread landed across .4/.5/.6: six NPCs with voices, weight-scaled trust gain, upgrade migration to trust rewards, delivery dialogue, weather radio, scavenger's eye, t60 battery charging, t80 free rest. Two of three v0.0.8 mechanical threads done (packages, trust); rain rework is the last.
 
 **v0.0.8 scope redefinition (important):** the handoff previously framed v0.0.8 as terrain expansion (deserts, rivers, slopes). User rescoped it around **three mechanical-depth threads**: packages, trust, rain. Terrain moved to v0.0.9. Packages + cargo UI complete; trust and rain still to build.
 
@@ -30,10 +30,13 @@ Game is at `v0.0.8.3`. Three commits ahead of `origin/main` on branch `claude/el
 12. ✅ **v0.0.8.1 — package rework: composable spawn roller + dest-tagged label pool**. `data/packages.js` full rewrite (PKG_BASES, PKG_SIZE_WEIGHTS + RISKY variant, PKG_MODIFIERS, PKG_LABELS_BY_SIZE with ~73 dest-tagged labels, PKG_LOST_LABELS fallback). New `rollPkg(destId, cellRisky, forceLost)` in `js/packages.js`. `world.js makeWorldPkg` routed through it. Old `NPC_PKGS` / `LOST_PKGS` tables retired.
 13. ✅ **v0.0.8.2 — cargo inventory rework: unified pkg shapes + 2D autosort**. `renderCargoSlots` switched from flex-row of N 1-cell boxes to 2-row CSS grid with multi-cell shapes (s=1×1, m=2×1, l=2×2, xl=4×2). First-fit bin-pack sorted by footprint desc. Gun slot reserved bottom-right; phantom cells for odd maxSlots. Modifier field carried through pickup. Added `.claude/launch.json` for local preview on :8745.
 14. ✅ **v0.0.8.3 — cargo polish: modifier visuals, weight 2-row, +4 pack**. Modifier visuals: fragile = per-size saturated caution-tape stripes (teal/purple/pink matching size accent); lightweight = dashed border in size color; heavy = 2px border in size color (no white override); unwieldy = separate 1×1 trail div with 2px grid gap, inherits size class. binPack handles cell-list footprints (unwieldy = base cells + trail cell). Weight segs mirror cargo's 2-row grid. `cargoPack` upgrade: +3 → +4 slots (fixes maxSlots=11 odd stop; new progression 6 → 8 → 12).
-15. ⏳ **v0.0.8.4+ — trust thread** (NEXT): identify `?` waystone, map trust gain to package weight (like scrip), audit upgrades → move some to NPC trust rewards. See [trust thread primer](#trust-thread-primer-v008-next).
-16. ⏳ **v0.0.8.later — rain rework**: drizzle/rain/downpour intensity states, storms as travelling world objects (not localized to player), minimap cloud rendering, biome-biased spawning (wetlands more rain-prone). Encumbrance trip scaling folded in.
+15. ✅ **v0.0.8.4 — identity patch: phi + xi + psi + dialogue shape fix + delivery dialogue**. Three new NPCs (phi at `?` weather station, xi at `C` ruins researcher, psi at `·` orphan-scavenger). `trustProfile` dispatcher: 'careful' (xi halves gain on non-fragile/non-xl), 'scavenger' (psi doubles on s, halves on l/xl). NPC_LINES reshaped to category-first arrays; trust.js shape bug fixed (threshold/warning/preview/rest had been silently no-opping since the refactor). Rich dialogue variety: 3–5 variants per repeating slot × 6 NPCs. Label pool rewrites: `?` orphan labels migrated to `·`; fresh weather instrument pool for `?`; `C` expanded with research/ruin-scavenging labels. **Delivery dialogue**: new `delivery` category in NPC_LINES (5 conditions × 6 NPCs × 3 lines = 90 lines). `speakDelivery()` fires once per delivery batch, picking the most interesting condition (lost > damaged > fragile > heavy > normal). No trust gate — NPCs react from the first delivery. `pkg.damaged` flag added in trip.js. **Character voice pass**: rho = former porter giving wizened advice; iota = 20s wetlands ecology researcher; tau = your sibling (encouraging/proud, not overprotective); all NPCs nonbinary/agender.
+16. ✅ **v0.0.8.5 — weight-scaled trust gain**. Delivery trust now `1 + floor(pkg.slots/2)`: s→+1, m→+2, l→+3, xl→+5. Lost bonus +1. Delivery log surfaces trust: `+Xc +N trust`. `TRUST_GAIN_DELIVERY` / `TRUST_GAIN_LOST_DELIVERY` removed; replaced by formula + `TRUST_GAIN_LOST_BONUS`.
+17. ✅ **v0.0.8.6 — upgrade migration + trust rewards + new gadgets + tier mechanics**. 6 upgrades migrated from scrip to NPC trust rewards; 3 new upgrades added (weatherRadio phi t20, sandalEfficiency iota t40, scavenger's eye psi t20). Scrip menu filtered. `onTrustUnlock` auto-grants; `loadGame` retro-grants for existing saves. Tier structure: t20 = first gift, t40 = second gift (rho/iota/tau), t60 = battery charging at trusted destinations (+15 per visit), t80 = free rest (stamina + canteen, no scrip cost). weatherRadio tick hook fires passive rain log warnings. scavengerEye: respawn 20% faster, lost chance 15%→22%. sandalEfficiency: sandalweed repair 30→50 durability.
+18. ⏳ **v0.0.8.7+ — NPC gadget/upgrade dialogue** (NEXT small pass): add NPC lines that reference the upgrades and gadgets they've given you — makes the gifts feel acknowledged in the world.
+19. ⏳ **v0.0.8.later — rain rework**: drizzle/rain/downpour intensity states, storms as travelling world objects (not localized to player), minimap cloud rendering, biome-biased spawning (wetlands more rain-prone). Encumbrance trip scaling folded in.
 
-**Resume next session**: read the [trust thread primer](#trust-thread-primer-v008-next). It covers the three sub-threads (identify `?`, weight→trust, upgrade audit), open design questions, and how the new package dest-tagging sets up future shelter-dispatch pools.
+**Resume next session**: trust thread is **done**. Next up is **rain rework** (the third and final v0.0.8 mechanical thread). See the [rain thread section](#rain-thread-queued-after-trust) for the prior design sketch: storm arcs, intensity states, minimap rendering, biome bias. Optional small pass first: v0.0.8.7 NPC dialogue about their gifts (low scope, high personality payoff).
 
 ## planned but not built (as of v0.0.8.3)
 
@@ -1070,6 +1073,88 @@ Music tracks added to `nav.js`. v0.0.6 added save/load. Multiplayer platform dec
 ### 2026-04-13 (v0.0.5 — earliest)
 
 Full rewrite of terrain + delivery systems. Persistent world map, world packages, proximity pickup. Scroll JS-driven via `translateX`. Introduced the derived `distKm` formula that commit 6 replaced (and commit 2a finally got correct).
+
+---
+
+### commit v0.0.8.4 — identity patch
+
+**Scope**: three new NPCs + trust dialogue shape fix + rich dialogue variety pass.
+
+**What shipped:**
+
+1. **Three new NPCs.** phi (weather station, `?`), xi (reserved researcher, `C`), psi (orphan-scavenger, `·`). Full entries in [NPC_DEFS](js/data/npc-defs.js) with `trustProfile` field; full dialogue corpora in [npc-lines.js](js/data/npc-lines.js); label pools rewritten in [data/packages.js](js/data/packages.js); state defaults in [state.js](js/state.js).
+
+2. **`trustProfile` dispatcher.** New `computeTrustGain(pkg, depotId)` in [trust.js](js/trust.js). Three profiles: `default` (rho/iota/tau/phi — flat legacy behavior), `careful` (xi — halves gain on non-fragile and non-xl pkgs), `scavenger` (psi — doubles on s, normal on m, halves on l/xl). Delivery callers in [packages.js](js/packages.js) now route through the dispatcher; discovery trust stays flat (`TRUST_GAIN_DISCOVERY`). Fractional trust (e.g. 0.5 per delivery to xi) accumulates correctly — threshold checks `before < t && npc.trust >= t` handle floats.
+
+3. **Trust dialogue shape fix (latent bug, significant).** Since the module refactor, [trust.js](js/trust.js) accessed `NPC_LINES[depotId].<category>` but [npc-lines.js](js/data/npc-lines.js) exports `NPC_LINES.<category>[depotId]`. Result: threshold unlock lines, t40 warnings (trip/rain/stamina), t60 preview lines, and t80 rest-prompt buttons had been **silently no-opping** — only ambient chatter via [channels.js](js/channels.js) ever worked. Fix: rewrote all 6 access paths to category-first. Threshold uses direct string access (no pickRandom, one-shot moments). Warning/preview/rest use pickRandom on arrays. Preview template vars `{kind}/{next}` → `{label}/{size}/{dest}` alignment. Dropped harmless third `speak()` arg.
+
+4. **Dialogue variety: 3–5 variants per repeating slot × 6 NPCs.** Warning (`rain`/`trip`/`stamina`) and preview promoted from single strings to arrays. Rest already arrays, expanded from 3 to 4 per NPC. Existing rho/iota/tau expanded; phi/xi/psi authored fresh. Total: ~160 new/rewritten lines. Ambient and threshold untouched (ambient already arrays of 6; threshold intentionally single — one-shot unlock moments).
+
+5. **Label pool rewrites.** `?` orphan-themed labels (beaded bracelet, carved charm, pressed flowers, hearth kit, etc.) migrated to `·` (psi inherits the orphan-gift pool). `?` rebuilt from scratch with weather-instrument labels (rain gauge, barometer, storm journal, anemometer mast). `C` expanded with research/ruin-scavenging labels (specimen jar, copper coil, map fragments, cracked tile set, archive crate). Pool counts: s:26, m:26, l:22, xl:20.
+
+6. **State updates.** `settlements['?']` label/tier/quote updated for weather station. `routeNodes` `?` label = 'weather station'. Three new NPC entries in default `S.npcs`. `·` label stays 'waypoint'; `C` label stays 'ruins'; quotes lightly rewritten to nod at psi/xi presence.
+
+7. **Delivery dialogue.** New `delivery` category in NPC_LINES: 5 conditions (normal, heavy, damaged, fragile, lost) × 6 NPCs × 3 lines = 90 lines. New `speakDelivery(arrivedNodeId, deliveredPkgs)` in [trust.js](js/trust.js) — scans the batch for the most interesting condition (lost > damaged > fragile > heavy > normal), speaks one line. No trust gate — fires from first delivery (good onboarding). `pkg.damaged = true` flag added in [trip.js](js/trip.js) damage branch.
+
+8. **Character voice pass.** All six NPCs given distinct characterization:
+   - **rho** — former porter, wizened advice from their years on the route
+   - **iota** — 20s wetlands ecology researcher, academic enthusiasm ("germination rates!", "publishable handling quality!")
+   - **tau** — the porter's sibling. encouraging and proud, not overprotective. ("you came back. — good. i knew you would." / "that's my family.")
+   - **phi** — weather station forecaster, meteorological vocabulary
+   - **xi** — reserved researcher in ruins, clipped/formal, warms slowly, light scavenging angle
+   - **psi** — orphan-scavenger at waypoint. resilient, self-sufficient, survives alone. warm but not fragile.
+   - All NPCs are nonbinary/agender — no gendered language in dialogue or comments (tau's dog keeps her pronouns).
+
+**Files touched:** [js/trust.js](js/trust.js), [js/trip.js](js/trip.js), [js/packages.js](js/packages.js), [js/state.js](js/state.js), [js/data/npc-defs.js](js/data/npc-defs.js), [js/data/npc-lines.js](js/data/npc-lines.js), [js/data/packages.js](js/data/packages.js), [the-long-haul.html](the-long-haul.html), [TLH-HANDOFF.md](TLH-HANDOFF.md).
+
+**Save schema:** no bump. Stays v6. New `S.npcs` entries auto-init on first trust gain; default state now pre-declares them. Existing saves auto-expand via the `addTrust()` lazy-init path. `pkg.damaged` flag is transient (set on inventory objects, not persisted).
+
+**Verification:**
+- Zero console errors on load
+- NPC_LINES shape confirmed via dynamic import: threshold = strings, warning/preview/rest/delivery = arrays with correct counts
+- NPC_DEFS has 6 entries with correct trustProfiles
+- Label pools confirm phi receives weather labels, psi receives orphan gifts + scavenger adds, xi receives research/salvage labels
+- Delivery dialogue structure: 6 NPCs × 5 conditions × 3 lines each confirmed
+- Full trust-event runtime testing (threshold speaking, rest button appearing, trustProfile math, delivery speech on pkg drop-off) requires admin token or gameplay
+
+### commit v0.0.8.5 — weight-scaled trust
+
+Small mechanical commit. `computeTrustGain` base changed from flat `TRUST_GAIN_DELIVERY=1` / `TRUST_GAIN_LOST_DELIVERY=2` to `1 + Math.floor(pkg.slots / 2)` + `TRUST_GAIN_LOST_BONUS` (+1 for lost/recovery). Delivery log now shows `+Xc +N trust`. Profile multipliers (careful/scavenger from .4) apply after the weight-scaled base. Constants `TRUST_GAIN_DELIVERY` and `TRUST_GAIN_LOST_DELIVERY` removed (dead).
+
+**Files touched:** [js/trust.js](js/trust.js), [js/constants.js](js/constants.js), [js/packages.js](js/packages.js), [the-long-haul.html](the-long-haul.html). 4 files, +20/-19.
+
+### commit v0.0.8.6 — upgrade migration + trust rewards
+
+**What shipped:**
+
+1. **Upgrade migration.** 6 upgrades moved from scrip purchase to NPC trust-tier rewards: bootClip1 (rho t20), bootsT2 (rho t40), sandalSatchel (iota t20), steadyFeet (tau t20), stickyHolster (tau t40), scannerT1 (xi t20). `trustReward: { npc, tier }` field on UPGRADE_DEFS entries. `renderUpgrades()` filters them out of the scrip menu. `onTrustUnlock()` auto-grants. `loadGame()` retro-grants for existing players whose NPC trust already exceeds the tier.
+
+2. **Three new trust-reward upgrades:**
+   - **weatherRadio** (phi t20): `S.weatherRadio = { unlocked: true }`. Tick hook in main.js fires a log line (`weather radio: rain incoming — ~Ns`) once per incoming storm when approaching the warn window. Dedupe via `_transient.lastWeatherRadioWarnTick`.
+   - **sandalEfficiency** (iota t40): sandalweed boot repair 30 → 50 durability. One-line hook in [boots.js:60](js/boots.js:60).
+   - **scavenger's eye** (psi t20): `PKG_RESPAWN_TICKS * 0.8` (20% faster respawn); lost spawn chance `0.15 → 0.22`. Hooks in [world.js](js/world.js) and [packages.js](js/packages.js).
+
+3. **Tier structure (consistent, predictable):**
+   - t20: first gift from every NPC (6 upgrades)
+   - t40: second gift from rho, iota, tau (3 upgrades)
+   - t60: battery charges at trusted destinations (+15, capped at 100)
+   - t80: free rest (stamina + canteen refill, no scrip cost — gate and deduction both removed)
+
+4. **t80 free rest.** Scrip gate (`< 5`) and deduction (`- 10`) both removed from `tryRestPrompt` / `confirmDepotRest`. At max trust, NPC hospitality is unconditional.
+
+**Files touched:** [js/data/upgrades.js](js/data/upgrades.js), [js/state.js](js/state.js), [js/upgrades.js](js/upgrades.js), [js/trust.js](js/trust.js), [js/persistence.js](js/persistence.js), [js/main.js](js/main.js), [js/boots.js](js/boots.js), [js/world.js](js/world.js), [js/packages.js](js/packages.js), [the-long-haul.html](the-long-haul.html). 10 files, +123/-26.
+
+**Save schema:** no bump (stays v6). New upgrade flags (`weatherRadio`, `sandalEfficiency`, `scavengerEye`) are booleans in `S.upgrades`, auto-handled by the generic upgrades persistence path. `S.weatherRadio` object lazy-inits. Retro-grant migration handles pre-.6 saves.
+
+**NPC reward identity summary:**
+- **rho** (A): boots. boot clip at t20, reinforced soles at t40.
+- **iota** (B): ecology. sandalweed satchel at t20, sandalweed poultice at t40.
+- **tau** (H): sibling gear. steady feet at t20, gun holster at t40.
+- **phi** (?): weather. weather radio at t20. (t40+ slots reserved for rain rework gadgets.)
+- **xi** (C): electronics. terrain scanner at t20. (t40+ reserved for future scanner T2/T3.)
+- **psi** (·): scavenging. scavenger's eye at t20. (t40+ reserved.)
+
+**Next:** rain rework (v0.0.8 final thread) or optional v0.0.8.7 NPC dialogue about their gifts.
 
 ---
 

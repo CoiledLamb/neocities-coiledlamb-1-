@@ -57,7 +57,7 @@ export function checkAutobuy() {
     renderBoots(); return;
   }
   if (S.bootDurability <= 0 && S.sandalweedCount > 0) {
-    S.sandalweedCount--; S.bootDurability = 30; S.usingMakeshift = true;
+    S.sandalweedCount--; S.bootDurability = S.upgrades.sandalEfficiency ? 50 : 30; S.usingMakeshift = true;
     addLog('<span class="log-wn">boots failed</span> \u2014 lashed on a <span class="log-hi">sandalweed</span> (' + S.sandalweedCount + '/' + sandalCap() + ' left)');
     renderBoots(); return;
   }

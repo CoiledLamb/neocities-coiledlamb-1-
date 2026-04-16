@@ -298,6 +298,17 @@ function tick() {
       tryWarning(arrivedAt);
       tryPreview(arrivedAt);
       tryRestPrompt(arrivedAt);
+
+      // v0.0.8.6: t60 battery charging — trusted destinations recharge.
+      // Any NPC at t60+ adds charge when the courier passes through.
+      const npcState = S.npcs[arrivedAt];
+      if (npcState && npcState.unlocks && npcState.unlocks.t60 && S.battery) {
+        const prev = S.battery.charge;
+        S.battery.charge = Math.min(100, S.battery.charge + 15);
+        if (S.battery.charge > prev) {
+          addLog(`<span class="log-ok">battery charged</span> at ${NPC_DEFS[arrivedAt].callsign}'s`);
+        }
+      }
     }
   } else {
     updateRouteDot();
@@ -310,6 +321,19 @@ function tick() {
 
   // v0.0.8 — weather tick (storm spawn, move, dissipate, overlay).
   tickWeather();
+
+  // v0.0.8.7: weather radio — passive storm warning in the dispatch log.
+  // Level 1: fires once per incoming storm when the warn window is entered.
+  // Level 2 (future): unlocks the minimap weather visualization.
+  if (S.weatherRadio && weatherAtCourier().intensity === 'none' && S.storms.length === 0) {
+    const ticksUntilSpawn = S.nextStormSpawnTick - S.ticks;
+    if (ticksUntilSpawn > 0 && ticksUntilSpawn <= C.STORM_INCOMING_WARN_TICKS
+        && S._transient.lastWeatherRadioWarnTick < S.nextStormSpawnTick) {
+      S._transient.lastWeatherRadioWarnTick = S.nextStormSpawnTick;
+      const secs = Math.round(ticksUntilSpawn * C.TICK_MS / 1000);
+      addLog(`weather radio: storm incoming \u2014 ~${secs}s`);
+    }
+  }
 
   if (S.ticks % 9 === 0) updateSaveStrip();
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();

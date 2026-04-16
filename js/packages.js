@@ -40,7 +40,7 @@ import {
 } from './data/packages.js';
 import { postActivity, shortPorterId } from './multiplayer.js';
 import { updatePorterStripBadges } from './recovery.js';
-import { addTrust } from './trust.js';
+import { addTrust, computeTrustGain, speakDelivery } from './trust.js';
 import { getNodeStage, setNodeStage } from './identification.js';
 import { sandalCap, renderBoots } from './boots.js';
 import { addLog } from './render/log.js';
@@ -256,7 +256,10 @@ export function tryDeliver(arrivedNodeId) {
         S.activeRecoveryCount = Math.max(0, S.activeRecoveryCount - 1);
         updatePorterStripBadges();
       } else {
-        worldCells[pkg._worldCell].pkg.respawnIn = C.PKG_RESPAWN_TICKS;
+        // v0.0.8.6: scavenger's eye reduces respawn by 20%
+        worldCells[pkg._worldCell].pkg.respawnIn = S.upgrades.scavengerEye
+          ? Math.floor(C.PKG_RESPAWN_TICKS * 0.8)
+          : C.PKG_RESPAWN_TICKS;
       }
     }
     if (settle) { settle.supply = Math.min(100, settle.supply + 3); settle.rebuild = Math.min(100, settle.rebuild + 1); }
@@ -271,7 +274,11 @@ export function tryDeliver(arrivedNodeId) {
         addTrust(arrivedNodeId, C.TRUST_GAIN_DISCOVERY, 'discovery');
       }
     }
-    addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
+    // v0.0.8.5: compute trust gain before logging so we can surface it.
+    // Weight-scaled base (1 + floor(slots/2)) with profile multipliers.
+    const gain = NPC_DEFS[arrivedNodeId] ? computeTrustGain(pkg, arrivedNodeId) : 0;
+    const trustSuffix = gain > 0 ? ` +${Math.round(gain * 10) / 10} trust` : '';
+    addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2${trustSuffix}</span>`);
     postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
 
     if (pkg.isRecovery && pkg.recoveryFromPorter) {
@@ -283,11 +290,13 @@ export function tryDeliver(arrivedNodeId) {
       addLog(`<span class="log-ok">recovered</span> <span class="log-hi">${pkg.label}</span> \u2014 left by <span class="log-hi">${shortPorterId(pkg.recoveryFromPorter)}</span>`);
     }
 
-    if (NPC_DEFS[arrivedNodeId]) {
-      const gain = pkg.isLost ? C.TRUST_GAIN_LOST_DELIVERY : C.TRUST_GAIN_DELIVERY;
+    if (gain > 0) {
       addTrust(arrivedNodeId, gain, pkg.isLost ? 'lost-delivery' : 'delivery');
     }
   });
+  // v0.0.8.4: NPC reacts to the delivery — one line per batch, picking
+  // the most interesting condition (lost > damaged > fragile > heavy > normal).
+  speakDelivery(arrivedNodeId, toDeliver);
   renderCourierStack();
   renderCargoSlots(true);
   if (S.inventory.length === 0) {

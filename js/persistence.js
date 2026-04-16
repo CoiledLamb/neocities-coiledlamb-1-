@@ -37,6 +37,7 @@
 import { S } from './state.js';
 import * as C from './constants.js';
 import { addLog } from './render/log.js';
+import { UPGRADE_DEFS } from './data/upgrades.js';
 
 const els = S._transient.els;
 
@@ -252,6 +253,26 @@ function _applyValidated(data) {
           }
         });
       });
+    }
+
+    // v0.0.8.6: retro-grant trust-reward upgrades for existing saves.
+    // If a player's NPC trust already exceeds a reward tier but the
+    // upgrade isn't owned (pre-.6 save), auto-apply it now.
+    UPGRADE_DEFS.forEach(def => {
+      if (!def.trustReward) return;
+      const npcState = S.npcs[def.trustReward.npc];
+      if (!npcState) return;
+      const tierVal = parseInt(def.trustReward.tier.substring(1), 10);
+      if (npcState.trust >= tierVal && !S.upgrades[def.id]) {
+        S.upgrades[def.id] = true;
+        def.apply();
+      }
+    });
+
+    // v0.0.8.6: restore weatherRadio object if the upgrade flag is set
+    // but the object wasn't persisted (pre-.6 save migration path).
+    if (S.upgrades.weatherRadio && !S.weatherRadio) {
+      S.weatherRadio = { unlocked: true };
     }
 
     // v0.0.7.21 (schema v6) — sticky gun + scanner.

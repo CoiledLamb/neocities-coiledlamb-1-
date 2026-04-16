@@ -187,6 +187,7 @@ export function maybeTrip() {
       const target = S.inventory[0];
       const oldScrip = target.scrip;
       target.scrip = Math.max(1, Math.floor(oldScrip * 0.75));
+      target.damaged = true; // v0.0.8.4: flag for delivery dialogue condition
       const lost = oldScrip - target.scrip;
       addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> damaged \u2014 payout <span class="log-wn">-${lost}\u00a2</span>`);
     }

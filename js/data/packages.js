@@ -25,10 +25,19 @@
    js/packages.js alongside the pickup/delivery pipeline — data
    stays here, logic stays there.
 
-   Note on `?` (waystone) identity: the NPC there is an orphan
-   living alone. Labels split between practical supplies the
-   orphan needs and small trinkets travelers traditionally leave
-   at waystones. If the trust patch reshapes `?`, these can shift.
+   v0.0.8.4 identity pass: the orphan-at-waystone framing moved off
+   `?` when the trust patch settled three new NPCs:
+     - `?`  phi — a weather station / forecaster outpost. Labels:
+       rain gauges, barometers, storm journals, antennas. Fresh pool.
+     - `C`  xi  — reserved researcher living in the ruins; light
+       scavenging angle. Research (specimen jars, field notes, map
+       fragments) + ruin salvage (copper coil, cracked tiles).
+     - `\u00b7`  psi — orphan-scavenger at the waypoint. Inherits the
+       personal / fragile-gift pool that used to live at `?` (pressed
+       flowers, beaded bracelet, carved charm, hearth kit, etc.).
+   Multi-dest labels intermingle — most generic supplies still ship
+   to any destination; only the personality-flavored labels narrow
+   to 1\u20132 dests.
    ============================================== */
 'use strict';
 
@@ -80,88 +89,128 @@ export const PKG_LOST_SCRIP_MULT = 1.5;
 // bound for A reads as "A needed salvage from the ruins"; bound for B
 // reads as "B needed salvage for repairs". One label, different stories.
 //
-// Destination identities (informal):
+// Destination identities (informal, v0.0.8.4):
 //   A  rho   \u2014 starting depot, pragmatic logistics
 //   B  iota  \u2014 wetlands-adjacent, growing / field work
-//   C        \u2014 remote / risky outpost, salvage / survival
+//   C  xi    \u2014 researcher in the ruins; specimens, reports, salvage
 //   H  tau   \u2014 home, domestic / warm
-//   ?        \u2014 waystone with an orphan living alone
-//   \u00b7        \u2014 marginal dead-drop / relay stop
+//   ?  phi   \u2014 weather station; instruments, logs, antennas
+//   \u00b7  psi   \u2014 orphan-scavenger at the waypoint; personal gifts,
+//              pressed/carved trinkets, practical orphan supplies
 export const PKG_LABELS_BY_SIZE = {
   s: [
-    { label: 'medicine',          dests: ['A','B','C','H','?']     },
+    { label: 'medicine',          dests: ['A','B','C','H','\u00b7'] },
     { label: 'sealed letter',     dests: ['A','B','C','H','?','\u00b7'] },
-    { label: 'seeds',             dests: ['B','H','?']             },
-    { label: 'dispatch packet',   dests: ['A','\u00b7']                 },
-    { label: 'dried herbs',       dests: ['B','?','H']             },
-    { label: 'flare cartridge',   dests: ['C']                     },
-    { label: 'signal mirror',     dests: ['C']                     },
-    { label: 'film canister',     dests: ['H','?']                 },
-    { label: 'pressed flowers',   dests: ['H','?']                 },
-    { label: 'beaded bracelet',   dests: ['?']                     },
-    { label: 'carved charm',      dests: ['?']                     },
-    { label: 'knit cap',          dests: ['?','H']                 },
-    { label: 'spare socks',       dests: ['?','H','C']             },
-    { label: 'ammo packet',       dests: ['C']                     },
-    { label: 'fertilizer packet', dests: ['B']                     },
-    { label: 'cuttings',          dests: ['B','H']                 },
-    { label: 'sealed pouch',      dests: ['\u00b7','C']                 },
+    { label: 'seeds',             dests: ['B','H','\u00b7']         },
+    { label: 'dispatch packet',   dests: ['A','\u00b7']             },
+    { label: 'dried herbs',       dests: ['B','C','H']         },
+    { label: 'flare cartridge',   dests: ['C']                 },
+    { label: 'signal mirror',     dests: ['C']                 },
+    { label: 'film canister',     dests: ['H','C']             },
+    { label: 'pressed flowers',   dests: ['H','\u00b7']             },
+    { label: 'beaded bracelet',   dests: ['\u00b7']                 },
+    { label: 'carved charm',      dests: ['\u00b7']                 },
+    { label: 'knit cap',          dests: ['\u00b7','H']             },
+    { label: 'spare socks',       dests: ['\u00b7','H','C']         },
+    { label: 'ammo packet',       dests: ['C']                 },
+    { label: 'fertilizer packet', dests: ['B']                 },
+    { label: 'cuttings',          dests: ['B','H']             },
+    { label: 'sealed pouch',      dests: ['\u00b7','C']             },
+    // phi (?) \u2014 weather instruments
+    { label: 'rain gauge',        dests: ['?']                 },
+    { label: 'barometer',         dests: ['?']                 },
+    { label: 'wind vane',         dests: ['?']                 },
+    { label: 'hygrometer',        dests: ['?']                 },
+    { label: 'ink for charts',    dests: ['?','H']             },
+    // psi (\u00b7) \u2014 scavenger adds on top of migrated orphan labels
+    { label: 'pocket cache',      dests: ['\u00b7']                 },
+    { label: 'polished scrap',    dests: ['\u00b7','C']             },
+    // xi (C) \u2014 research + ruin salvage
+    { label: 'specimen jar',      dests: ['C']                 },
+    { label: 'copper coil',       dests: ['C']                 },
   ],
   m: [
-    { label: 'tool roll',         dests: ['A','B','C','H']   },
-    { label: 'first-aid kit',     dests: ['A','C','H','?']   },
-    { label: 'battery pack',      dests: ['A','C','H']       },
-    { label: 'ration tin',        dests: ['A','C','H','?']   },
-    { label: 'surveyor kit',      dests: ['B']               },
-    { label: 'field notes',       dests: ['B','\u00b7']           },
-    { label: 'water filter',      dests: ['B','C','H']       },
-    { label: 'salvage kit',       dests: ['C','A','B']       },
-    { label: 'repair kit',        dests: ['A','C','H']       },
-    { label: 'rope coil',         dests: ['B','C','H']       },
-    { label: 'spare parts',       dests: ['A','C','H']       },
-    { label: 'book bundle',       dests: ['H','?']           },
-    { label: 'pantry crate',      dests: ['H','?']           },
-    { label: 'linen roll',        dests: ['H','B']           },
-    { label: 'hearth kit',        dests: ['H','?']           },
-    { label: 'patched coat',      dests: ['?','C']           },
-    { label: 'memory box',        dests: ['H','?']           },
-    { label: 'wrapped offering',  dests: ['?']               },
+    { label: 'tool roll',          dests: ['A','B','C','H']    },
+    { label: 'first-aid kit',      dests: ['A','C','H','?']    },
+    { label: 'battery pack',       dests: ['A','C','H','?']    },
+    { label: 'ration tin',         dests: ['A','C','H','\u00b7']    },
+    { label: 'surveyor kit',       dests: ['B']                },
+    { label: 'field notes',        dests: ['B','C','\u00b7']        },
+    { label: 'water filter',       dests: ['B','C','H']        },
+    { label: 'salvage kit',        dests: ['C','A','B']        },
+    { label: 'repair kit',         dests: ['A','C','H','?']    },
+    { label: 'rope coil',          dests: ['B','C','H']        },
+    { label: 'spare parts',        dests: ['A','C','H']        },
+    { label: 'book bundle',        dests: ['H','?','\u00b7']        },
+    { label: 'pantry crate',       dests: ['H','\u00b7']            },
+    { label: 'linen roll',         dests: ['H','B']            },
+    { label: 'hearth kit',         dests: ['H','\u00b7']            },
+    { label: 'patched coat',       dests: ['\u00b7','C']            },
+    { label: 'memory box',         dests: ['H','\u00b7']            },
+    { label: 'wrapped offering',   dests: ['\u00b7']                },
+    // phi (?) \u2014 weather work
+    { label: 'weather log bundle', dests: ['?']                },
+    { label: 'calibration weights',dests: ['?','C']            },
+    { label: 'storm journal',      dests: ['?']                },
+    { label: 'antenna coil',       dests: ['?','C']            },
+    // psi (\u00b7) \u2014 scavenger net-new
+    { label: 'rag-tied parcel',    dests: ['\u00b7']                },
+    // xi (C) \u2014 research + ruin salvage
+    { label: 'sealed reports',     dests: ['C','H']            },
+    { label: 'map fragments',      dests: ['C']                },
+    { label: 'cracked tile set',   dests: ['C']                },
   ],
   l: [
-    { label: 'parts crate',       dests: ['A','C']       },
-    { label: 'equipment trunk',   dests: ['A']           },
-    { label: 'freight pallet',    dests: ['A','\u00b7']       },
-    { label: 'lumber bundle',     dests: ['A','H','C']   },
-    { label: 'planting stock',    dests: ['B']           },
-    { label: 'irrigation coil',   dests: ['B']           },
-    { label: 'reed bundle',       dests: ['B','H']       },
-    { label: 'salvage haul',      dests: ['C','A','B']   },
-    { label: 'water drum',        dests: ['B','C','H']   },
-    { label: 'fuel canister',     dests: ['C','H']       },
-    { label: 'scrap bundle',      dests: ['C','A']       },
-    { label: 'generator core',    dests: ['H','C']       },
-    { label: 'appliance crate',   dests: ['H']           },
-    { label: 'winter kit',        dests: ['H','?']       },
-    { label: 'firewood stack',    dests: ['?','H']       },
-    { label: 'cache crate',       dests: ['\u00b7','A']       },
-    { label: 'relay stockpile',   dests: ['\u00b7','C']       },
+    { label: 'parts crate',        dests: ['A','C']            },
+    { label: 'equipment trunk',    dests: ['A']                },
+    { label: 'freight pallet',     dests: ['A','\u00b7']            },
+    { label: 'lumber bundle',      dests: ['A','H','C']        },
+    { label: 'planting stock',     dests: ['B']                },
+    { label: 'irrigation coil',    dests: ['B']                },
+    { label: 'reed bundle',        dests: ['B','H']            },
+    { label: 'salvage haul',       dests: ['C','A','B']        },
+    { label: 'water drum',         dests: ['B','C','H']        },
+    { label: 'fuel canister',      dests: ['C','H']            },
+    { label: 'scrap bundle',       dests: ['C','A']            },
+    { label: 'generator core',     dests: ['H','C']            },
+    { label: 'appliance crate',    dests: ['H']                },
+    { label: 'winter kit',         dests: ['H','\u00b7']            },
+    { label: 'firewood stack',     dests: ['\u00b7','H']            },
+    { label: 'cache crate',        dests: ['\u00b7','A']            },
+    { label: 'relay stockpile',    dests: ['\u00b7','C']            },
+    // phi (?) \u2014 rain-measurement gear
+    { label: 'weather balloon',    dests: ['?']                },
+    { label: 'tarp roll',          dests: ['?','\u00b7','H']        },
+    { label: 'sensor stake set',   dests: ['?','C']            },
+    // psi (\u00b7) \u2014 scavenger
+    { label: "forager's bag",      dests: ['\u00b7']                },
+    // xi (C) \u2014 ruin salvage
+    { label: 'salvaged mechanism', dests: ['C']                },
   ],
   xl: [
-    { label: 'reinforced crate',   dests: ['A']       },
-    { label: 'generator frame',    dests: ['A','H']   },
-    { label: 'depot resupply',     dests: ['A','C']   },
-    { label: 'reed-thatch bale',   dests: ['B']       },
-    { label: 'greenhouse frame',   dests: ['B']       },
-    { label: 'bunker resupply',    dests: ['C']       },
-    { label: 'scrap hoard',        dests: ['C']       },
-    { label: 'relay dish',         dests: ['C','\u00b7']   },
-    { label: 'antenna mast',       dests: ['H','C']   },
-    { label: 'prefab panel',       dests: ['H','B']   },
-    { label: 'household freight',  dests: ['H']       },
-    { label: 'workshop frame',     dests: ['H','A']   },
-    { label: 'shelter frame',      dests: ['?']       },
-    { label: 'forwarded shipment', dests: ['\u00b7']       },
-    { label: 'trailside stockpile',dests: ['\u00b7']       },
+    { label: 'reinforced crate',   dests: ['A']                },
+    { label: 'generator frame',    dests: ['A','H']            },
+    { label: 'depot resupply',     dests: ['A','C']            },
+    { label: 'reed-thatch bale',   dests: ['B']                },
+    { label: 'greenhouse frame',   dests: ['B']                },
+    { label: 'bunker resupply',    dests: ['C']                },
+    { label: 'scrap hoard',        dests: ['C']                },
+    { label: 'relay dish',         dests: ['C','\u00b7']            },
+    { label: 'antenna mast',       dests: ['H','C','?']        },
+    { label: 'prefab panel',       dests: ['H','B']            },
+    { label: 'household freight',  dests: ['H']                },
+    { label: 'workshop frame',     dests: ['H','A']            },
+    { label: 'shelter frame',      dests: ['\u00b7']                },
+    { label: 'forwarded shipment', dests: ['\u00b7']                },
+    { label: 'trailside stockpile',dests: ['\u00b7']                },
+    // phi (?) \u2014 big weather rigs
+    { label: 'anemometer mast',    dests: ['?']                },
+    { label: 'storm shelter frame',dests: ['?']                },
+    // psi (\u00b7)
+    { label: 'roped bundle',       dests: ['\u00b7']                },
+    // xi (C) \u2014 research archives + oddments
+    { label: 'crate of oddments',  dests: ['C']                },
+    { label: 'archive crate',      dests: ['C','H']            },
   ],
 };
 

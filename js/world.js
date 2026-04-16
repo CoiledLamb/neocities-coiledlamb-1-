@@ -43,7 +43,8 @@ function weightedPick(arr, getW) {
 // here; recovery pipeline inversion (v0.0.8.2+) will reclaim ownership
 // of all isLost spawning, at which point this stays false unconditionally.
 function makeWorldPkg(edgeIdx, cellRisky) {
-  const isLost = Math.random() < 0.15;
+  // v0.0.8.6: scavenger's eye bumps lost chance from 15% → 22%
+  const isLost = Math.random() < (S.upgrades.scavengerEye ? 0.22 : 0.15);
   const destId = S.edges[edgeIdx][1];
   return rollPkg(destId, cellRisky, isLost);
 }
