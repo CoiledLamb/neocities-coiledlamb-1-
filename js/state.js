@@ -25,7 +25,12 @@ export const S = {
   sandalweedCount: 0,
   stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
   canteen: 100, canteenMax: 100, autodrink: false,
-  isRaining: false, inRiver: false,  // rainTimer removed in commit 2b — replaced by _transient.nextRainStart/EndTick
+  inRiver: false,  // stub for future river mechanic
+
+  // v0.0.8 — weather system. Storms are spatial world objects on the ring.
+  // Replaces the old isRaining boolean.
+  storms: [],              // array of storm objects (1 for now, array for future multi-front)
+  nextStormSpawnTick: 0,   // absolute tick target for next storm birth
 
   upgrades: {
     bootsT1: false, bootsT2: false,
@@ -37,7 +42,7 @@ export const S = {
     stickyGun: false, stickyHolster: false,
     scannerT1: false,
     // v0.0.8.6 — trust-reward upgrades
-    weatherRadio: false, sandalEfficiency: false, scavengerEye: false,
+    weatherRadio: false, weatherRadioT2: false, sandalEfficiency: false, scavengerEye: false,
   },
 
   // v0.0.7.21 — sticky gun state. null when not owned; object when owned.
@@ -45,9 +50,15 @@ export const S = {
   // Schema v6.
   stickyGun: null,  // { ammo, ammoMax, holstered } | null
 
-  // v0.0.8.6 — weather radio state. null when not owned; object when granted
-  // by phi at t20. Tick hook in main.js fires log warnings before rain.
-  weatherRadio: null,  // { unlocked: true } | null
+  // v0.0.8.7 — weather radio state. null when not owned; object when granted.
+  // Level 1 (phi t20): passive storm warnings with type prediction + pressure bar.
+  // Level 2 (phi t40): minimap isobar rendering unlocks.
+  weatherRadio: null,  // { unlocked: true, level: 1|2 } | null
+
+  // v0.0.8.7 — pre-rolled storm type for the next spawn. Set when
+  // nextStormSpawnTick is scheduled so the weather radio can predict
+  // storm type before it materializes.
+  nextStormType: null,
 
   // v0.0.7.21 — terrain scanner state. unlocked flips when the upgrade is
   // purchased. level is forward-compat for T2/T3 in v0.0.7.23.
@@ -183,18 +194,17 @@ export const S = {
     depotRestPending: null,
     clipRefillPending: null,
 
-    // Rain scheduler (v0.0.7.19 commit 2b). Replaces the old S.rainTimer
-    // that counted down both during and between rain events (ambiguous
-    // semantics). These are absolute tick targets: if !isRaining, next
-    // rain starts when S.ticks reaches nextRainStartTick; if isRaining,
-    // rain ends when S.ticks reaches nextRainEndTick. Seeded at init
-    // based on S.isRaining so loaded saves behave correctly.
-    nextRainStartTick: 0,
-    nextRainEndTick: 0,
+    // Weather system (v0.0.8). Transient rendering state — the storms
+    // themselves live on S.storms (persisted). These are session-only
+    // helpers for overlay dirty-checking, spawn ID generation, and
+    // precomputed wetland edge list for spawn bias.
+    lastWeatherIntensity: 'none',
+    stormIdCounter: 0,
+    wetlandEdges: [],   // populated by buildWorld() — which edgeIdx values have wetland cells
 
-    // v0.0.8.6: weather radio warn dedupe. Set to the current storm's
-    // nextRainStartTick when the warn fires; resets implicitly when a new
-    // storm is scheduled (its nextRainStartTick will be higher).
+    // v0.0.8.7: weather radio warn dedupe. Set to the current
+    // nextStormSpawnTick when the warn fires; resets implicitly
+    // when a new storm is scheduled (its spawn tick will be higher).
     lastWeatherRadioWarnTick: 0,
 
     // Pickup-fail log dedupe (v0.0.7.19 commit 2b). Key is

@@ -23,6 +23,7 @@
 
 import { S } from '../state.js';
 import * as C from '../constants.js';
+import { updateWeatherGearVisibility } from '../weather.js';
 
 export const UPGRADE_DEFS = [
   // ----- scrip-purchasable (no trustReward) -----
@@ -47,7 +48,8 @@ export const UPGRADE_DEFS = [
   { id:'stickyHolster', name:'gun holster',       desc:'frees the slot when not firing',                cost:0, requires:'stickyGun', trustReward: { npc:'H', tier:'t40' }, apply:()=>{ if (S.stickyGun) S.stickyGun.holstered = true; } },
 
   // ----- trust-reward: phi (?) — weather station -----
-  { id:'weatherRadio', name:'weather radio', desc:'passive rain warnings on the route', cost:0, requires:null, trustReward: { npc:'?', tier:'t20' }, apply:()=>{ S.weatherRadio = { unlocked: true }; } },
+  { id:'weatherRadio',   name:'weather radio',   desc:'storm warnings with intensity prediction',       cost:0, requires:null,           trustReward: { npc:'?', tier:'t20' }, apply:()=>{ S.weatherRadio = { unlocked: true, level: 1 }; updateWeatherGearVisibility(); } },
+  { id:'weatherRadioT2', name:'weather map',      desc:'storm tracking on the route map',               cost:0, requires:'weatherRadio', trustReward: { npc:'?', tier:'t40' }, apply:()=>{ if (S.weatherRadio) S.weatherRadio.level = 2; updateWeatherGearVisibility(); } },
 
   // ----- trust-reward: xi (C) — researcher -----
   { id:'scannerT1', name:'terrain scanner', desc:'auto pings reduce trip chance, manual on 30s', cost:0, requires:null, trustReward: { npc:'C', tier:'t20' }, apply:()=>{ S.scanner.unlocked = true; S.scanner.level = 1; S.scanner.autoTimer = C.SCANNER_AUTO_INTERVAL_TICKS; } },

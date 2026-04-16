@@ -104,6 +104,7 @@ import * as Boots from './boots.js';
 import * as Stamina from './stamina.js';
 import * as Upg from './upgrades.js';
 import { tickScanner } from './scanner.js';
+import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js';
 import { renderKit } from './render/kit.js';
 import { initAdminChannel } from './admin-channel.js';
 import { initSaveIo } from './save-io.js';
@@ -137,46 +138,6 @@ function updateDestDrift() {
   els.destDrift.style.animation = 'none';
   void els.destDrift.offsetHeight;
   els.destDrift.style.animation = 'destdrift 22s linear forwards';
-}
-
-// ============================================================
-// RAIN
-// ============================================================
-function buildRain() {
-  if (!els.rainOverlay) return;
-  els.rainOverlay.innerHTML = '';
-  for (let i = 0; i < 18; i++) {
-    const d = document.createElement('span');
-    d.textContent = Math.random() < 0.5 ? '|' : '.';
-    const dur = 1.1 + Math.random() * 1.3, delay = Math.random() * 2;
-    d.style.cssText =
-      `position:absolute;left:${Math.random()*100}%;top:0;font-size:10px;` +
-      `color:#1e5554;font-family:'Source Code Pro',monospace;` +
-      `animation:raindrop ${dur}s linear ${delay}s infinite;`;
-    els.rainOverlay.appendChild(d);
-  }
-}
-
-function setRain(on) {
-  S.isRaining = on;
-  if (els.rainOverlay) els.rainOverlay.style.display = on ? 'block' : 'none';
-  if (on) { S.canteen = Math.min(S.canteenMax, S.canteen + 30); addLog('<span class="log-wn">rain begins \u2014 canteen refilling</span>'); }
-  else      addLog('rain clears');
-}
-
-// v0.0.7.19 commit 2b — rain scheduler. Absolute-tick targets replace
-// the old single S.rainTimer. On init and on every transition, schedule
-// the next transition time. Called from init() and from the tick-level
-// rain check below.
-function scheduleNextRainTransition() {
-  const t = S._transient;
-  if (S.isRaining) {
-    const span = C.RAIN_WET_MAX_TICKS - C.RAIN_WET_MIN_TICKS;
-    t.nextRainEndTick = S.ticks + C.RAIN_WET_MIN_TICKS + Math.floor(Math.random() * span);
-  } else {
-    const span = C.RAIN_DRY_MAX_TICKS - C.RAIN_DRY_MIN_TICKS;
-    t.nextRainStartTick = S.ticks + C.RAIN_DRY_MIN_TICKS + Math.floor(Math.random() * span);
-  }
 }
 
 // v0.0.7.19 commit 2b — wetland check for canteen refill.
@@ -279,8 +240,13 @@ function tick() {
     if (S.usingMakeshift)   bd*=1.30;
     S.bootDurability=Math.max(0,S.bootDurability-bd);
 
-    if (S.isRaining||S.inRiver) S.canteen=Math.min(S.canteenMax,S.canteen+0.4);
-    else if (currentCellIsWetland()) S.canteen=Math.min(S.canteenMax,S.canteen+C.WETLAND_CANTEEN_REFILL);
+    // v0.0.8 — weather-driven canteen refill. Intensity is spatial (from weather.js).
+    const _w = weatherAtCourier();
+    if (_w.intensity === 'downpour')      S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DOWNPOUR);
+    else if (_w.intensity === 'rain')     S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
+    else if (_w.intensity === 'drizzle')  S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DRIZZLE);
+    else if (S.inRiver)                   S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
+    else if (currentCellIsWetland())      S.canteen = Math.min(S.canteenMax, S.canteen + C.WETLAND_CANTEEN_REFILL);
 
     Trip.accumulateDist();
     if (S.ticks%5===0) {
@@ -353,28 +319,21 @@ function tick() {
 
   if (S.ticks%10===0) Pkg.tickPkgRespawns();
 
-  // v0.0.7.19 commit 2b — scheduled rain transitions.
-  if (S.isRaining) {
-    if (S.ticks >= S._transient.nextRainEndTick) {
-      setRain(false);
-      scheduleNextRainTransition();
-    }
-  } else {
-    if (S.ticks >= S._transient.nextRainStartTick) {
-      setRain(true);
-      scheduleNextRainTransition();
-    }
-  }
+  // v0.0.8 — weather tick (storm spawn, move, dissipate, overlay).
+  tickWeather();
 
-  // v0.0.8.6: weather radio — passive rain warning in the dispatch log.
-  // Fires once per incoming storm cycle when the warn window is entered.
-  if (S.weatherRadio && !S.isRaining) {
-    const ticksUntilRain = S._transient.nextRainStartTick - S.ticks;
-    if (ticksUntilRain > 0 && ticksUntilRain <= C.RAIN_INCOMING_WARN_TICKS
-        && S._transient.lastWeatherRadioWarnTick < S._transient.nextRainStartTick) {
-      S._transient.lastWeatherRadioWarnTick = S._transient.nextRainStartTick;
-      const secs = Math.round(ticksUntilRain * C.TICK_MS / 1000);
-      addLog(`weather radio: rain incoming \u2014 ~${secs}s`);
+  // v0.0.8.7: weather radio L1 — passive storm warning with type prediction.
+  // Fires once per incoming storm when the warn window is entered.
+  // L2 (weatherRadioT2) unlocks the minimap isobar rendering.
+  if (S.weatherRadio && weatherAtCourier().intensity === 'none' && S.storms.length === 0) {
+    const ticksUntilSpawn = S.nextStormSpawnTick - S.ticks;
+    if (ticksUntilSpawn > 0 && ticksUntilSpawn <= C.STORM_INCOMING_WARN_TICKS
+        && S._transient.lastWeatherRadioWarnTick < S.nextStormSpawnTick) {
+      S._transient.lastWeatherRadioWarnTick = S.nextStormSpawnTick;
+      const secs = Math.round(ticksUntilSpawn * C.TICK_MS / 1000);
+      const typeNames = { squall: 'brief squall', front: 'weather front', deluge: 'heavy weather' };
+      const typeName = typeNames[S.nextStormType] || 'storm';
+      addLog(`<span class="log-wn">weather radio:</span> ${typeName} incoming \u2014 ~${secs}s`);
     }
   }
 
@@ -412,12 +371,11 @@ function init() {
 
   S.worldPos = worldPosFromRoute();
 
-  buildRain(); setRain(false);
-  // v0.0.7.19 commit 2b — seed rain scheduler after initial state is
-  // settled. On fresh start S.isRaining is false and S.ticks is 0, so
-  // this sets nextRainStartTick to 200-800. Loaded saves don't persist
-  // rain state (see persistence.js) so they also start dry.
-  scheduleNextRainTransition();
+  // v0.0.8 — weather system init. Replaces old buildRain()/setRain()/
+  // scheduleNextRainTransition(). Seeds the spawn scheduler and sets
+  // up the overlay based on whether any storms are already active.
+  buildWeatherOverlay();
+  initWeather();
   layoutRouteNodes(); drawRouteMap(); updateDestDrift();
   Upg.renderUpgrades(); renderSettlements(); renderNetwork();
   renderChannels();

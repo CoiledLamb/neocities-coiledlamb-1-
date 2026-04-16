@@ -99,6 +99,14 @@ export function buildSavePayload() {
       buffRemaining: S.scanner.buffRemaining,
       buffMagnitude: S.scanner.buffMagnitude,
     },
+    // v0.0.8 (schema v7) — weather system
+    storms: S.storms.map(s => ({
+      id: s.id, type: s.type, edgeIdx: s.edgeIdx, t: s.t,
+      primaryCell: s.primaryCell, secondaryCell: s.secondaryCell,
+      secondaryOffset: s.secondaryOffset, age: s.age, seed: s.seed,
+    })),
+    nextStormSpawnTick: S.nextStormSpawnTick,
+    nextStormType: S.nextStormType,
   };
 }
 
@@ -106,7 +114,7 @@ export function saveGame(silent) {
   if (S._transient.wipeInProgress) return false;
   try {
     const payload = buildSavePayload();
-    localStorage.setItem(C.SAVE_KEY_V6, JSON.stringify(payload));
+    localStorage.setItem(C.SAVE_KEY_V7, JSON.stringify(payload));
     S._transient.lastSaveAt = payload.savedAt;
     updateSaveStrip();
     if (!silent) addLog('<span class="log-ok">progress saved</span>');
@@ -130,13 +138,14 @@ export function saveGame(silent) {
 // S in place. Returns true on success, false on any parse/schema failure.
 export function applySavePayload(data) {
   if (!data) return false;
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== C.SAVE_VERSION) return false;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== C.SAVE_VERSION) return false;
   return _applyValidated(data);
 }
 
 export function loadGame() {
   let raw;
-  try { raw = localStorage.getItem(C.SAVE_KEY_V6); } catch (e) { return false; }
+  try { raw = localStorage.getItem(C.SAVE_KEY_V7); } catch (e) { return false; }
+  if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V6); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V5); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V4); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V3); } catch (e) { return false; } }
@@ -146,7 +155,7 @@ export function loadGame() {
   let data;
   try { data = JSON.parse(raw); } catch (e) { return false; }
   if (!data) return false;
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== C.SAVE_VERSION) return false;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== C.SAVE_VERSION) return false;
   return _applyValidated(data);
 }
 
@@ -290,6 +299,37 @@ function _applyValidated(data) {
       if (typeof sc.buffMagnitude === 'number') S.scanner.buffMagnitude = sc.buffMagnitude;
     }
 
+    // v0.0.8 (schema v7) — weather system.
+    // Old saves (v6 and earlier) have no storm data — start with empty
+    // storms[] and let initWeather() schedule a spawn. isRaining was
+    // never in the save payload so no migration needed for that.
+    if (Array.isArray(data.storms)) {
+      S.storms = data.storms.filter(s => s && typeof s.type === 'string' && C.STORM_TYPES[s.type]).map(s => ({
+        id:              typeof s.id === 'number' ? s.id : 0,
+        type:            s.type,
+        edgeIdx:         typeof s.edgeIdx === 'number' ? s.edgeIdx % 6 : 0,
+        t:               typeof s.t === 'number' ? Math.max(0, Math.min(1, s.t)) : 0,
+        primaryCell:     typeof s.primaryCell === 'number' ? s.primaryCell : 0,
+        secondaryCell:   typeof s.secondaryCell === 'number' ? s.secondaryCell : 0,
+        secondaryOffset: typeof s.secondaryOffset === 'number' ? s.secondaryOffset : 50,
+        age:             typeof s.age === 'number' ? Math.max(0, s.age) : 0,
+        seed:            typeof s.seed === 'number' ? s.seed : Math.floor(Math.random() * 100000),
+      }));
+    } else {
+      S.storms = [];
+    }
+    if (typeof data.nextStormSpawnTick === 'number') {
+      S.nextStormSpawnTick = data.nextStormSpawnTick;
+    }
+    if (typeof data.nextStormType === 'string' && C.STORM_TYPES[data.nextStormType]) {
+      S.nextStormType = data.nextStormType;
+    }
+    // v0.0.8.7 — weather radio level migration. Old saves (v0.0.8.6)
+    // have weatherRadio = { unlocked: true } without a level field.
+    if (S.weatherRadio && typeof S.weatherRadio.level !== 'number') {
+      S.weatherRadio.level = 1;
+    }
+
     S._transient.lastSaveAt = data.savedAt || 0;
     S.status = S.inventory.length > 0 ? 'carrying' : 'walking';
 
@@ -300,6 +340,7 @@ function _applyValidated(data) {
         localStorage.removeItem(C.SAVE_KEY_V3);
         localStorage.removeItem(C.SAVE_KEY_V4);
         localStorage.removeItem(C.SAVE_KEY_V5);
+        localStorage.removeItem(C.SAVE_KEY_V6);
         saveGame(true);
       } catch (e) {}
     }
@@ -311,6 +352,7 @@ function _applyValidated(data) {
 
 export function wipeSave() {
   try {
+    localStorage.removeItem(C.SAVE_KEY_V7);
     localStorage.removeItem(C.SAVE_KEY_V6);
     localStorage.removeItem(C.SAVE_KEY_V5);
     localStorage.removeItem(C.SAVE_KEY_V4);

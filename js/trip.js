@@ -63,6 +63,7 @@ import { postLostDrop } from './multiplayer.js';
 import { staminaSegCount } from './stamina.js';
 import { addLog } from './render/log.js';
 import { renderCourierStack, renderCargoSlots } from './render/hud.js';
+import { weatherAtCourier } from './weather.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -118,6 +119,17 @@ export function tripChance() {
   // v0.0.7.21 — terrain scanner buff. When active, multiplies trip
   // chance by S.scanner.buffMagnitude (set per ping in js/scanner.js).
   if (S.scanner.buffActive) chance *= S.scanner.buffMagnitude;
+  // v0.0.8 — weather multiplier (spatial intensity from weather.js)
+  const w = weatherAtCourier();
+  if (w.intensity === 'drizzle')       chance *= C.TRIP_MULT_DRIZZLE;
+  else if (w.intensity === 'rain')     chance *= C.TRIP_MULT_RAIN;
+  else if (w.intensity === 'downpour') chance *= C.TRIP_MULT_DOWNPOUR;
+  // v0.0.8 — encumbrance: heavier cargo = more trip risk.
+  // Scales linearly from 1.0 (empty) to TRIP_ENCUMBRANCE_MAX_MULT (full weight).
+  if (S.maxWeight > 0 && S.usedWeight > 0) {
+    const loadRatio = Math.min(1, S.usedWeight / S.maxWeight);
+    chance *= 1 + (C.TRIP_ENCUMBRANCE_MAX_MULT - 1) * loadRatio;
+  }
   return chance;
 }
 

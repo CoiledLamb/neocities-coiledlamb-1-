@@ -46,6 +46,7 @@ import { drawRouteMap, updateRouteDot } from './render/route-map.js';
 import { renderNetwork } from './render/network.js';
 import * as Boots from './boots.js';
 import * as Stamina from './stamina.js';
+import { adminToggleStorm, weatherAtCourier } from './weather.js';
 
 async function sha256Hex(text) {
   const buf = new TextEncoder().encode(text);
@@ -101,7 +102,8 @@ function stateSnapshot() {
     bootClipCount: S.bootClipCount,
     bootClipMax: S.bootClipMax,
     sandalweedCount: S.sandalweedCount,
-    isRaining: S.isRaining,
+    storms: S.storms.length,
+    weather: weatherAtCourier().intensity,
     milestonesHit: [...S.milestonesHit],
     availableMilestones: [...C.DIST_MILESTONES],
     nodeIds: S.routeNodes.map(n => n.id),
@@ -210,18 +212,9 @@ function dispatch(cmd, args) {
       repaintAll();
       return true;
     }
-    case 'toggleRain': {
-      S.isRaining = !S.isRaining;
-      // Schedule an end/start tick so the scheduler doesn't immediately
-      // revert us — give ~100 ticks before the next transition.
-      if (S.isRaining) {
-        S._transient.nextRainEndTick = S.ticks + 100;
-      } else {
-        S._transient.nextRainStartTick = S.ticks + 300;
-      }
-      const rainEl = S._transient.els.rainOverlay;
-      if (rainEl) rainEl.style.display = S.isRaining ? 'block' : 'none';
-      addLog(`<span class="log-wn">[admin]</span> rain ${S.isRaining ? 'on' : 'off'}`);
+    case 'toggleRain':
+    case 'toggleStorm': {
+      adminToggleStorm();
       return true;
     }
     case 'forceTrip': {

@@ -427,6 +427,55 @@ html, body {
 }
 .inline-gear-wrap .gear-val { color: #77bfcf; font-weight: 700; }
 
+/* v0.0.8.7 — weather gear (route panel bottom) */
+.weather-gear-row {
+  display: flex;
+  align-items: center;
+  padding: 3px 4px 2px;
+  gap: 4px;
+}
+.weather-gear-row[hidden] { display: none; }
+.weather-gear-btn {
+  font-size: 11px;
+  min-width: 18px;
+  transition: color 0.3s, border-color 0.3s;
+}
+.weather-gear-btn.intensity-drizzle  { color: #3a6a88; border-color: #3a6a88; }
+.weather-gear-btn.intensity-rain     { color: #7a5a98; border-color: #7a5a98; }
+.weather-gear-btn.intensity-downpour { color: #da8bda; border-color: #da8bda; }
+.weather-legend-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: gear-reveal 0.18s ease-out;
+}
+.weather-legend-wrap[hidden] { display: none; }
+.weather-legend-bar {
+  border-radius: 1px;
+  height: 5px;
+  image-rendering: pixelated;
+}
+.weather-legend-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 80px;
+  font-size: 7px;
+  font-family: 'Source Code Pro', monospace;
+  line-height: 1;
+}
+.weather-legend-lbl { opacity: 0.6; }
+.wl-hi  { color: #3a6a68; }
+.wl-mid { color: #5a6a88; }
+.wl-lo  { color: #9d78d4; }
+.weather-legend-unit {
+  font-size: 7px;
+  font-family: 'Source Code Pro', monospace;
+  color: #3a6a68;
+  opacity: 0.4;
+  align-self: flex-end;
+  margin-top: -2px;
+}
+
 .boots-auto {
   background: transparent;
   border: 1px dashed #1e5554;

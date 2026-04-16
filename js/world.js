@@ -95,6 +95,14 @@ export function buildWorld() {
     worldCells.push({ html: `<span class="fc fc-fl"> . </span>`, pkg: null, risky: false, edgeIdx: 0 });
   }
   worldCells.length = C.TOTAL_CELLS;
+
+  // v0.0.8 — precompute which edges contain wetland cells for storm
+  // spawn bias. Avoids scanning 1560 cells on every spawn.
+  const wetSet = new Set();
+  for (let i = 0; i < worldCells.length; i++) {
+    if (worldCells[i].wetland) wetSet.add(worldCells[i].edgeIdx);
+  }
+  S._transient.wetlandEdges = [...wetSet];
 }
 
 export function calcCellPxWidth() {

@@ -47,6 +47,7 @@ import { addLog } from './render/log.js';
 import { renderCourierStack, renderCargoSlots } from './render/hud.js';
 import { drawRouteMap } from './render/route-map.js';
 import { renderSettlements } from './render/settlements.js';
+import { weatherAtCourier } from './weather.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -66,10 +67,17 @@ export function effectiveMaxSlots() {
 // has ammo. Holstering does NOT extend range — you can't shoot
 // through the holster.
 function pickupRange() {
+  let range;
   if (S.stickyGun && !S.stickyGun.holstered && S.stickyGun.ammo > 0) {
-    return C.STICKY_GUN_RANGE;
+    range = C.STICKY_GUN_RANGE;
+  } else {
+    range = C.PKG_PICKUP_RANGE;
   }
-  return C.PKG_PICKUP_RANGE;
+  // v0.0.8 — downpour reduces visibility/reach
+  if (weatherAtCourier().intensity === 'downpour') {
+    range = Math.max(2, range - C.DOWNPOUR_RANGE_PENALTY);
+  }
+  return range;
 }
 
 // ============================================================

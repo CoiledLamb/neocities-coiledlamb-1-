@@ -72,6 +72,7 @@ import { addLog } from './render/log.js';
 import { updateHUD } from './render/hud.js';
 import { drawRouteMap } from './render/route-map.js';
 import { renderSettlements } from './render/settlements.js';
+import { weatherAtCourier } from './weather.js';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
@@ -217,14 +218,14 @@ export function tryWarning(arrivedNodeId) {
     speak(arrivedNodeId, pickRandom(warn.trip));
     return;
   }
-  // v0.0.7.19 commit 2b — rain warning wired to the new scheduler.
-  // Fires only when: dry right now, next rain is scheduled, and it's
-  // within the warn window. Old condition (rainTimer > 0 && < 25)
-  // fired ambiguously both during and between rain events.
-  const ticksUntilRain = S._transient.nextRainStartTick - S.ticks;
-  if (!S.isRaining && ticksUntilRain > 0 && ticksUntilRain < C.RAIN_INCOMING_WARN_TICKS && warn && warn.rain && warn.rain.length) {
-    speak(arrivedNodeId, pickRandom(warn.rain));
-    return;
+  // v0.0.8 — storm incoming warning. Fires when courier is currently
+  // dry but a storm is about to spawn.
+  if (weatherAtCourier().intensity === 'none') {
+    const ticksUntilSpawn = S.nextStormSpawnTick - S.ticks;
+    if (ticksUntilSpawn > 0 && ticksUntilSpawn < C.STORM_INCOMING_WARN_TICKS && warn && warn.rain && warn.rain.length) {
+      speak(arrivedNodeId, pickRandom(warn.rain));
+      return;
+    }
   }
   if (staminaSegCount() <= 1 && warn && warn.stamina && warn.stamina.length) {
     speak(arrivedNodeId, pickRandom(warn.stamina));
