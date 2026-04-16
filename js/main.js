@@ -322,16 +322,18 @@ function tick() {
   // v0.0.8 — weather tick (storm spawn, move, dissipate, overlay).
   tickWeather();
 
-  // v0.0.8.7: weather radio — passive storm warning in the dispatch log.
-  // Level 1: fires once per incoming storm when the warn window is entered.
-  // Level 2 (future): unlocks the minimap weather visualization.
+  // v0.0.8.7: weather radio L1 — passive storm warning with type prediction.
+  // Fires once per incoming storm when the warn window is entered.
+  // L2 (weatherRadioT2) unlocks the minimap isobar rendering.
   if (S.weatherRadio && weatherAtCourier().intensity === 'none' && S.storms.length === 0) {
     const ticksUntilSpawn = S.nextStormSpawnTick - S.ticks;
     if (ticksUntilSpawn > 0 && ticksUntilSpawn <= C.STORM_INCOMING_WARN_TICKS
         && S._transient.lastWeatherRadioWarnTick < S.nextStormSpawnTick) {
       S._transient.lastWeatherRadioWarnTick = S.nextStormSpawnTick;
       const secs = Math.round(ticksUntilSpawn * C.TICK_MS / 1000);
-      addLog(`weather radio: storm incoming \u2014 ~${secs}s`);
+      const typeNames = { squall: 'brief squall', front: 'weather front', deluge: 'heavy weather' };
+      const typeName = typeNames[S.nextStormType] || 'storm';
+      addLog(`<span class="log-wn">weather radio:</span> ${typeName} incoming \u2014 ~${secs}s`);
     }
   }
 

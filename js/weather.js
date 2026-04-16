@@ -136,8 +136,14 @@ export function weatherAtCell(ci) {
 // STORM LIFECYCLE
 // ============================================================
 
-function spawnStorm() {
-  const type = weightedPick(C.STORM_TYPES);
+/** Schedule the next storm spawn + pre-roll its type for weather radio prediction. */
+function scheduleNextStorm() {
+  S.nextStormSpawnTick = S.ticks + randRange(C.STORM_DRY_MIN_TICKS, C.STORM_DRY_MAX_TICKS);
+  S.nextStormType = weightedPick(C.STORM_TYPES);
+}
+
+function spawnStorm(preRolledType) {
+  const type = preRolledType || weightedPick(C.STORM_TYPES);
   const typeCfg = C.STORM_TYPES[type];
 
   // Pick a spawn position on the ring
@@ -265,12 +271,13 @@ export function tickWeather() {
 
   // --- Spawn check ---
   if (S.storms.length === 0 && S.ticks >= S.nextStormSpawnTick) {
-    spawnStorm();
+    spawnStorm(S.nextStormType);
+    S.nextStormType = null;
   }
 
   // --- Schedule next spawn when no storms ---
   if (S.storms.length === 0 && S.nextStormSpawnTick <= S.ticks) {
-    S.nextStormSpawnTick = S.ticks + randRange(C.STORM_DRY_MIN_TICKS, C.STORM_DRY_MAX_TICKS);
+    scheduleNextStorm();
   }
 
   // --- Overlay transition ---
@@ -308,7 +315,7 @@ export function initWeather() {
 
   // If no storms exist (fresh game or old save), schedule a spawn
   if (S.storms.length === 0 && S.nextStormSpawnTick <= S.ticks) {
-    S.nextStormSpawnTick = S.ticks + randRange(C.STORM_DRY_MIN_TICKS, C.STORM_DRY_MAX_TICKS);
+    scheduleNextStorm();
   }
 
   // Check if we're already inside a storm on load
@@ -413,9 +420,13 @@ function updateWeatherIcon(intensity) {
 
 /** Wire the gear toggle. Called once from initWeather(). */
 function initWeatherGear() {
+  const row = document.getElementById('weatherGearRow');
   const btn = document.getElementById('weatherGearBtn');
   const wrap = document.getElementById('weatherLegendInline');
-  if (!btn || !wrap) return;
+  if (!btn || !wrap || !row) return;
+
+  // Gear row is only visible when weather radio L1+ is owned
+  row.hidden = !S.weatherRadio;
 
   btn.addEventListener('click', () => {
     const open = wrap.hidden;
@@ -429,4 +440,10 @@ function initWeatherGear() {
   });
 
   updateWeatherIcon('none');
+}
+
+/** Called when upgrades change — shows gear row if weather radio is owned. */
+export function updateWeatherGearVisibility() {
+  const row = document.getElementById('weatherGearRow');
+  if (row) row.hidden = !S.weatherRadio;
 }

@@ -201,6 +201,8 @@ function traceContour(potFn, centX, centY, threshold, wobblePhase1, wobblePhase2
 }
 
 function renderStorms(svg, ns) {
+  // Gated behind weather radio L2 — the map visualization is the L2 unlock.
+  if (!S.weatherRadio || S.weatherRadio.level < 2) return;
   if (S.storms.length === 0) return;
 
   // Ensure defs block exists for filters/gradients

@@ -427,13 +427,14 @@ html, body {
 }
 .inline-gear-wrap .gear-val { color: #77bfcf; font-weight: 700; }
 
-/* v0.0.8.4 — weather gear (route panel bottom) */
+/* v0.0.8.7 — weather gear (route panel bottom) */
 .weather-gear-row {
   display: flex;
   align-items: center;
   padding: 3px 4px 2px;
   gap: 4px;
 }
+.weather-gear-row[hidden] { display: none; }
 .weather-gear-btn {
   font-size: 11px;
   min-width: 18px;
@@ -443,10 +444,12 @@ html, body {
 .weather-gear-btn.intensity-rain     { color: #7a5a98; border-color: #7a5a98; }
 .weather-gear-btn.intensity-downpour { color: #da8bda; border-color: #da8bda; }
 .weather-legend-wrap {
-  gap: 4px;
+  display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  gap: 2px;
+  animation: gear-reveal 0.18s ease-out;
 }
+.weather-legend-wrap[hidden] { display: none; }
 .weather-legend-bar {
   border-radius: 1px;
   height: 5px;
@@ -469,9 +472,8 @@ html, body {
   font-family: 'Source Code Pro', monospace;
   color: #3a6a68;
   opacity: 0.4;
-  position: absolute;
-  right: 0;
-  top: 0;
+  align-self: flex-end;
+  margin-top: -2px;
 }
 
 .boots-auto {

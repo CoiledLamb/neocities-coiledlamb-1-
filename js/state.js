@@ -42,7 +42,7 @@ export const S = {
     stickyGun: false, stickyHolster: false,
     scannerT1: false,
     // v0.0.8.6 — trust-reward upgrades
-    weatherRadio: false, sandalEfficiency: false, scavengerEye: false,
+    weatherRadio: false, weatherRadioT2: false, sandalEfficiency: false, scavengerEye: false,
   },
 
   // v0.0.7.21 — sticky gun state. null when not owned; object when owned.
@@ -50,9 +50,15 @@ export const S = {
   // Schema v6.
   stickyGun: null,  // { ammo, ammoMax, holstered } | null
 
-  // v0.0.8.6 — weather radio state. null when not owned; object when granted
-  // by phi at t20. Tick hook in main.js fires log warnings before rain.
-  weatherRadio: null,  // { unlocked: true } | null
+  // v0.0.8.7 — weather radio state. null when not owned; object when granted.
+  // Level 1 (phi t20): passive storm warnings with type prediction + pressure bar.
+  // Level 2 (phi t40): minimap isobar rendering unlocks.
+  weatherRadio: null,  // { unlocked: true, level: 1|2 } | null
+
+  // v0.0.8.7 — pre-rolled storm type for the next spawn. Set when
+  // nextStormSpawnTick is scheduled so the weather radio can predict
+  // storm type before it materializes.
+  nextStormType: null,
 
   // v0.0.7.21 — terrain scanner state. unlocked flips when the upgrade is
   // purchased. level is forward-compat for T2/T3 in v0.0.7.23.

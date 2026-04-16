@@ -106,6 +106,7 @@ export function buildSavePayload() {
       secondaryOffset: s.secondaryOffset, age: s.age, seed: s.seed,
     })),
     nextStormSpawnTick: S.nextStormSpawnTick,
+    nextStormType: S.nextStormType,
   };
 }
 
@@ -319,6 +320,14 @@ function _applyValidated(data) {
     }
     if (typeof data.nextStormSpawnTick === 'number') {
       S.nextStormSpawnTick = data.nextStormSpawnTick;
+    }
+    if (typeof data.nextStormType === 'string' && C.STORM_TYPES[data.nextStormType]) {
+      S.nextStormType = data.nextStormType;
+    }
+    // v0.0.8.7 — weather radio level migration. Old saves (v0.0.8.6)
+    // have weatherRadio = { unlocked: true } without a level field.
+    if (S.weatherRadio && typeof S.weatherRadio.level !== 'number') {
+      S.weatherRadio.level = 1;
     }
 
     S._transient.lastSaveAt = data.savedAt || 0;
