@@ -52,7 +52,10 @@ html, body {
 
 .tlh-layout {
   display: grid;
-  grid-template-columns: 1fr 140px;
+  /* v0.0.9.2 — right column widened 140→220 so the 2D route-map
+     panel has enough room to actually read, and fills what used to
+     be dead air between the main column and the site nav. */
+  grid-template-columns: 1fr 220px;
   gap: 10px;
   align-items: stretch;
 }
