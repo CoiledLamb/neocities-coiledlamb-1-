@@ -40,7 +40,7 @@ import {
 } from './data/packages.js';
 import { postActivity, shortPorterId } from './multiplayer.js';
 import { updatePorterStripBadges } from './recovery.js';
-import { addTrust } from './trust.js';
+import { addTrust, computeTrustGain, speakDelivery } from './trust.js';
 import { getNodeStage, setNodeStage } from './identification.js';
 import { sandalCap, renderBoots } from './boots.js';
 import { addLog } from './render/log.js';
@@ -276,10 +276,18 @@ export function tryDeliver(arrivedNodeId) {
     }
 
     if (NPC_DEFS[arrivedNodeId]) {
-      const gain = pkg.isLost ? C.TRUST_GAIN_LOST_DELIVERY : C.TRUST_GAIN_DELIVERY;
+      // v0.0.8.4: gain now routes through the per-NPC trustProfile
+      // dispatcher in trust.js. 'default' profile preserves legacy
+      // flat behavior; 'careful' (xi) and 'scavenger' (psi) reshape
+      // per pkg.size / pkg.modifier. Discovery trust stays flat (no
+      // pkg context) — see the separate addTrust call above.
+      const gain = computeTrustGain(pkg, arrivedNodeId);
       addTrust(arrivedNodeId, gain, pkg.isLost ? 'lost-delivery' : 'delivery');
     }
   });
+  // v0.0.8.4: NPC reacts to the delivery — one line per batch, picking
+  // the most interesting condition (lost > damaged > fragile > heavy > normal).
+  speakDelivery(arrivedNodeId, toDeliver);
   renderCourierStack();
   renderCargoSlots(true);
   if (S.inventory.length === 0) {

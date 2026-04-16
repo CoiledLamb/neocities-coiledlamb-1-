@@ -67,21 +67,24 @@ export const S = {
   },
 
   settlements: {
-    'A':        { label:'depot a',  tier:'waypoint', supply:65, rebuild:65, quote:'"a fire and four walls"'   },
-    'B':        { label:'depot b',  tier:'outpost',  supply:34, rebuild:34, quote:'"new roof going up"'       },
-    '?':        { label:'???',      tier:'unknown',  supply:5,  rebuild:5,  quote:'"signal detected west"'   },
-    'C':        { label:'ruins',    tier:'ruins',    supply:10, rebuild:8,  quote:'"danger. high trip risk."' },
-    'H':        { label:'home',     tier:'shelter',  supply:80, rebuild:70, quote:'"hot food. safe walls."'   },
-    '\u00b7':   { label:'waypoint', tier:'waypoint', supply:40, rebuild:30, quote:'"a painted stone marker"' },
+    // v0.0.8.4: ? now weather station (phi), C hosts xi, · hosts psi.
+    // Labels/tiers updated for stage-2/3 display through identification.js
+    // (stage 2 shows tier; stage 3 shows routeNodes.label).
+    'A':        { label:'depot a',         tier:'waypoint', supply:65, rebuild:65, quote:'"a fire and four walls"'         },
+    'B':        { label:'depot b',         tier:'outpost',  supply:34, rebuild:34, quote:'"new roof going up"'             },
+    '?':        { label:'weather station', tier:'station',  supply:5,  rebuild:5,  quote:'"barometers click in the wind"' },
+    'C':        { label:'ruins',           tier:'ruins',    supply:10, rebuild:8,  quote:'"someone digs through rubble"'  },
+    'H':        { label:'home',            tier:'shelter',  supply:80, rebuild:70, quote:'"hot food. safe walls."'         },
+    '\u00b7':   { label:'waypoint',        tier:'waypoint', supply:40, rebuild:30, quote:'"a painted stone, tended"'      },
   },
 
   routeNodes: [
-    { id:'A',       label:'depot a',  x:0, y:0 },
-    { id:'?',       label:'???',      x:0, y:0 },
-    { id:'B',       label:'depot b',  x:0, y:0 },
-    { id:'C',       label:'ruins',    x:0, y:0 },
-    { id:'H',       label:'home',     x:0, y:0 },
-    { id:'\u00b7',  label:'waypoint', x:0, y:0 },
+    { id:'A',       label:'depot a',         x:0, y:0 },
+    { id:'?',       label:'weather station', x:0, y:0 },
+    { id:'B',       label:'depot b',         x:0, y:0 },
+    { id:'C',       label:'ruins',           x:0, y:0 },
+    { id:'H',       label:'home',            x:0, y:0 },
+    { id:'\u00b7',  label:'waypoint',        x:0, y:0 },
   ],
   nodeStages: { 'A':3, '?':0, 'B':0, 'C':0, 'H':3, '\u00b7':0 },
   edges: [['A','?'],['?','B'],['B','C'],['C','H'],['H','\u00b7'],['\u00b7','A']],
@@ -96,9 +99,15 @@ export const S = {
   lastFeedTimestamp: 0,
 
   npcs: {
-    'A': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'B': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'H': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    // v0.0.8.4: six NPCs now. addTrust() auto-inits on first gain, but
+    // declaring up-front keeps state shape explicit and ensures the
+    // persistence ratchet covers everyone on first save without surprise.
+    'A':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'B':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'H':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '?':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'C':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '\u00b7': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
   },
 
   channels: [],
