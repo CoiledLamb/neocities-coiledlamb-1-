@@ -263,7 +263,11 @@ export function tryDeliver(arrivedNodeId) {
         addTrust(arrivedNodeId, C.TRUST_GAIN_DISCOVERY, 'discovery');
       }
     }
-    addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2</span>`);
+    // v0.0.8.5: compute trust gain before logging so we can surface it.
+    // Weight-scaled base (1 + floor(slots/2)) with profile multipliers.
+    const gain = NPC_DEFS[arrivedNodeId] ? computeTrustGain(pkg, arrivedNodeId) : 0;
+    const trustSuffix = gain > 0 ? ` +${Math.round(gain * 10) / 10} trust` : '';
+    addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2${trustSuffix}</span>`);
     postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
 
     if (pkg.isRecovery && pkg.recoveryFromPorter) {
@@ -275,13 +279,7 @@ export function tryDeliver(arrivedNodeId) {
       addLog(`<span class="log-ok">recovered</span> <span class="log-hi">${pkg.label}</span> \u2014 left by <span class="log-hi">${shortPorterId(pkg.recoveryFromPorter)}</span>`);
     }
 
-    if (NPC_DEFS[arrivedNodeId]) {
-      // v0.0.8.4: gain now routes through the per-NPC trustProfile
-      // dispatcher in trust.js. 'default' profile preserves legacy
-      // flat behavior; 'careful' (xi) and 'scavenger' (psi) reshape
-      // per pkg.size / pkg.modifier. Discovery trust stays flat (no
-      // pkg context) — see the separate addTrust call above.
-      const gain = computeTrustGain(pkg, arrivedNodeId);
+    if (gain > 0) {
       addTrust(arrivedNodeId, gain, pkg.isLost ? 'lost-delivery' : 'delivery');
     }
   });

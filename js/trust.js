@@ -81,16 +81,18 @@ export function getNpc(depotId) {
 }
 
 // v0.0.8.4: per-NPC trust gain dispatcher. NPC_DEFS[depotId].trustProfile
-// selects the branch. 'default' is the flat legacy behavior; 'careful' (xi)
-// halves gain on normal pkgs but pays full for fragile or xl; 'scavenger'
-// (psi) doubles on s pkgs, normal on m, halves on l/xl. Discovery trust stays
-// flat (TRUST_GAIN_DISCOVERY) and does not flow through this helper since it
-// has no pkg context — see main.js/packages.js discovery call sites.
-// v0.0.8.5 will reshape the 'default' base to weight-scaled (1 + floor(slots/2)).
+// selects the branch. 'careful' (xi) halves gain on non-fragile/non-xl;
+// 'scavenger' (psi) doubles on s, normal on m, halves on l/xl. Discovery
+// trust stays flat (TRUST_GAIN_DISCOVERY) — no pkg context.
+//
+// v0.0.8.5: base is now weight-scaled: 1 + floor(pkg.slots / 2).
+//   s(1 slot) → +1, m(2) → +2, l(4) → +3, xl(8) → +5.
+//   Lost/recovery adds TRUST_GAIN_LOST_BONUS (+1) on top.
+//   Profile multipliers apply after the base.
 export function computeTrustGain(pkg, depotId) {
   const def = NPC_DEFS[depotId];
   const profile = (def && def.trustProfile) || 'default';
-  const base = pkg.isLost ? C.TRUST_GAIN_LOST_DELIVERY : C.TRUST_GAIN_DELIVERY;
+  const base = 1 + Math.floor(pkg.slots / 2) + (pkg.isLost ? C.TRUST_GAIN_LOST_BONUS : 0);
   if (profile === 'scavenger') {
     if (pkg.size === 's') return base * 2;
     if (pkg.size === 'm') return base;

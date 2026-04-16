@@ -96,10 +96,11 @@ export const RECOVERY_POLL_INTERVAL = 85;   // ticks between recovery spawn atte
 export const KNOWN_PEERS_CAP        = 10;   // FIFO cap on tracked peer porter IDs
 
 // ----- trust / NPC gains (v0.0.7 commits 4a/4b, realigned in commit A) -----
+// v0.0.8.5: delivery trust is now weight-scaled (1 + floor(pkg.slots/2)) in
+// computeTrustGain(). TRUST_GAIN_DELIVERY / TRUST_GAIN_LOST_DELIVERY removed.
 export const TRUST_THRESHOLDS       = [20, 40, 60, 80];
-export const TRUST_GAIN_DELIVERY      = 1;
-export const TRUST_GAIN_LOST_DELIVERY = 2;
-export const TRUST_GAIN_DISCOVERY     = 3;
+export const TRUST_GAIN_LOST_BONUS  = 1;    // added on top of weight-scaled base for lost/recovery pkgs
+export const TRUST_GAIN_DISCOVERY   = 3;    // flat, no pkg context
 
 // ----- channels / chatter (v0.0.7 commit 4b) -----
 export const CHANNELS_DISPLAY_CAP       = 6;
