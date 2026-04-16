@@ -1,5 +1,5 @@
 # coiledlamb.neocities.org — handoff doc
-_last updated: 2026-04-13_
+_last updated: 2026-04-16 (site-wide scrollbar palette + nav-offset double-wrap fix during TLH v0.0.9.2)_
 
 ---
 
@@ -153,6 +153,19 @@ Hotlink to Line of Action with user's usual settings — need URL from user.
 ## session log (site-wide)
 
 > **TLH-specific session entries live in `TLH-HANDOFF.md`.** This log records non-game work only.
+
+### 2026-04-16
+
+**site-wide scrollbar palette** (`nav.css`)
+- Added custom scrollbar styling at the top of `nav.css` (loaded on every page with the sidebar). Uses both the Firefox standard `scrollbar-color` / `scrollbar-width` and the webkit `::-webkit-scrollbar*` pseudo-elements.
+- Track: `#0b2e2d` (matches nav sidebar bg). Thumb: `#1e5554`, hovers to `#2a5c5a`, brightens to `#40a4b9` while dragged. 10 px wide.
+- Scoped to the universal selector `*` so nested scrollable panels (dispatch log, settlements, chan/net panels, etc.) inherit the treatment.
+
+**nav-offset double-wrap bug fix** (the-long-haul.html)
+- `nav.js` automatically injects an outer `<div class="nav-offset">` around the whole site when it renders the sidebar. The class applies `margin-left: 180px` to clear the fixed sidebar.
+- `the-long-haul.html` was ALSO hardcoding `<div class="nav-offset">` around `.tlh-page`, so the offset stacked — game content sat at `x = 360` instead of `x = 180`, leaving ~180 px of dead page-colored teal between the nav and the game shell.
+- Fix: removed the hardcoded inner wrapper. `.tlh-page` is now a direct child of `#site`.
+- **Site-wide note:** any other page that hand-wraps its content in `.nav-offset` will hit the same double-apply. `nav.js` handles it; HTML shouldn't duplicate. None of the other current pages (`about.html`, `artwork-calendar.html`, `blog.html`, `figures.html`, `hands.html`, `index.html`, `nsfw.html`, `oilslick-lab.html`, `toys.html`) were checked inside this session — worth a quick audit if any of them ever showed symptoms.
 
 ### 2026-04-12
 

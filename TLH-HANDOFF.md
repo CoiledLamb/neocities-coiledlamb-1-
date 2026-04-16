@@ -1,13 +1,18 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-16 (v0.0.8.8 shipped; v0.0.8 arc complete. v0.0.9.1 spec locked after a mockup pass; implementation plan captured in [v0.0.9.1 implementation plan](#v0091-implementation-plan), correcting the primer's color-ramp framing to a layered CSS gradient + sun-anchored radial glow. Ready to code.)_
+_last updated: 2026-04-16 (v0.0.9.1 + v0.0.9.2 both shipped. Day/night cycle on the play area + route-map panel converted to a 2D plane + typewriter settlement emergence. Next up: v0.0.9.3 — shortcut travel through the interior.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.8.8 shipped; v0.0.9.1 spec locked, ready to implement
+## ✅ CURRENT STATE: v0.0.9.2 shipped; v0.0.9.3 queued
 
-Game is at `v0.0.8.8` on `main`. All three v0.0.8 mechanical threads shipped: packages (.1–.3), trust (.4–.6), weather/rain rework via spatial storms (.7), plus a bug audit + mobile compatibility pass (.8). v0.0.9 planning is captured in the [thread primer below](#v009-thread-primer-queued-after-v008-rain-rework); **v0.0.9.1** has a detailed implementation plan in [v0.0.9.1 implementation plan](#v0091-implementation-plan) — day/night cycle on the play area with a layered cool-base + sun-anchored warm-radial sky, worked out through an interactive mockup before writing any game code.
+Game is at `v0.0.9.2` on the `claude/stoic-jepsen` branch (unmerged as of this update). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 opened with:
+
+- **v0.0.9.1 — day/night cycle.** Side-view play-area strip gets a sky layer: sun arcs by day, moon with phases by night, stars flicker between. Backdrop paints as a layered gradient (cool vertical base + sun-anchored warm radial at sunrise/sunset). Real-scale sun + moon (eclipse-ready). See [v0.0.9.1 implementation plan](#v0091-implementation-plan).
+- **v0.0.9.2 — route-map panel → 2D plane.** Abstract 6-node ring became a square 2D plane with the ring drawn as a solid line and the interior textured (dim dots inside the ring polygon). Node glyphs `?` → φ and `·` → ψ to match the v0.0.8.4 identity patch. Typewriter settlement-emergence reveal when a node crosses stage-2 → stage-3. Right column widened to 320px; network + channels placed side-by-side below the route map. See [v0.0.9.2 implementation plan](#v0092-implementation-plan).
+
+The side-view play area + sky from v0.0.9.1 were untouched in v0.0.9.2 — the gameplay camera stays the 1-row strip; the 2D work lives entirely in the route-map panel.
 
 **v0.0.8 scope redefinition (historical note):** the handoff previously framed v0.0.8 as terrain expansion (deserts, rivers, slopes). User rescoped it around **three mechanical-depth threads**: packages, trust, rain. All three shipped. Terrain moved to v0.0.9 and is now the lead thread there.
 
@@ -36,7 +41,7 @@ Game is at `v0.0.8.8` on `main`. All three v0.0.8 mechanical threads shipped: pa
 18. ✅ **v0.0.8.7 — weather rework**: spatial storms as travelling world objects, dual-gaussian isobar minimap, intensity zones, weather radio tiering (L1 storm prediction, L2 map unlock). Rain thread complete.
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
-**Resume next session**: v0.0.9.1 plan is locked (see [v0.0.9.1 implementation plan](#v0091-implementation-plan)). Ready to implement: new `js/render/sky.js` module, wire into the tick loop, palette additions (O/B/b) to the stylesheet, subtitle bump. Mockup at [tlh-daynight-mockup.html](tlh-daynight-mockup.html) is the visual reference — keep it around through implementation so the two can be compared side by side.
+**Resume next session**: v0.0.9.2 is shipped on the branch. Next patch is **v0.0.9.3 — shortcut travel**: clicking a non-adjacent node on the 2D route-map routes the courier through the interior instead of along the ring. Interior paths become a thing, which means trail-visual design lands here (a recent-path line fading behind the courier dot). See the [v0.0.9 sequencing](#sequencing) for the full queue after .3.
 
 ## planned but not built (as of v0.0.8.3)
 
@@ -359,72 +364,58 @@ Subtitle bump rule (per feedback memory): the patch version in [the-long-haul.ht
 
 ## v0.0.9.2 implementation plan
 
-Locked 2026-04-16 after a mockup pass at [tlh-routemap-mockup.html](tlh-routemap-mockup.html). Same workflow as .1 — mockup resolved the visual direction before code. Keep the mockup alongside the shipping code for parity.
+Shipped 2026-04-16 across a batch of small commits (see `git log` between `0852f8d` and `d576e43`). Planned via an interactive mockup pass at [tlh-routemap-mockup.html](tlh-routemap-mockup.html), then iterated in-browser through visual feedback. Several decisions shifted from the original plan during that iteration — captured below alongside what actually shipped.
 
 ### thesis
 
-The **route-map panel** (currently a small 6-node SVG ring) becomes a 2D plane. The ring stays canonical — it becomes the road laid on that plane. Interior of the ring is visible as "crossable space" via a dotted placeholder texture. The side-view play area (`.tlh-viewport` where the courier `@` walks with its sky layer from v0.0.9.1) is **not touched**.
+The **route-map panel** (previously a small 6-node SVG ring) became a 2D plane. The ring stays canonical — it's now a solid road laid on that plane. Interior of the ring is visible as "crossable space" via a dotted placeholder texture. The side-view play area (`.tlh-viewport` where `@` walks with its sky layer from v0.0.9.1) was not touched.
 
-### mockup-established direction
+### what shipped
 
-- **Flat plane** — no landmass fill, no void distinction, no panel border. Panel's `--tlh-k` bg shows through uniformly.
-- **Texture delineates crossable space** — dim `.` / `,` / `·` glyphs populate *only* the interior of the ring polygon (point-in-polygon). Outside the ring = empty plane = reads as uncrossable without needing a drawn boundary. Decouples "is this land" from a literal wall.
-- **Ring as solid-line road** — dashed stroke removed, replaced with a solid line ~1.5 wide. Literal ASCII road glyphs (`=` bands, etc.) land in the later structures patch; .2 ships the solid line as interim.
-- **Node glyphs refreshed**: `?` → **φ** (phi, weather station NPC); `·` → **ψ** (psi, orphan-scavenger NPC). α/β/γ/η unchanged. Matches the identity patch from v0.0.8.4.
-- **Courier on 2D map** — unchanged dot moving along the ring road (interpolated edge + dotT). No trail yet; trail design lands with v0.0.9.3's shortcut travel.
-- **Panel expansion** — viewBox grows from ~110×220 → ~280×280 (roughly square). No scroll/pan yet; that waits until the plane expands beyond a single visible area.
-- **Rim node layout** — existing 6 nodes spread around the expanded rim at roughly hexagonal positions. Final rounded-square rim with 4 corner NPCs waits for the world-map regen pass (→ v0.0.9.7).
+- **Flat plane** — no landmass fill, no void distinction, no panel border. Panel's `--tlh-k` bg shows through uniformly. First mockup pass tried a soft landmass fill; user called it "constraining," and the flat plane reads more open.
+- **Texture delineates crossable space** — dim `.` / `,` / `·` glyphs populate *only* the interior of the ring polygon (point-in-polygon test against current node positions). Absence of texture outside reads as "uncrossable" without needing a drawn boundary. Re-generated procedurally per session (session-scoped RNG seeded at 9111).
+- **Ring as solid-line road** — dashed stroke removed, replaced with a solid line, stroke-width 1.5, stroke-linecap round. Literal ASCII road glyphs land in the later structures patch.
+- **Node glyphs refreshed**: `?` → **φ** (phi, weather station NPC); `·` → **ψ** (psi, orphan-scavenger NPC). α / β / γ / η unchanged. Matches the v0.0.8.4 identity patch.
+- **Courier on 2D map** — dot moving along the ring road (interpolated edge + dotT, radius bumped from 3 → 4.5 for readability). No trail yet; trail design lands with v0.0.9.3.
+- **Panel shape** — viewBox **400×400 square** (shifted from the plan's ~280×280 sketch and an in-between 400×240 landscape attempt, both of which got vetoed during iteration). Aspect-ratio 1/1. Right column widened 140 → 320 px over several tunings.
+- **Hexagonal node layout** — all nodes pulled inward from viewBox edges (max x = 310, min x = 90) so the longest settlement label ("weather station") wouldn't risk clipping the panel edge. Centroid `RING_CX / RING_CY = (200, 200)`.
+- **Label placement shipped differently than planned** — first tried radial-from-centroid (labels extending away from ring center). Tested OK with short labels but "weather station" at 15 chars still overflowed on the right edge even at x=310. Shipped final: labels stack **vertically above (upper-half nodes) or below (lower-half nodes)**, centered on node x. Length-independent — any label fits regardless of width.
+- **Readability pass** — node radius 5 → 8 (current-edge 7 → 10), glyph font 8 → 13, label font 7 → 11. All tuned for the 302×302 rendered display.
+- **Right-column reflow** — network + channels wrapped in a new `.tlh-info-row` flex container and placed side-by-side under the route map instead of stacking vertically. Order: **channels then network** (left to right). Each panel `flex: 1 1 0; min-width: 0` so narrow content wraps cleanly. `.chan-text` clamps at 3 lines (webkit line-clamp + ellipsis) so long NPC chatter doesn't balloon panel height. `.net-silent-btn` got `flex-shrink: 0` + nowrap + tighter padding so the online/offline toggle doesn't overflow.
+- **Typewriter settlement emergence** — when `setNodeStage(id, 3)` fires, main.js calls `startEmergence(id)` which pushes an entry into `S._transient.emergingSettlements` (Map, not persisted). [settlements.js](js/render/settlements.js) reads that map each render and if a settlement is mid-reveal, shows partial name + blinking caret + subtitle "revealing" instead of the final form. Chars advance at 1 per game tick (~350ms). Main.js tick calls `renderSettlements()` every tick while `hasActiveEmergence()` so the animation drives visibly. Self-clears when complete.
+- **Storm renderer generalization** — reused existing `cellToSvg()` mapping; with the new node layout, storms automatically render against the 2D plane. Sigma scale bumped from 0.35 / 0.40 → **0.60 / 0.68** for the wider viewBox; `traceContour` march radius 80 → 130 so outer contours don't clip on heavy storms. Full 2D storm physics (free XY drift away from the ring) stays deferred — needs new storm fields + rewrite of `intensityAtCell`.
 
-### storm renderer — generalization bundled with .2
+### site-level changes that landed alongside
 
-Reuses the existing [weather.js](js/weather.js) storm data (cell-indexed primaryCell/secondaryCell, dual-gaussian isobars) and the existing [route-map.js](js/render/route-map.js) `renderStorms()` which already maps cells → SVG via `cellToSvg()`. With the new node layout, `cellToSvg()` automatically produces new xy coords and storms render against the new 2D plane — **no storm data model refactor required**. Likely needs minor tuning of sigma scale (storms sized for 110-wide viewBox may read small at 280-wide) and the march radius limit.
-
-Full 2D storm physics (free XY drift away from the ring) is a future patch — needs new storm fields (x, y, velocity) and a rewrite of intensityAtCell. Out of scope for .2.
-
-### shelter-emergence polish
-
-Lands here per primer intent. When a settlement goes stage-2 ("unconfirmed") → stage-3 (confirmed, triggered by arriving at the node), the settlements side panel reveals the final name via a **typewriter animation** character-by-character, replacing the italic placeholder.
-
-Implementation shape:
-- New transient state: `S._transient.emergingSettlements = Map<nodeId, { chars, startTick }>`. Not persisted.
-- Trigger: main.js already calls `setNodeStage(arrivedAt, 3)` on arrival. Add a hook right after the stage change that pushes an emergence entry.
-- Render: [js/render/settlements.js](js/render/settlements.js) checks the map each call — if an entry exists for a settlement, render partial name + blinking caret; advance chars based on elapsed ticks; remove from map when complete.
-- Rate: ~1 char per tick feels right (350ms × N chars = ~2-4s for typical names).
-
-### scope — what ships in v0.0.9.2
-
-- [js/render/route-map.js](js/render/route-map.js) — new viewBox / node layout, solid ring, node glyph mapping (φ/ψ), new `drawInterior()` that plots dim texture only inside the ring polygon (point-in-polygon), storm sigma / march-radius tuning
-- [js/render/settlements.js](js/render/settlements.js) — typewriter emergence reveal
-- [js/state.js](js/state.js) — `S._transient.emergingSettlements` field
-- [js/main.js](js/main.js) — trigger emergence entry on stage-3 transitions
-- [the-long-haul.html](the-long-haul.html) — `#routeSvg` height attribute + subtitle bump to v0.0.9.2
-- [the-long-haul.css](the-long-haul.css) — `#routeSvg` height at relevant breakpoints + any emergence caret styling
-- No save-schema bump (all new state is `_transient`)
+Captured separately in [HANDOFF.md](HANDOFF.md) to keep this doc game-focused. Summary:
+- Site-wide custom scrollbar styling in [nav.css](nav.css) (teal palette).
+- [the-long-haul.html](the-long-haul.html) `<div class="nav-offset">` wrapper removed — `nav.js` auto-wraps the site in one already, the hardcoded one was double-applying `margin-left: 180px` and leaving ~180 px of dead air left of the game. Site-level concern; any other page hardcoding `.nav-offset` would hit the same bug.
 
 ### scope — explicitly deferred
 
-- Literal ASCII road glyphs on the ring — lands with a future "structures" patch
-- Real terrain types (rivers / mountain massifs / rocky hills / desert) — v0.0.9.5
-- Terrain depth/height visualization — beyond .5 (or its own pass)
-- Click-across-ring shortcut travel — v0.0.9.3
-- Interior trails (save-stored, multiplayer-synced) — v0.0.9.6
-- Rounded-square rim with 4 corner NPCs — v0.0.9.7 (world-map regen pass)
-- Full 2D storm physics (free XY drift) — future patch after .2
+- Literal ASCII road glyphs on the ring → future "structures" patch.
+- Real terrain types (rivers / mountain massifs / rocky hills / desert) → v0.0.9.5.
+- Terrain depth/height visualization → later than .5, or its own pass.
+- Click-across-ring shortcut travel → v0.0.9.3.
+- Interior trails (save-stored, multiplayer-synced) → v0.0.9.6.
+- Rounded-square rim with 4 corner NPCs → v0.0.9.7 (world-map regen).
+- Full 2D storm physics (free XY drift) → future patch after .2.
+- Expandable isobar legend bar in the route-panel — currently feels cramped at the new route-map size. Revisit alongside the storm/weather rework.
 
-### follow-ups to watch for in-code
+### follow-ups recorded for future work
 
-- **Storm sigma tuning** — watch for storms reading too small in the new larger viewBox; bump scale factor if needed.
-- **Storm march radius** — `r < 80` limit in `traceContour` may cut off wider storms on the bigger canvas; consider bumping to ~130.
-- **Emergence caret** — needs a blink animation class; simple CSS keyframe.
+- **Trust reward delivery via shop, not auto-grant.** Current `onTrustUnlock()` in [trust.js](js/trust.js) auto-sets `S.upgrades[def.id] = true` and runs `def.apply()` the instant a trust threshold crosses. User's preferred model: tier unlocks should *list the upgrade in the shop* for the player to claim, with unique NPC flavor lines per reward. Gives the moment weight and makes the NPC narratively present. Worth a memory entry so future patches touching trust-reward paths default to the shop shape.
 
-### commit sequence (tentative)
+### files touched (what actually got written)
 
-Probably one commit — changes are surgically scoped:
-1. subtitle bump + html/css adjustments
-2. route-map.js rework (viewBox, layout, glyphs, ring style, interior texture, storm tuning)
-3. settlements.js + state.js + main.js (typewriter emergence)
-
-Subtitle bump rule: bump to `v0.0.9.2` in the-long-haul.html subtitle, not just the commit message.
+- [js/render/route-map.js](js/render/route-map.js) — full visual pass
+- [js/render/settlements.js](js/render/settlements.js) — `startEmergence`, `hasActiveEmergence`, typewriter logic
+- [js/state.js](js/state.js) — `emergingSettlements: new Map()` added to `_transient`
+- [js/main.js](js/main.js) — `startEmergence(arrivedAt)` after stage-3 transition; per-tick render-drive of emergence; viewport/skySvg in `resolveEls`
+- [the-long-haul.html](the-long-haul.html) — `#routeSvg` viewBox + aspect-ratio, subtitle `v0.0.9.1 → v0.0.9.2`, info-row wrapping (channels before network), nav-offset removal
+- [the-long-haul.css](the-long-haul.css) — `.tlh-layout` column sizing, `.tlh-info-row` flex, `.settle-emerging` + `.settle-caret` + blink keyframe, `.net-silent-btn` tightening, `.net-ptitle > span` ellipsis, `.chan-text` 3-line clamp
+- [tlh-routemap-mockup.html](tlh-routemap-mockup.html) — visual reference mockup, kept in-repo alongside `tlh-daynight-mockup.html`
+- No save-schema bump
 
 ---
 
