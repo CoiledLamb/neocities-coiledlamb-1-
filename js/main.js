@@ -117,6 +117,7 @@ import {
 } from './render/route-map.js';
 import { renderSettlements } from './render/settlements.js';
 import { renderNetwork } from './render/network.js';
+import { initSky, renderSky } from './render/sky.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -164,6 +165,8 @@ function resolveEls() {
     courierWrap:  $('courierWrap'),
     courierAt:    $('courierAt'),
     courierStack: $('courierStack'),
+    viewport:     $('viewport'),
+    skySvg:       $('skySvg'),
     fieldstrip:   $('fieldstrip'),
     rainOverlay:  $('rainOverlay'),
     destDrift:    $('destDrift'),
@@ -209,6 +212,10 @@ function resolveEls() {
 // ============================================================
 function tick() {
   S.ticks++;
+
+  // v0.0.9.1 — sky layer renders every tick regardless of game state
+  // (trips, rests, walking). Purely visual, no state mutation.
+  renderSky();
 
   if (S.tripTimer>0) {
     S.tripTimer--;
@@ -376,6 +383,11 @@ function init() {
   // up the overlay based on whether any storms are already active.
   buildWeatherOverlay();
   initWeather();
+
+  // v0.0.9.1 — sky layer init (day/night cycle on the play-area strip).
+  // Creates sun/moon/star SVG children inside #skySvg. Phase derives
+  // from S.ticks so no separate schema hook is needed.
+  initSky();
   layoutRouteNodes(); drawRouteMap(); updateDestDrift();
   Upg.renderUpgrades(); renderSettlements(); renderNetwork();
   renderChannels();

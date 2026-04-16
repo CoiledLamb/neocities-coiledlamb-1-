@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tlh — day/night mockup (v0.0.9.1)</title>
+<style>
+  :root {
+    /* extended palette */
+    --tlh-C: #77bfcf;   /* cyan */
+    --tlh-c: #40a4b9;   /* dark cyan/teal */
+    --tlh-B: #0096ff;   /* blue/azure */
+    --tlh-b: #0048bd;   /* dark blue */
+    --tlh-K: #155352;   /* main bg (current) */
+    --tlh-k: #0f3b3a;   /* deeper bg */
+    --tlh-y: #b1c9c3;   /* grey (current fg) */
+    --tlh-Y: #ffffff;   /* white */
+
+    /* warm palette additions (new for sunrise/sunset) */
+    --tlh-O: #e99f10;   /* orange */
+    --tlh-m: #b154cf;   /* dark magenta */
+    --tlh-M: #da5bd6;   /* magenta */
+
+    /* existing game colors */
+    --tlh-viewport-bg: #081f1e;  /* play-area backdrop (stays) */
+
+    --tlh-daylight: 0;
+  }
+  html, body {
+    margin: 0;
+    background: var(--tlh-K);
+    color: var(--tlh-y);
+    font-family: 'Source Code Pro', ui-monospace, monospace;
+    font-weight: 600;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 780px;
+    margin: 24px auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  h1 {
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    text-transform: lowercase;
+    margin: 0;
+    opacity: 0.7;
+  }
+  h1 .v { color: var(--tlh-c); }
+
+  /* === Play area (mirrors .tlh-viewport from the-long-haul.css) === */
+  .tlh-viewport {
+    height: 110px;
+    background: var(--tlh-viewport-bg);
+    overflow: hidden;
+    position: relative;
+    border-bottom: 1px solid #1e5554;
+    flex-shrink: 0;
+  }
+
+  /* Sky layer — absolute, covers upper region of viewport */
+  .sky {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .sky svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Fieldstrip (ground) — same as game */
+  .tlh-fieldstrip {
+    display: flex;
+    align-items: flex-end;
+    height: 100%;
+    white-space: nowrap;
+    font-size: 12px;
+    line-height: 1;
+    width: max-content;
+    padding-bottom: 8px;
+    padding-left: 4px;
+    position: relative;
+    z-index: 1;
+    color: #2a5c5a;
+    letter-spacing: 0.3em;
+  }
+
+  .tlh-courier {
+    position: absolute;
+    left: 70px;
+    bottom: 8px;
+    z-index: 10;
+    text-align: center;
+  }
+  .tlh-at {
+    font-size: 16px;
+    font-weight: 700;
+    color: #e0eeec;
+    line-height: 1;
+    animation: bounce 0.4s steps(1) infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-1px); }
+  }
+
+  /* === Controls === */
+  .ctrls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border: 1px dashed #1e5554;
+    border-radius: 2px;
+    font-size: 11px;
+    background: var(--tlh-k);
+  }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .row label { opacity: 0.7; min-width: 64px; }
+  input[type=range] { flex: 1; accent-color: var(--tlh-c); }
+  button {
+    background: transparent;
+    color: var(--tlh-y);
+    border: 1px solid #1e5554;
+    padding: 4px 10px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+  }
+  button:hover { border-color: var(--tlh-c); color: var(--tlh-C); }
+  button.on { color: var(--tlh-C); border-color: var(--tlh-c); }
+  .readout {
+    font-size: 11px;
+    opacity: 0.75;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 10px;
+    row-gap: 2px;
+  }
+  .readout span:nth-child(odd) { opacity: 0.55; }
+  .readout .phase { color: var(--tlh-C); }
+
+  .palette {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 10px;
+    opacity: 0.7;
+  }
+  .swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid #1e5554;
+    padding: 2px 6px;
+  }
+  .swatch i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 1px solid #0b2a29;
+  }
+
+  .notes {
+    font-size: 11px;
+    line-height: 1.55;
+    opacity: 0.72;
+  }
+  .notes code {
+    color: var(--tlh-C);
+    background: var(--tlh-k);
+    padding: 0 4px;
+  }
+  .notes strong { color: var(--tlh-y); opacity: 0.95; }
+
+  /* Labels that float over the viewport to help orient */
+  .vp-label {
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    font-size: 9px;
+    color: #2a5c5a;
+    letter-spacing: 0.1em;
+    z-index: 5;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>tlh — day/night mockup <span class="v">v0.0.9.1 draft</span> · <span style="opacity:0.6">play area / side-view strip</span></h1>
+
+  <div class="palette">
+    <span class="swatch"><i style="background:#77bfcf"></i>C cyan</span>
+    <span class="swatch"><i style="background:#40a4b9"></i>c dk-cyan</span>
+    <span class="swatch"><i style="background:#0096ff"></i>B azure</span>
+    <span class="swatch"><i style="background:#0048bd"></i>b dk-blue</span>
+    <span class="swatch"><i style="background:#155352"></i>K bg</span>
+    <span class="swatch"><i style="background:#0f3b3a"></i>k deep</span>
+    <span class="swatch"><i style="background:#b1c9c3"></i>y grey</span>
+    <span class="swatch"><i style="background:#ffffff"></i>Y white</span>
+    <span class="swatch"><i style="background:#e99f10"></i>O orange</span>
+    <span class="swatch"><i style="background:#b154cf"></i>m dk-mag</span>
+    <span class="swatch"><i style="background:#da5bd6"></i>M magenta</span>
+  </div>
+
+  <!-- The play area: mirrors the real .tlh-viewport markup/styling -->
+  <div class="tlh-viewport" id="viewport">
+    <span class="vp-label">// play area — 110px</span>
+
+    <!-- Sky layer (behind everything) -->
+    <div class="sky" id="sky">
+      <svg id="skySvg" viewBox="0 0 800 110" preserveAspectRatio="none">
+        <g id="stars"></g>
+        <g id="celestial"></g>
+      </svg>
+    </div>
+
+    <!-- Ground strip (same as real game) -->
+    <div class="tlh-fieldstrip" id="fieldstrip">. . , . . , ; . . , . - . . , ; . - . . , . . ; . , . - . . , . - . ; . . , . - . , . . ; . - . , . . , . - . ; . . , . - . .</div>
+
+    <!-- Courier -->
+    <div class="tlh-courier">
+      <div class="tlh-at">@</div>
+    </div>
+  </div>
+
+  <div class="ctrls">
+    <div class="row">
+      <label for="scrub">day phase</label>
+      <input id="scrub" type="range" min="0" max="3000" step="1" value="0"/>
+    </div>
+    <div class="row">
+      <button id="playBtn">▶ play</button>
+      <label for="speed">speed</label>
+      <input id="speed" type="range" min="1" max="200" step="1" value="60" style="max-width:160px"/>
+      <span id="speedOut" style="opacity:0.6">×60</span>
+      <button id="moonCycleBtn" class="on">moon phases: 7-day cycle</button>
+      <button id="bgToggleBtn" class="on">backdrop ramp: on</button>
+      <button id="warmToggleBtn" class="on">warm sunrise/sunset: on</button>
+    </div>
+    <div class="readout">
+      <span>tick</span><span><span id="tickOut">0</span> / 3000</span>
+      <span>daylight</span><span><span id="daylightOut">0.00</span> (<code>--tlh-daylight</code>)</span>
+      <span>phase</span><span class="phase" id="phaseOut">dawn</span>
+      <span>moon</span><span id="moonOut">—</span>
+    </div>
+  </div>
+
+  <div class="notes">
+    <p><strong>What you're seeing:</strong> the <code>.tlh-viewport</code> play area — side-view strip where the courier <code>@</code> lives. Backdrop <em>now ramps</em> with the day/night phase (toggle off to compare to static). Sun + moon are <em>the same radius</em> (real-scale — sets up future eclipses). Stars have calmer flicker, ~40% steady.</p>
+    <p><strong>Arc model:</strong> sun travels 0→1500 (left edge → peak → right edge), moon travels 1500→3000 same shape. Below its arc window the body is below the strip's lower bound → invisible.</p>
+    <p><strong>Layered gradient:</strong> cool vertical base (night → day, with <code>b</code>-blue-hour mix at dawn/dusk transitions) always covers the full strip. <em>On top</em>, during sunrise/sunset, a <strong>radial warm glow</strong> anchored at the sun's horizon x — orange hottest at the sun → pink halo → magenta fringe → transparent. The side of the sky opposite the sun stays cool. Glow follows sun: left at sunrise, right at sunset.</p>
+    <p><strong>Warm window</strong> peaks while the sun is visibly low (tick ~80 sunrise, ~1435 sunset). Sunrise + sunset curves are separate — can be tuned independently.</p>
+    <p><strong>Deferred:</strong> route-map sky glyph, storm/rain interaction with sky (rain currently renders over a clear sky — revisit during weather rework), full warm-sunset palette, ground-strip terrain variety, destination-drift cleanup, scene backdrops.</p>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const scrub = $('scrub');
+  const playBtn = $('playBtn');
+  const speedEl = $('speed');
+  const speedOut = $('speedOut');
+  const tickOut = $('tickOut');
+  const daylightOut = $('daylightOut');
+  const phaseOut = $('phaseOut');
+  const moonOut = $('moonOut');
+  const moonCycleBtn = $('moonCycleBtn');
+
+  const skySvg = $('skySvg');
+  const starsG = $('stars');
+  const celestialG = $('celestial');
+
+  // SVG viewBox: 800 wide × 110 tall, maps to the viewport element's actual pixel size
+  const W = 800, H = 110;
+  const TICKS_PER_DAY = 3000;
+  let MOON_CYCLE_DAYS = 7;
+  const MOON_OPTIONS = [4, 7, 12];
+
+  // ----- stars -----
+  const NUM_STARS = 14;
+  const stars = [];
+  let seed = 4242;
+  const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+
+  // Place stars in the upper ~65% of the strip (above the ground line)
+  for (let i = 0; i < NUM_STARS; i++) {
+    const st = {
+      x:  10 + rand() * (W - 20),
+      y:  6 + rand() * (H * 0.60),
+      baseR: 0.6 + rand() * 0.8,
+      flickerPhase: rand() * Math.PI * 2,
+      flickerSpeed: 0.3 + rand() * 0.5, // calmer range
+      bright: rand() > 0.55,
+      driftSpeed: 0.25 + rand() * 0.35,
+      // Some stars don't flicker at all (steady light)
+      steady: rand() > 0.6,
+    };
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    el.setAttribute('cx', st.x);
+    el.setAttribute('cy', st.y);
+    el.setAttribute('r', st.baseR);
+    el.setAttribute('fill', st.bright ? '#ffffff' : '#b1c9c3');
+    el.setAttribute('opacity', '0');
+    st.el = el;
+    stars.push(st);
+    starsG.appendChild(el);
+  }
+
+  // ----- celestial bodies -----
+  // Real-scale: sun and moon same radius (eclipses become possible later)
+  const BODY_R = 4.5;
+  const sunEl = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  sunEl.setAttribute('r', BODY_R);
+  sunEl.setAttribute('fill', '#ffffff');   // Y
+  celestialG.appendChild(sunEl);
+
+  const moonDisc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  moonDisc.setAttribute('r', BODY_R);
+  moonDisc.setAttribute('fill', '#b1c9c3'); // y
+  celestialG.appendChild(moonDisc);
+
+  const moonShadow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  moonShadow.setAttribute('r', BODY_R);
+  // shadow fill tracks backdrop color so the crescent always carves clean
+  moonShadow.setAttribute('fill', '#081f1e');
+  celestialG.appendChild(moonShadow);
+
+  // ----- phase math -----
+  function phaseName(t) {
+    const f = t / TICKS_PER_DAY;
+    if (f < 0.04) return 'dawn';
+    if (f < 0.42) return 'day';
+    if (f < 0.54) return 'dusk';
+    return 'night';
+  }
+
+  function daylight(t) {
+    const f = t / TICKS_PER_DAY;
+    if (f < 0.02 || f > 0.52) return 0;
+    const s = (f - 0.02) / 0.5;
+    return Math.sin(s * Math.PI);
+  }
+
+  // Parabolic arc from left edge to right edge of the strip
+  // yTop = peak (highest in SVG = lowest Y); yBot = below the strip bottom
+  function arcPos(frac, xPad = 20, yTop = 14, yBot = H + 6) {
+    const x = xPad + frac * (W - 2 * xPad);
+    const arc = 1 - Math.sin(frac * Math.PI);
+    const y = yTop + arc * (yBot - yTop);
+    return { x, y };
+  }
+
+  function getMoonPhase(dayIdx) {
+    return (dayIdx % MOON_CYCLE_DAYS) / MOON_CYCLE_DAYS;
+  }
+
+  function moonPhaseLabel(p) {
+    if (p < 0.03 || p > 0.97) return 'new moon';
+    if (p < 0.22) return 'waxing crescent';
+    if (p < 0.28) return 'first quarter';
+    if (p < 0.47) return 'waxing gibbous';
+    if (p < 0.53) return 'full moon';
+    if (p < 0.72) return 'waning gibbous';
+    if (p < 0.78) return 'last quarter';
+    return 'waning crescent';
+  }
+
+  // ----- backdrop gradient ramp -----
+  // Four vertical stops (top → upper → lower → bottom). Each phase has its own
+  // stop set; final sky = per-stop blend of keyframes based on phase signals.
+  //
+  // Stop colors derived from palette:
+  //   m  #b154cf  →  darkened for top sky
+  //   M  #da5bd6  →  upper-mid pink band
+  //   O  #e99f10  →  middle warm glow
+  //   b  #0048bd  →  cool blue hour base
+  //   K  #155352, bg #081f1e — darks
+  //   c  #40a4b9 — day teal lift
+
+  //                       top            upper-mid       lower-mid       bottom
+  const STOPS_NIGHT  = [ [  5,  18,  22 ],[  8,  28,  30 ],[  8,  31,  30 ],[  8,  31,  30 ] ];
+  const STOPS_DAY    = [ [ 16,  60,  74 ],[ 20,  66,  80 ],[ 23,  72,  84 ],[ 26,  76,  88 ] ];
+  const STOPS_COOL   = [ [  8,  22,  48 ],[ 10,  32,  62 ],[ 14,  42,  74 ],[ 18,  52,  82 ] ]; // blue hour, tilts toward b
+  const STOPS_WARM   = [ [ 55,  26,  82 ],[ 125,  44, 120 ],[ 200, 110,  55 ],[ 130,  55,  35 ] ]; // m top → M → O → dark amber/cyan
+
+  function bellCurve(x, center, width) {
+    // 1 at x=center, falls off gaussian-ish toward 0
+    const d = (x - center) / width;
+    return Math.exp(-d * d);
+  }
+
+  // Cool base gradient (vertical, full-width). Warm is a separate radial layer.
+  function baseStops(dl, t) {
+    const tFrac = t / TICKS_PER_DAY;
+    let coolBias = 0;
+    if (tFrac < 0.14) coolBias = bellCurve(tFrac, 0.08, 0.035);
+    else if (tFrac > 0.42 && tFrac < 0.58) coolBias = bellCurve(tFrac, 0.52, 0.035);
+
+    const stops = [];
+    for (let i = 0; i < 4; i++) {
+      let s = [0,1,2].map(c => STOPS_NIGHT[i][c] + (STOPS_DAY[i][c] - STOPS_NIGHT[i][c]) * dl);
+      s = s.map((c, j) => c + (STOPS_COOL[i][j] - c) * coolBias * 0.80);
+      stops.push(s.map(v => Math.round(Math.max(0, Math.min(255, v)))));
+    }
+    return stops;
+  }
+
+  function warmBiasAt(t) {
+    if (window._warmEnabled === false) return 0;
+    const tFrac = t / TICKS_PER_DAY;
+    let w = 0;
+    // Separate sunrise vs sunset so we can tune each independently later.
+    if (tFrac < 0.08) w = Math.max(w, bellCurve(tFrac, 0.027, 0.022));            // sunrise
+    if (tFrac > 0.42 && tFrac < 0.52) w = Math.max(w, bellCurve(tFrac, 0.478, 0.022)); // sunset
+    return w;
+  }
+
+  // Sun's horizontal position during its visible arc, as % of strip width.
+  // Clamped outside the arc window so the radial center sits at the last edge.
+  function sunXPct(t) {
+    const frac = Math.min(1, Math.max(0, t / (TICKS_PER_DAY / 2)));
+    return ((20 + frac * (W - 40)) / W) * 100;
+  }
+
+  function rgbStr([r, g, b]) { return `rgb(${r},${g},${b})`; }
+
+  // ----- main update -----
+  let absTick = 0;
+  const viewportEl = document.getElementById('viewport');
+  function update() {
+    const t = ((absTick % TICKS_PER_DAY) + TICKS_PER_DAY) % TICKS_PER_DAY;
+    const dayIdx = Math.floor(absTick / TICKS_PER_DAY);
+    const dl = daylight(t);
+    document.documentElement.style.setProperty('--tlh-daylight', dl.toFixed(3));
+
+    // Paint the backdrop: cool vertical base + warm radial centered on sun.
+    const base = baseStops(dl, t);
+    const baseGradient = `linear-gradient(to bottom,
+      ${rgbStr(base[0])} 0%,
+      ${rgbStr(base[1])} 38%,
+      ${rgbStr(base[2])} 72%,
+      ${rgbStr(base[3])} 100%)`;
+
+    let composite = baseGradient;
+    const wb = warmBiasAt(t);
+    if (wb > 0.01) {
+      const xPct = sunXPct(t);
+      // Radial anchored at sun's horizon position.
+      // Orange core (at sun) → pink/peach halo → dark magenta fringe → transparent.
+      // Ellipse is taller than wide so magenta reaches the top of the strip.
+      const warm = `radial-gradient(
+        ellipse 55% 190% at ${xPct.toFixed(1)}% 100%,
+        rgba(233, 159,  16, ${(0.80 * wb).toFixed(3)}) 0%,
+        rgba(225, 115, 160, ${(0.70 * wb).toFixed(3)}) 30%,
+        rgba(145,  70, 170, ${(0.55 * wb).toFixed(3)}) 60%,
+        rgba(145,  70, 170, 0) 100%)`;
+      composite = warm + ', ' + baseGradient;
+    }
+
+    if (window._bgEnabled !== false) {
+      viewportEl.style.background = composite;
+      // Moon shadow: sample base gradient at moon's current y (follow-up TODO
+      // — lerp across base stops — for now, pick by moon phase quadrant).
+      moonShadow.setAttribute('fill', rgbStr(base[1]));
+    } else {
+      viewportEl.style.background = '#081f1e';
+      moonShadow.setAttribute('fill', '#081f1e');
+    }
+
+    if (t < TICKS_PER_DAY / 2) {
+      const frac = t / (TICKS_PER_DAY / 2);
+      const { x, y } = arcPos(frac);
+      sunEl.setAttribute('cx', x);
+      sunEl.setAttribute('cy', y);
+      sunEl.setAttribute('opacity', '1');
+      moonDisc.setAttribute('opacity', '0');
+      moonShadow.setAttribute('opacity', '0');
+    } else {
+      const frac = (t - TICKS_PER_DAY / 2) / (TICKS_PER_DAY / 2);
+      const { x, y } = arcPos(frac);
+      moonDisc.setAttribute('cx', x);
+      moonDisc.setAttribute('cy', y);
+      const p = getMoonPhase(dayIdx);
+      const offsetMag = Math.cos(p * Math.PI * 2) * 7; // px in SVG units
+      moonShadow.setAttribute('cx', x + offsetMag);
+      moonShadow.setAttribute('cy', y);
+      sunEl.setAttribute('opacity', '0');
+      moonDisc.setAttribute('opacity', '1');
+      moonShadow.setAttribute('opacity', '1');
+    }
+
+    // stars: invisible during day, fade in at dusk, drift during night
+    const starVis = Math.max(0, 1 - dl * 2);
+    const driftX = absTick * 0.03; // shared slow drift
+    stars.forEach(st => {
+      // Calmer flicker: narrower amplitude, slower rate, ~40% of stars steady
+      const flick = st.steady
+        ? 0.85
+        : 0.75 + 0.20 * Math.sin(absTick * 0.012 * st.flickerSpeed + st.flickerPhase);
+      const x = ((st.x + driftX * st.driftSpeed) % (W + 20)) - 10;
+      st.el.setAttribute('cx', x);
+      st.el.setAttribute('opacity', (starVis * flick).toFixed(3));
+    });
+
+    tickOut.textContent = t.toFixed(0);
+    daylightOut.textContent = dl.toFixed(2);
+    phaseOut.textContent = phaseName(t);
+    moonOut.textContent = moonPhaseLabel(getMoonPhase(dayIdx)) + ' (day ' + (dayIdx % MOON_CYCLE_DAYS + 1) + '/' + MOON_CYCLE_DAYS + ')';
+  }
+
+  scrub.addEventListener('input', () => {
+    const dayIdx = Math.floor(absTick / TICKS_PER_DAY);
+    absTick = dayIdx * TICKS_PER_DAY + +scrub.value;
+    update();
+  });
+
+  let playing = false;
+  let rafId = null;
+  let lastTime = 0;
+  function loop(now) {
+    if (!lastTime) lastTime = now;
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+    const speed = +speedEl.value;
+    absTick += dt * (1000 / 350) * speed;
+    scrub.value = ((absTick % TICKS_PER_DAY) + TICKS_PER_DAY) % TICKS_PER_DAY;
+    update();
+    if (playing) rafId = requestAnimationFrame(loop);
+  }
+  playBtn.addEventListener('click', () => {
+    playing = !playing;
+    playBtn.textContent = playing ? '❚❚ pause' : '▶ play';
+    lastTime = 0;
+    if (playing) rafId = requestAnimationFrame(loop);
+    else cancelAnimationFrame(rafId);
+  });
+  speedEl.addEventListener('input', () => speedOut.textContent = '×' + speedEl.value);
+
+  let mcIdx = 1;
+  moonCycleBtn.addEventListener('click', () => {
+    mcIdx = (mcIdx + 1) % MOON_OPTIONS.length;
+    MOON_CYCLE_DAYS = MOON_OPTIONS[mcIdx];
+    moonCycleBtn.textContent = 'moon phases: ' + MOON_CYCLE_DAYS + '-day cycle';
+    update();
+  });
+
+  const bgToggleBtn = document.getElementById('bgToggleBtn');
+  window._bgEnabled = true;
+  bgToggleBtn.addEventListener('click', () => {
+    window._bgEnabled = !window._bgEnabled;
+    bgToggleBtn.classList.toggle('on', window._bgEnabled);
+    bgToggleBtn.textContent = 'backdrop ramp: ' + (window._bgEnabled ? 'on' : 'off');
+    update();
+  });
+
+  const warmToggleBtn = document.getElementById('warmToggleBtn');
+  window._warmEnabled = true;
+  warmToggleBtn.addEventListener('click', () => {
+    window._warmEnabled = !window._warmEnabled;
+    warmToggleBtn.classList.toggle('on', window._warmEnabled);
+    warmToggleBtn.textContent = 'warm sunrise/sunset: ' + (window._warmEnabled ? 'on' : 'off');
+    update();
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>

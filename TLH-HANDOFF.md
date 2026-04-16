@@ -1,13 +1,13 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-16 (v0.0.8.8 shipped; v0.0.8 arc complete — packages + trust + rain all landed. v0.0.9 planning locked; [thread primer](#v009-thread-primer-queued-after-v008-rain-rework) ready to execute.)_
+_last updated: 2026-04-16 (v0.0.8.8 shipped; v0.0.8 arc complete. v0.0.9.1 spec locked after a mockup pass; implementation plan captured in [v0.0.9.1 implementation plan](#v0091-implementation-plan), correcting the primer's color-ramp framing to a layered CSS gradient + sun-anchored radial glow. Ready to code.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.8.8 — v0.0.8 arc complete; v0.0.9 planning locked, ready to build
+## ✅ CURRENT STATE: v0.0.8.8 shipped; v0.0.9.1 spec locked, ready to implement
 
-Game is at `v0.0.8.8` on `main`. All three v0.0.8 mechanical threads shipped: packages (.1–.3), trust (.4–.6), weather/rain rework via spatial storms (.7), plus a bug audit + mobile compatibility pass (.8). v0.0.9 planning is captured in the [thread primer below](#v009-thread-primer-queued-after-v008-rain-rework) — 2D world beneath the ring, 4 new corner NPCs (nu/theta/gamma/delta), trails + proto-structures + new terrain + renderer refresh.
+Game is at `v0.0.8.8` on `main`. All three v0.0.8 mechanical threads shipped: packages (.1–.3), trust (.4–.6), weather/rain rework via spatial storms (.7), plus a bug audit + mobile compatibility pass (.8). v0.0.9 planning is captured in the [thread primer below](#v009-thread-primer-queued-after-v008-rain-rework); **v0.0.9.1** has a detailed implementation plan in [v0.0.9.1 implementation plan](#v0091-implementation-plan) — day/night cycle on the play area with a layered cool-base + sun-anchored warm-radial sky, worked out through an interactive mockup before writing any game code.
 
 **v0.0.8 scope redefinition (historical note):** the handoff previously framed v0.0.8 as terrain expansion (deserts, rivers, slopes). User rescoped it around **three mechanical-depth threads**: packages, trust, rain. All three shipped. Terrain moved to v0.0.9 and is now the lead thread there.
 
@@ -36,7 +36,7 @@ Game is at `v0.0.8.8` on `main`. All three v0.0.8 mechanical threads shipped: pa
 18. ✅ **v0.0.8.7 — weather rework**: spatial storms as travelling world objects, dual-gaussian isobar minimap, intensity zones, weather radio tiering (L1 storm prediction, L2 map unlock). Rain thread complete.
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
-**Resume next session**: v0.0.8 arc is **done**. Next up is **v0.0.9** — terrain + new NPCs + 2D world. See the [v0.0.9 thread primer](#v009-thread-primer-queued-after-v008-rain-rework) for the full spec (thesis, threads, map shape, NPC cast, sequencing, open knobs). Cleanest first concrete patch to draft is **v0.0.9.1** (renderer audit + day/night cycle) — small, self-contained, doesn't depend on any open design knobs.
+**Resume next session**: v0.0.9.1 plan is locked (see [v0.0.9.1 implementation plan](#v0091-implementation-plan)). Ready to implement: new `js/render/sky.js` module, wire into the tick loop, palette additions (O/B/b) to the stylesheet, subtitle bump. Mockup at [tlh-daynight-mockup.html](tlh-daynight-mockup.html) is the visual reference — keep it around through implementation so the two can be compared side by side.
 
 ## planned but not built (as of v0.0.8.3)
 
@@ -249,6 +249,111 @@ The [longer-horizon features](#specs-longer-horizon-features) section contains e
 - `day/night cycle` (in post-v0.1 parking lot) → pulled forward to v0.0.9.1
 
 Clean up those entries when the v0.0.9 work starts so the doc stays coherent.
+
+---
+
+## v0.0.9.1 implementation plan
+
+Locked 2026-04-16 after an interactive mockup pass at [tlh-daynight-mockup.html](tlh-daynight-mockup.html). Keep the mockup alongside the shipping code so visual parity can be checked per commit.
+
+### thesis
+
+Add a day/night cycle to the **play-area side-view strip** (`.tlh-viewport`), not the route map. The courier `@` gets a sky overhead: sun arcs by day, moon (with phases) arcs by night, stars emerge in between, and the backdrop paints itself through a cool base gradient that gets a **sun-anchored warm radial glow** at sunrise/sunset. No mechanical hooks yet (NPC sleep, night trip bonus, storms-worse-at-night all deferred) — this is atmospheric only.
+
+### spec evolution from the thread primer
+
+The primer originally framed this as "single CSS variable `--tlh-daylight` interpolated through dawn/day/dusk/night color ramps." That framing is superseded:
+
+- **Not a CSS-var-driven color interpolation.** Backdrop is painted by JS each tick via a layered CSS gradient (`linear-gradient` base + `radial-gradient` overlay during warm windows). `--tlh-daylight` still exists as a 0..1 signal but for any future consumer that needs a single scalar — the sky itself is richer than one variable can express.
+- **Not the route map.** The route panel is reserved for route-relevant info (storms, terrain). Route-map sky glyph (a small sun/moon indicator) is deferred.
+- **Backdrop is not static.** Mockup explored a "backdrop stays `#081f1e`, only celestial bodies move" version; discarded once we tried painting the sky with the extended palette. Final plan paints the sky.
+
+### mockup-established visual direction
+
+- **Sun + moon are the same radius** (real-scale, future-eclipse-ready). Moon carved via an offset backdrop-colored shadow circle.
+- **Moon phases** on a 7-in-game-day cycle (~2 real-time hours). 7 as a constant; 4 / 12 are easy alternates if we want to tune.
+- **Stars**: ~14–18 procedurally-placed dots in the upper ~65% of the strip. Calmer flicker than the first pass — ~40% are "steady" (no flicker), rest have reduced-amplitude slow sine variation. Shared slow horizontal drift. Mix of `y` (dim) and `Y` (bright).
+- **Cool base gradient** (vertical, 4 stops, full-width, always on):
+  - Night stops → current `#081f1e` blend
+  - Day stops → lifted teal (slightly lighter at bottom)
+  - Cool blue hour → `b`-tilted azure stack, fires between warm window and night/day
+- **Warm radial overlay** (only during sunrise/sunset):
+  - Anchored at the sun's current horizon x position (ellipse center at `{sunXPct}% 100%`)
+  - Stops, centered outward: orange (`O` hue) → pink/peach → dark magenta (`m` hue) → transparent
+  - Cool base shows through everywhere the radial is transparent
+  - Directionally correct: left at sunrise, right at sunset, no glow during moon arc
+- **Timing**: warm window peaks while the sun is **visibly low** (tick ~80 sunrise, tick ~1435 sunset), not right at the invisible horizon edge. Cool blue hour peaks between the warm window and full day/night (~tick 240 dawn, ~tick 1560 dusk). Sunrise and sunset bells are **separate** — tunable independently so sunrise can read paler/cooler than sunset later.
+- **Day length**: `TICKS_PER_DAY = 3000` (~17.5 min at 350 ms/tick). Sun arc: tick 0–1500. Moon arc: tick 1500–3000.
+- **Dawn start**: new saves begin at tick 0 (dawn). Existing saves resume from their current `S.ticks` — the phase has always been there, it just wasn't rendered.
+
+### rendering model (concrete)
+
+Per-tick JS computes four signals from `S.ticks`:
+
+| Signal | Source | Drives |
+|---|---|---|
+| `daylight` (0..1) | half-sine across sun arc, 0 during night | night↔day base-stop lerp; star visibility; sun/moon opacity |
+| `coolBias` (0..1) | bell-curve peaks at tick 240 + 1560 | base gradient's mix toward `STOPS_COOL` |
+| `warmBias` (0..1) | bell-curve peaks at tick 80 + 1435 (separate per direction) | radial overlay alpha |
+| `sunXPct` (0..100) | sun's horizontal position during arc, clamped off-arc | radial ellipse center-x |
+
+Backdrop = `warmOverlay + ', ' + coolBaseGradient`. `coolBaseGradient` is always present; `warmOverlay` is only appended when `warmBias > 0.01`.
+
+### scope — what ships in v0.0.9.1
+
+- `js/render/sky.js` — new module. Exports `initSky()` (creates star + sun + moon SVG elements, seeds star positions session-scoped) and `renderSky()` (called per tick from main loop).
+- `js/main.js` — call `renderSky()` from the tick loop. Call `initSky()` after els wiring.
+- `the-long-haul.html` — add sky layer element inside `.tlh-viewport`, subtitle bump to `v0.0.9.1`.
+- `the-long-haul.css` — palette CSS variables for the three new additions (O, B, b). Optional: `--tlh-daylight` as a published var set by sky.js for any future consumer.
+- No save-schema bump (derived entirely from `S.ticks`).
+- No changes to weather / storm rendering.
+- No changes to the fieldstrip / destDrift / courier / rain layers.
+
+### scope — explicitly deferred (not in .1)
+
+- **Storm/rain layer interaction with sky.** Currently rain renders over a clear sky, showing stars through raindrops. Looks off but is not a regression — revisit during the weather/storm renderer generalization that v0.0.9.2+ will need for the 2D viewport. Note this clearly in the commit message so nobody thinks it's a bug we missed.
+- **Route-map sky glyph** (small sun/moon indicator on the route panel). Deferred indefinitely; the route map stays reserved for route-relevant info.
+- **Shelter-emergence polish.** Stage-2 → stage-3 settlement reveal is still a dry className swap. Lands in v0.0.9.2 alongside the viewport rework.
+- **Ground-strip terrain variety.** Current single-line `. , ; -` ASCII is thematic but flat. Terrain variety lands in v0.0.9.5 (desert / rocky hills / rivers / mountains).
+- **Scene backdrop + destDrift rework.** The destination-sliding-past-the-courier effect doesn't physically make sense; eventual direction is per-destination backdrop polish + character animations + ruined-ASCII environments. Parked; candidate for a dedicated polish pass after v0.0.9.7.
+- **Richer warm palette.** The warm radial uses O/m/M as the three warm colors. A fuller sunset palette (e.g. adding a dedicated peach or salmon) is aspirational — the current set is enough for a convincing first pass.
+
+### audit findings (the "renderer audit" deliverable)
+
+Things the audit surfaced that are **not in .1 scope** — recorded here so they don't get forgotten:
+
+1. **Shelter emergence is a dry swap** → v0.0.9.2.
+2. **Fieldstrip terrain is one-line and invariant** → v0.0.9.5.
+3. **destDrift right-to-left animation is cosmetic filler, not a physical fact** → post-.7 polish.
+4. **Storm renderer is tied to edge linear path**; needs to sweep across the map once 2D lands → v0.0.9.2 weather rework.
+5. **Hardcoded colors throughout the stylesheet.** Only the new palette additions (O/B/b) get CSS variables in .1; broader CSS-var refactor is not justified yet and would swell scope.
+
+### palette additions
+
+New CSS custom properties + formalization in the site palette. `m` (`#b154cf`) and `M` (`#da5bd6`) are already used elsewhere on the site — they're not new, just being reused for sky work. These three **are** new:
+
+| Var | Hex | Purpose |
+|---|---|---|
+| `--tlh-O` | `#e99f10` | orange — warm radial core (sunrise/sunset glow) |
+| `--tlh-B` | `#0096ff` | azure — reserved for future bright-blue sky work (not used in .1 directly) |
+| `--tlh-b` | `#0048bd` | dark blue — cool blue hour stack top |
+
+Source reference: Caves of Qud color table (per user).
+
+### follow-ups noted inline in shipping code
+
+These are intentional TODO markers to land in the .1 code:
+
+- **Moon shadow fill must sample the base gradient at moon's current `cy`** (not a fixed stop). User explicitly flagged this during mockup review. Fix is small — compute a per-stop lerp at moon's y-fraction and use that RGB for the shadow circle's fill. Without it, the crescent carve reads wrong when the moon is in the lower half of the gradient.
+- **Sunrise vs. sunset stop decoupling.** Bells are separate but the stop colors are currently identical. Leaving the hook in place for a future-pass sunrise-paler-than-sunset tune.
+
+### commit sequence (tentative)
+
+Small enough to ship as a single commit, but if it splits:
+1. palette additions + subtitle bump + sky layer DOM scaffolding in html/css
+2. `js/render/sky.js` + main tick wire-up
+
+Subtitle bump rule (per feedback memory): the patch version in [the-long-haul.html](the-long-haul.html) must bump to `v0.0.9.1`, not just the commit message.
 
 ---
 
