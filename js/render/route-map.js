@@ -24,14 +24,84 @@ const els = S._transient.els;
 export function currentEdge() { return S.edges[S.edgeIdx % S.edges.length]; }
 
 // Display mapping: route node IDs → Greek letter equivalents.
-const GREEK = { 'A': '\u03b1', 'B': '\u03b2', 'C': '\u03b3', 'H': '\u03b7' };
+// v0.0.9.2 — ? and · now show as φ/ψ post-stage-1 (matches the
+// v0.0.8.4 NPC identity patch: phi at weather station, psi at the
+// orphan-scavenger settlement).
+const GREEK = {
+  'A': '\u03b1',          // α
+  'B': '\u03b2',          // β
+  'C': '\u03b3',          // γ
+  'H': '\u03b7',          // η
+  '?': '\u03c6',          // φ — phi
+  '\u00b7': '\u03c8',     // ψ — psi
+};
 function nodeGlyph(id) { return GREEK[id] || id; }
 
+// v0.0.9.2 — route map is now a 2D plane in a 280×280 viewBox.
+// Nodes spread hexagonally around the rim; final rounded-square rim
+// with 4 corner NPCs waits for the world-map regen pass (→ v0.0.9.7).
 export function layoutRouteNodes() {
-  const W = 110;
-  [{ id:'A', x:W/2, y:18 }, { id:'?', x:W-14, y:65 }, { id:'B', x:W-14, y:128 },
-   { id:'C', x:W/2, y:175 }, { id:'H', x:14, y:128 }, { id:'\u00b7', x:14, y:65 }]
-  .forEach(p => { const n = S.routeNodes.find(n => n.id === p.id); if (n) { n.x = p.x; n.y = p.y; } });
+  [{ id:'A',      x:140, y: 40 }, // top
+   { id:'?',      x:230, y: 70 }, // upper-right (φ / weather station)
+   { id:'B',      x:240, y:190 }, // lower-right
+   { id:'C',      x:140, y:240 }, // bottom
+   { id:'H',      x: 40, y:190 }, // lower-left
+   { id:'\u00b7', x: 50, y: 70 }, // upper-left (ψ / orphan-scavenger)
+  ].forEach(p => { const n = S.routeNodes.find(n => n.id === p.id); if (n) { n.x = p.x; n.y = p.y; } });
+}
+
+// Centroid of the ring — used for label placement and point-in-polygon.
+const RING_CX = 140;
+const RING_CY = 140;
+
+// Point-in-polygon test using the current ring nodes as vertices.
+// Used by drawInterior to mask the texture to the crossable area.
+function pointInRing(px, py) {
+  const pts = S.routeNodes.map(n => [n.x, n.y]);
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    const hit = ((yi > py) !== (yj > py)) &&
+                (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+    if (hit) inside = !inside;
+  }
+  return inside;
+}
+
+// Seeded RNG so interior texture is stable within a session but
+// regenerates on reload. Session-scoped — no save persistence.
+function makeSeededRand(seed) {
+  let s = seed;
+  return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+}
+
+// Placeholder interior texture — dim dots plotted only inside the
+// ring polygon. The absence of texture outside communicates "not
+// crossable" without needing a drawn boundary. Real terrain lands
+// in v0.0.9.5; depth/height map is a later concern.
+function drawInterior(svg, ns) {
+  const g = document.createElementNS(ns, 'g');
+  g.setAttribute('class', 'route-interior');
+  g.setAttribute('opacity', '0.35');
+  const rand = makeSeededRand(9111);
+  const step = 12;
+  for (let yy = 30; yy <= 250; yy += step) {
+    for (let xx = 30; xx <= 250; xx += step) {
+      if (!pointInRing(xx, yy)) continue;
+      const r = rand();
+      const ch = r < 0.7 ? '.' : r < 0.9 ? ',' : '\u00b7';
+      const t = document.createElementNS(ns, 'text');
+      t.setAttribute('x', xx);
+      t.setAttribute('y', yy);
+      t.setAttribute('font-family', "'Source Code Pro',monospace");
+      t.setAttribute('font-size', '6');
+      t.setAttribute('fill', '#2a5c5a');
+      t.setAttribute('text-anchor', 'middle');
+      t.textContent = ch;
+      g.appendChild(t);
+    }
+  }
+  svg.appendChild(g);
 }
 
 export function drawRouteMap() {
@@ -40,6 +110,10 @@ export function drawRouteMap() {
   svg.innerHTML = '';
   const ns = 'http://www.w3.org/2000/svg';
   const [fromId, toId] = currentEdge();
+
+  // v0.0.9.2 — interior texture plotted first so it renders behind
+  // the ring and nodes.
+  drawInterior(svg, ns);
 
   S.edges.forEach(([a, b]) => {
     const na = S.routeNodes.find(n => n.id === a), nb = S.routeNodes.find(n => n.id === b);
@@ -52,8 +126,10 @@ export function drawRouteMap() {
     line.setAttribute('x1', na.x); line.setAttribute('y1', na.y);
     line.setAttribute('x2', nb.x); line.setAttribute('y2', nb.y);
     line.setAttribute('stroke', stroke);
-    line.setAttribute('stroke-width', '1');
-    line.setAttribute('stroke-dasharray', '3 3');
+    // v0.0.9.2 — solid line, slightly wider. Literal ASCII road glyphs
+    // land with the structures patch; this is the interim.
+    line.setAttribute('stroke-width', '1.5');
+    line.setAttribute('stroke-linecap', 'round');
     svg.appendChild(line);
   });
 
@@ -95,9 +171,15 @@ export function drawRouteMap() {
                           : '#2a5c5a');
     t.textContent = (stage >= 1 || n.id === '?') ? nodeGlyph(n.id) : '?';
 
-    const lx     = n.x > 70 ? n.x - 9 : n.x < 40 ? n.x + 9 : n.x;
-    const anchor = n.x > 70 ? 'end'    : n.x < 40 ? 'start'  : 'middle';
-    const ly     = n.y < 30 ? n.y - 9  : n.y > 165 ? n.y + 12 : n.y < 100 ? n.y - 9 : n.y + 13;
+    // v0.0.9.2 — labels placed radially outward from the ring
+    // centroid (RING_CX, RING_CY) so each label sits outside its node
+    // in the direction away from the center of the plane.
+    const dx = n.x - RING_CX, dy = n.y - RING_CY;
+    const d  = Math.hypot(dx, dy) || 1;
+    const off = 13;
+    const lx  = n.x + (dx / d) * off;
+    const ly  = n.y + (dy / d) * off + 2;
+    const anchor = dx > 8 ? 'start' : dx < -8 ? 'end' : 'middle';
     const lbl = document.createElementNS(ns, 'text');
     lbl.setAttribute('x', lx); lbl.setAttribute('y', ly);
     lbl.setAttribute('text-anchor', anchor);
@@ -180,7 +262,9 @@ function traceContour(potFn, centX, centY, threshold, wobblePhase1, wobblePhase2
     const a = (Math.PI * 2 * i) / nSample;
     const dx = Math.cos(a), dy = Math.sin(a);
     let r = 0;
-    while (r < 80) {
+    // v0.0.9.2 — march radius bumped from 80 → 130 for the wider viewBox
+    // so the outer contour doesn't clip on heavy storms.
+    while (r < 130) {
       if (potFn(centX + dx * r, centY + dy * r) < threshold) break;
       r += 0.4;
     }
@@ -238,14 +322,15 @@ function renderStorms(svg, ns) {
     const m1 = { x: primary.x + mOff.x, y: primary.y + mOff.y };
     const m2 = { x: secondary.x + mOff.x * 0.5, y: secondary.y + mOff.y * 0.5 };
 
-    // SVG-space sigmas (scaled from cell-space to SVG-space)
-    // The route map is ~110x195 SVG units covering 1560 cells
-    // Rough scale: 1 cell ≈ 0.07 SVG units for x, but it varies by edge angle.
-    // Use a fixed scale that looks right at the map size.
-    const pSig1 = typeCfg.sigma1 * 0.35;
-    const pSig2 = typeCfg.sigma2 * 0.35;
-    const mSig1 = typeCfg.sigma1 * 0.40;  // slightly wider for color mass
-    const mSig2 = typeCfg.sigma2 * 0.40;
+    // SVG-space sigmas (scaled from cell-space to SVG-space).
+    // v0.0.9.2 — scale factors bumped ~1.7× since the viewBox grew
+    // from 110-wide to 280-wide. Edges are ~95-120 SVG units each now
+    // (vs. ~50-60 in the old layout), so storms need to be wider to
+    // still read as storm-shaped.
+    const pSig1 = typeCfg.sigma1 * 0.60;
+    const pSig2 = typeCfg.sigma2 * 0.60;
+    const mSig1 = typeCfg.sigma1 * 0.68;  // slightly wider for color mass
+    const mSig2 = typeCfg.sigma2 * 0.68;
     const w2 = typeCfg.w2;
 
     // Wobble phases (deterministic per storm)

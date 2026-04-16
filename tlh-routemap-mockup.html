@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tlh — route-map 2D plane mockup (v0.0.9.2)</title>
+<style>
+  :root {
+    --tlh-C: #77bfcf;   --tlh-c: #40a4b9;
+    --tlh-B: #0096ff;   --tlh-b: #0048bd;
+    --tlh-K: #155352;   --tlh-k: #0f3b3a;
+    --tlh-y: #b1c9c3;   --tlh-Y: #ffffff;
+    --tlh-O: #e99f10;   --tlh-m: #b154cf;   --tlh-M: #da5bd6;
+  }
+  html, body {
+    margin: 0;
+    background: var(--tlh-K);
+    color: var(--tlh-y);
+    font-family: 'Source Code Pro', ui-monospace, monospace;
+    font-weight: 600;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 960px;
+    margin: 24px auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 18px;
+    align-items: start;
+  }
+  h1 {
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    text-transform: lowercase;
+    margin: 0 0 8px;
+    opacity: 0.7;
+    grid-column: 1 / -1;
+  }
+  h1 .v { color: var(--tlh-c); }
+  h1 small { opacity: 0.55; font-weight: 500; }
+
+  /* ROUTE PANEL — expanded */
+  .panel-route {
+    background: var(--tlh-k);
+    border: 1px solid #1e5554;
+    padding: 10px 8px 8px;
+  }
+  .ptitle {
+    font-size: 11px;
+    color: var(--tlh-y);
+    opacity: 0.55;
+    margin: 0 0 6px;
+    letter-spacing: 0.04em;
+  }
+  svg.routemap {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    overflow: visible;
+  }
+
+  /* SETTLEMENTS SIDE PANEL */
+  .panel-settle {
+    background: var(--tlh-k);
+    border: 1px solid #1e5554;
+    padding: 10px 8px 8px;
+    font-size: 11px;
+  }
+  .settle-item {
+    padding: 8px 6px;
+    border-bottom: 1px dashed #1e5554;
+  }
+  .settle-item:last-child { border-bottom: none; }
+  .settle-name {
+    font-size: 12px;
+    color: var(--tlh-y);
+    font-weight: 700;
+  }
+  .settle-name.stage2 { color: #4a7a78; font-style: italic; }
+  .settle-name .sub { font-weight: 500; opacity: 0.55; margin-left: 4px; font-size: 10px; }
+  .settle-quote {
+    font-size: 10px;
+    opacity: 0.6;
+    margin-top: 3px;
+    font-style: italic;
+  }
+  .settle-bar {
+    height: 3px;
+    background: #132e2d;
+    margin-top: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .settle-fill {
+    height: 100%;
+    background: var(--tlh-c);
+    transition: width 0.8s;
+  }
+
+  /* CONTROLS */
+  .ctrls {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border: 1px dashed #1e5554;
+    background: var(--tlh-k);
+    font-size: 11px;
+  }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .row label { opacity: 0.7; min-width: 90px; }
+  input[type=range] { flex: 1; accent-color: var(--tlh-c); }
+  button {
+    background: transparent;
+    color: var(--tlh-y);
+    border: 1px solid #1e5554;
+    padding: 4px 10px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+  }
+  button:hover { border-color: var(--tlh-c); color: var(--tlh-C); }
+  button.on { color: var(--tlh-C); border-color: var(--tlh-c); }
+
+  /* NOTES */
+  .notes {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    line-height: 1.55;
+    opacity: 0.72;
+  }
+  .notes code {
+    color: var(--tlh-C);
+    background: var(--tlh-k);
+    padding: 0 4px;
+  }
+  .notes strong { color: var(--tlh-y); opacity: 0.95; }
+
+  /* Typewriter caret */
+  .typewriter-caret {
+    display: inline-block;
+    width: 6px;
+    background: var(--tlh-C);
+    animation: caret-blink 0.6s steps(1) infinite;
+    margin-left: 1px;
+  }
+  @keyframes caret-blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>tlh — route-map 2D plane mockup <span class="v">v0.0.9.2 draft</span> <small>· ring-as-road on a landmass</small></h1>
+
+  <div class="panel-route">
+    <div class="ptitle">// route</div>
+    <svg class="routemap" id="routemap" viewBox="0 0 280 280">
+      <!-- Flat plane: no void rect, no landmass rect. Panel bg shows
+           through. Boundaries are implicit from the ring's shape. -->
+
+      <!-- Layer 0: placeholder texture (dim dots across the whole plane) -->
+      <g id="interiorTexture" opacity="0.35"></g>
+
+      <!-- Layer 3: storms (if enabled) -->
+      <g id="storms"></g>
+
+      <!-- Layer 4: ring road (solid line connecting nodes) -->
+      <g id="ringRoad"></g>
+
+      <!-- Layer 5: nodes + courier (top) -->
+      <g id="nodes"></g>
+      <g id="courier"></g>
+    </svg>
+  </div>
+
+  <div class="panel-settle">
+    <div class="ptitle">// settlements</div>
+    <div id="settleList"></div>
+  </div>
+
+  <div class="ctrls">
+    <div class="row">
+      <label for="courierScrub">courier progress</label>
+      <input id="courierScrub" type="range" min="0" max="600" step="1" value="0"/>
+      <span id="edgeOut" style="opacity:0.6">edge α→?</span>
+    </div>
+    <div class="row">
+      <button id="playBtn">▶ play</button>
+      <button id="stormBtn">storm: off</button>
+      <button id="emergeBtn">trigger emergence (β)</button>
+      <button id="textureBtn" class="on">interior texture: on</button>
+    </div>
+  </div>
+
+  <div class="notes">
+    <p><strong>What you're seeing:</strong> the <em>route-map panel</em> expanded into a 2D plane. The dark outer area is off-map void; the rounded-square interior is the playable landmass. The <code>ring</code> is drawn as a <strong>solid line</strong> connecting the 6 existing nodes — it reads as "a road on a plane" rather than abstract arrows. Nodes keep their existing topology (α, ?, β, γ, η, ·); final rim layout waits for a later world-map regen pass.</p>
+    <p><strong>Courier position</strong> = dot moving along the ring road (interpolated from current edge + dotT). <em>No trail yet</em> — trail design lands with shortcut-travel (v0.0.9.3) since that's when non-ring paths become a thing.</p>
+    <p><strong>Storm (toggle):</strong> demonstrates storm renderer generalized to free 2D motion — a translucent blob drifting across the plane rather than clinging to edge line-paths. Generalizes cleanly from the existing spatial storm data (x/y position, intensity).</p>
+    <p><strong>Shelter-emergence polish (trigger button):</strong> typewriter reveal of the confirmed settlement name in the side panel when a node crosses stage-2 → stage-3. Swaps the italic "unconfirmed" placeholder for the real name, character-by-character.</p>
+    <p><strong>Not in .2:</strong> ASCII road glyphs (later structures patch), real terrain types (.5), click-across-ring shortcut paths (.3), new NPC corners (.7), rim-layout redesign (later regen). Side-view play area untouched.</p>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  // ============================================================
+  // NODE LAYOUT on rounded-square rim
+  // Existing 6 nodes keep their topology. Positions are rough —
+  // final layout waits for a world-map regen pass per user.
+  // ============================================================
+  // Node glyphs are the Greek letter of the NPC living there (post-v0.0.8.4
+  // identity patch): phi at ? (weather station), psi at · (orphan-scavenger).
+  // Pre-identification glyphs (? and ·) still drive the raw node IDs.
+  const NODES = [
+    { id: 'A',   glyph: 'α', x: 140, y:  40 }, // top       — rho
+    { id: '?',   glyph: 'φ', x: 230, y:  70 }, // upper-right — phi (weather station)
+    { id: 'B',   glyph: 'β', x: 240, y: 190 }, // lower-right
+    { id: 'C',   glyph: 'γ', x: 140, y: 240 }, // bottom    — xi (C ruins)
+    { id: 'H',   glyph: 'η', x:  40, y: 190 }, // lower-left
+    { id: 'dot', glyph: 'ψ', x:  50, y:  70 }, // upper-left — psi (orphan-scavenger)
+  ];
+  // Edge order (hexagon-ish): A → ? → B → C → H → dot → A
+  const EDGES = [
+    ['A', '?'], ['?', 'B'], ['B', 'C'],
+    ['C', 'H'], ['H', 'dot'], ['dot', 'A'],
+  ];
+
+  const ns = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs = {}) {
+    const e = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  }
+  function node(id) { return NODES.find(n => n.id === id); }
+
+  // ============================================================
+  // INTERIOR TEXTURE — sparse dim dots on a loose grid
+  // ============================================================
+  // Standard ray-casting point-in-polygon test.
+  function pointInRing(px, py) {
+    const poly = NODES.map(n => [n.x, n.y]);
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      const hit = ((yi > py) !== (yj > py)) &&
+                  (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+      if (hit) inside = !inside;
+    }
+    return inside;
+  }
+
+  function drawInterior() {
+    const g = $('interiorTexture');
+    g.innerHTML = '';
+    const step = 12;
+    // Dots populate only the inside of the ring — absence of texture
+    // outside reads as "uncrossable" without needing a hard boundary.
+    for (let yy = 16; yy <= 264; yy += step) {
+      for (let xx = 16; xx <= 264; xx += step) {
+        if (!pointInRing(xx, yy)) continue;
+        const r = Math.random();
+        const ch = r < 0.7 ? '.' : r < 0.9 ? ',' : '·';
+        const t = el('text', {
+          x: xx, y: yy,
+          'font-family': 'Source Code Pro, monospace',
+          'font-size': '6',
+          fill: '#2a5c5a',
+          'text-anchor': 'middle',
+        });
+        t.textContent = ch;
+        g.appendChild(t);
+      }
+    }
+  }
+
+  // ============================================================
+  // RING ROAD — solid lines, slightly wider than the old dashed
+  // ============================================================
+  function drawRing() {
+    const g = $('ringRoad');
+    g.innerHTML = '';
+    EDGES.forEach(([a, b]) => {
+      const na = node(a), nb = node(b);
+      g.appendChild(el('line', {
+        x1: na.x, y1: na.y, x2: nb.x, y2: nb.y,
+        stroke: '#2a5c5a', 'stroke-width': '1.5',
+        'stroke-linecap': 'round',
+      }));
+    });
+  }
+
+  // ============================================================
+  // NODES — circles + Greek glyph labels
+  // ============================================================
+  function drawNodes() {
+    const g = $('nodes');
+    g.innerHTML = '';
+    NODES.forEach(n => {
+      g.appendChild(el('circle', {
+        cx: n.x, cy: n.y, r: 5,
+        fill: '#0f3b3a', stroke: '#b1c9c3', 'stroke-width': '0.8',
+      }));
+      const t = el('text', {
+        x: n.x, y: n.y + 2,
+        'font-family': 'Source Code Pro, monospace',
+        'font-size': '7', 'font-weight': '700',
+        fill: '#b1c9c3', 'text-anchor': 'middle',
+      });
+      t.textContent = n.glyph;
+      g.appendChild(t);
+    });
+  }
+
+  // ============================================================
+  // COURIER — dot interpolated along current edge
+  // ============================================================
+  let courierDot = null;
+  function drawCourier() {
+    const g = $('courier');
+    g.innerHTML = '';
+    courierDot = el('circle', {
+      r: 2.2, fill: '#77bfcf',
+    });
+    g.appendChild(courierDot);
+    updateCourier();
+  }
+
+  // Scrub value 0..600 = 6 edges × 100 ticks each
+  let scrub = 0;
+  function updateCourier() {
+    const edgeIdx = Math.floor(scrub / 100) % EDGES.length;
+    const t = (scrub % 100) / 100;
+    const [a, b] = EDGES[edgeIdx];
+    const na = node(a), nb = node(b);
+    const x = na.x + (nb.x - na.x) * t;
+    const y = na.y + (nb.y - na.y) * t;
+    courierDot.setAttribute('cx', x);
+    courierDot.setAttribute('cy', y);
+    $('edgeOut').textContent = `edge ${na.glyph}→${nb.glyph}`;
+  }
+
+  // ============================================================
+  // STORM — demonstrates generalized 2D motion
+  // ============================================================
+  let stormOn = false;
+  let stormEl = null;
+  let stormT = 0;
+  function drawStorm() {
+    const g = $('storms');
+    g.innerHTML = '';
+    if (!stormOn) { stormEl = null; return; }
+    // Translucent drifting circle with a noisy rain overlay
+    stormEl = el('g');
+    const disc = el('circle', {
+      r: 42, fill: 'rgba(64, 164, 185, 0.22)',
+      stroke: 'rgba(119, 191, 207, 0.3)', 'stroke-width': '1',
+    });
+    stormEl.appendChild(disc);
+    // Rain stipple — a handful of faint dots
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.sqrt(Math.random()) * 38;
+      const rd = el('circle', {
+        cx: Math.cos(a) * r, cy: Math.sin(a) * r,
+        r: 0.6, fill: 'rgba(177, 201, 195, 0.55)',
+      });
+      stormEl.appendChild(rd);
+    }
+    g.appendChild(stormEl);
+    updateStormPos();
+  }
+  function updateStormPos() {
+    if (!stormEl) return;
+    // Drift diagonally across the plane, wrap
+    const x = ((stormT * 0.6) % 360) - 40;
+    const y = 60 + 120 * Math.sin(stormT * 0.01);
+    stormEl.setAttribute('transform', `translate(${x.toFixed(1)}, ${y.toFixed(1)})`);
+  }
+
+  // ============================================================
+  // SETTLEMENTS PANEL + typewriter emergence
+  // ============================================================
+  const SETTLEMENTS = [
+    { id: 'A',   glyph: 'α', tier: 'depot',   label: 'depot a',       quote: '"the first stop — always"', stage: 3, trust: 42 },
+    { id: '?',   glyph: '?', tier: 'station', label: 'weather station', quote: '"five and four well said"', stage: 3, trust: 18 },
+    { id: 'B',   glyph: 'β', tier: 'depot',   label: 'depot b',       quote: '"reports of a building along this route"', stage: 2, trust: 0 },
+    { id: 'C',   glyph: 'γ', tier: 'ruins',   label: 'c ruins',       quote: '"scavenger digs through the rubble"', stage: 3, trust: 25 },
+  ];
+
+  function renderSettlements() {
+    const host = $('settleList');
+    host.innerHTML = '';
+    SETTLEMENTS.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'settle-item';
+      const name = s.stage >= 3 ? s.label : s.tier;
+      const nameCls = s.stage >= 3 ? '' : 'stage2';
+      const sub = s.stage >= 3 ? s.tier : 'unconfirmed';
+      div.innerHTML = `
+        <div class="settle-name ${nameCls}" data-id="${s.id}">${name} <span class="sub">${sub}</span></div>
+        <div class="settle-quote">${s.quote}</div>
+        <div class="settle-bar"><div class="settle-fill" style="width:${s.stage >= 3 ? s.trust : 0}%"></div></div>
+      `;
+      host.appendChild(div);
+    });
+  }
+
+  // Typewriter reveal: take a stage-2 entry and animate to stage-3.
+  function triggerEmergence(id) {
+    const s = SETTLEMENTS.find(s => s.id === id);
+    if (!s || s.stage >= 3) return;
+    s.stage = 3;
+    s.trust = 0;
+    // Find the existing name element and overwrite character by character.
+    renderSettlements();
+    const nameEl = document.querySelector(`.settle-name[data-id="${id}"]`);
+    const subEl = nameEl.querySelector('.sub');
+    const full = s.label;
+    nameEl.classList.remove('stage2');
+    // Replace name text with empty + caret
+    // (keep the .sub child; rebuild the left text node each frame)
+    const caret = document.createElement('span');
+    caret.className = 'typewriter-caret';
+    caret.innerHTML = '&nbsp;';
+    nameEl.textContent = '';
+    nameEl.appendChild(caret);
+    subEl.textContent = 'revealing';
+    nameEl.appendChild(document.createTextNode(' '));
+    nameEl.appendChild(subEl);
+    let i = 0;
+    const typeTick = setInterval(() => {
+      i++;
+      const shown = full.slice(0, i);
+      // rebuild content with caret trailing the shown text
+      nameEl.textContent = '';
+      nameEl.appendChild(document.createTextNode(shown));
+      nameEl.appendChild(caret);
+      nameEl.appendChild(document.createTextNode(' '));
+      nameEl.appendChild(subEl);
+      if (i >= full.length) {
+        clearInterval(typeTick);
+        // Remove caret, set final sub + quote glow
+        setTimeout(() => {
+          nameEl.textContent = '';
+          nameEl.appendChild(document.createTextNode(full + ' '));
+          subEl.textContent = s.tier;
+          nameEl.appendChild(subEl);
+        }, 400);
+      }
+    }, 55);
+  }
+
+  // ============================================================
+  // WIRE CONTROLS
+  // ============================================================
+  $('courierScrub').addEventListener('input', e => {
+    scrub = +e.target.value;
+    updateCourier();
+  });
+  let playing = false;
+  let rafId = null;
+  function loop() {
+    if (!playing) return;
+    scrub = (scrub + 0.6) % 600;
+    $('courierScrub').value = scrub;
+    updateCourier();
+    stormT += 1;
+    updateStormPos();
+    rafId = requestAnimationFrame(loop);
+  }
+  $('playBtn').addEventListener('click', () => {
+    playing = !playing;
+    $('playBtn').textContent = playing ? '❚❚ pause' : '▶ play';
+    if (playing) rafId = requestAnimationFrame(loop);
+    else cancelAnimationFrame(rafId);
+  });
+  $('stormBtn').addEventListener('click', () => {
+    stormOn = !stormOn;
+    $('stormBtn').classList.toggle('on', stormOn);
+    $('stormBtn').textContent = 'storm: ' + (stormOn ? 'on' : 'off');
+    drawStorm();
+  });
+  $('textureBtn').addEventListener('click', () => {
+    const cur = $('interiorTexture').getAttribute('opacity') !== '0';
+    $('interiorTexture').setAttribute('opacity', cur ? '0' : '0.35');
+    $('textureBtn').classList.toggle('on', !cur);
+    $('textureBtn').textContent = 'interior texture: ' + (cur ? 'off' : 'on');
+  });
+  $('emergeBtn').addEventListener('click', () => triggerEmergence('B'));
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  drawInterior();
+  drawRing();
+  drawNodes();
+  drawCourier();
+  renderSettlements();
+})();
+</script>
+</body>
+</html>

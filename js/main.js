@@ -115,7 +115,7 @@ import {
 import {
   drawRouteMap, updateRouteDot, layoutRouteNodes, currentEdge,
 } from './render/route-map.js';
-import { renderSettlements } from './render/settlements.js';
+import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js';
 import { renderNetwork } from './render/network.js';
 import { initSky, renderSky } from './render/sky.js';
 
@@ -288,6 +288,9 @@ function tick() {
       setNodeStage(arrivedAt, 3);
       addLog(`discovered: <span class="log-hi">${node.label}</span>`);
       postActivity('discovery', { nodeId: arrivedAt, label: node.label });
+      // v0.0.9.2 — kick off typewriter emergence reveal in the
+      // settlements panel if this node has a settlement entry.
+      if (S.settlements[arrivedAt]) startEmergence(arrivedAt);
       if (NPC_DEFS[arrivedAt]) {
         addTrust(arrivedAt, C.TRUST_GAIN_DISCOVERY, 'discovery');
       }
@@ -357,6 +360,10 @@ function tick() {
 
   Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
   renderKit();
+
+  // v0.0.9.2 — drive the settlements typewriter reveal each tick while
+  // any emergence is in progress. Cheap — the Map is usually empty.
+  if (hasActiveEmergence()) renderSettlements();
 }
 
 // ============================================================

@@ -130,7 +130,7 @@ Planning sketch captured 2026-04-16. Not locked; terrain + NPC cast + renderer d
 ### user's stated threads
 
 1. **Renderer refresh.** Untouched since before v0.0.7 UI pass; user calls it "dated." Stay ASCII — sprites are a long-term ambition but too big to lift in-house now. v0.0.9 lifts via 2D viewport + atmospheric polish, not glyph-system rewrite.
-2. **2D world — embedded, not replacing.** Flat 2D space traversable in any direction. The existing ring stays canonical and becomes a road on the plane. Clicking a non-adjacent node routes the courier through the interior. Interior needs texture (trails + terrain) so it's not featureless.
+2. **2D world — on the route-map panel, not replacing the play area.** The existing side-view play-area strip (`.tlh-viewport` where the courier `@` walks) **stays exactly as it is** — that's the gameplay camera and it's finished. The **route-map panel** (currently the small 6-node SVG ring) is what becomes a 2D plane: a flat top-down space with the ring laid down as a road and the interior traversable in any direction. Clicking a non-adjacent node routes the courier's path through the interior. Interior needs texture (trails + terrain) so it's not featureless.
 3. **New terrain types:** rivers, mountains, rocky hills, deserts. Plus a refresh pass on the existing ring biomes (building locations/names may shift, existing NPCs stay in their buildings).
 4. **4 new NPCs** (nu, theta, gamma, delta). See cast below.
 
@@ -181,9 +181,9 @@ Durability model summary (for v0.0.10 foresight too):
 
 **Renderer refresh** (runs through everything):
 - Audit existing renderer, identify cheap wins (shelter-emergence polish is known-needed per user).
-- Move from 1-row text strip → 2D viewport (N cells wide × M rows tall, courier near-center).
-- **Day/night cycle**: single CSS variable `--tlh-daylight: 0..1` interpolated through dawn/day/dusk/night color ramps. ~3000 ticks per day (~17min at 350ms). No new mechanics — visual only for v0.0.9. Mechanical hooks (NPC sleep, night trip bonus, storms more dangerous at night) designed later.
-- Weather already spatial — should layer cleanly on 2D viewport.
+- **Side-view play-area strip stays as-is** — the 1-row text strip + `@` + ground + destDrift + rain + sky (shipped in v0.0.9.1) is the gameplay camera and doesn't get replaced. The "2D viewport" in this document refers to the *route-map panel* being expanded into a 2D plane (see point 2 above), not a camera rework.
+- **Day/night cycle**: shipped in v0.0.9.1 on the side-view strip. See [v0.0.9.1 implementation plan](#v0091-implementation-plan) for the shipped model (layered CSS gradient + sun-anchored radial glow) — supersedes the primer's original "single CSS variable interpolated through color ramps" sketch.
+- Weather already spatial — storms are currently drawn along edge line-paths; once the route-map panel is a 2D plane, storms should sweep across it as world objects (generalization bundled with v0.0.9.2 per user's intent since the storm data model already supports it).
 
 ### new NPC cast (v0.0.9 landmass — 4 corners)
 
@@ -211,7 +211,7 @@ Placement: rounded-square corners. Existing 6 NPCs stay on rim sides in their cu
 ### sequencing
 
 1. **v0.0.9.1** — renderer audit + day/night cycle (cheap win, confirms the renderer pipeline is still friendly)
-2. **v0.0.9.2** — 2D viewport (grid render, courier centered, ring visible in 2D). Shelter-emergence polish rides here.
+2. **v0.0.9.2** — route-map panel becomes a 2D plane: expand panel size, ring laid as a solid-line road on the plane, interior rendered with placeholder texture + distinct landmass boundary, courier position shown as a dot moving along the ring, storm renderer generalized to sweep across the plane. Shelter-emergence polish (typewriter reveal in settlements side panel) rides here. The side-view play-area strip is **not** touched.
 3. **v0.0.9.3** — shortcut travel (click-across-ring → interior segment path). Interior rendered but empty.
 4. **v0.0.9.4** — package destination diversification + NPC outbound dispatch.
 5. **v0.0.9.5** — terrain bones: new zone types, rivers, mountain massif + pass generation, rocky hills, desert. Ladder/anchor as inventory-only gear (world-overlay comes next).
@@ -354,6 +354,77 @@ Small enough to ship as a single commit, but if it splits:
 2. `js/render/sky.js` + main tick wire-up
 
 Subtitle bump rule (per feedback memory): the patch version in [the-long-haul.html](the-long-haul.html) must bump to `v0.0.9.1`, not just the commit message.
+
+---
+
+## v0.0.9.2 implementation plan
+
+Locked 2026-04-16 after a mockup pass at [tlh-routemap-mockup.html](tlh-routemap-mockup.html). Same workflow as .1 — mockup resolved the visual direction before code. Keep the mockup alongside the shipping code for parity.
+
+### thesis
+
+The **route-map panel** (currently a small 6-node SVG ring) becomes a 2D plane. The ring stays canonical — it becomes the road laid on that plane. Interior of the ring is visible as "crossable space" via a dotted placeholder texture. The side-view play area (`.tlh-viewport` where the courier `@` walks with its sky layer from v0.0.9.1) is **not touched**.
+
+### mockup-established direction
+
+- **Flat plane** — no landmass fill, no void distinction, no panel border. Panel's `--tlh-k` bg shows through uniformly.
+- **Texture delineates crossable space** — dim `.` / `,` / `·` glyphs populate *only* the interior of the ring polygon (point-in-polygon). Outside the ring = empty plane = reads as uncrossable without needing a drawn boundary. Decouples "is this land" from a literal wall.
+- **Ring as solid-line road** — dashed stroke removed, replaced with a solid line ~1.5 wide. Literal ASCII road glyphs (`=` bands, etc.) land in the later structures patch; .2 ships the solid line as interim.
+- **Node glyphs refreshed**: `?` → **φ** (phi, weather station NPC); `·` → **ψ** (psi, orphan-scavenger NPC). α/β/γ/η unchanged. Matches the identity patch from v0.0.8.4.
+- **Courier on 2D map** — unchanged dot moving along the ring road (interpolated edge + dotT). No trail yet; trail design lands with v0.0.9.3's shortcut travel.
+- **Panel expansion** — viewBox grows from ~110×220 → ~280×280 (roughly square). No scroll/pan yet; that waits until the plane expands beyond a single visible area.
+- **Rim node layout** — existing 6 nodes spread around the expanded rim at roughly hexagonal positions. Final rounded-square rim with 4 corner NPCs waits for the world-map regen pass (→ v0.0.9.7).
+
+### storm renderer — generalization bundled with .2
+
+Reuses the existing [weather.js](js/weather.js) storm data (cell-indexed primaryCell/secondaryCell, dual-gaussian isobars) and the existing [route-map.js](js/render/route-map.js) `renderStorms()` which already maps cells → SVG via `cellToSvg()`. With the new node layout, `cellToSvg()` automatically produces new xy coords and storms render against the new 2D plane — **no storm data model refactor required**. Likely needs minor tuning of sigma scale (storms sized for 110-wide viewBox may read small at 280-wide) and the march radius limit.
+
+Full 2D storm physics (free XY drift away from the ring) is a future patch — needs new storm fields (x, y, velocity) and a rewrite of intensityAtCell. Out of scope for .2.
+
+### shelter-emergence polish
+
+Lands here per primer intent. When a settlement goes stage-2 ("unconfirmed") → stage-3 (confirmed, triggered by arriving at the node), the settlements side panel reveals the final name via a **typewriter animation** character-by-character, replacing the italic placeholder.
+
+Implementation shape:
+- New transient state: `S._transient.emergingSettlements = Map<nodeId, { chars, startTick }>`. Not persisted.
+- Trigger: main.js already calls `setNodeStage(arrivedAt, 3)` on arrival. Add a hook right after the stage change that pushes an emergence entry.
+- Render: [js/render/settlements.js](js/render/settlements.js) checks the map each call — if an entry exists for a settlement, render partial name + blinking caret; advance chars based on elapsed ticks; remove from map when complete.
+- Rate: ~1 char per tick feels right (350ms × N chars = ~2-4s for typical names).
+
+### scope — what ships in v0.0.9.2
+
+- [js/render/route-map.js](js/render/route-map.js) — new viewBox / node layout, solid ring, node glyph mapping (φ/ψ), new `drawInterior()` that plots dim texture only inside the ring polygon (point-in-polygon), storm sigma / march-radius tuning
+- [js/render/settlements.js](js/render/settlements.js) — typewriter emergence reveal
+- [js/state.js](js/state.js) — `S._transient.emergingSettlements` field
+- [js/main.js](js/main.js) — trigger emergence entry on stage-3 transitions
+- [the-long-haul.html](the-long-haul.html) — `#routeSvg` height attribute + subtitle bump to v0.0.9.2
+- [the-long-haul.css](the-long-haul.css) — `#routeSvg` height at relevant breakpoints + any emergence caret styling
+- No save-schema bump (all new state is `_transient`)
+
+### scope — explicitly deferred
+
+- Literal ASCII road glyphs on the ring — lands with a future "structures" patch
+- Real terrain types (rivers / mountain massifs / rocky hills / desert) — v0.0.9.5
+- Terrain depth/height visualization — beyond .5 (or its own pass)
+- Click-across-ring shortcut travel — v0.0.9.3
+- Interior trails (save-stored, multiplayer-synced) — v0.0.9.6
+- Rounded-square rim with 4 corner NPCs — v0.0.9.7 (world-map regen pass)
+- Full 2D storm physics (free XY drift) — future patch after .2
+
+### follow-ups to watch for in-code
+
+- **Storm sigma tuning** — watch for storms reading too small in the new larger viewBox; bump scale factor if needed.
+- **Storm march radius** — `r < 80` limit in `traceContour` may cut off wider storms on the bigger canvas; consider bumping to ~130.
+- **Emergence caret** — needs a blink animation class; simple CSS keyframe.
+
+### commit sequence (tentative)
+
+Probably one commit — changes are surgically scoped:
+1. subtitle bump + html/css adjustments
+2. route-map.js rework (viewBox, layout, glyphs, ring style, interior texture, storm tuning)
+3. settlements.js + state.js + main.js (typewriter emergence)
+
+Subtitle bump rule: bump to `v0.0.9.2` in the-long-haul.html subtitle, not just the commit message.
 
 ---
 

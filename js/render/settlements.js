@@ -6,6 +6,12 @@
    S.npcs[s.id] directly (handoff bug list item 5 — the
    encapsulation leak introduced commit 9 is closed).
 
+   v0.0.9.2: typewriter emergence reveal. When a settlement
+   crosses stage-2 → stage-3 the name is revealed char-by-char
+   with a blinking caret, instead of the existing dry
+   className swap. Tick-driven (not wall-clock) so the
+   reveal pauses naturally if the game is paused.
+
    Imports:
      S — game state (state.js)
      NPC_DEFS — NPC metadata (data/npc-defs.js)
@@ -24,21 +30,58 @@ import { getNpc } from '../trust.js';
 
 const els = S._transient.els;
 
+/**
+ * Start (or restart) a typewriter emergence animation for a node.
+ * Called from main.js when setNodeStage transitions a node to 3.
+ * Safe to call on non-settlement nodes — it simply won't show up
+ * in the settlements panel.
+ */
+export function startEmergence(nodeId) {
+  S._transient.emergingSettlements.set(nodeId, { startTick: S.ticks });
+}
+
+/** Any emergence animations still in progress? Called from main.js tick. */
+export function hasActiveEmergence() {
+  return S._transient.emergingSettlements.size > 0;
+}
+
 export function renderSettlements() {
   if (!els.settlementsEl) return;
+  const emerging = S._transient.emergingSettlements;
   els.settlementsEl.innerHTML = '';
   S.routeNodes.filter(n => getNodeStage(n.id) >= 2 && S.settlements[n.id])
     .map(n => ({ id:n.id, stage:getNodeStage(n.id), ...S.settlements[n.id] }))
     .forEach(s => {
       const div = document.createElement('div');
-      div.className = 'settle-item' + (s.stage < 3 ? ' settle-stage2' : '');
-      const name = s.stage >= 3 ? s.label : s.tier;
-      const subtitle = s.stage >= 3 ? s.tier : 'unconfirmed';
+
+      // v0.0.9.2 — emergence typewriter. If an entry exists for this
+      // node AND it's now stage-3, advance char count based on elapsed
+      // ticks. When the full name is revealed, clear the entry.
+      let name     = s.stage >= 3 ? s.label : s.tier;
+      let subtitle = s.stage >= 3 ? s.tier  : 'unconfirmed';
+      let caretHtml = '';
+      const em = emerging.get(s.id);
+      if (em && s.stage >= 3) {
+        const elapsed = S.ticks - em.startTick;
+        const chars   = Math.max(0, Math.min(s.label.length, elapsed));
+        if (chars < s.label.length) {
+          name      = s.label.slice(0, chars);
+          subtitle  = 'revealing';
+          caretHtml = '<span class="settle-caret"></span>';
+          div.className = 'settle-item settle-emerging';
+        } else {
+          emerging.delete(s.id);
+          div.className = 'settle-item';
+        }
+      } else {
+        div.className = 'settle-item' + (s.stage < 3 ? ' settle-stage2' : '');
+      }
+
       const quote = s.stage >= 3 ? s.quote : `"reports of a ${s.tier} along this route"`;
       let trustBlock = '';
       const npcDef = NPC_DEFS[s.id];
       const npc    = getNpc(s.id);
-      if (npcDef && npc && s.stage >= 3) {
+      if (npcDef && npc && s.stage >= 3 && !em) {
         const tPct = Math.max(0, Math.min(100, npc.trust));
         trustBlock = `
           <div class="settle-trust">
@@ -55,7 +98,7 @@ export function renderSettlements() {
       }
       div.innerHTML = `
         ${trustBlock}
-        <div class="settle-name">${name} <span>${subtitle}</span></div>
+        <div class="settle-name">${name}${caretHtml} <span>${subtitle}</span></div>
         <div class="settle-bar settle-bar-wip" title="rebuild progress \u2014 WIP indicator"><div class="settle-fill ${s.rebuild>50?'b':'a'}" style="width:${Math.round(s.rebuild)}%"></div></div>
         <div class="settle-quote">${quote}</div>`;
       els.settlementsEl.appendChild(div);

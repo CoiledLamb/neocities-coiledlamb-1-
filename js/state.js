@@ -217,6 +217,12 @@ export const S = {
     lastCargoKey: '',
     lastGearPopKey: '',
 
+    // v0.0.9.2 — typewriter emergence animation tracker.
+    // Keyed by nodeId; value is { startTick } so renderSettlements()
+    // can compute how many chars have been revealed. Entry self-
+    // removes once the animation completes. Not persisted.
+    emergingSettlements: new Map(),
+
     // Gear popover outside-click handler (so we can remove it on close)
     gearPopHandler: null,
 
