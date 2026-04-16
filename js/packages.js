@@ -278,7 +278,7 @@ export function tryDeliver(arrivedNodeId) {
     // Weight-scaled base (1 + floor(slots/2)) with profile multipliers.
     const gain = NPC_DEFS[arrivedNodeId] ? computeTrustGain(pkg, arrivedNodeId) : 0;
     const trustSuffix = gain > 0 ? ` +${Math.round(gain * 10) / 10} trust` : '';
-    addLog(`delivered to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2${trustSuffix}</span>`);
+    addLog(`delivered <span class="log-hi">[${pkg.size}] ${pkg.label}</span> to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2${trustSuffix}</span>`);
     postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
 
     if (pkg.isRecovery && pkg.recoveryFromPorter) {

@@ -135,6 +135,7 @@ export function drinkWater() {
   S.stamina  = Math.min(S.staminaMax, S.stamina+rest);
   const drainMult = S.upgrades.efficientConsumption ? 0.60 : 1.0;
   S.canteen  = Math.max(0, S.canteen-(rest/S.staminaMax)*S.canteenMax*drainMult);
+  if (S.canteen < S.canteenMax * 0.005) S.canteen = 0;
   addLog(`drank from canteen \u2014 <span class="log-hi">+${Math.round(rest/S.staminaMax*100)}% stamina</span>`);
 }
 

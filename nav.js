@@ -323,6 +323,18 @@
     logo.appendChild(sub);
     sidebar.appendChild(logo);
 
+    const toggle = document.createElement('button');
+    toggle.className = 'nav-toggle';
+    toggle.setAttribute('type', 'button');
+    toggle.setAttribute('aria-label', 'Toggle navigation');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.textContent = '\u2261';
+    toggle.addEventListener('click', () => {
+      const open = sidebar.classList.toggle('nav-open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    sidebar.appendChild(toggle);
+
     const links = document.createElement('div'); links.className = 'nav-links';
     NAV.forEach((item, i) => {
       if (i > 0) { const d = document.createElement('div'); d.className = 'nav-divider'; links.appendChild(d); }

@@ -16,7 +16,7 @@ html, body {
 #site.visible { opacity: 1; }
 
 .tlh-page {
-  padding: 28px 28px 48px;
+  padding: 28px 8px 48px;
   box-sizing: border-box;
 }
 
@@ -48,7 +48,6 @@ html, body {
   border: 1px solid #1e5554;
   border-radius: 2px;
   overflow: hidden;
-  animation: oil-border 4s linear infinite;
   background: #0d3533;
   display: flex;
   flex-direction: column;
@@ -1099,8 +1098,24 @@ html, body {
 .chan-item.chan-quiet { color: #2a5c5a; font-style: italic; display: block; padding: 2px 0; }
 
 @media (max-width: 700px) {
-  .tlh-layout { grid-template-columns: 1fr; }
-  .tlh-right { flex-direction: row; }
+  .tlh-page { padding: 10px 6px 32px; }
+  .tlh-layout { grid-template-columns: 1fr; gap: 6px; }
+  .tlh-right { flex-direction: column; }
+  .tlh-panels { flex-direction: column; min-height: auto; }
+  .tlh-panel { border-right: none; border-bottom: 1px solid #1e5554; }
+  .tlh-panel:last-child { border-bottom: none; }
+  .tlh-hud { flex-wrap: wrap; }
+  .tlh-hc { min-width: 0; flex: 1 1 45%; }
+  .tlh-row { gap: 4px; padding: 5px 6px; }
+  .boots-auto, .drink-btn, .tie-down-btn, .log-btn {
+    min-height: 28px; padding: 4px 8px;
+  }
+  .save-btn { min-height: 28px; padding: 3px 10px; }
+  .boots-gear-btn { min-height: 28px; min-width: 28px; }
+  .tlh-route-panel, .tlh-network-panel, .tlh-channels-panel { padding: 6px; }
+  #routeSvg { height: 180px; }
+  .tlh-header { margin-bottom: 8px; }
+  .tlh-save-strip { gap: 4px; padding: 4px 6px; flex-wrap: wrap; }
 }
 
 /* ==========================================================

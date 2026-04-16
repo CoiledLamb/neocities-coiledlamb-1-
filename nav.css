@@ -316,29 +316,46 @@
 .np-ti-name { font-size: 9px; color: #5ab8a8; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: lowercase; }
 .np-ti-dur  { font-size: 9px; color: #2a6a5a; }
 
+/* mobile toggle button (hidden on desktop) */
+.nav-toggle {
+  display: none;
+  background: none; border: 1px solid #1e5554; border-radius: 1px;
+  color: #7aa8a6; font-size: 16px; line-height: 1;
+  padding: 4px 7px; cursor: pointer; flex-shrink: 0;
+  font-family: 'Source Code Pro', monospace;
+  margin-left: auto;
+  transition: color 0.12s, border-color 0.12s;
+}
+.nav-toggle:hover { color: #e0eeec; border-color: #40a4b9; }
+
 @media (max-width: 700px) {
   .nav-sidebar {
     position: fixed; top: 0; left: 0; right: 0;
     height: auto; width: 100%;
-    flex-direction: row; align-items: center;
-    padding: 0 12px;
+    flex-direction: row; flex-wrap: wrap; align-items: center;
+    padding: 0 10px;
     border-right: none; border-bottom: 1px solid #1e5554;
     z-index: 200;
   }
   .nav-logo {
-    padding: 8px 12px 8px 0;
-    border-bottom: none; border-right: 1px solid #1e5554;
-    margin-bottom: 0; margin-right: 6px;
+    padding: 8px 10px 8px 0;
+    border-bottom: none; border-right: none;
+    margin-bottom: 0; margin-right: 0;
     flex-shrink: 0;
   }
+  .nav-toggle { display: block; }
   .nav-links {
+    display: none;
+    width: 100%;
     flex-direction: row; flex-wrap: wrap;
     align-items: center; gap: 0;
-    padding: 6px 0; overflow-x: auto; overflow-y: visible;
+    padding: 4px 0 6px; overflow-x: auto; overflow-y: visible;
+    border-top: 1px solid #1e5554;
   }
+  .nav-sidebar.nav-open .nav-links { display: flex; }
   .nav-children { flex-direction: row; padding: 0; }
   .nav-divider { width: 1px; height: 20px; margin: 0 6px; }
   .nav-footer { display: none; }
   .nav-player { display: none; }
-  .nav-offset { margin-left: 0; padding-top: 46px; }
+  .nav-offset { margin-left: 0; padding-top: 38px; }
 }

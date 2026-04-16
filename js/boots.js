@@ -112,9 +112,10 @@ export function toggleBootsGear() {
 }
 
 export function toggleTieDown() {
-  S.tieDownActive = !S.tieDownActive;
-  if (els.tieDownBtn) { els.tieDownBtn.textContent='tie-down: '+(S.tieDownActive?'on':'off'); els.tieDownBtn.classList.toggle('on',S.tieDownActive); }
-  if (S.tieDownActive) addLog('cargo <span class="log-hi">tied down</span> \u2014 next stumble negated');
+  if (S.tieDownActive) return;
+  S.tieDownActive = true;
+  if (els.tieDownBtn) { els.tieDownBtn.textContent='tie-down: on'; els.tieDownBtn.classList.add('on'); }
+  addLog('cargo <span class="log-hi">tied down</span> \u2014 next stumble negated');
 }
 
 // renderBoots is exported for packages.js (sandalweed harvest)

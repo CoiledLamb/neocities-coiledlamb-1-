@@ -23,6 +23,10 @@ const els = S._transient.els;
 
 export function currentEdge() { return S.edges[S.edgeIdx % S.edges.length]; }
 
+// Display mapping: route node IDs → Greek letter equivalents.
+const GREEK = { 'A': '\u03b1', 'B': '\u03b2', 'C': '\u03b3', 'H': '\u03b7' };
+function nodeGlyph(id) { return GREEK[id] || id; }
+
 export function layoutRouteNodes() {
   const W = 110;
   [{ id:'A', x:W/2, y:18 }, { id:'?', x:W-14, y:65 }, { id:'B', x:W-14, y:128 },
@@ -89,7 +93,7 @@ export function drawRouteMap() {
                           : stage >= 2 ? '#3a6a68'
                           : stage >= 1 ? '#2a5c5a'
                           : '#2a5c5a');
-    t.textContent = (stage >= 1 || n.id === '?') ? n.id : '?';
+    t.textContent = (stage >= 1 || n.id === '?') ? nodeGlyph(n.id) : '?';
 
     const lx     = n.x > 70 ? n.x - 9 : n.x < 40 ? n.x + 9 : n.x;
     const anchor = n.x > 70 ? 'end'    : n.x < 40 ? 'start'  : 'middle';

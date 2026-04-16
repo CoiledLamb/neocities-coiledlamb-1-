@@ -197,7 +197,7 @@ export function renderCargoSlots(force) {
     d.className = 'cslot gun has-tooltip';
     d.style.gridColumn = `${gunCell.x + 1}`;
     d.style.gridRow    = `${gunCell.y + 1}`;
-    d.textContent = '\u26a1';
+    d.textContent = '\u2020';
     const gunTip = `sticky gun\nammo ${S.stickyGun.ammo}/${S.stickyGun.ammoMax}\nrefill at H`;
     d.setAttribute('data-tooltip', gunTip);
     d.setAttribute('aria-label', gunTip);
