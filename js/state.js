@@ -36,12 +36,18 @@ export const S = {
     // v0.0.7.21 — courier equipment v2
     stickyGun: false, stickyHolster: false,
     scannerT1: false,
+    // v0.0.8.6 — trust-reward upgrades
+    weatherRadio: false, sandalEfficiency: false, scavengerEye: false,
   },
 
   // v0.0.7.21 — sticky gun state. null when not owned; object when owned.
   // ammo refills on H arrival. holstered frees the cargo slot.
   // Schema v6.
   stickyGun: null,  // { ammo, ammoMax, holstered } | null
+
+  // v0.0.8.6 — weather radio state. null when not owned; object when granted
+  // by phi at t20. Tick hook in main.js fires log warnings before rain.
+  weatherRadio: null,  // { unlocked: true } | null
 
   // v0.0.7.21 — terrain scanner state. unlocked flips when the upgrade is
   // purchased. level is forward-compat for T2/T3 in v0.0.7.23.
@@ -185,6 +191,11 @@ export const S = {
     // based on S.isRaining so loaded saves behave correctly.
     nextRainStartTick: 0,
     nextRainEndTick: 0,
+
+    // v0.0.8.6: weather radio warn dedupe. Set to the current storm's
+    // nextRainStartTick when the warn fires; resets implicitly when a new
+    // storm is scheduled (its nextRainStartTick will be higher).
+    lastWeatherRadioWarnTick: 0,
 
     // Pickup-fail log dedupe (v0.0.7.19 commit 2b). Key is
     // `${ci}:${usedSlots}:${usedWeight}` — a change to any part refires

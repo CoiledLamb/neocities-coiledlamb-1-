@@ -40,7 +40,11 @@ let lastUpgKey = null;
 export function renderUpgrades() {
   if (!els.upgradesEl) return;
 
-  const key = UPGRADE_DEFS.map(def => {
+  // v0.0.8.6: trust-reward upgrades are granted by NPCs, not purchased.
+  // Filter them out of the scrip menu entirely.
+  const scripDefs = UPGRADE_DEFS.filter(def => !def.trustReward);
+
+  const key = scripDefs.map(def => {
     const o = S.upgrades[def.id] ? 'o' : 'x';
     const r = !def.requires || S.upgrades[def.requires] ? 'r' : '-';
     const a = S.scrip >= def.cost ? 'a' : 'n';
@@ -50,7 +54,7 @@ export function renderUpgrades() {
   lastUpgKey = key;
 
   els.upgradesEl.innerHTML = '';
-  UPGRADE_DEFS.forEach(def => {
+  scripDefs.forEach(def => {
     const purchased = S.upgrades[def.id];
     const reqMet    = !def.requires || S.upgrades[def.requires];
     const canAfford = S.scrip >= def.cost;

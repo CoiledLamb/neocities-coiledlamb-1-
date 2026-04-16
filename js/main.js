@@ -332,6 +332,17 @@ function tick() {
       tryWarning(arrivedAt);
       tryPreview(arrivedAt);
       tryRestPrompt(arrivedAt);
+
+      // v0.0.8.6: t60 battery charging — trusted destinations recharge.
+      // Any NPC at t60+ adds charge when the courier passes through.
+      const npcState = S.npcs[arrivedAt];
+      if (npcState && npcState.unlocks && npcState.unlocks.t60 && S.battery) {
+        const prev = S.battery.charge;
+        S.battery.charge = Math.min(100, S.battery.charge + 15);
+        if (S.battery.charge > prev) {
+          addLog(`<span class="log-ok">battery charged</span> at ${NPC_DEFS[arrivedAt].callsign}'s`);
+        }
+      }
     }
   } else {
     updateRouteDot();
@@ -352,6 +363,18 @@ function tick() {
     if (S.ticks >= S._transient.nextRainStartTick) {
       setRain(true);
       scheduleNextRainTransition();
+    }
+  }
+
+  // v0.0.8.6: weather radio — passive rain warning in the dispatch log.
+  // Fires once per incoming storm cycle when the warn window is entered.
+  if (S.weatherRadio && !S.isRaining) {
+    const ticksUntilRain = S._transient.nextRainStartTick - S.ticks;
+    if (ticksUntilRain > 0 && ticksUntilRain <= C.RAIN_INCOMING_WARN_TICKS
+        && S._transient.lastWeatherRadioWarnTick < S._transient.nextRainStartTick) {
+      S._transient.lastWeatherRadioWarnTick = S._transient.nextRainStartTick;
+      const secs = Math.round(ticksUntilRain * C.TICK_MS / 1000);
+      addLog(`weather radio: rain incoming \u2014 ~${secs}s`);
     }
   }
 

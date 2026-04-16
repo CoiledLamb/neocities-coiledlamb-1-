@@ -62,6 +62,7 @@ import { S } from './state.js';
 import * as C from './constants.js';
 import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js';
 import { NPC_LINES } from './data/npc-lines.js';
+import { UPGRADE_DEFS } from './data/upgrades.js';
 import { postActivity } from './multiplayer.js';
 import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js';
 import { speak } from './channels.js';
@@ -181,6 +182,18 @@ function onTrustUnlock(depotId, threshold, tierIndex) {
       renderSettlements();
     }
   }
+
+  // v0.0.8.6: auto-grant trust-reward upgrades at this tier.
+  // Fires after the threshold line speaks so the reward log appears
+  // in sequence: "rho: ..." then "rho gave you boot clip".
+  UPGRADE_DEFS.forEach(def => {
+    if (!def.trustReward) return;
+    if (def.trustReward.npc !== depotId || def.trustReward.tier !== tierKey) return;
+    if (S.upgrades[def.id]) return;
+    S.upgrades[def.id] = true;
+    def.apply();
+    addLog(`<span class="log-hi">${npc.callsign}</span> gave you <span class="log-ok">${def.name}</span>`);
+  });
 }
 
 export function tryWarning(arrivedNodeId) {
@@ -248,7 +261,6 @@ export function tryRestPrompt(arrivedNodeId) {
   if (!npc || !npc.unlocks || !npc.unlocks.t80) return;
   if (S._transient.depotRestPending) return;
   if (S.stamina >= S.staminaMax * 0.85) return;
-  if (S.scrip < 5) return;
   const def = NPC_DEFS[arrivedNodeId];
   // v0.0.8.4: rest lines are arrays under NPC_LINES.rest[depotId].
   // Old code accessed NPC_LINES[depotId].rest — shape mismatch meant
@@ -269,11 +281,11 @@ function confirmDepotRest() {
   const { nodeId } = S._transient.depotRestPending;
   S._transient.depotRestPending = null;
   const def = NPC_DEFS[nodeId];
-  S.scrip = Math.max(0, S.scrip - 10);
+  // v0.0.8.6: rest is free at t80 — you've earned the NPC's hospitality.
   S.stamina = S.staminaMax * 1.05;
   S.staminaOverboost = true;
   S.canteen = Math.min(S.canteenMax, S.canteen + 30);
-  addLog(`rested at <span class="log-hi">${def ? def.callsign : nodeId}</span> \u2014 <span class="log-ok">+stamina +canteen \u221210\u00a2</span>`);
+  addLog(`rested at <span class="log-hi">${def ? def.callsign : nodeId}</span> \u2014 <span class="log-ok">+stamina +canteen</span>`);
   renderStamina();
   updateHUD();
   const btn = document.getElementById('depotRestBtn');

@@ -248,7 +248,10 @@ export function tryDeliver(arrivedNodeId) {
         S.activeRecoveryCount = Math.max(0, S.activeRecoveryCount - 1);
         updatePorterStripBadges();
       } else {
-        worldCells[pkg._worldCell].pkg.respawnIn = C.PKG_RESPAWN_TICKS;
+        // v0.0.8.6: scavenger's eye reduces respawn by 20%
+        worldCells[pkg._worldCell].pkg.respawnIn = S.upgrades.scavengerEye
+          ? Math.floor(C.PKG_RESPAWN_TICKS * 0.8)
+          : C.PKG_RESPAWN_TICKS;
       }
     }
     if (settle) { settle.supply = Math.min(100, settle.supply + 3); settle.rebuild = Math.min(100, settle.rebuild + 1); }
