@@ -1,15 +1,15 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-15 (v0.0.8.6 shipped; trust thread complete. Packages + trust done; rain rework next. See session logs for [.4](#commit-v0084--identity-patch), [.5](#commit-v0085--weight-scaled-trust), [.6](#commit-v0086--upgrade-migration--trust-rewards).)_
+_last updated: 2026-04-16 (v0.0.8.8 shipped; v0.0.8 arc complete — packages + trust + rain all landed. v0.0.9 planning locked; [thread primer](#v009-thread-primer-queued-after-v008-rain-rework) ready to execute.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.8.6 — trust thread complete; rain rework next
+## ✅ CURRENT STATE: v0.0.8.8 — v0.0.8 arc complete; v0.0.9 planning locked, ready to build
 
-Game is at `v0.0.8.6` on branch `claude/vigilant-shannon`. The full trust thread landed across .4/.5/.6: six NPCs with voices, weight-scaled trust gain, upgrade migration to trust rewards, delivery dialogue, weather radio, scavenger's eye, t60 battery charging, t80 free rest. Two of three v0.0.8 mechanical threads done (packages, trust); rain rework is the last.
+Game is at `v0.0.8.8` on `main`. All three v0.0.8 mechanical threads shipped: packages (.1–.3), trust (.4–.6), weather/rain rework via spatial storms (.7), plus a bug audit + mobile compatibility pass (.8). v0.0.9 planning is captured in the [thread primer below](#v009-thread-primer-queued-after-v008-rain-rework) — 2D world beneath the ring, 4 new corner NPCs (nu/theta/gamma/delta), trails + proto-structures + new terrain + renderer refresh.
 
-**v0.0.8 scope redefinition (important):** the handoff previously framed v0.0.8 as terrain expansion (deserts, rivers, slopes). User rescoped it around **three mechanical-depth threads**: packages, trust, rain. Terrain moved to v0.0.9. Packages + cargo UI complete; trust and rain still to build.
+**v0.0.8 scope redefinition (historical note):** the handoff previously framed v0.0.8 as terrain expansion (deserts, rivers, slopes). User rescoped it around **three mechanical-depth threads**: packages, trust, rain. All three shipped. Terrain moved to v0.0.9 and is now the lead thread there.
 
 **Where we are in the patch arc:**
 
@@ -33,10 +33,10 @@ Game is at `v0.0.8.6` on branch `claude/vigilant-shannon`. The full trust thread
 15. ✅ **v0.0.8.4 — identity patch: phi + xi + psi + dialogue shape fix + delivery dialogue**. Three new NPCs (phi at `?` weather station, xi at `C` ruins researcher, psi at `·` orphan-scavenger). `trustProfile` dispatcher: 'careful' (xi halves gain on non-fragile/non-xl), 'scavenger' (psi doubles on s, halves on l/xl). NPC_LINES reshaped to category-first arrays; trust.js shape bug fixed (threshold/warning/preview/rest had been silently no-opping since the refactor). Rich dialogue variety: 3–5 variants per repeating slot × 6 NPCs. Label pool rewrites: `?` orphan labels migrated to `·`; fresh weather instrument pool for `?`; `C` expanded with research/ruin-scavenging labels. **Delivery dialogue**: new `delivery` category in NPC_LINES (5 conditions × 6 NPCs × 3 lines = 90 lines). `speakDelivery()` fires once per delivery batch, picking the most interesting condition (lost > damaged > fragile > heavy > normal). No trust gate — NPCs react from the first delivery. `pkg.damaged` flag added in trip.js. **Character voice pass**: rho = former porter giving wizened advice; iota = 20s wetlands ecology researcher; tau = your sibling (encouraging/proud, not overprotective); all NPCs nonbinary/agender.
 16. ✅ **v0.0.8.5 — weight-scaled trust gain**. Delivery trust now `1 + floor(pkg.slots/2)`: s→+1, m→+2, l→+3, xl→+5. Lost bonus +1. Delivery log surfaces trust: `+Xc +N trust`. `TRUST_GAIN_DELIVERY` / `TRUST_GAIN_LOST_DELIVERY` removed; replaced by formula + `TRUST_GAIN_LOST_BONUS`.
 17. ✅ **v0.0.8.6 — upgrade migration + trust rewards + new gadgets + tier mechanics**. 6 upgrades migrated from scrip to NPC trust rewards; 3 new upgrades added (weatherRadio phi t20, sandalEfficiency iota t40, scavenger's eye psi t20). Scrip menu filtered. `onTrustUnlock` auto-grants; `loadGame` retro-grants for existing saves. Tier structure: t20 = first gift, t40 = second gift (rho/iota/tau), t60 = battery charging at trusted destinations (+15 per visit), t80 = free rest (stamina + canteen, no scrip cost). weatherRadio tick hook fires passive rain log warnings. scavengerEye: respawn 20% faster, lost chance 15%→22%. sandalEfficiency: sandalweed repair 30→50 durability.
-18. ⏳ **v0.0.8.7+ — NPC gadget/upgrade dialogue** (NEXT small pass): add NPC lines that reference the upgrades and gadgets they've given you — makes the gifts feel acknowledged in the world.
-19. ⏳ **v0.0.8.later — rain rework**: drizzle/rain/downpour intensity states, storms as travelling world objects (not localized to player), minimap cloud rendering, biome-biased spawning (wetlands more rain-prone). Encumbrance trip scaling folded in.
+18. ✅ **v0.0.8.7 — weather rework**: spatial storms as travelling world objects, dual-gaussian isobar minimap, intensity zones, weather radio tiering (L1 storm prediction, L2 map unlock). Rain thread complete.
+19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
-**Resume next session**: trust thread is **done**. Next up is **rain rework** (the third and final v0.0.8 mechanical thread). See the [rain thread section](#rain-thread-queued-after-trust) for the prior design sketch: storm arcs, intensity states, minimap rendering, biome bias. Optional small pass first: v0.0.8.7 NPC dialogue about their gifts (low scope, high personality payoff).
+**Resume next session**: v0.0.8 arc is **done**. Next up is **v0.0.9** — terrain + new NPCs + 2D world. See the [v0.0.9 thread primer](#v009-thread-primer-queued-after-v008-rain-rework) for the full spec (thesis, threads, map shape, NPC cast, sequencing, open knobs). Cleanest first concrete patch to draft is **v0.0.9.1** (renderer audit + day/night cycle) — small, self-contained, doesn't depend on any open design knobs.
 
 ## planned but not built (as of v0.0.8.3)
 
@@ -118,6 +118,137 @@ Not in scope for the trust session but captured so the next planning pass has co
 - Downpour → river flooding (finally activates `S.inRiver` stub), reduced pickup range, higher trip chance
 - Encumbrance folded into `tripChance()` alongside rain multiplier
 - Shape constants: `weatherAtCourier()` derives current intensity from storm arcs; replaces every `if (S.isRaining)` callsite ([main.js](js/main.js), [trust.js](js/trust.js) t40 warning, [admin-channel.js](js/admin-channel.js))
+
+---
+
+## v0.0.9 thread primer (queued after v0.0.8 rain rework)
+
+Planning sketch captured 2026-04-16. Not locked; terrain + NPC cast + renderer direction agreed, but numbers and a few design knobs are still open — see [open design questions](#open-design-questions-v009-unresolved).
+
+**One-line thesis:** _the plane beneath the ring._ The 6-edge ring stops being an abstraction and becomes a road laid on a real 2D surface. The interior of that ring becomes traversable, textured, and (eventually, v0.0.10) socially built on.
+
+### user's stated threads
+
+1. **Renderer refresh.** Untouched since before v0.0.7 UI pass; user calls it "dated." Stay ASCII — sprites are a long-term ambition but too big to lift in-house now. v0.0.9 lifts via 2D viewport + atmospheric polish, not glyph-system rewrite.
+2. **2D world — embedded, not replacing.** Flat 2D space traversable in any direction. The existing ring stays canonical and becomes a road on the plane. Clicking a non-adjacent node routes the courier through the interior. Interior needs texture (trails + terrain) so it's not featureless.
+3. **New terrain types:** rivers, mountains, rocky hills, deserts. Plus a refresh pass on the existing ring biomes (building locations/names may shift, existing NPCs stay in their buildings).
+4. **4 new NPCs** (nu, theta, gamma, delta). See cast below.
+
+### design sketch from the planning session (not locked)
+
+**Map shape: rounded square with 10-node rim.** Hex-with-10 is uneven; true circle is rotationally-symmetric but regionally-flat. Rounded square gives 4 corners as natural geographic anchors (one biome per corner) + 2-3 rim nodes per side. Existing 6 NPCs stay on rim sides; 4 new NPCs anchor the 4 corners.
+
+**Shortcut traversal.** Routes become lists of segments rather than an implicit `edgeIdx`. Click-across-ring = a single straight(ish) segment through the interior. Existing tick/distance/stamina/trip math reuses — the courier is still advancing along a segment, the segment just happens to cross the middle.
+
+**Trails** — the design grab that makes the interior load-bearing.
+- Save-stored, per-cell `trample` value + `lastStepTick`.
+- Virgin terrain costs more (stamina drain + trip chance); walking over existing trample reduces cost. Emergent social "paving" as many players cross the same routes.
+- Multiplayer-synced (existing channel); each player contributes trample from their own movement.
+- Glyph/color shifts with trample level (`.` → `,` → `;` → `:` or a color ramp).
+- Decay schedule: stubbed in v0.0.9, revisit later.
+
+**Persistent world-overlay system** — lands in one coherent pass alongside trails (shared data plumbing). Trails + proto-structures share:
+- Save-stored + multiplayer-synced object table keyed by canonical ID
+- Stable ID shape: `${placerId}-${placedWallClock}-${ci}`
+- Wall-clock timestamp (not ticks) so cross-session decay math is trivial
+- Baked upgrade flags at placement time (ladder placed by someone with the durability upgrade lasts longer *for all viewers*, not dependent on the observer)
+- Future-compatible with **visibility sharding** — a hash-based filter `f(viewerId, canonicalId) → bool` can be added later when player count justifies it (user's call: ~10+ active players). For v0.0.9: every save sees every object.
+
+**Proto-structures: ladders + climbing anchors.** Mountains are regions (3-5 cell **massifs**), not per-cell obstacles. Some massifs generate with a natural **pass** (traversable but slower). Off-pass / no-pass massifs require:
+- 1 ladder consumed entering (+ placed as a world-overlay object, usable by others)
+- 1 anchor consumed exiting (same)
+- Repeated crossings → the path trams in, eventually becoming a free pass (natural extension of the trails system — this is the *mountain-pass-carving* mechanic)
+
+Ladder/anchor base durability ≈ 1 IRL day, extendable by delta's mountain-gear upgrade (multiplier TBD — see open questions). Degradation is weather-modulated (future hook): storms accelerate decay, dry corners preserve. Visible wear states via glyph/color shift (`fresh` / `weathered` / `rotting`).
+
+Durability model summary (for v0.0.10 foresight too):
+
+| Structure | Base | Upgrade | Weather | Maintenance |
+|---|---|---|---|---|
+| Ladder / anchor (v0.0.9) | ~1 IRL day | delta's mountain gear extends | erosion stub | — |
+| Real shelter (v0.0.10) | IRL days–week | tier-based | significant modifier | explicit refresh action |
+
+**Terrain types** (new):
+- **Rivers** — diagonals across the interior, originating near theta's corner (clay source). Wading = trip chance up, canteen refill, slower pace. Finally closes the long-stubbed `S.inRiver` flag.
+- **Mountains** — clustered in delta's corner as massifs (see above).
+- **Rocky hills** — spillover from delta's mountain corner into gamma's side; intermediate terrain, higher trip chance but no gear required.
+- **Desert** — nu's corner; canteen drain accelerated, especially at day (plugs into day/night cycle).
+
+**Package destination diversification** — without this, shortcut travel is cosmetic; players never use 2D freedom if every pkg is for the next shelter. Data is already ready (`PKG_LABELS_BY_SIZE[size][].dests` has been dest-tagged since v0.0.8.1).
+- Roller picks uniformly from cells-that-match-this-label rather than always tagging edge endpoint.
+- Labels already shape intent — some local (firewood for nearest shelter), some long-haul (research sample for a specific distant NPC).
+- Natural moment to also land the deferred **NPC outbound dispatch** — trust-reward NPCs hand you pkgs destined for other NPCs on visit.
+
+**Renderer refresh** (runs through everything):
+- Audit existing renderer, identify cheap wins (shelter-emergence polish is known-needed per user).
+- Move from 1-row text strip → 2D viewport (N cells wide × M rows tall, courier near-center).
+- **Day/night cycle**: single CSS variable `--tlh-daylight: 0..1` interpolated through dawn/day/dusk/night color ramps. ~3000 ticks per day (~17min at 350ms). No new mechanics — visual only for v0.0.9. Mechanical hooks (NPC sleep, night trip bonus, storms more dangerous at night) designed later.
+- Weather already spatial — should layer cleanly on 2D viewport.
+
+### new NPC cast (v0.0.9 landmass — 4 corners)
+
+Placement: rounded-square corners. Existing 6 NPCs stay on rim sides in their current buildings (locations may shift on the refreshed rim).
+
+| NPC | Corner | Voice / personality | Gifts |
+|---|---|---|---|
+| **nu** | desert | Cautious + wary of strangers — hard to reach out here. Protective; you're a ray of hope on lands too difficult for most to trek. Reminds you to drink water (near-parental). | **camelback** (efficientConsumption moved off iota + reflavored); **reservoir tank** (canteen capacity ↑ + passive fill ↑) |
+| **theta** | riverbed (clay source) | Motherly + warm, but disciplined and hardworking. Carves clay from the riverbed for pottery (essential regional good). Respected, revered. Makes very good tea. | **river navigation** (reduced trip chance when wading); **ceramic wrapping** (fragile pkgs absorb +1 hit / reduced damage — hooks into v0.0.8.1 fragile modifier) |
+| **gamma** | rocky hillside | Tit-for-tat helpful. Hates owing people; goes out of their way to pay back favors. Expects the same from you. | **improved tie-downs** (chance to withstand a hit); **mobile carrier / exoskeleton** (the deferred v0.0.8.3 spec lands here — battery-powered shared carry expansion) |
+| **delta** | mountain | Gregarious mountain climber. Used to risking life + limb on sharp rock faces just to catch a view. Miracle they're still alive, but someone always comes to their aid. | **mountain gear** (improved ladder + anchor durability); **walking stick** (physical item — reduces trip damage on mountain/rocky cells; alt mechanic = stamina drain ↓, see open questions) |
+
+**Tier placement (tentative)** — follows v0.0.8.6 pattern (t20 = first gift, t40 = second):
+- nu: t20 = camelback (moved from iota); t40 = reservoir tank
+- theta: t20 = river navigation; t40 = ceramic wrapping
+- gamma: t20 = improved tie-downs; t40 = mobile carrier / exoskeleton
+- delta: t20 = mountain gear durability; t40 = walking stick
+
+**iota migration.** `efficientConsumption` moves off iota → nu (reflavored as camelback). iota stays sandalweed-themed with sandalSatchel + sandalEfficiency — not gift-starved. iota's remaining tier structure unchanged.
+
+**xi addition.** `terrain map` gets added to xi's gift table as a new upgrade (tier slot TBD once xi's existing assignments are reviewed; xi is the "careful" trust profile at the C ruins). Parked at xi for now because delta had a different t40 in mind and forgot it — if delta's idea resurfaces, terrain map stays at xi and delta's recalled gift takes a later tier.
+
+**Design preference: items > skills.** New trust gifts should default to physical items (walking stick, ceramic wrap, camelback, reservoir tank, mobile carrier) rather than abstract skills. Items feel more tangible and presence-in-the-world. Existing skill-shaped upgrades (efficientConsumption, steadyFeet, etc.) stay as-is, but the v0.0.9 cast leans item-forward.
+
+### sequencing
+
+1. **v0.0.9.1** — renderer audit + day/night cycle (cheap win, confirms the renderer pipeline is still friendly)
+2. **v0.0.9.2** — 2D viewport (grid render, courier centered, ring visible in 2D). Shelter-emergence polish rides here.
+3. **v0.0.9.3** — shortcut travel (click-across-ring → interior segment path). Interior rendered but empty.
+4. **v0.0.9.4** — package destination diversification + NPC outbound dispatch.
+5. **v0.0.9.5** — terrain bones: new zone types, rivers, mountain massif + pass generation, rocky hills, desert. Ladder/anchor as inventory-only gear (world-overlay comes next).
+6. **v0.0.9.6** — **world-overlay system**: save-stored + multiplayer-synced. Trails + persistent ladders/anchors land together (shared data model, two decay curves).
+7. **v0.0.9.7** — world refresh pass: rounded-square rim, existing-building relocations, name updates, 4 new NPC corners, new landmarks, dialogue + trust tiers + upgrade gifts.
+8. **v0.0.9.8+** — balance, dialogue polish, mountain-pass-carving tuning, deferred tail.
+
+Each patch ships independently playable; no later patch is gated on the next.
+
+### open design questions (v0.0.9, unresolved)
+
+- **Walking stick mechanic.** Item is locked; effect still open between (a) **survivor's instinct** — reduced trip damage on mountain/rocky cells (lean, because the stick literally catches you), or (b) **altitude conditioning** — reduced stamina drain on elevated terrain. Either works; pick when building.
+- **Delta's lost-idea gift.** User had a different t40 gift in mind and forgot; walking stick takes the slot as a placeholder. If the original idea resurfaces, walking stick could move to t60 or retire.
+- **xi tier for terrain map.** t20 or t40 depends on xi's existing gift slots and the player-unlock pacing. Review when v0.0.9.7 NPC work comes up.
+- **Ladder/anchor decay numbers.** Base ≈ 1 IRL day. Mountain-gear upgrade multiplier — ×2? ×3? Tune empirically once placed ladders are live.
+- **Weather modifier on decay — v0.0.9 or v0.0.10?** Storm system is already spatial so the accumulator is cheap, but it adds tuning surface. Probably stub the field in v0.0.9 and activate in v0.0.10 alongside real shelters.
+- **Trail decay schedule.** Stubbed for v0.0.9; revisit when trails have been playable long enough to read feel. (Per-biome rates — wetland fast, desert slow — was discussed but deferred.)
+- **Interior size confirmation.** ~Same as ring (~1,560 cells) was the rough answer; rounded-square with ~24-cell inradius lands close. Confirm when drafting v0.0.9.2.
+- **Visibility sharding trigger.** User stated "~10 active players." Build sharding-compatible data shapes now (canonical IDs, wall-clock timestamps), implement the filter function when player count reaches the trigger.
+
+### how v0.0.8 sets up v0.0.9 work
+
+- **Dest-tagged labels** (v0.0.8.1) — already support pkg destination diversification without data work; roller-side change only.
+- **Spatial storms** (v0.0.8.7) — weather already lives as world objects (`_transient.storms[]`); generalizes to 2D with minimal rework. Storm-exposure accumulator for structure decay is a few lines on top.
+- **Trust + reward scaffolding** (v0.0.8.6) — `onTrustUnlock` dispatcher + retro-grant for existing saves is directly reusable for 4 new NPCs. Pattern is proven.
+- **NPC addition pattern** (v0.0.8.4 — phi/xi/psi) — NPC def + NPC_LINES entry + trust profile + label pool rewrite. Replicates cleanly for nu/theta/gamma/delta.
+- **Package architecture** — `PKG_LABELS_BY_SIZE[size][].dests` shipping manifests are ready; new NPC label pools can be authored alongside dialogue.
+
+### notes on existing "longer-horizon features" entries (stale)
+
+The [longer-horizon features](#specs-longer-horizon-features) section contains entries that v0.0.9 partially or fully obsoletes:
+- `terrain types (v0.0.8 scope)` → now v0.0.9, sketched above
+- `bigger map (v0.0.9 scope)` → superseded by rounded-square reframe
+- `structures (v0.0.9 scope)` → moved to v0.0.10; v0.0.9 lands only the persistence foundation via ladders/anchors
+- `day/night cycle` (in post-v0.1 parking lot) → pulled forward to v0.0.9.1
+
+Clean up those entries when the v0.0.9 work starts so the doc stays coherent.
 
 ---
 
