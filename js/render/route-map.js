@@ -37,23 +37,26 @@ const GREEK = {
 };
 function nodeGlyph(id) { return GREEK[id] || id; }
 
-// v0.0.9.2 — route map is now a 2D plane in a 400×240 viewBox (wider
-// than tall, so the info panels can fit side-by-side below it).
-// Nodes spread hexagonally; final rounded-square rim with 4 corner
-// NPCs waits for the world-map regen pass (→ v0.0.9.7).
+// v0.0.9.2 — route map is a 2D plane. Square viewBox (400×400) so
+// the hexagonal ring doesn't distort. Nodes spread hexagonally;
+// final rounded-square rim with 4 corner NPCs waits for the
+// world-map regen pass (→ v0.0.9.7).
 export function layoutRouteNodes() {
-  [{ id:'A',      x:200, y: 30 }, // top
-   { id:'?',      x:340, y: 70 }, // upper-right (φ / weather station)
-   { id:'B',      x:340, y:170 }, // lower-right
-   { id:'C',      x:200, y:210 }, // bottom
-   { id:'H',      x: 60, y:170 }, // lower-left
-   { id:'\u00b7', x: 60, y: 70 }, // upper-left (ψ / orphan-scavenger)
+  // v0.0.9.2 — nodes shifted inward from the panel edges so their
+  // labels (esp. long ones like "weather station") don't risk
+  // overflowing the route-panel box edge.
+  [{ id:'A',      x:200, y: 70 }, // top
+   { id:'?',      x:310, y:150 }, // upper-right (φ / weather station)
+   { id:'B',      x:310, y:250 }, // lower-right
+   { id:'C',      x:200, y:330 }, // bottom
+   { id:'H',      x: 90, y:250 }, // lower-left
+   { id:'\u00b7', x: 90, y:150 }, // upper-left (ψ / orphan-scavenger)
   ].forEach(p => { const n = S.routeNodes.find(n => n.id === p.id); if (n) { n.x = p.x; n.y = p.y; } });
 }
 
 // Centroid of the ring — used for label placement and point-in-polygon.
 const RING_CX = 200;
-const RING_CY = 120;
+const RING_CY = 200;
 
 // Point-in-polygon test using the current ring nodes as vertices.
 // Used by drawInterior to mask the texture to the crossable area.
@@ -86,8 +89,8 @@ function drawInterior(svg, ns) {
   g.setAttribute('opacity', '0.35');
   const rand = makeSeededRand(9111);
   const step = 12;
-  // v0.0.9.2 — ranges tuned for the 400×240 viewBox.
-  for (let yy = 20; yy <= 220; yy += step) {
+  // v0.0.9.2 — ranges tuned for the 400×400 square viewBox.
+  for (let yy = 50; yy <= 350; yy += step) {
     for (let xx = 50; xx <= 350; xx += step) {
       if (!pointInRing(xx, yy)) continue;
       const r = rand();
@@ -156,16 +159,17 @@ export function drawRouteMap() {
                  : '#1e5554';
     const c = document.createElementNS(ns, 'circle');
     c.setAttribute('cx', n.x); c.setAttribute('cy', n.y);
-    c.setAttribute('r', isCurrent ? 7 : 5);
+    // v0.0.9.2 — sizes bumped to read at the 302×302 scaled display.
+    c.setAttribute('r', isCurrent ? 10 : 8);
     c.setAttribute('fill', fill);
     c.setAttribute('stroke', stroke);
-    c.setAttribute('stroke-width', isCurrent ? '1.5' : '1');
+    c.setAttribute('stroke-width', isCurrent ? '1.8' : '1.2');
 
     const t = document.createElementNS(ns, 'text');
-    t.setAttribute('x', n.x); t.setAttribute('y', n.y + 4);
+    t.setAttribute('x', n.x); t.setAttribute('y', n.y + 5);
     t.setAttribute('text-anchor', 'middle');
     t.setAttribute('font-family', "'Source Code Pro',monospace");
-    t.setAttribute('font-size', '8'); t.setAttribute('font-weight', '700');
+    t.setAttribute('font-size', '13'); t.setAttribute('font-weight', '700');
     t.setAttribute('fill', isCurrent ? '#77bfcf'
                           : stage >= 3 ? '#4a7a78'
                           : stage >= 2 ? '#3a6a68'
@@ -173,20 +177,19 @@ export function drawRouteMap() {
                           : '#2a5c5a');
     t.textContent = (stage >= 1 || n.id === '?') ? nodeGlyph(n.id) : '?';
 
-    // v0.0.9.2 — labels placed radially outward from the ring
-    // centroid (RING_CX, RING_CY) so each label sits outside its node
-    // in the direction away from the center of the plane.
-    const dx = n.x - RING_CX, dy = n.y - RING_CY;
-    const d  = Math.hypot(dx, dy) || 1;
-    const off = 13;
-    const lx  = n.x + (dx / d) * off;
-    const ly  = n.y + (dy / d) * off + 2;
-    const anchor = dx > 8 ? 'start' : dx < -8 ? 'end' : 'middle';
+    // v0.0.9.2 — labels always sit above (for upper-half nodes) or
+    // below (for lower-half nodes) their circle, centered on the
+    // node's x. Keeps long labels (e.g. "weather station") from
+    // running off the side of the panel regardless of label width.
+    const isUpper = n.y < RING_CY;
+    const lx = n.x;
+    const ly = isUpper ? n.y - 16 : n.y + 22;
+    const anchor = 'middle';
     const lbl = document.createElementNS(ns, 'text');
     lbl.setAttribute('x', lx); lbl.setAttribute('y', ly);
     lbl.setAttribute('text-anchor', anchor);
     lbl.setAttribute('font-family', "'Source Code Pro',monospace");
-    lbl.setAttribute('font-size', '7');
+    lbl.setAttribute('font-size', '11');
     lbl.setAttribute('fill', isCurrent ? '#77bfcf'
                             : stage >= 3 ? '#3a6a68'
                             : stage >= 2 ? '#2a5c5a'
@@ -201,8 +204,8 @@ export function drawRouteMap() {
   renderStorms(svg, ns);
 
   const dot = document.createElementNS(ns, 'circle');
-  dot.setAttribute('id', 'routeDot'); dot.setAttribute('r', '3');
-  dot.setAttribute('fill', '#e0eeec'); dot.setAttribute('stroke', '#77bfcf'); dot.setAttribute('stroke-width', '1');
+  dot.setAttribute('id', 'routeDot'); dot.setAttribute('r', '4.5');
+  dot.setAttribute('fill', '#e0eeec'); dot.setAttribute('stroke', '#77bfcf'); dot.setAttribute('stroke-width', '1.4');
   svg.appendChild(dot);
   updateRouteDot();
 }

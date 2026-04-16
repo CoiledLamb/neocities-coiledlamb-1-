@@ -2,6 +2,23 @@
    SHARED SIDEBAR NAV — v1 terminal aesthetic
    ============================================== */
 
+/* Site-wide scrollbar — matches the terminal-teal palette.
+   Firefox standard + webkit fallback. */
+* {
+  scrollbar-color: #1e5554 #0b2e2d;
+  scrollbar-width: thin;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0b2e2d; }
+::-webkit-scrollbar-thumb {
+  background: #1e5554;
+  border-radius: 2px;
+  border: 2px solid #0b2e2d;
+}
+::-webkit-scrollbar-thumb:hover { background: #2a5c5a; }
+::-webkit-scrollbar-thumb:active { background: #40a4b9; }
+::-webkit-scrollbar-corner { background: #0b2e2d; }
+
 .nav-sidebar {
   position: fixed;
   top: 0; left: 0;
