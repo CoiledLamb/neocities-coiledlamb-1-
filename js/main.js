@@ -114,6 +114,8 @@ import {
 } from './render/hud.js';
 import {
   drawRouteMap, updateRouteDot, layoutRouteNodes, currentEdge,
+  initSegment, advanceSegmentAfterArrival, bindRouteInteractions,
+  tickRouteInteractions, isOnShortcut,
 } from './render/route-map.js';
 import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js';
 import { renderNetwork } from './render/network.js';
@@ -238,7 +240,11 @@ function tick() {
   }
 
   if (S.status==='walking' || S.status==='carrying') {
-    S.stamina = Math.max(0, S.stamina-C.STAMINA_DRAIN);
+    // v0.0.9.3 — stamina drain gets a small tax while on interior shortcut
+    // segments (virgin-terrain cost; primes the v0.0.9.6 trample decay
+    // model where this same multiplier scales down with trample).
+    const staminaDrain = isOnShortcut() ? C.STAMINA_DRAIN * C.SHORTCUT_STAMINA_MULT : C.STAMINA_DRAIN;
+    S.stamina = Math.max(0, S.stamina - staminaDrain);
     if (S.staminaOverboost && S.stamina<=S.staminaMax) S.staminaOverboost=false;
 
     let bd=C.BOOT_DRAIN;
@@ -247,13 +253,18 @@ function tick() {
     if (S.usingMakeshift)   bd*=1.30;
     S.bootDurability=Math.max(0,S.bootDurability-bd);
 
-    // v0.0.8 — weather-driven canteen refill. Intensity is spatial (from weather.js).
-    const _w = weatherAtCourier();
-    if (_w.intensity === 'downpour')      S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DOWNPOUR);
-    else if (_w.intensity === 'rain')     S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
-    else if (_w.intensity === 'drizzle')  S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DRIZZLE);
-    else if (S.inRiver)                   S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
-    else if (currentCellIsWetland())      S.canteen = Math.min(S.canteenMax, S.canteen + C.WETLAND_CANTEEN_REFILL);
+    // v0.0.9.3 — weather / wetland / river / pickup are all cell-indexed
+    // and therefore off-grid while on a shortcut (interior is genuinely
+    // empty of game content until terrain bones in v0.0.9.5).
+    if (!isOnShortcut()) {
+      // v0.0.8 — weather-driven canteen refill. Intensity is spatial (from weather.js).
+      const _w = weatherAtCourier();
+      if (_w.intensity === 'downpour')      S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DOWNPOUR);
+      else if (_w.intensity === 'rain')     S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
+      else if (_w.intensity === 'drizzle')  S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DRIZZLE);
+      else if (S.inRiver)                   S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
+      else if (currentCellIsWetland())      S.canteen = Math.min(S.canteenMax, S.canteen + C.WETLAND_CANTEEN_REFILL);
+    }
 
     Trip.accumulateDist();
     if (S.ticks%5===0) {
@@ -262,9 +273,12 @@ function tick() {
 
     Trip.maybeTrip();
     Boots.checkAutobuy();
-    Pkg.scanForPickup();
-    // v0.0.7.21 — scanner tick. No-op unless unlocked.
-    tickScanner();
+    // Off-grid during shortcut — no cell-based pickup / scanner hit.
+    if (!isOnShortcut()) {
+      Pkg.scanForPickup();
+      // v0.0.7.21 — scanner tick. No-op unless unlocked.
+      tickScanner();
+    }
 
     if (S.stamina<50 && S.status==='walking' && Math.random()<0.03) {
       S.status='resting'; S.restTimer=C.REST_TICKS_MIN+Math.floor(Math.random()*(C.REST_TICKS_MAX-C.REST_TICKS_MIN));
@@ -276,14 +290,19 @@ function tick() {
   tickAmbientChatter();
   tickRecoveryAttempt();
 
-  const prevEdgeIdx = S.edgeIdx;
+  // v0.0.9.3 — advancement is segment-based. Ring + shortcut both
+  // run through S._transient.currentSegment; S.dotT advances 0..1
+  // within the active segment. On arrival, advanceSegmentAfterArrival
+  // updates S.edgeIdx (for ring resumption) and replaces the segment.
   S.dotT += 0.006 * Stamina.speedMultiplier();
 
   if (S.dotT >= 1) {
-    S.dotT    = 0;
-    S.edgeIdx = (S.edgeIdx+1) % S.edges.length;
-    const arrivedAt = S.edges[prevEdgeIdx][1];
-    const node = S.routeNodes.find(n => n.id===arrivedAt);
+    const arrivingSeg = S._transient.currentSegment;
+    const arrivedAt   = arrivingSeg ? arrivingSeg.to : null;
+    // advanceSegmentAfterArrival handles edgeIdx + segment + dotT reset
+    advanceSegmentAfterArrival(arrivedAt);
+
+    const node = arrivedAt && S.routeNodes.find(n => n.id === arrivedAt);
     if (node && getNodeStage(arrivedAt) < 3) {
       setNodeStage(arrivedAt, 3);
       addLog(`discovered: <span class="log-hi">${node.label}</span>`);
@@ -301,28 +320,34 @@ function tick() {
     }
     drawRouteMap();
     updateDestDrift();
-    Boots.refillBootClip(arrivedAt);
-    Pkg.tryDeliver(arrivedAt);
+    if (arrivedAt) {
+      Boots.refillBootClip(arrivedAt);
+      Pkg.tryDeliver(arrivedAt);
 
-    if (NPC_DEFS[arrivedAt]) {
-      tryWarning(arrivedAt);
-      tryPreview(arrivedAt);
-      tryRestPrompt(arrivedAt);
+      if (NPC_DEFS[arrivedAt]) {
+        tryWarning(arrivedAt);
+        tryPreview(arrivedAt);
+        tryRestPrompt(arrivedAt);
 
-      // v0.0.8.6: t60 battery charging — trusted destinations recharge.
-      // Any NPC at t60+ adds charge when the courier passes through.
-      const npcState = S.npcs[arrivedAt];
-      if (npcState && npcState.unlocks && npcState.unlocks.t60 && S.battery) {
-        const prev = S.battery.charge;
-        S.battery.charge = Math.min(100, S.battery.charge + 15);
-        if (S.battery.charge > prev) {
-          addLog(`<span class="log-ok">battery charged</span> at ${NPC_DEFS[arrivedAt].callsign}'s`);
+        // v0.0.8.6: t60 battery charging — trusted destinations recharge.
+        // Any NPC at t60+ adds charge when the courier passes through.
+        const npcState = S.npcs[arrivedAt];
+        if (npcState && npcState.unlocks && npcState.unlocks.t60 && S.battery) {
+          const prev = S.battery.charge;
+          S.battery.charge = Math.min(100, S.battery.charge + 15);
+          if (S.battery.charge > prev) {
+            addLog(`<span class="log-ok">battery charged</span> at ${NPC_DEFS[arrivedAt].callsign}'s`);
+          }
         }
       }
     }
   } else {
     updateRouteDot();
   }
+
+  // v0.0.9.3 — per-tick interactive route-map updates: trail aging,
+  // shortcut preview refresh, live tooltip.
+  tickRouteInteractions();
 
   S.worldPos = worldPosFromRoute();
   renderFieldstrip();
@@ -395,7 +420,13 @@ function init() {
   // Creates sun/moon/star SVG children inside #skySvg. Phase derives
   // from S.ticks so no separate schema hook is needed.
   initSky();
-  layoutRouteNodes(); drawRouteMap(); updateDestDrift();
+  layoutRouteNodes();
+  // v0.0.9.3 — segment abstraction init. Seed currentSegment from the
+  // restored edgeIdx, and attach the route-map click/hover handlers once.
+  initSegment();
+  drawRouteMap();
+  bindRouteInteractions();
+  updateDestDrift();
   Upg.renderUpgrades(); renderSettlements(); renderNetwork();
   renderChannels();
   renderCargoSlots(true); renderCourierStack(); Boots.renderBoots(); Stamina.renderStamina();

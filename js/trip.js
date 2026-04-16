@@ -115,15 +115,24 @@ export function tripChance() {
   const segsLost = 4-staminaSegCount();
   let chance = C.TRIP_CHANCE_BASE * bootFail * (1+segsLost*0.5);
   if (S.upgrades.steadyFeet) chance *= 0.70;
-  if (currentCellIsRisky())  chance *= 1.40;
   // v0.0.7.21 — terrain scanner buff. When active, multiplies trip
   // chance by S.scanner.buffMagnitude (set per ping in js/scanner.js).
   if (S.scanner.buffActive) chance *= S.scanner.buffMagnitude;
-  // v0.0.8 — weather multiplier (spatial intensity from weather.js)
-  const w = weatherAtCourier();
-  if (w.intensity === 'drizzle')       chance *= C.TRIP_MULT_DRIZZLE;
-  else if (w.intensity === 'rain')     chance *= C.TRIP_MULT_RAIN;
-  else if (w.intensity === 'downpour') chance *= C.TRIP_MULT_DOWNPOUR;
+  // v0.0.9.3 — shortcut/virgin-terrain trip tax. Interior is genuinely
+  // uncharted until v0.0.9.6 adds trample; that later patch will scale
+  // this multiplier down based on accumulated tread.
+  const seg = S._transient.currentSegment;
+  if (seg && seg.type === 'shortcut') chance *= C.SHORTCUT_TRIP_MULT;
+  // Weather lookup + risky-cell check are both cell-indexed and therefore
+  // off-grid during a shortcut; skip their multipliers there.
+  else {
+    if (currentCellIsRisky()) chance *= 1.40;
+    // v0.0.8 — weather multiplier (spatial intensity from weather.js)
+    const w = weatherAtCourier();
+    if (w.intensity === 'drizzle')       chance *= C.TRIP_MULT_DRIZZLE;
+    else if (w.intensity === 'rain')     chance *= C.TRIP_MULT_RAIN;
+    else if (w.intensity === 'downpour') chance *= C.TRIP_MULT_DOWNPOUR;
+  }
   // v0.0.8 — encumbrance: heavier cargo = more trip risk.
   // Scales linearly from 1.0 (empty) to TRIP_ENCUMBRANCE_MAX_MULT (full weight).
   if (S.maxWeight > 0 && S.usedWeight > 0) {

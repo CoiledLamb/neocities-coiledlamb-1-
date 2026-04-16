@@ -223,6 +223,23 @@ export const S = {
     // removes once the animation completes. Not persisted.
     emergingSettlements: new Map(),
 
+    // v0.0.9.3 — segment abstraction for shortcut travel.
+    // Populated by route-map.js initSegment() on boot; replaced on
+    // shortcut trigger and on arrival. Shape:
+    //   { from, to, type: 'ring'|'shortcut', edgeIdx, pathFn, length }
+    // `edgeIdx` = S.edges index for ring segments, -1 for shortcuts.
+    // `pathFn(t 0..1)` returns { x, y } in route-map viewBox coords.
+    currentSegment: null,
+
+    // Session-only trail cells dropped behind the courier on shortcut
+    // segments. Each: { x, y, age }. Fades out per TRAIL_FADE_TICKS.
+    // Persistent multiplayer-synced trails land in v0.0.9.6.
+    trailCells: [],
+
+    // Tooltip hover tracking (route-map.js writes to these).
+    hoveredNodeId: null,
+    hoveredPx:     { x: 0, y: 0 },
+
     // Gear popover outside-click handler (so we can remove it on close)
     gearPopHandler: null,
 

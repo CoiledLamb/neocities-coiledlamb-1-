@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tlh — shortcut travel mockup (v0.0.9.3)</title>
+<style>
+  :root {
+    --tlh-C: #77bfcf;   --tlh-c: #40a4b9;
+    --tlh-B: #0096ff;   --tlh-b: #0048bd;
+    --tlh-K: #155352;   --tlh-k: #0f3b3a;
+    --tlh-y: #b1c9c3;   --tlh-Y: #ffffff;
+  }
+  html, body {
+    margin: 0;
+    background: var(--tlh-K);
+    color: var(--tlh-y);
+    font-family: 'Source Code Pro', ui-monospace, monospace;
+    font-weight: 600;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 900px;
+    margin: 24px auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  h1 {
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    text-transform: lowercase;
+    margin: 0;
+    opacity: 0.7;
+  }
+  h1 .v { color: var(--tlh-c); }
+
+  .panel-route {
+    background: var(--tlh-k);
+    border: 1px solid #1e5554;
+    padding: 10px 8px 8px;
+    max-width: 420px;
+  }
+  .ptitle {
+    font-size: 11px;
+    color: var(--tlh-y);
+    opacity: 0.55;
+    margin: 0 0 6px;
+    letter-spacing: 0.04em;
+  }
+  svg.routemap {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow: visible;
+  }
+  svg.routemap .node-hit { cursor: pointer; }
+
+  /* Hover tooltip */
+  #tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--tlh-k);
+    border: 1px solid var(--tlh-c);
+    color: var(--tlh-y);
+    font-size: 10px;
+    padding: 3px 6px;
+    opacity: 0;
+    transition: opacity 0.12s;
+    white-space: nowrap;
+    z-index: 100;
+  }
+  #tooltip.on { opacity: 1; }
+  #tooltip .t-label { color: var(--tlh-C); font-weight: 700; }
+  #tooltip .t-dist { opacity: 0.7; margin-left: 4px; }
+  #tooltip .t-shortcut { color: var(--tlh-C); margin-top: 2px; display: block; font-size: 9px; }
+  #tooltip .t-adjacent { color: #7aa8a6; margin-top: 2px; display: block; font-size: 9px; opacity: 0.7; }
+
+  .ctrls {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    border: 1px dashed #1e5554;
+    background: var(--tlh-k);
+    font-size: 11px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  button {
+    background: transparent; color: var(--tlh-y);
+    border: 1px solid #1e5554; padding: 4px 10px;
+    font-family: inherit; font-size: 11px;
+    cursor: pointer; letter-spacing: 0.04em;
+  }
+  button:hover { border-color: var(--tlh-c); color: var(--tlh-C); }
+  button.on { color: var(--tlh-C); border-color: var(--tlh-c); }
+
+  .readout {
+    font-size: 11px;
+    opacity: 0.75;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 10px;
+    row-gap: 2px;
+    max-width: 420px;
+  }
+  .readout span:nth-child(odd) { opacity: 0.55; }
+
+  .notes {
+    font-size: 11px;
+    line-height: 1.55;
+    opacity: 0.72;
+    max-width: 620px;
+  }
+  .notes code {
+    color: var(--tlh-C); background: var(--tlh-k); padding: 0 4px;
+  }
+  .notes strong { color: var(--tlh-y); opacity: 0.95; }
+</style>
+</head>
+<body>
+<div id="tooltip"></div>
+
+<div class="wrap">
+  <h1>tlh — shortcut travel mockup <span class="v">v0.0.9.3 draft</span></h1>
+
+  <div class="panel-route">
+    <div class="ptitle">// route</div>
+    <svg class="routemap" id="routemap" viewBox="0 0 400 400">
+      <g id="interior"></g>
+      <g id="trail"></g>        <!-- trail cells (behind everything else) -->
+      <g id="ring"></g>
+      <g id="shortcutPath"></g> <!-- active shortcut curve indicator -->
+      <g id="nodes"></g>
+      <g id="courier"></g>
+      <g id="hit"></g>          <!-- transparent click/hover regions on top -->
+    </svg>
+  </div>
+
+  <div class="ctrls">
+    <button id="playBtn">❚❚ pause</button>
+    <label>speed<input id="speed" type="range" min="1" max="8" step="1" value="4" style="width:120px; accent-color: var(--tlh-c);"></label>
+    <span id="speedOut" style="opacity:0.6">×4</span>
+    <button id="resetBtn">reset</button>
+    <span style="opacity:0.55">· hover any node for distance · click a non-adjacent node to shortcut</span>
+  </div>
+
+  <div class="readout">
+    <span>current</span><span id="currentOut">α → φ (ring)</span>
+    <span>progress</span><span id="progressOut">0.0%</span>
+    <span>trail cells</span><span id="trailOut">0</span>
+    <span>last action</span><span id="actionOut">—</span>
+  </div>
+
+  <div class="notes">
+    <p><strong>What to try:</strong> courier is walking the ring clockwise. Hover any node to see distance via ring vs. via shortcut. Click a non-adjacent node → courier cuts the interior on a gentle bezier curve. A dotted cyan <strong>trail</strong> traces behind, each cell fading as it ages. On arrival, the courier resumes ring clockwise from that node. Click another target mid-transit to replan from the courier's current position.</p>
+    <p><strong>Natural curve:</strong> quadratic bezier with one control point offset perpendicular to the straight line by ~15% of segment length. Deterministic bow direction based on endpoint hash so re-running the same shortcut follows the same curve.</p>
+    <p><strong>Trail fade:</strong> each cell has an age counter, opacity = <code>max(0, 1 - age/FADE_TICKS)</code>. Fade window here = 300 ticks (~1.7s at the 4× mockup speed; would be ~105s at live 350ms/tick). Session-only — persistent multiplayer-synced trails land in v0.0.9.6 with the world-overlay system.</p>
+    <p><strong>Adjacent-click rejection:</strong> clicking the next or previous ring neighbor does nothing (they're already on the ring path). Tooltip shows "adjacent" instead of a shortcut option.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const ns = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs = {}) => {
+    const e = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+
+  // ============================================================
+  // NODES (same layout as shipped v0.0.9.2)
+  // ============================================================
+  const NODES = [
+    { id: 'A',   glyph: 'α', x: 200, y:  70, label: 'depot a'  },
+    { id: '?',   glyph: 'φ', x: 310, y: 150, label: 'weather station' },
+    { id: 'B',   glyph: 'β', x: 310, y: 250, label: 'depot b'  },
+    { id: 'C',   glyph: 'γ', x: 200, y: 330, label: 'ruins'    },
+    { id: 'H',   glyph: 'η', x:  90, y: 250, label: 'home'     },
+    { id: 'dot', glyph: 'ψ', x:  90, y: 150, label: 'waypoint' },
+  ];
+  // Ring edges in clockwise order
+  const EDGES = [
+    ['A', '?'], ['?', 'B'], ['B', 'C'],
+    ['C', 'H'], ['H', 'dot'], ['dot', 'A'],
+  ];
+  const nodeById = id => NODES.find(n => n.id === id);
+  const nodeIdx  = id => NODES.findIndex(n => n.id === id);
+
+  const RING_CX = 200, RING_CY = 200;
+
+  // ============================================================
+  // SEGMENT + STATE (option c: thin segment shape)
+  // ============================================================
+  // currentSegment = { from, to, type: 'ring'|'shortcut', pathFn? }
+  let segment   = makeRingSegment(0);  // start on edge 0 (α → φ)
+  let segT      = 0;                   // 0..1 progress along current segment
+  let courierXY = pathAt(segment, 0);
+  const trail   = [];                  // [{x, y, age}, ...]
+  const FADE_TICKS = 300;
+  const TRAIL_STEP = 3;                // every N mockup ticks, drop a trail cell
+
+  // Speed of advancement per mockup tick, relative to a ring edge
+  // (a ring edge covers ~1 length; shortcut across the diameter is ~2).
+  let playing   = true;
+  let tickCount = 0;
+  let lastAction = '—';
+
+  function makeRingSegment(edgeIdx) {
+    const [a, b] = EDGES[edgeIdx % EDGES.length];
+    return {
+      from: a, to: b, type: 'ring', edgeIdx,
+      pathFn: (t) => {
+        const na = nodeById(a), nb = nodeById(b);
+        return { x: na.x + (nb.x - na.x) * t, y: na.y + (nb.y - na.y) * t };
+      },
+      length: Math.hypot(nodeById(b).x - nodeById(a).x, nodeById(b).y - nodeById(a).y),
+    };
+  }
+
+  // Quadratic bezier curve with perpendicular bow. Bow direction
+  // deterministic from endpoint ids so the same shortcut curves
+  // the same way each time.
+  function makeShortcutSegment(fromId, toId, startXY) {
+    const nb = nodeById(toId);
+    const src = startXY || nodeById(fromId);
+    const dx = nb.x - src.x, dy = nb.y - src.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const midX = (src.x + nb.x) / 2;
+    const midY = (src.y + nb.y) / 2;
+    // Perpendicular unit vector
+    const px = -dy / len, py = dx / len;
+    // Bow toward the side of the ring centroid that's farther from
+    // the straight line — gives a natural "curve outward" feel.
+    const toCent = { x: RING_CX - midX, y: RING_CY - midY };
+    const bowSign = (px * toCent.x + py * toCent.y) > 0 ? -1 : 1;
+    const bow = 0.18 * len;
+    const ctrl = { x: midX + px * bow * bowSign, y: midY + py * bow * bowSign };
+    return {
+      from: fromId, to: toId, type: 'shortcut', edgeIdx: -1,
+      _src: src, _ctrl: ctrl, _dst: nb, _len: len,
+      pathFn: (t) => {
+        const u = 1 - t;
+        return {
+          x: u*u*src.x + 2*u*t*ctrl.x + t*t*nb.x,
+          y: u*u*src.y + 2*u*t*ctrl.y + t*t*nb.y,
+        };
+      },
+      length: len,
+    };
+  }
+
+  function pathAt(seg, t) { return seg.pathFn(t); }
+
+  // SVG units → km. Tuned so the ring's total perimeter is roughly
+  // 20–25 km (matches the live game's per-edge ~4 km feel).
+  const UNITS_PER_KM = 30;
+  const toKm = u => (u / UNITS_PER_KM).toFixed(1) + ' km';
+
+  // Clockwise ring distance between two node ids (node→node only).
+  function ringNodeDistance(fromId, toId) {
+    let i = nodeIdx(fromId);
+    let total = 0, steps = 0;
+    while (NODES[i].id !== toId && steps < NODES.length) {
+      const a = NODES[i], b = NODES[(i + 1) % NODES.length];
+      total += Math.hypot(b.x - a.x, b.y - a.y);
+      i = (i + 1) % NODES.length;
+      steps++;
+    }
+    return { dist: total, steps };
+  }
+
+  // LIVE distances from the courier's current xy to the hovered node.
+  // - "ring" = finish current segment + walk the ring clockwise from
+  //   current segment's endpoint to target.
+  // - "shortcut" = straight-line euclidean from courier's xy to target.
+  function liveRingDistance(targetId) {
+    const remaining = (1 - segT) * segment.length;
+    const fromNode = segment.to;
+    if (fromNode === targetId) return remaining;
+    return remaining + ringNodeDistance(fromNode, targetId).dist;
+  }
+  function liveShortcutDistance(targetId) {
+    const t = nodeById(targetId);
+    return Math.hypot(t.x - courierXY.x, t.y - courierXY.y);
+  }
+  function adjacencyFromCurrent(targetId) {
+    const { steps } = ringNodeDistance(segment.to, targetId);
+    const backSteps = NODES.length - steps;
+    if (steps === 0) return 'target';
+    if (steps === 1 || backSteps === 1) return 'adjacent';
+    return 'far';
+  }
+
+  // ============================================================
+  // INITIAL RENDER — interior texture, ring, nodes, hit regions
+  // ============================================================
+  function pointInRing(px, py) {
+    const pts = NODES.map(n => [n.x, n.y]);
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      const hit = ((yi > py) !== (yj > py)) &&
+                  (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+      if (hit) inside = !inside;
+    }
+    return inside;
+  }
+  function drawInterior() {
+    const g = $('interior');
+    g.innerHTML = '';
+    g.setAttribute('opacity', '0.30');
+    for (let yy = 50; yy <= 350; yy += 12) {
+      for (let xx = 50; xx <= 350; xx += 12) {
+        if (!pointInRing(xx, yy)) continue;
+        const r = Math.random();
+        const ch = r < 0.7 ? '.' : r < 0.9 ? ',' : '·';
+        const t = el('text', { x: xx, y: yy,
+          'font-family': 'Source Code Pro, monospace',
+          'font-size': '6', fill: '#2a5c5a', 'text-anchor': 'middle',
+        });
+        t.textContent = ch;
+        g.appendChild(t);
+      }
+    }
+  }
+  function drawRing() {
+    const g = $('ring');
+    g.innerHTML = '';
+    EDGES.forEach(([a, b]) => {
+      const na = nodeById(a), nb = nodeById(b);
+      g.appendChild(el('line', {
+        x1: na.x, y1: na.y, x2: nb.x, y2: nb.y,
+        stroke: '#2a5c5a', 'stroke-width': '1.5', 'stroke-linecap': 'round',
+      }));
+    });
+  }
+  function drawNodes() {
+    const g = $('nodes');
+    g.innerHTML = '';
+    NODES.forEach(n => {
+      g.appendChild(el('circle', {
+        cx: n.x, cy: n.y, r: 8,
+        fill: '#0f3b3a', stroke: '#b1c9c3', 'stroke-width': '1.2',
+      }));
+      const t = el('text', {
+        x: n.x, y: n.y + 5,
+        'font-family': 'Source Code Pro, monospace',
+        'font-size': '13', 'font-weight': '700',
+        fill: '#b1c9c3', 'text-anchor': 'middle',
+      });
+      t.textContent = n.glyph;
+      g.appendChild(t);
+
+      const isUpper = n.y < RING_CY;
+      const ly = isUpper ? n.y - 16 : n.y + 22;
+      const lbl = el('text', {
+        x: n.x, y: ly,
+        'font-family': 'Source Code Pro, monospace',
+        'font-size': '11', fill: '#3a6a68', 'text-anchor': 'middle',
+      });
+      lbl.textContent = n.label;
+      g.appendChild(lbl);
+    });
+  }
+  function drawHitRegions() {
+    const g = $('hit');
+    g.innerHTML = '';
+    NODES.forEach(n => {
+      const c = el('circle', {
+        class: 'node-hit', cx: n.x, cy: n.y, r: 18,
+        fill: 'transparent',
+      });
+      c.dataset.id = n.id;
+      g.appendChild(c);
+    });
+  }
+
+  // ============================================================
+  // COURIER
+  // ============================================================
+  let courierDot;
+  function ensureCourier() {
+    if (courierDot) return;
+    const g = $('courier');
+    g.innerHTML = '';
+    courierDot = el('circle', {
+      r: 4.5, fill: '#e0eeec', stroke: '#77bfcf', 'stroke-width': '1.4',
+    });
+    g.appendChild(courierDot);
+  }
+
+  // ============================================================
+  // SHORTCUT PATH INDICATOR (faint preview of the upcoming curve)
+  // ============================================================
+  function updateShortcutPath() {
+    const g = $('shortcutPath');
+    g.innerHTML = '';
+    if (segment.type !== 'shortcut') return;
+    // Draw the full upcoming curve as a very faint dashed line
+    const pts = [];
+    for (let t = segT; t <= 1; t += 0.02) pts.push(segment.pathFn(t));
+    let d = '';
+    pts.forEach((p, i) => { d += (i === 0 ? 'M ' : 'L ') + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ' '; });
+    g.appendChild(el('path', {
+      d, fill: 'none',
+      stroke: '#40a4b9', 'stroke-opacity': '0.25',
+      'stroke-width': '0.8', 'stroke-dasharray': '2 3',
+    }));
+  }
+
+  // ============================================================
+  // TRAIL
+  // ============================================================
+  function renderTrail() {
+    const g = $('trail');
+    g.innerHTML = '';
+    for (const tc of trail) {
+      const opacity = Math.max(0, 1 - tc.age / FADE_TICKS);
+      if (opacity < 0.03) continue;
+      g.appendChild(el('circle', {
+        cx: tc.x, cy: tc.y, r: 1.2,
+        fill: '#77bfcf', opacity: opacity.toFixed(3),
+      }));
+    }
+  }
+
+  // ============================================================
+  // INTERACTION
+  // ============================================================
+  // Hover tracking — updated on mousemove, kept live in tick().
+  let hoveredNodeId = null;
+  let hoveredPx = { x: 0, y: 0 };
+
+  function renderTooltip() {
+    const tip = $('tooltip');
+    if (!hoveredNodeId) { tip.classList.remove('on'); return; }
+    const id = hoveredNodeId;
+    const adj = adjacencyFromCurrent(id);
+    const node = nodeById(id);
+    const ring = liveRingDistance(id);
+    const sc   = liveShortcutDistance(id);
+    const savings = ring - sc;
+
+    let body;
+    if (adj === 'target') {
+      body = `<span class="t-adjacent">current target · ${toKm(ring)} to arrive</span>`;
+    } else if (adj === 'adjacent') {
+      body = `<span class="t-adjacent">adjacent — already on ring path · ${toKm(ring)}</span>`;
+    } else {
+      const savingsTxt = savings > 0
+        ? `<span class="t-shortcut">shortcut saves ${toKm(savings)} · click to cut across</span>`
+        : `<span class="t-adjacent">shortcut wouldn't save distance</span>`;
+      body = `
+        <span class="t-dist">via ring: ${toKm(ring)}</span>
+        <br>
+        <span class="t-dist">via shortcut: ${toKm(sc)}</span>
+        ${savingsTxt}
+      `;
+    }
+
+    tip.innerHTML = `<span class="t-label">${node.glyph} · ${node.label}</span><br>${body}`;
+    tip.classList.add('on');
+    tip.style.left = (hoveredPx.x + 12) + 'px';
+    tip.style.top  = (hoveredPx.y + 12) + 'px';
+  }
+
+  function onNodeHover(evt, id) {
+    hoveredNodeId = id;
+    hoveredPx = { x: evt.clientX, y: evt.clientY };
+    renderTooltip();
+  }
+  function onNodeLeave() { hoveredNodeId = null; renderTooltip(); }
+
+  function onNodeClick(id) {
+    const adj = adjacencyFromCurrent(id);
+    if (adj === 'adjacent' || adj === 'target') {
+      lastAction = `click ${nodeById(id).glyph} — ${adj}, no shortcut`;
+      return;
+    }
+    // Replan from current courier position
+    segment = makeShortcutSegment(segment.to, id, courierXY);
+    segT = 0;
+    lastAction = `shortcut → ${nodeById(id).glyph} (${toKm(segment.length)})`;
+    updateShortcutPath();
+  }
+
+  $('hit').addEventListener('mousemove', (e) => {
+    const t = e.target;
+    if (t.classList.contains('node-hit')) onNodeHover(e, t.dataset.id);
+  });
+  $('hit').addEventListener('mouseleave', onNodeLeave);
+  $('hit').addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.classList.contains('node-hit')) onNodeClick(t.dataset.id);
+  });
+
+  // ============================================================
+  // TICK
+  // ============================================================
+  function tick() {
+    if (!playing) { requestAnimationFrame(tick); return; }
+    tickCount++;
+    const speed = +$('speed').value;
+    // Normalize: ring edge = 1 unit of progress per (base)*N ticks.
+    // Scale shortcut by its length so courier moves at similar on-screen speed.
+    const baseStep = 0.004 * speed;
+    const lengthFactor = 110 / (segment.length || 110);
+    segT += baseStep * lengthFactor;
+
+    if (segT >= 1) {
+      // Arrival — snap to end, then resume ring clockwise from arrival node.
+      segT = 0;
+      const arrivedId = segment.to;
+      if (segment.type === 'shortcut') {
+        lastAction = `arrived at ${nodeById(arrivedId).glyph}, resuming ring`;
+      }
+      // Find the outgoing ring edge from arrivedId
+      const nextEdgeIdx = EDGES.findIndex(([a]) => a === arrivedId);
+      segment = makeRingSegment(nextEdgeIdx);
+      updateShortcutPath();
+    }
+
+    // Courier position
+    courierXY = pathAt(segment, segT);
+    courierDot.setAttribute('cx', courierXY.x);
+    courierDot.setAttribute('cy', courierXY.y);
+
+    // Drop a trail cell every TRAIL_STEP ticks
+    if (tickCount % TRAIL_STEP === 0) {
+      trail.push({ x: courierXY.x, y: courierXY.y, age: 0 });
+    }
+    // Age all trail cells
+    for (const tc of trail) tc.age++;
+    // Purge fully-faded
+    while (trail.length > 0 && trail[0].age > FADE_TICKS) trail.shift();
+    renderTrail();
+
+    // Readouts
+    const from = nodeById(segment.from);
+    const to   = nodeById(segment.to);
+    $('currentOut').textContent = `${from.glyph} → ${to.glyph} (${segment.type})`;
+    $('progressOut').textContent = (segT * 100).toFixed(1) + '%';
+    $('trailOut').textContent = trail.length;
+    $('actionOut').textContent = lastAction;
+
+    // Keep the tooltip live while a node is hovered — distances are
+    // relative to the moving courier, so they need per-frame refresh.
+    if (hoveredNodeId) renderTooltip();
+
+    requestAnimationFrame(tick);
+  }
+
+  // ============================================================
+  // CONTROLS
+  // ============================================================
+  $('playBtn').addEventListener('click', () => {
+    playing = !playing;
+    $('playBtn').textContent = playing ? '❚❚ pause' : '▶ play';
+  });
+  $('speed').addEventListener('input', () => {
+    $('speedOut').textContent = '×' + $('speed').value;
+  });
+  $('resetBtn').addEventListener('click', () => {
+    segment = makeRingSegment(0);
+    segT = 0;
+    trail.length = 0;
+    courierXY = pathAt(segment, 0);
+    lastAction = 'reset';
+    updateShortcutPath();
+  });
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  drawInterior();
+  drawRing();
+  drawNodes();
+  drawHitRegions();
+  ensureCourier();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

@@ -125,6 +125,17 @@ export const CATCH_CHANCE_BASE = 0.35;
 export const REST_TICKS_MIN    = 43;
 export const REST_TICKS_MAX    = 86;
 
+// ----- v0.0.9.3 shortcut travel -----
+// Cost tax applied while the courier is on an interior shortcut segment.
+// When v0.0.9.6 adds persistent trample, these same values become
+// "virgin-cell cost" and scale down as trample accumulates.
+export const SHORTCUT_STAMINA_MULT = 1.20;
+export const SHORTCUT_TRIP_MULT    = 1.50;
+
+// Session-only trail cell fade. A cell's opacity = max(0, 1 - age/FADE).
+export const TRAIL_FADE_TICKS      = 300;
+export const TRAIL_DROP_EVERY      = 3;    // one trail cell every N ticks while shortcut is active
+
 // ----- boots -----
 export const BOOT_PRICE = 15;
 

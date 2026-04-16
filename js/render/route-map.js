@@ -21,7 +21,185 @@ import { getNodeStage, getDisplayLabel } from '../identification.js';
 
 const els = S._transient.els;
 
-export function currentEdge() { return S.edges[S.edgeIdx % S.edges.length]; }
+// ============================================================
+// SEGMENT ABSTRACTION (v0.0.9.3)
+// ============================================================
+// Source of truth for "which leg is the courier walking now."
+// S._transient.currentSegment = {
+//   from:    nodeId,
+//   to:      nodeId,
+//   type:    'ring' | 'shortcut',
+//   edgeIdx: number  (S.edges index for ring segments, -1 for shortcuts),
+//   pathFn:  (t: 0..1) => { x, y },   // in route-map viewBox coords
+//   length:  number (viewBox units),
+// }
+//
+// currentEdge() now derives from currentSegment so every downstream
+// caller (destDrift, cellToSvg, storm render) keeps working. S.edgeIdx
+// stays the canonical ring index for ring segments — shortcut segments
+// carry edgeIdx = -1 and callers that need a cell index handle that
+// special case (cellIndex returns -1 → treated as off-grid).
+
+export function getCurrentSegment() { return S._transient.currentSegment; }
+export function isOnShortcut() {
+  const seg = S._transient.currentSegment;
+  return !!(seg && seg.type === 'shortcut');
+}
+
+export function currentEdge() {
+  const seg = S._transient.currentSegment;
+  if (seg) return [seg.from, seg.to];
+  // Fallback for old callers pre-init (shouldn't happen after initSegment).
+  return S.edges[S.edgeIdx % S.edges.length];
+}
+
+/** Build a ring segment for the given edge index. */
+function makeRingSegment(edgeIdx) {
+  const ei = ((edgeIdx % S.edges.length) + S.edges.length) % S.edges.length;
+  const [fromId, toId] = S.edges[ei];
+  const fromNode = S.routeNodes.find(n => n.id === fromId);
+  const toNode   = S.routeNodes.find(n => n.id === toId);
+  return {
+    from: fromId, to: toId, type: 'ring', edgeIdx: ei,
+    pathFn: (t) => ({
+      x: fromNode.x + (toNode.x - fromNode.x) * t,
+      y: fromNode.y + (toNode.y - fromNode.y) * t,
+    }),
+    length: Math.hypot(toNode.x - fromNode.x, toNode.y - fromNode.y),
+  };
+}
+
+/** Build a shortcut segment using a quadratic bezier with a deterministic bow. */
+function makeShortcutSegment(fromId, toId, startXY) {
+  const toNode = S.routeNodes.find(n => n.id === toId);
+  // Start point: may be mid-edge (replan case) or the from-node exactly.
+  const src = startXY || S.routeNodes.find(n => n.id === fromId);
+  const dx = toNode.x - src.x, dy = toNode.y - src.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const midX = (src.x + toNode.x) / 2;
+  const midY = (src.y + toNode.y) / 2;
+  // Perpendicular unit vector from the straight line.
+  const px = -dy / len, py = dx / len;
+  // Bow toward the side the ring centroid sits on (feels more organic).
+  const cx = RING_CX - midX, cy = RING_CY - midY;
+  const bowSign = (px * cx + py * cy) > 0 ? -1 : 1;
+  const bow = 0.18 * len;
+  const ctrlX = midX + px * bow * bowSign;
+  const ctrlY = midY + py * bow * bowSign;
+  return {
+    from: fromId, to: toId, type: 'shortcut', edgeIdx: -1,
+    pathFn: (t) => {
+      const u = 1 - t;
+      return {
+        x: u*u*src.x + 2*u*t*ctrlX + t*t*toNode.x,
+        y: u*u*src.y + 2*u*t*ctrlY + t*t*toNode.y,
+      };
+    },
+    length: len,
+  };
+}
+
+/** Set initial segment from S.edgeIdx on game init. */
+export function initSegment() {
+  S._transient.currentSegment = makeRingSegment(S.edgeIdx);
+}
+
+/** Advance to the next ring segment after arrival at arrivedAt.
+ *  Called from main.js tick arrival handler. Keeps S.edgeIdx in sync. */
+export function advanceSegmentAfterArrival(arrivedAt) {
+  const seg = S._transient.currentSegment;
+  if (!seg) { initSegment(); return; }
+  if (seg.type === 'ring') {
+    // Advance one ring edge clockwise.
+    S.edgeIdx = (seg.edgeIdx + 1) % S.edges.length;
+  } else {
+    // Shortcut arrival — resume ring clockwise from the arrived node.
+    const nextIdx = S.edges.findIndex(([a]) => a === arrivedAt);
+    if (nextIdx !== -1) S.edgeIdx = nextIdx;
+  }
+  S._transient.currentSegment = makeRingSegment(S.edgeIdx);
+  S.dotT = 0;
+  S._transient.shortcutOverlay = null;
+}
+
+/** Public entry point for click-to-shortcut. Returns true if shortcut started. */
+export function startShortcut(targetId) {
+  const seg = S._transient.currentSegment;
+  if (!seg) return false;
+  const adj = adjacencyFromCurrent(targetId);
+  if (adj !== 'far') return false;     // adjacent / current-target → no-op
+  const courierXY = seg.pathFn(S.dotT);
+  S._transient.currentSegment = makeShortcutSegment(seg.to, targetId, courierXY);
+  S.dotT = 0;
+  return true;
+}
+
+// ============================================================
+// ADJACENCY + LIVE DISTANCES (for tooltip)
+// ============================================================
+function nodeIdx(id) { return S.routeNodes.findIndex(n => n.id === id); }
+
+/** Is targetId adjacent to the current segment's endpoint on the ring? */
+function adjacencyFromCurrent(targetId) {
+  const seg = S._transient.currentSegment;
+  if (!seg) return 'far';
+  if (targetId === seg.to) return 'target';
+  // Walk clockwise around the ring by node index to count steps.
+  const startIdx = nodeIdx(seg.to);
+  if (startIdx === -1) return 'far';
+  let steps = 0;
+  let i = startIdx;
+  while (S.routeNodes[(i + 1) % S.routeNodes.length].id !== targetId) {
+    i = (i + 1) % S.routeNodes.length;
+    steps++;
+    if (steps >= S.routeNodes.length) return 'far';
+  }
+  steps += 1; // one more to actually reach targetId
+  const backSteps = S.routeNodes.length - steps;
+  if (steps === 1 || backSteps === 1) return 'adjacent';
+  return 'far';
+}
+
+/** Sum of ring edge lengths going clockwise from one node id to another. */
+function ringNodeDistance(fromId, toId) {
+  let i = S.edges.findIndex(([a]) => a === fromId);
+  let total = 0, steps = 0;
+  while (steps < S.edges.length) {
+    const [a, b] = S.edges[i];
+    if (a === toId) break;
+    const na = S.routeNodes.find(n => n.id === a);
+    const nb = S.routeNodes.find(n => n.id === b);
+    total += Math.hypot(nb.x - na.x, nb.y - na.y);
+    if (b === toId) break;
+    i = (i + 1) % S.edges.length;
+    steps++;
+  }
+  return total;
+}
+
+/** Live ring distance from courier's current xy to targetId (clockwise). */
+function liveRingDistance(targetId) {
+  const seg = S._transient.currentSegment;
+  if (!seg) return 0;
+  const remaining = (1 - S.dotT) * seg.length;
+  if (seg.to === targetId) return remaining;
+  return remaining + ringNodeDistance(seg.to, targetId);
+}
+
+/** Live straight-line shortcut distance from courier's current xy to targetId. */
+function liveShortcutDistance(targetId) {
+  const seg = S._transient.currentSegment;
+  const target = S.routeNodes.find(n => n.id === targetId);
+  if (!seg || !target) return 0;
+  const xy = seg.pathFn(S.dotT);
+  return Math.hypot(target.x - xy.x, target.y - xy.y);
+}
+
+// SVG viewBox is 400 units wide with the ring spanning ~250 of those.
+// Scale chosen so the ring's total perimeter (~720 units) maps to ~24 km,
+// matching the live game's per-edge ~4 km feel.
+const UNITS_PER_KM = 30;
+const toKm = u => (u / UNITS_PER_KM).toFixed(1) + ' km';
 
 // Display mapping: route node IDs → Greek letter equivalents.
 // v0.0.9.2 — ? and · now show as φ/ψ post-stage-1 (matches the
@@ -120,6 +298,18 @@ export function drawRouteMap() {
   // the ring and nodes.
   drawInterior(svg, ns);
 
+  // v0.0.9.3 — trail group (dotted fading path behind the courier on
+  // shortcut segments) renders above interior, below ring + nodes.
+  const trailG = document.createElementNS(ns, 'g');
+  trailG.setAttribute('id', 'routeTrail');
+  svg.appendChild(trailG);
+
+  // v0.0.9.3 — shortcut curve preview (faint dashed line showing the
+  // remaining path when a shortcut is active).
+  const shortcutG = document.createElementNS(ns, 'g');
+  shortcutG.setAttribute('id', 'routeShortcutPath');
+  svg.appendChild(shortcutG);
+
   S.edges.forEach(([a, b]) => {
     const na = S.routeNodes.find(n => n.id === a), nb = S.routeNodes.find(n => n.id === b);
     if (!na || !nb) return;
@@ -208,16 +398,38 @@ export function drawRouteMap() {
   dot.setAttribute('fill', '#e0eeec'); dot.setAttribute('stroke', '#77bfcf'); dot.setAttribute('stroke-width', '1.4');
   svg.appendChild(dot);
   updateRouteDot();
+
+  // v0.0.9.3 — transparent hit regions on top of every node for
+  // click-to-shortcut + hover tooltip. Larger than the visible node
+  // so they're easy to hit on both desktop + mobile.
+  const hitG = document.createElementNS(ns, 'g');
+  hitG.setAttribute('id', 'routeHit');
+  S.routeNodes.forEach(n => {
+    const h = document.createElementNS(ns, 'circle');
+    h.setAttribute('class', 'route-node-hit');
+    h.setAttribute('cx', n.x); h.setAttribute('cy', n.y);
+    h.setAttribute('r', 18);
+    h.setAttribute('fill', 'transparent');
+    h.setAttribute('style', 'cursor: pointer');
+    h.dataset.id = n.id;
+    hitG.appendChild(h);
+  });
+  svg.appendChild(hitG);
+
+  // Repaint the existing shortcut preview / trail if any state is live
+  renderShortcutPathPreview();
+  renderTrailCells();
 }
 
 export function updateRouteDot() {
   const dot = document.getElementById('routeDot');
   if (!dot) return;
-  const [fromId, toId] = currentEdge();
-  const from = S.routeNodes.find(n => n.id === fromId), to = S.routeNodes.find(n => n.id === toId);
-  if (!from || !to) return;
-  dot.setAttribute('cx', from.x + (to.x - from.x) * S.dotT);
-  dot.setAttribute('cy', from.y + (to.y - from.y) * S.dotT);
+  const seg = S._transient.currentSegment;
+  if (!seg) return;
+  // v0.0.9.3 — position from segment's pathFn (ring = linear, shortcut = bezier).
+  const xy = seg.pathFn(S.dotT);
+  dot.setAttribute('cx', xy.x);
+  dot.setAttribute('cy', xy.y);
 }
 
 // ============================================================
@@ -399,4 +611,164 @@ function renderStorms(svg, ns) {
 
     svg.appendChild(g);
   }
+}
+
+// ============================================================
+// v0.0.9.3 — SHORTCUT CURVE PREVIEW + TRAIL
+// ============================================================
+
+/** Faint dashed line showing the remaining shortcut curve. */
+function renderShortcutPathPreview() {
+  const g = document.getElementById('routeShortcutPath');
+  if (!g) return;
+  g.innerHTML = '';
+  const seg = S._transient.currentSegment;
+  if (!seg || seg.type !== 'shortcut') return;
+
+  const pts = [];
+  for (let t = S.dotT; t <= 1; t += 0.02) pts.push(seg.pathFn(t));
+  if (pts.length < 2) return;
+  let d = '';
+  pts.forEach((p, i) => { d += (i === 0 ? 'M ' : 'L ') + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ' '; });
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', d);
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', '#40a4b9');
+  path.setAttribute('stroke-opacity', '0.28');
+  path.setAttribute('stroke-width', '0.9');
+  path.setAttribute('stroke-dasharray', '2.5 3');
+  g.appendChild(path);
+}
+
+/** Render the trail cells — small fading cyan dots dropped behind the courier. */
+function renderTrailCells() {
+  const g = document.getElementById('routeTrail');
+  if (!g) return;
+  g.innerHTML = '';
+  const trail = S._transient.trailCells;
+  if (!trail || trail.length === 0) return;
+  const ns = 'http://www.w3.org/2000/svg';
+  for (const tc of trail) {
+    const opacity = Math.max(0, 1 - tc.age / C.TRAIL_FADE_TICKS);
+    if (opacity < 0.03) continue;
+    const c = document.createElementNS(ns, 'circle');
+    c.setAttribute('cx', tc.x);
+    c.setAttribute('cy', tc.y);
+    c.setAttribute('r', '1.3');
+    c.setAttribute('fill', '#77bfcf');
+    c.setAttribute('opacity', opacity.toFixed(3));
+    g.appendChild(c);
+  }
+}
+
+/**
+ * Tick hook — called once per game tick from main.js. Handles trail
+ * aging + drop, shortcut preview refresh, and live tooltip refresh.
+ */
+export function tickRouteInteractions() {
+  const seg = S._transient.currentSegment;
+  if (!seg) return;
+  const trail = S._transient.trailCells;
+
+  // Drop a trail cell only while on a shortcut (interior traversal).
+  if (seg.type === 'shortcut' && (S.ticks % C.TRAIL_DROP_EVERY) === 0) {
+    const xy = seg.pathFn(S.dotT);
+    trail.push({ x: xy.x, y: xy.y, age: 0 });
+  }
+
+  // Age all existing cells and purge fully-faded entries.
+  if (trail.length > 0) {
+    for (const tc of trail) tc.age++;
+    while (trail.length > 0 && trail[0].age > C.TRAIL_FADE_TICKS) trail.shift();
+    renderTrailCells();
+  }
+
+  // Keep the shortcut-curve preview in sync while the segment advances.
+  if (seg.type === 'shortcut') renderShortcutPathPreview();
+
+  // Live tooltip refresh while a node is hovered.
+  if (S._transient.hoveredNodeId) renderRouteTooltip();
+}
+
+// ============================================================
+// v0.0.9.3 — TOOLTIP + CLICK / HOVER WIRING
+// ============================================================
+
+function renderRouteTooltip() {
+  const tip = document.getElementById('routeTooltip');
+  if (!tip) return;
+  const id = S._transient.hoveredNodeId;
+  if (!id) { tip.classList.remove('on'); return; }
+
+  const node = S.routeNodes.find(n => n.id === id);
+  if (!node) { tip.classList.remove('on'); return; }
+  const label = (getNodeStage(id) >= 1 || id === '?') ? nodeGlyph(id) : '?';
+  const nameLine = (getNodeStage(id) >= 3)
+    ? getDisplayLabel(id)
+    : (getNodeStage(id) >= 2) ? 'unconfirmed' : 'unscanned';
+
+  const adj = adjacencyFromCurrent(id);
+  let body;
+  if (adj === 'target') {
+    const r = liveRingDistance(id);
+    body = `<span class="tip-dim">current target · ${toKm(r)} to arrive</span>`;
+  } else if (adj === 'adjacent') {
+    const r = liveRingDistance(id);
+    body = `<span class="tip-dim">adjacent on ring · ${toKm(r)}</span>`;
+  } else {
+    const r  = liveRingDistance(id);
+    const sc = liveShortcutDistance(id);
+    const saves = r - sc;
+    const savesLine = saves > 0
+      ? `<span class="tip-cta">shortcut saves ${toKm(saves)} · click to cut across</span>`
+      : `<span class="tip-dim">shortcut wouldn't save distance</span>`;
+    body = `
+      <span class="tip-row">via ring: ${toKm(r)}</span>
+      <span class="tip-row">via shortcut: ${toKm(sc)}</span>
+      ${savesLine}
+    `;
+  }
+
+  tip.innerHTML = `<span class="tip-label">${label} · ${nameLine}</span>${body}`;
+  tip.classList.add('on');
+  const { x, y } = S._transient.hoveredPx;
+  tip.style.left = (x + 12) + 'px';
+  tip.style.top  = (y + 12) + 'px';
+}
+
+let routeInteractionsBound = false;
+
+/** Attach click + hover handlers once. Called by initSegment() from main. */
+export function bindRouteInteractions() {
+  if (routeInteractionsBound) return;
+  const svg = els.routeSvg;
+  if (!svg) return;
+  svg.addEventListener('mousemove', (e) => {
+    const t = e.target;
+    if (t.classList && t.classList.contains('route-node-hit')) {
+      S._transient.hoveredNodeId = t.dataset.id;
+      S._transient.hoveredPx     = { x: e.clientX, y: e.clientY };
+      renderRouteTooltip();
+    } else if (S._transient.hoveredNodeId) {
+      S._transient.hoveredNodeId = null;
+      renderRouteTooltip();
+    }
+  });
+  svg.addEventListener('mouseleave', () => {
+    if (S._transient.hoveredNodeId) {
+      S._transient.hoveredNodeId = null;
+      renderRouteTooltip();
+    }
+  });
+  svg.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.classList && t.classList.contains('route-node-hit')) {
+      startShortcut(t.dataset.id);
+      // Redraw so the new shortcut curve preview shows immediately.
+      drawRouteMap();
+      updateRouteDot();
+    }
+  });
+  routeInteractionsBound = true;
 }

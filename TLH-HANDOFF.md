@@ -419,6 +419,86 @@ Captured separately in [HANDOFF.md](HANDOFF.md) to keep this doc game-focused. S
 
 ---
 
+## v0.0.9.3 implementation plan
+
+Locked 2026-04-16 after a focused mockup pass at [tlh-shortcut-mockup.html](tlh-shortcut-mockup.html). Same workflow as .1 / .2 — mockup resolved interaction + visual direction before code.
+
+### thesis
+
+The ring stops being the only route. **Clicking a non-adjacent node on the 2D route-map cuts the courier through the interior** instead of sending them around the ring. Opens up route-planning as an active gameplay loop: default = walk the ring clockwise delivering packages as you go; shortcut = trade skipped delivery opportunities for speed.
+
+### data-model shift: "option (c) thin segment shape"
+
+Introduces `S._transient.currentSegment = { from, to, type: 'ring'|'shortcut', edgeIdx, pathFn, length }` as the source of truth for "which leg is the courier walking now." `S.edgeIdx` stays valid for ring segments (matches `currentSegment.edgeIdx`); shortcut segments carry `edgeIdx = -1`. `currentEdge()` in `route-map.js` reworked to derive from `currentSegment` so every downstream caller (weather, packages, route-dot render) keeps working.
+
+Considered two alternatives during the design discussion:
+- **(a) Shortcut-override pattern** (keep `edgeIdx` as ring driver, add a transient shortcut override) — simpler but creates two parallel traversal states; didn't prime the primer's longer-term segment-list direction.
+- **(b) Full path-list refactor** (`S.path = [{...}, ...]` replacing `edgeIdx`) — cleanest match for the primer but bigger blast radius across every edgeIdx caller.
+
+(c) gets the segment shape into the codebase now; (b)'s full path-list is a natural upgrade when v0.0.9.6 adds persistent multi-segment paths + trails.
+
+### mockup-established behavior
+
+- **Click a non-adjacent node → shortcut.** Adjacent (next / previous clockwise on the ring) and self-target clicks are rejected. Tooltip shows why.
+- **Natural curve path.** Quadratic bezier between endpoints, one control point offset perpendicular to the straight line by 18% of segment length. Bow direction deterministic (based on which side of the straight line the ring's centroid sits) so re-running the same shortcut produces the same curve.
+- **Courier traverses the curve** via `pathFn(S.dotT)`; the existing distance/stamina accumulators reuse.
+- **Dotted trail** drops a cell every ~3 ticks behind the courier, each cell has an `age` counter, opacity = `max(0, 1 - age/FADE_TICKS)`. FADE_TICKS = 300 (~105s at 350ms/tick). Session-only, no persistence — the persistent multiplayer-synced trail system lands in v0.0.9.6.
+- **Live tooltip** on hover. Shows target glyph/label + "via ring: X km" + "via shortcut: Y km" + "shortcut saves (X-Y) km · click to cut across". Re-renders every tick while hovered so distances stay current as the courier moves. Distances computed from courier's current xy (not from `segment.to`). Adjacent / target-of-current-segment nodes show a different tooltip variant (no shortcut option).
+- **Faint dashed curve preview** renders on the route-map while a shortcut is active, showing the remaining path.
+- **Mid-transit replan.** Clicking a new target mid-shortcut computes a fresh segment from the courier's current xy (not the original start node) and resets `segT` to 0.
+- **Arrival.** On reaching `segment.to`, the game fires the normal arrival handlers (setNodeStage / tryDeliver / tryWarning / emergence typewriter / etc.), then sets the next segment to the ring edge going **clockwise** from the arrival node.
+
+### interior = off-grid during shortcut
+
+While `currentSegment.type === 'shortcut'`:
+- `cellIndex()` returns `-1` (or a sentinel); downstream callers (`weatherAtCell`, package pickup, wetland refill) skip or return `'none'`.
+- No package pickups, no weather intensity, no wetland canteen refill.
+- Logic that reads `S.edgeIdx` directly (e.g., wetland-edge preload, weather spawn wetland bias) sees `edgeIdx = -1` and either no-ops or falls back.
+
+Clean boundary — interior is genuinely empty of game content until v0.0.9.5 terrain bones and v0.0.9.6 trail overlays fill it in.
+
+### cost tax during shortcut
+
+Small flat bump that primes .6's virgin-cell cost curve:
+- **Stamina drain ×1.2** (per tick)
+- **Trip chance ×1.5** (when the courier rolls for a stumble)
+
+Numbers chosen so shortcuts remain viable (player still wants them for the distance savings) but the ring keeps reason-to-exist (virgin traversal is slightly punishing). When v0.0.9.6 adds persistent trample, these same numbers become "virgin-cell cost" and scale down as trample accumulates — no redesign needed across patches.
+
+### scope — what ships in v0.0.9.3
+
+- [js/state.js](js/state.js) — `S._transient.currentSegment` field, `S._transient.trailCells` field, `S._transient.hoveredNodeId` for tooltip tracking.
+- [js/render/route-map.js](js/render/route-map.js) — introduce `makeRingSegment(edgeIdx)` / `makeShortcutSegment(fromId, toId, startXY)` factories; new exports `getCurrentSegment` / `startShortcut`; `currentEdge()` reworked to derive from `currentSegment`; `updateRouteDot()` uses `pathFn(S.dotT)` for courier xy; click + mousemove + mouseleave handlers on hit regions; live tooltip rendering; shortcut-curve preview; trail dot rendering + per-tick aging.
+- [js/main.js](js/main.js) — tick's arrival logic reworked to advance `currentSegment` instead of raw `S.edgeIdx`; shortcut-active branch skips pickup/weather/wetland checks; stamina drain multiplier applied; per-tick render calls for trail + tooltip when active.
+- [js/trip.js](js/trip.js) — trip-chance multiplier during shortcut segments.
+- [the-long-haul.html](the-long-haul.html) — subtitle bump to v0.0.9.3; absolute-positioned `<div id="routeTooltip">` for the hover tooltip.
+- [the-long-haul.css](the-long-haul.css) — tooltip styling (matching the mockup aesthetic), trail cell styling if needed.
+- No save-schema bump. All new state is `_transient`.
+
+### scope — explicitly deferred
+
+- Persistent multiplayer-synced trails with trample mechanics → v0.0.9.6.
+- Real terrain types inside the interior (rivers, mountain massifs, rocky hills, desert) → v0.0.9.5.
+- Mountain passes + ladder/anchor placement → .5/.6.
+- Full path-list data model (routes as arrays of segments, multi-hop planning) → v0.0.9.6 when it becomes load-bearing.
+- Shortcut via multiple segments in sequence (e.g., "shortcut through two interior nodes") — .3 ships single-segment shortcuts only.
+
+### follow-ups recorded in-code
+
+- **Cost tax constants** — `SHORTCUT_STAMINA_MULT = 1.2` and `SHORTCUT_TRIP_MULT = 1.5` live in [js/constants.js](js/constants.js) with a comment pointing at the .6 trample-decay lineage.
+- **Trail fade window** — `TRAIL_FADE_TICKS = 300` likewise a constant, easy to tune.
+
+### commit sequence (tentative)
+
+Likely one focused commit. If it splits:
+1. state + segment scaffolding + route-map.js segment abstraction (still ring-only; no click trigger)
+2. click/hover/tooltip + shortcut creation + bezier + trail
+3. main.js + trip.js cost tax + off-grid handling
+
+Subtitle bump rule: `v0.0.9.2 → v0.0.9.3` in the-long-haul.html.
+
+---
+
 ## commit 2b — what shipped (v0.0.7.20)
 
 Final commit of the bugfix patch. The four queued items plus one late-breaking find and one opportunistic rename.
