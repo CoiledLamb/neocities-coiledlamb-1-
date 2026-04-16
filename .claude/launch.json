@@ -4,8 +4,8 @@
     {
       "name": "tlh-static",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8747"],
-      "port": 8747
+      "runtimeArgs": ["-m", "http.server", "8749"],
+      "port": 8749
     }
   ]
 }

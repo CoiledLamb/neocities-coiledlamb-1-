@@ -601,19 +601,17 @@ html, body {
 .stamina-bar-fill.half { background: #9d78d4; }
 .stamina-bar-fill.crit { background: #da8bda; }
 
-/* v0.0.7.31 — overboost is now a separate small bar to the right
-   of the main stamina bar, hidden until stamina > staminaMax.
-   Represents 0..25% of staminaMax (the overboost ceiling) so the
-   player can actually read how much buffer they've got. Main bar
-   stays steady at 100% during overboost; the side-segment pulses. */
+/* v0.0.9.3.1 — overboost now overlays the main stamina bar (same size
+   and shape) rather than sitting beside it as a side-segment. Still
+   represents 0..25% of staminaMax (the overboost ceiling) as a 0..100%
+   width inside the overlay. Main bar fill stays steady at 100% during
+   overboost; the overlay pulses above it and simply display:none's out
+   once the excess drains. */
 .stamina-overboost {
-  position: relative;
-  width: 25px; height: 8px;
-  border: 1px solid #40a4b9;
-  background: #132e2d;
-  box-sizing: border-box;
-  flex-shrink: 0;
-  margin-left: 2px;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
 }
 .stamina-overboost-fill {
   position: absolute;
