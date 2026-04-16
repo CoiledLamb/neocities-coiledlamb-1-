@@ -27,7 +27,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.8<span style="opacity:0.6">.3</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.8<span style="opacity:0.6">.4</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -129,6 +129,18 @@
             <div class="tlh-route-panel">
               <div class="tlh-ptitle">// route</div>
               <svg id="routeSvg" width="100%" height="220" style="overflow:visible"></svg>
+              <div class="weather-gear-row" id="weatherGearRow">
+                <button class="boots-gear-btn weather-gear-btn" id="weatherGearBtn" aria-label="weather" aria-expanded="false">&#x2609;</button>
+                <span class="inline-gear-wrap weather-legend-wrap" id="weatherLegendInline" hidden>
+                  <canvas id="weatherLegendBar" width="80" height="6" class="weather-legend-bar"></canvas>
+                  <span class="weather-legend-labels">
+                    <span class="weather-legend-lbl wl-hi">1020</span>
+                    <span class="weather-legend-lbl wl-mid">1002</span>
+                    <span class="weather-legend-lbl wl-lo">984</span>
+                  </span>
+                  <span class="weather-legend-unit">hPa</span>
+                </span>
+              </div>
             </div>
             <div class="tlh-network-panel">
               <div class="tlh-ptitle net-ptitle">

@@ -25,7 +25,12 @@ export const S = {
   sandalweedCount: 0,
   stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
   canteen: 100, canteenMax: 100, autodrink: false,
-  isRaining: false, inRiver: false,  // rainTimer removed in commit 2b — replaced by _transient.nextRainStart/EndTick
+  inRiver: false,  // stub for future river mechanic
+
+  // v0.0.8 — weather system. Storms are spatial world objects on the ring.
+  // Replaces the old isRaining boolean.
+  storms: [],              // array of storm objects (1 for now, array for future multi-front)
+  nextStormSpawnTick: 0,   // absolute tick target for next storm birth
 
   upgrades: {
     bootsT1: false, bootsT2: false,
@@ -168,14 +173,13 @@ export const S = {
     depotRestPending: null,
     clipRefillPending: null,
 
-    // Rain scheduler (v0.0.7.19 commit 2b). Replaces the old S.rainTimer
-    // that counted down both during and between rain events (ambiguous
-    // semantics). These are absolute tick targets: if !isRaining, next
-    // rain starts when S.ticks reaches nextRainStartTick; if isRaining,
-    // rain ends when S.ticks reaches nextRainEndTick. Seeded at init
-    // based on S.isRaining so loaded saves behave correctly.
-    nextRainStartTick: 0,
-    nextRainEndTick: 0,
+    // Weather system (v0.0.8). Transient rendering state — the storms
+    // themselves live on S.storms (persisted). These are session-only
+    // helpers for overlay dirty-checking, spawn ID generation, and
+    // precomputed wetland edge list for spawn bias.
+    lastWeatherIntensity: 'none',
+    stormIdCounter: 0,
+    wetlandEdges: [],   // populated by buildWorld() — which edgeIdx values have wetland cells
 
     // Pickup-fail log dedupe (v0.0.7.19 commit 2b). Key is
     // `${ci}:${usedSlots}:${usedWeight}` — a change to any part refires

@@ -53,21 +53,68 @@ export const SANDAL_RATE_RUINS          = 0.001;
 // a steady drip, not a faucet — water scarcity stays meaningful.
 export const WETLAND_CANTEEN_REFILL = 0.05;
 
-// ----- rain timing (v0.0.7.19 commit 2b) -----
-// Replaces the old S.rainTimer / 0.003-per-tick coin-flip with two
-// absolute-tick targets (S._transient.nextRainStartTick /
-// nextRainEndTick). Rain events have clear start/end moments, and
-// tryWarning's "rain incoming" check is no longer ambiguous (the
-// old condition fired both during and between rain events).
-// Mean dry period ~500 ticks matches the old 0.003/tick feel
-// (1/0.003 ≈ 333 ticks). Wet period bounds preserved from old code.
-export const RAIN_DRY_MIN_TICKS = 200;
-export const RAIN_DRY_MAX_TICKS = 800;
-export const RAIN_WET_MIN_TICKS = 40;
-export const RAIN_WET_MAX_TICKS = 100;
-// "Rain incoming" warning window: trust's tryWarning speaks when
-// nextRainStartTick - S.ticks < this value.
-export const RAIN_INCOMING_WARN_TICKS = 25;
+// ----- weather / storms (v0.0.8 rework) -----
+// Replaces the old rain on/off boolean with spatial storm objects.
+// Storms are dual-gaussian potential fields on the 6-edge ring.
+// Intensity is spatial (distance from center), not a whole-storm
+// property: outer edge = drizzle, mid = rain, core = downpour.
+
+// Storm spawn scheduling (dry period between storms)
+export const STORM_DRY_MIN_TICKS       = 200;
+export const STORM_DRY_MAX_TICKS       = 800;
+
+// Intensity zone radii (cells from storm center).
+// weatherAtCourier() returns intensity based on which zone the
+// courier falls in. Zones are ring-distance from the primary center.
+export const STORM_ZONE_DOWNPOUR       = 60;   // within this = downpour
+export const STORM_ZONE_RAIN           = 120;  // within this = rain
+export const STORM_ZONE_DRIZZLE        = 200;  // within this = drizzle
+// Beyond STORM_ZONE_DRIZZLE = clear.
+
+// Storm lifecycle — per-tick probabilities for the storm as a whole.
+// The storm spawns, lives, and eventually dissipates. While alive its
+// spatial zones are always present — no temporal intensity state.
+export const STORM_DISSIPATE_CHANCE    = 0.003; // per-tick chance storm dies
+export const STORM_MIN_AGE_TICKS      = 60;    // no dissipation before this (~21s)
+
+// Storm types — speed is edgeT per tick (courier base is 0.006).
+// weight = relative spawn probability. radius is the STORM_ZONE_DRIZZLE
+// value used for this type (overrides the default above).
+export const STORM_TYPES = {
+  squall: { speed: 0.008, radius: 150,  sigma1: 22, sigma2: 14, w2: 0.5, weight: 40 },
+  front:  { speed: 0.004, radius: 220,  sigma1: 32, sigma2: 20, w2: 0.6, weight: 45 },
+  deluge: { speed: 0.002, radius: 180,  sigma1: 28, sigma2: 16, w2: 0.7, weight: 15 },
+};
+
+// Wetland spawn bias: probability of forcing storm onto a wetland edge
+export const STORM_WETLAND_BIAS        = 0.40;
+
+// Canteen refill rates per tick by intensity zone
+export const CANTEEN_DRIZZLE           = 0.20;
+export const CANTEEN_RAIN              = 0.40;
+export const CANTEEN_DOWNPOUR          = 0.60;
+// Burst when courier first enters any storm zone
+export const CANTEEN_STORM_BURST       = 30;
+
+// Trip chance multipliers by intensity (multiplicative)
+export const TRIP_MULT_DRIZZLE         = 1.10;
+export const TRIP_MULT_RAIN            = 1.25;
+export const TRIP_MULT_DOWNPOUR        = 1.50;
+
+// Encumbrance trip multiplier: at 100% weight load, trip chance *= this.
+// Scales linearly from 1.0 (empty) to this value (full weight).
+export const TRIP_ENCUMBRANCE_MAX_MULT = 1.40;
+
+// Pickup range reduction during downpour (cells subtracted, floor 2)
+export const DOWNPOUR_RANGE_PENALTY    = 4;
+
+// NPC warning: speak when storm will reach courier within this many ticks
+export const STORM_INCOMING_WARN_TICKS = 30;
+
+// Rain overlay spans by intensity
+export const RAIN_SPANS_DRIZZLE        = 8;
+export const RAIN_SPANS_RAIN           = 18;
+export const RAIN_SPANS_DOWNPOUR       = 30;
 
 // ----- tick / stamina / trip -----
 export const TICK_MS           = 350;
@@ -178,7 +225,8 @@ export const SAVE_KEY_V3  = 'tlh-save-v3';
 export const SAVE_KEY_V4  = 'tlh-save-v4';
 export const SAVE_KEY_V5  = 'tlh-save-v5';
 export const SAVE_KEY_V6  = 'tlh-save-v6';
-export const SAVE_VERSION = 6;
+export const SAVE_KEY_V7  = 'tlh-save-v7';
+export const SAVE_VERSION = 7;
 export const AUTOSAVE_MS  = 30000;
 
 // ----- edges with elevated trip risk -----
