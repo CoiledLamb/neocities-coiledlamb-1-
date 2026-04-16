@@ -51,8 +51,10 @@ const els = S._transient.els;
 // ============================================================
 // TIMING
 // ============================================================
-// 3000 ticks × 350 ms ≈ 17.5 min per in-game day.
-const TICKS_PER_DAY   = 3000;
+// 1500 ticks × 350 ms ≈ 8.75 min per in-game day. Sun/moon glide
+// by faster per-tick than 3000 — less "watching the moon move" in
+// a single session.
+const TICKS_PER_DAY   = 1500;
 const HALF_DAY        = TICKS_PER_DAY / 2;
 const MOON_CYCLE_DAYS = 7;
 
@@ -194,17 +196,20 @@ function warmBiasOf(t) {
 // Sun's horizontal position (% of strip width) during its visible arc.
 // Clamped outside the arc so the radial's center sits at the last edge
 // if a warm bell happens to fire off-arc (currently doesn't, but safe).
+// ARC_X_PAD small so sun + moon rise/set near the screen edges rather
+// than crowding the courier @ (~70px from left).
+const ARC_X_PAD = 6;
+
 function sunXPctOf(t) {
   const frac = Math.min(1, Math.max(0, t / HALF_DAY));
-  return ((20 + frac * (SKY_W - 40)) / SKY_W) * 100;
+  return ((ARC_X_PAD + frac * (SKY_W - 2 * ARC_X_PAD)) / SKY_W) * 100;
 }
 
 // Parabolic arc: x = left→right across strip, y peaks at mid-transit.
 function arcPos(frac) {
-  const xPad = 20;
   const yTop = 14;
   const yBot = SKY_H + 6;       // off-screen at edges
-  const x    = xPad + frac * (SKY_W - 2 * xPad);
+  const x    = ARC_X_PAD + frac * (SKY_W - 2 * ARC_X_PAD);
   const arcY = 1 - Math.sin(frac * Math.PI);
   const y    = yTop + arcY * (yBot - yTop);
   return { x, y };

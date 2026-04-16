@@ -283,7 +283,7 @@ The primer originally framed this as "single CSS variable `--tlh-daylight` inter
   - Cool base shows through everywhere the radial is transparent
   - Directionally correct: left at sunrise, right at sunset, no glow during moon arc
 - **Timing**: warm window peaks while the sun is **visibly low** (tick ~80 sunrise, tick ~1435 sunset), not right at the invisible horizon edge. Cool blue hour peaks between the warm window and full day/night (~tick 240 dawn, ~tick 1560 dusk). Sunrise and sunset bells are **separate** — tunable independently so sunrise can read paler/cooler than sunset later.
-- **Day length**: `TICKS_PER_DAY = 3000` (~17.5 min at 350 ms/tick). Sun arc: tick 0–1500. Moon arc: tick 1500–3000.
+- **Day length**: `TICKS_PER_DAY = 1500` (~8.75 min at 350 ms/tick). Sun arc: tick 0–750. Moon arc: tick 750–1500. Faster than the mockup's initial 3000; the slower pace made per-frame motion too subtle to read.
 - **Dawn start**: new saves begin at tick 0 (dawn). Existing saves resume from their current `S.ticks` — the phase has always been there, it just wasn't rendered.
 
 ### rendering model (concrete)
