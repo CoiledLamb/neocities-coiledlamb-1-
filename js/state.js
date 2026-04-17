@@ -81,35 +81,83 @@ export const S = {
 
   // v0.0.7.24 — kit-row battery (prototype stub). Shared charge pool
   // that powers scanner + future electronic gadgets (exoskeleton, etc).
-  // NOT persisted this patch (not in buildSavePayload) — drain/regen
-  // lands in a later sub-version with a schema bump.
+  // v0.0.9.5: save-schema slot added (persists via v8 migration). Full
+  // feature (innate solar trickle, new consumers, delta's regen upgrades)
+  // lands in commit 4a — this commit only reserves the persistence slot.
   battery: {
-    charge: 80,             // 0-100; stub, no drain logic yet
+    charge: 80,             // 0-100; stub, persisted from v0.0.9.5 forward
+    max:    100,
   },
 
   settlements: {
     // v0.0.8.4: ? now weather station (phi), C hosts xi, · hosts psi.
-    // Labels/tiers updated for stage-2/3 display through identification.js
+    // v0.0.9.5: area-name relabels for the existing 4 (depot a → depot;
+    // depot b → greenhouse; ruins → city ruins; waypoint → oasis).
+    // 6 new settlements land as stubs; real tier/supply tuning in
+    // commits 2-3 as NPC content fills in.
+    // Labels/tiers read for stage-2/3 display via identification.js
     // (stage 2 shows tier; stage 3 shows routeNodes.label).
-    'A':        { label:'depot a',         tier:'waypoint', supply:65, rebuild:65, quote:'"a fire and four walls"'         },
-    'B':        { label:'depot b',         tier:'outpost',  supply:34, rebuild:34, quote:'"new roof going up"'             },
-    '?':        { label:'weather station', tier:'station',  supply:5,  rebuild:5,  quote:'"barometers click in the wind"' },
-    'C':        { label:'ruins',           tier:'ruins',    supply:10, rebuild:8,  quote:'"someone digs through rubble"'  },
-    'H':        { label:'home',            tier:'shelter',  supply:80, rebuild:70, quote:'"hot food. safe walls."'         },
-    '\u00b7':   { label:'waypoint',        tier:'waypoint', supply:40, rebuild:30, quote:'"a painted stone, tended"'      },
+    'A':        { label:'depot',               tier:'waypoint', supply:65, rebuild:65, quote:'"a fire and four walls"'         },
+    'B':        { label:'greenhouse',          tier:'outpost',  supply:34, rebuild:34, quote:'"seedlings in trays"'            },
+    '?':        { label:'weather station',     tier:'station',  supply:5,  rebuild:5,  quote:'"barometers click in the wind"' },
+    'C':        { label:'city ruins',          tier:'ruins',    supply:10, rebuild:8,  quote:'"someone digs through rubble"'  },
+    'H':        { label:'home',                tier:'shelter',  supply:80, rebuild:70, quote:'"hot food. safe walls."'         },
+    '\u00b7':   { label:'oasis',               tier:'waypoint', supply:40, rebuild:30, quote:'"a painted stone, tended"'      },
+    // v0.0.9.5 new settlements (stub; NPCs fill in commits 2-3)
+    '\u03bd':   { label:'purification plant',  tier:'station',  supply:20, rebuild:20, quote:'"pipes hiss in the dry heat"'   },
+    '\u03b8':   { label:'kiln',                tier:'outpost',  supply:30, rebuild:30, quote:'"clay dries slow in the sun"'   },
+    '\u03b3':   { label:'workshop',            tier:'outpost',  supply:30, rebuild:30, quote:'"sparks from a forge"'          },
+    '\u03bb':   { label:'climbing lodge',      tier:'outpost',  supply:30, rebuild:30, quote:'"rope looped on a hook"'        },
+    '\u03c0':   { label:'radio tower',         tier:'station',  supply:15, rebuild:15, quote:'"antenna wind, no signal"'      },
+    '\u03b4':   { label:'reservoir',           tier:'station',  supply:20, rebuild:20, quote:'"water hammers the gate"'       },
   },
 
+  // v0.0.9.5: 6-node hex ring → 12-node rounded-square rim. Coords locked
+  // in dev-rim-preview.html. Bounding square 85..315 on both axes inside
+  // the 400×400 viewBox; 25px corner arcs; rim nodes at 163/237 along
+  // each straight side for even spacing (~73 units arc-length per segment).
+  //
+  // IMPORTANT: array order must match clockwise ring traversal.
+  // adjacencyFromCurrent() and ringNodeDistance() in render/route-map.js
+  // walk S.routeNodes by index to compute adjacency. Order here must be:
+  //   nu → psi → iota → theta → phi → gamma → xi → delta → lambda → pi → tau → rho → nu
+  // Coords populated by layoutRouteNodes() in render/route-map.js.
   routeNodes: [
-    { id:'A',       label:'depot a',         x:0, y:0 },
-    { id:'?',       label:'weather station', x:0, y:0 },
-    { id:'B',       label:'depot b',         x:0, y:0 },
-    { id:'C',       label:'ruins',           x:0, y:0 },
-    { id:'H',       label:'home',            x:0, y:0 },
-    { id:'\u00b7',  label:'waypoint',        x:0, y:0 },
+    { id:'\u03bd',  label:'purification plant',  x:0, y:0 }, // nu     — NW corner [new]
+    { id:'\u00b7',  label:'oasis',               x:0, y:0 }, // psi    — top-rim-L
+    { id:'B',       label:'greenhouse',          x:0, y:0 }, // iota   — top-rim-R
+    { id:'\u03b8',  label:'kiln',                x:0, y:0 }, // theta  — NE corner [new]
+    { id:'?',       label:'weather station',     x:0, y:0 }, // phi    — right-rim-T
+    { id:'\u03b3',  label:'workshop',            x:0, y:0 }, // gamma  — right-rim-B [new]
+    { id:'C',       label:'city ruins',          x:0, y:0 }, // xi     — SE corner (promoted)
+    { id:'\u03b4',  label:'reservoir',           x:0, y:0 }, // delta  — bottom-rim-R [new]
+    { id:'\u03bb',  label:'climbing lodge',      x:0, y:0 }, // lambda — bottom-rim-L [new]
+    { id:'\u03c0',  label:'radio tower',         x:0, y:0 }, // pi     — SW corner [new]
+    { id:'H',       label:'home',                x:0, y:0 }, // tau    — left-rim-B (player start)
+    { id:'A',       label:'depot',               x:0, y:0 }, // rho    — left-rim-T
   ],
-  nodeStages: { 'A':3, '?':0, 'B':0, 'C':0, 'H':3, '\u00b7':0 },
-  edges: [['A','?'],['?','B'],['B','C'],['C','H'],['H','\u00b7'],['\u00b7','A']],
-  edgeIdx: 2, dotT: 0, worldPos: 0,
+  nodeStages: {
+    'A':3, 'B':0, 'H':3, '?':0, 'C':0, '\u00b7':0,
+    // New 6: all stage 0 until discovered via trust-chain reveal
+    '\u03bd':0, '\u03b8':0, '\u03b3':0, '\u03bb':0, '\u03c0':0, '\u03b4':0,
+  },
+  // 12 edges, clockwise from nu. edgeIdx 10 = tau→rho edge; dotT 0 puts
+  // courier at tau's node (home), the new player start.
+  edges: [
+    ['\u03bd', '\u00b7'], // 0  nu → psi
+    ['\u00b7', 'B'],      // 1  psi → iota
+    ['B',      '\u03b8'], // 2  iota → theta
+    ['\u03b8', '?'],      // 3  theta → phi
+    ['?',      '\u03b3'], // 4  phi → gamma
+    ['\u03b3', 'C'],      // 5  gamma → xi
+    ['C',      '\u03b4'], // 6  xi → delta
+    ['\u03b4', '\u03bb'], // 7  delta → lambda
+    ['\u03bb', '\u03c0'], // 8  lambda → pi
+    ['\u03c0', 'H'],      // 9  pi → tau
+    ['H',      'A'],      // 10 tau → rho  ← player starts at H end (dotT 0)
+    ['A',      '\u03bd'], // 11 rho → nu
+  ],
+  edgeIdx: 10, dotT: 0, worldPos: 0,
 
   pendingDelivery: null,
 
@@ -123,12 +171,21 @@ export const S = {
     // v0.0.8.4: six NPCs now. addTrust() auto-inits on first gain, but
     // declaring up-front keeps state shape explicit and ensures the
     // persistence ratchet covers everyone on first save without surprise.
-    'A':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'B':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'H':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    '?':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'C':      { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    '\u00b7': { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    // v0.0.9.5: 6 new NPCs added (nu/theta/gamma/lambda/pi/delta).
+    // Trust starts at 0. Dialogue + trust profiles + gifts land in
+    // commits 2-4. Save-migration v7→v8 adds these slots to older saves.
+    'A':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'B':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'H':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '?':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'C':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '\u00b7':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '\u03bd':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '\u03b8':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '\u03b3':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '\u03bb':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '\u03c0':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '\u03b4':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
   },
 
   channels: [],

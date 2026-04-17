@@ -108,6 +108,10 @@ export function buildSavePayload() {
     })),
     nextStormSpawnTick: S.nextStormSpawnTick,
     nextStormType: S.nextStormType,
+    // v0.0.9.5 (schema v8) — battery is now persisted. Full feature
+    // (solar trickle + new consumers + delta's regen upgrades) lands
+    // in commit 4a; this commit just reserves the persistence slot.
+    battery: { charge: S.battery.charge, max: S.battery.max },
   };
 }
 
@@ -115,7 +119,7 @@ export function saveGame(silent) {
   if (S._transient.wipeInProgress) return false;
   try {
     const payload = buildSavePayload();
-    localStorage.setItem(C.SAVE_KEY_V7, JSON.stringify(payload));
+    localStorage.setItem(C.SAVE_KEY_V8, JSON.stringify(payload));
     S._transient.lastSaveAt = payload.savedAt;
     updateSaveStrip();
     if (!silent) addLog('<span class="log-ok">progress saved</span>');
@@ -139,13 +143,14 @@ export function saveGame(silent) {
 // S in place. Returns true on success, false on any parse/schema failure.
 export function applySavePayload(data) {
   if (!data) return false;
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== C.SAVE_VERSION) return false;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7 && data.version !== C.SAVE_VERSION) return false;
   return _applyValidated(data);
 }
 
 export function loadGame() {
   let raw;
-  try { raw = localStorage.getItem(C.SAVE_KEY_V7); } catch (e) { return false; }
+  try { raw = localStorage.getItem(C.SAVE_KEY_V8); } catch (e) { return false; }
+  if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V7); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V6); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V5); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V4); } catch (e) { return false; } }
@@ -156,7 +161,7 @@ export function loadGame() {
   let data;
   try { data = JSON.parse(raw); } catch (e) { return false; }
   if (!data) return false;
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== C.SAVE_VERSION) return false;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7 && data.version !== C.SAVE_VERSION) return false;
   return _applyValidated(data);
 }
 
@@ -185,6 +190,19 @@ function _applyValidated(data) {
     const pos = data.position || {};
     if (typeof pos.edgeIdx === 'number' && pos.edgeIdx >= 0 && pos.edgeIdx < S.edges.length) S.edgeIdx = pos.edgeIdx;
     if (typeof pos.dotT === 'number' && pos.dotT >= 0 && pos.dotT < 1) S.dotT = pos.dotT;
+
+    // v0.0.9.5 schema-v8 migration: rim shape changed from 6-node hex to
+    // 12-node rounded-square. Old edgeIdx values (0-5) technically still
+    // index valid entries in the new 12-edge array but the spatial meaning
+    // is scrambled. Snap the courier to tau's node (edgeIdx 10, dotT 0) —
+    // the new default "home" start. Players lose mid-route position but
+    // keep cargo, upgrades, trust, and inventory. Consistent with the
+    // idle-game-first principle: never strand the player spatially.
+    if (typeof data.version === 'number' && data.version < 8) {
+      S.edgeIdx = 10;
+      S.dotT    = 0;
+      S.worldPos = 0;
+    }
 
     if (Array.isArray(data.inventory)) {
       S.inventory = data.inventory.map(p => ({ ...p }));
@@ -301,6 +319,17 @@ function _applyValidated(data) {
       if (typeof sc.buffMagnitude === 'number') S.scanner.buffMagnitude = sc.buffMagnitude;
     }
 
+    // v0.0.9.5 (schema v8) — battery is now persisted. Old saves (v<8)
+    // don't have data.battery; defaults from state.js stand.
+    if (data.battery && typeof data.battery === 'object') {
+      if (typeof data.battery.charge === 'number') {
+        S.battery.charge = Math.max(0, Math.min(data.battery.max || 100, data.battery.charge));
+      }
+      if (typeof data.battery.max === 'number') {
+        S.battery.max = Math.max(1, Math.floor(data.battery.max));
+      }
+    }
+
     // v0.0.8 (schema v7) — weather system.
     // Old saves (v6 and earlier) have no storm data — start with empty
     // storms[] and let initWeather() schedule a spawn. isRaining was
@@ -343,6 +372,7 @@ function _applyValidated(data) {
         localStorage.removeItem(C.SAVE_KEY_V4);
         localStorage.removeItem(C.SAVE_KEY_V5);
         localStorage.removeItem(C.SAVE_KEY_V6);
+        localStorage.removeItem(C.SAVE_KEY_V7);
         saveGame(true);
       } catch (e) {}
     }
@@ -354,6 +384,7 @@ function _applyValidated(data) {
 
 export function wipeSave() {
   try {
+    localStorage.removeItem(C.SAVE_KEY_V8);
     localStorage.removeItem(C.SAVE_KEY_V7);
     localStorage.removeItem(C.SAVE_KEY_V6);
     localStorage.removeItem(C.SAVE_KEY_V5);

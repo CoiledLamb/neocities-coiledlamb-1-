@@ -68,6 +68,13 @@ export const NPC_LINES = {
       60:  'i see a lot from here. i can tell you what\'s moving on the route if you want.',
       80:  'there\'s room here if you need it. the stone keeps the wind off.',
     },
+    // v0.0.9.5 new 6 — stubs. Real threshold lines land in commits 2-3.
+    '\u03bd':  {},  // nu
+    '\u03b8':  {},  // theta
+    '\u03b3':  {},  // gamma
+    '\u03bb':  {},  // lambda
+    '\u03c0':  {},  // pi
+    '\u03b4':  {},  // delta
   },
 
   ambient: {
@@ -119,6 +126,13 @@ export const NPC_LINES = {
       'the waypoint\'s mine. i take care of it.',
       'small things last longer than big things, mostly.',
     ],
+    // v0.0.9.5 new 6 — stubs. Real ambient chatter lands in commits 2-3.
+    '\u03bd':  [],  // nu
+    '\u03b8':  [],  // theta
+    '\u03b3':  [],  // gamma
+    '\u03bb':  [],  // lambda
+    '\u03c0':  [],  // pi
+    '\u03b4':  [],  // delta
   },
 
   warning: {
@@ -243,6 +257,15 @@ export const NPC_LINES = {
         'rest here. i\'ve got water. take some.',
       ],
     },
+    // v0.0.9.5 new 6 — warning stubs. Full sets land in commits 2-3.
+    // Empty rain/trip/stamina arrays prevent trust.js warn access from
+    // throwing on `undefined.trip` (pickRandom([]) → undefined → speak no-op).
+    '\u03bd':  { rain: [], trip: [], stamina: [] }, // nu
+    '\u03b8':  { rain: [], trip: [], stamina: [] }, // theta
+    '\u03b3':  { rain: [], trip: [], stamina: [] }, // gamma
+    '\u03bb':  { rain: [], trip: [], stamina: [] }, // lambda
+    '\u03c0':  { rain: [], trip: [], stamina: [] }, // pi
+    '\u03b4':  { rain: [], trip: [], stamina: [] }, // delta
   },
 
   preview: {
@@ -284,6 +307,9 @@ export const NPC_LINES = {
       'a {label} on the road \u2014 {size}. {dest} probably wants it.',
       'if you pass a {label}, it\'s headed for {dest}. looks like a decent carry.',
     ],
+    // v0.0.9.5 new 6 — preview stubs. Real preview templates in commits 2-3.
+    '\u03bd':  [], '\u03b8':  [], '\u03b3':  [],
+    '\u03bb':  [], '\u03c0':  [], '\u03b4':  [],
   },
 
   rest: {
@@ -323,6 +349,9 @@ export const NPC_LINES = {
       'spot by the big stone is the warmest. \u2014 i tested them all.',
       'stay if you want. candles are on anyway.',
     ],
+    // v0.0.9.5 new 6 — rest stubs. Real rest lines in commits 2-3.
+    '\u03bd':  [], '\u03b8':  [], '\u03b3':  [],
+    '\u03bb':  [], '\u03c0':  [], '\u03b4':  [],
   },
 
   // v0.0.8.4: delivery-complete lines. Fire once per delivery batch via
@@ -491,5 +520,14 @@ export const NPC_LINES = {
         'someone dropped this and you picked it up. good.',
       ],
     },
+    // v0.0.9.5 new 6 — delivery stubs. Real delivery lines in commits 2-3.
+    // `speakDelivery()` safely falls back when condition arrays are empty
+    // or the entry is missing entirely (see trust.js:115).
+    '\u03bd':  {}, // nu
+    '\u03b8':  {}, // theta
+    '\u03b3':  {}, // gamma
+    '\u03bb':  {}, // lambda
+    '\u03c0':  {}, // pi
+    '\u03b4':  {}, // delta
   },
 };

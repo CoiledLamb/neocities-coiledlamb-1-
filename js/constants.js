@@ -238,22 +238,27 @@ export const SAVE_KEY_V4  = 'tlh-save-v4';
 export const SAVE_KEY_V5  = 'tlh-save-v5';
 export const SAVE_KEY_V6  = 'tlh-save-v6';
 export const SAVE_KEY_V7  = 'tlh-save-v7';
-export const SAVE_VERSION = 7;
+export const SAVE_KEY_V8  = 'tlh-save-v8';
+export const SAVE_VERSION = 8;
 export const AUTOSAVE_MS  = 30000;
 
 // ----- edges with elevated trip risk -----
+// v0.0.9.5: 'C' (xi ruins, now SE corner) retained; '?' (phi weather
+// station, now right-rim-T) retained. New NPC nodes added later if
+// any have risky-approach semantics.
 export const RISKY_EDGE_DEST = new Set(['C', '?']);
 
-// ----- v0.0.9.4: world-spawn destination distribution -----
+// ----- v0.0.9.4 + .5: world-spawn destination distribution -----
 // Weights for the ring-distance-weighted destination picker. Index =
-// clockwise offset from the spawn edge's endpoint on the 6-node ring
-// A → ? → B → C → H → · → A. Offset 0 = next shelter (delivered this
-// leg); offsets 4-5 are effectively "backwards" around the ring.
-// Heavy forward bias keeps idle play functional while the long tail
-// gives v0.0.9.3's shortcut travel real gameplay weight (pkgs for
-// distant nodes create carry-vs-shortcut decisions).
-// Will need retune at v0.0.9.7 when 4 corner NPCs expand the ring.
-export const DEST_DIV_WEIGHTS = [40, 25, 15, 10, 5, 5];
+// clockwise offset from the spawn edge's endpoint.
+//
+// v0.0.9.4 shipped with 6 weights for the 6-node hex ring.
+// v0.0.9.5 expands to 12 for the rounded-square rim. Clockwise order:
+//   nu → psi → iota → theta → phi → gamma → xi → delta → lambda → pi → tau → rho → nu
+// Heavy forward bias preserved. Long tail gives shortcut travel real
+// gameplay weight without flooding far-side nodes. Weights sum to 100
+// (readable as percentages).
+export const DEST_DIV_WEIGHTS = [30, 20, 15, 10, 8, 6, 4, 3, 2, 1, 0.7, 0.3];
 
 // ----- v0.0.9.4: NPC outbound dispatch -----
 // On arrival at an NPC node, the NPC may offer a package destined for

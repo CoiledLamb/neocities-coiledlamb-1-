@@ -205,30 +205,57 @@ const toKm = u => (u / UNITS_PER_KM).toFixed(1) + ' km';
 // v0.0.9.2 — ? and · now show as φ/ψ post-stage-1 (matches the
 // v0.0.8.4 NPC identity patch: phi at weather station, psi at the
 // orphan-scavenger settlement).
+// v0.0.9.5 — A/B/C/H remap from α/β/γ/η (stale placeholders) to
+// ρ/ι/ξ/τ matching their actual callsigns. Fixes the pre-existing
+// mismatch between displayed glyph and NPC callsign AND prevents
+// collision with the new gamma NPC (node id = γ character itself).
+// Added entries for the new 6 NPCs: identity-map since their nodeId
+// IS the Greek letter already — kept explicit for the table reading
+// as a self-documenting index of every ring glyph.
 const GREEK = {
-  'A': '\u03b1',          // α
-  'B': '\u03b2',          // β
-  'C': '\u03b3',          // γ
-  'H': '\u03b7',          // η
-  '?': '\u03c6',          // φ — phi
-  '\u00b7': '\u03c8',     // ψ — psi
+  'A':       '\u03c1',          // ρ — rho
+  'B':       '\u03b9',          // ι — iota
+  'C':       '\u03be',          // ξ — xi
+  'H':       '\u03c4',          // τ — tau
+  '?':       '\u03c6',          // φ — phi
+  '\u00b7':  '\u03c8',          // ψ — psi
+  '\u03bd':  '\u03bd',          // ν — nu
+  '\u03b8':  '\u03b8',          // θ — theta
+  '\u03b3':  '\u03b3',          // γ — gamma
+  '\u03bb':  '\u03bb',          // λ — lambda
+  '\u03c0':  '\u03c0',          // π — pi
+  '\u03b4':  '\u03b4',          // δ — delta
 };
 function nodeGlyph(id) { return GREEK[id] || id; }
 
-// v0.0.9.2 — route map is a 2D plane. Square viewBox (400×400) so
-// the hexagonal ring doesn't distort. Nodes spread hexagonally;
-// final rounded-square rim with 4 corner NPCs waits for the
-// world-map regen pass (→ v0.0.9.7).
+// v0.0.9.2 — route map is a 2D plane. Square viewBox (400×400).
+// v0.0.9.5 — rounded-square rim with 12 nodes (4 corners + 2 rim-side
+// per side) replaces the hex layout. Corners anchor biome identity
+// (nu/theta/xi/pi); rim slots host existing + new NPCs.
 export function layoutRouteNodes() {
-  // v0.0.9.2 — nodes shifted inward from the panel edges so their
-  // labels (esp. long ones like "weather station") don't risk
-  // overflowing the route-panel box edge.
-  [{ id:'A',      x:200, y: 70 }, // top
-   { id:'?',      x:310, y:150 }, // upper-right (φ / weather station)
-   { id:'B',      x:310, y:250 }, // lower-right
-   { id:'C',      x:200, y:330 }, // bottom
-   { id:'H',      x: 90, y:250 }, // lower-left
-   { id:'\u00b7', x: 90, y:150 }, // upper-left (ψ / orphan-scavenger)
+  // v0.0.9.5 — 6-node hex → 12-node rounded-square rim. Bounding square
+  // 85..315 on both axes inside the 400×400 viewBox; corners inset to
+  // (92/92, 308/92, 308/308, 92/308) sitting on the arc midpoints of
+  // 25px corner arcs; rim nodes at 163/237 along each straight side
+  // for even spacing (~73 units arc-length per segment).
+  //
+  // The ring renderer draws straight lines between adjacent nodes
+  // (edge-list below). The "rounded" feel comes from the corner nodes
+  // sitting inset from the bounding rectangle — corner-adjacent
+  // segments read as short chamfers rather than sharp right angles.
+  // Explicit arc-path rendering is a later visual-polish pass.
+  [{ id:'A',       x: 85, y:163 }, // rho    — left-rim-T  (depot)
+   { id:'B',       x:237, y: 85 }, // iota   — top-rim-R   (greenhouse)
+   { id:'H',       x: 85, y:237 }, // tau    — left-rim-B  (home) ← player start
+   { id:'?',       x:315, y:163 }, // phi    — right-rim-T (weather station)
+   { id:'C',       x:308, y:308 }, // xi     — SE corner   (city ruins)
+   { id:'\u00b7',  x:163, y: 85 }, // psi    — top-rim-L   (oasis)
+   { id:'\u03bd',  x: 92, y: 92 }, // nu     — NW corner   (purification plant) [new]
+   { id:'\u03b8',  x:308, y: 92 }, // theta  — NE corner   (kiln) [new]
+   { id:'\u03b3',  x:315, y:237 }, // gamma  — right-rim-B (workshop) [new]
+   { id:'\u03bb',  x:163, y:315 }, // lambda — bottom-rim-L (climbing lodge) [new]
+   { id:'\u03c0',  x: 92, y:308 }, // pi     — SW corner   (radio tower) [new]
+   { id:'\u03b4',  x:237, y:315 }, // delta  — bottom-rim-R (reservoir) [new]
   ].forEach(p => { const n = S.routeNodes.find(n => n.id === p.id); if (n) { n.x = p.x; n.y = p.y; } });
 }
 
