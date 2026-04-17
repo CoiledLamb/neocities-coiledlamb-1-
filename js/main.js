@@ -97,6 +97,7 @@ import {
 import { renderChannels, tickAmbientChatter } from './channels.js';
 import {
   buildWorld, calcCellPxWidth, worldPosFromRoute, renderFieldstrip,
+  bindFieldstripInteractions,
 } from './world.js';
 import * as Pkg from './packages.js';
 import * as Trip from './trip.js';
@@ -185,6 +186,7 @@ function resolveEls() {
     clipBadge:    $('clipBadge'),
     drinkBtn:     $('drinkBtn'),
     autodrinkBtn: $('autodrinkBtn'),
+    autoGrabBtn:  $('autoGrabBtn'),
     canteenBar:   $('canteenBar'),
     tieDownBtn:   $('tieDownBtn'),
     logEl:        $('logEl'),
@@ -459,7 +461,20 @@ function init() {
     els.autodrinkBtn.textContent='auto: '+(S.autodrink?'on':'off');
     els.autodrinkBtn.classList.toggle('on',S.autodrink);
   });
+  // v0.0.9.4.1 — `grab:` toggle mirrors the autodrink toggle pattern.
+  // Controls pkg auto-pickup only (sandalweed still auto-harvests).
+  if (els.autoGrabBtn) {
+    els.autoGrabBtn.textContent = 'grab: ' + (S.autoGrab ? 'auto' : 'off');
+    els.autoGrabBtn.classList.toggle('on', S.autoGrab);
+    els.autoGrabBtn.addEventListener('click', () => {
+      S.autoGrab = !S.autoGrab;
+      els.autoGrabBtn.textContent = 'grab: ' + (S.autoGrab ? 'auto' : 'off');
+      els.autoGrabBtn.classList.toggle('on', S.autoGrab);
+    });
+  }
   if (els.tieDownBtn) els.tieDownBtn.addEventListener('click', Boots.toggleTieDown);
+  // v0.0.9.4.1 — fieldstrip click delegation for cursor pickup.
+  bindFieldstripInteractions();
 
   // v0.0.7.31 — silent / appear-offline toggle. localStorage-backed so it
   // survives reloads (critical: the whole point is to avoid dummy events

@@ -27,7 +27,8 @@
 import { S } from './state.js';
 import * as C from './constants.js';
 import { ZONE_TYPES } from './data/zones.js';
-import { rollPkg, rollDestForSpawn } from './packages.js';
+import { rollPkg, rollDestForSpawn, pickupRange, tryCursorPickup, formatPkgTooltip } from './packages.js';
+import { isOnShortcut } from './render/route-map.js';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
@@ -133,6 +134,14 @@ export function renderFieldstrip() {
   const leftCell = Math.floor(S.worldPos);
   const viewportPx = (strip.parentNode && strip.parentNode.clientWidth) || (C.VIEWPORT_CELLS * cellPxWidth);
   const renderCount = Math.max(C.VIEWPORT_CELLS, Math.ceil(viewportPx / cellPxWidth) + 8);
+  // v0.0.9.4.1 — precompute in-range ci bucket so each pkg span knows
+  // whether to advertise click affordance + tooltip. Interior (shortcut)
+  // travel is off-grid — pickup is gated, so no in-range cells during
+  // shortcut (matches scanForPickup gate in main.js).
+  const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
+  const range = (S.status === 'walking' || S.status === 'carrying') && !isOnShortcut() ? pickupRange() : -1;
+  const inRange = new Set();
+  for (let o = 0; o <= range; o++) inRange.add((courierCell + o) % C.TOTAL_CELLS);
   let html = '';
   for (let i = 0; i < renderCount; i++) {
     const ci   = (leftCell + i) % C.TOTAL_CELLS;
@@ -140,8 +149,13 @@ export function renderFieldstrip() {
     if (!cell) continue;
     if (cell.pkg) {
       if (!cell.pkg.picked) {
-        const cls = cell.pkg.isLost ? 'fc-pk fc-pk-lost' : 'fc-pk';
-        html += `<span class="fc ${cls}" data-ci="${ci}">[${cell.pkg.size}]</span>`;
+        const lostCls = cell.pkg.isLost ? ' fc-pk-lost' : '';
+        const reachCls = inRange.has(ci) ? ' in-range has-tooltip' : ' has-tooltip';
+        // v0.0.9.4.1 — multi-line data-tooltip (white-space: pre on
+        // .has-tooltip::after). Escape any quotes in labels defensively
+        // (current pool has none, but the data is external-data-shaped).
+        const tip = formatPkgTooltip(cell.pkg).replace(/"/g, '&quot;');
+        html += `<span class="fc fc-pk${lostCls}${reachCls}" data-ci="${ci}" data-tooltip="${tip}">[${cell.pkg.size}]</span>`;
       } else {
         html += `<span class="fc fc-fl">   </span>`;
       }
@@ -152,4 +166,20 @@ export function renderFieldstrip() {
   strip.innerHTML = html;
   const fracOffset = (S.worldPos - Math.floor(S.worldPos)) * cellPxWidth;
   strip.style.transform = `translateX(${-fracOffset}px)`;
+}
+
+// v0.0.9.4.1 — wire the fieldstrip click handler. Called once at init
+// after `els.fieldstrip` is bound. Event delegation — tick re-renders
+// of the strip's innerHTML don't detach this.
+export function bindFieldstripInteractions() {
+  const strip = els.fieldstrip;
+  if (!strip || strip.__fsBound) return;
+  strip.__fsBound = true;
+  strip.addEventListener('click', (ev) => {
+    const target = ev.target.closest('.fc-pk.in-range');
+    if (!target) return;
+    const ci = parseInt(target.getAttribute('data-ci'), 10);
+    if (Number.isNaN(ci)) return;
+    tryCursorPickup(ci);
+  });
 }

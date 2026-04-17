@@ -48,6 +48,7 @@ import { renderCourierStack, renderCargoSlots } from './render/hud.js';
 import { drawRouteMap } from './render/route-map.js';
 import { renderSettlements } from './render/settlements.js';
 import { weatherAtCourier } from './weather.js';
+import { getDisplayLabel } from './identification.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -62,11 +63,34 @@ export function effectiveMaxSlots() {
   return S.maxSlots;
 }
 
-// v0.0.7.21 — effective pickup range. Base C.PKG_PICKUP_RANGE when
-// bare-handed; extended to C.STICKY_GUN_RANGE when gun is owned and
-// has ammo. Holstering does NOT extend range — you can't shoot
-// through the holster.
-function pickupRange() {
+// v0.0.9.4.1 — shared tooltip formatter for pkg hover. Keeps the
+// fieldstrip (ground pkgs) and cargo grid (carried pkgs) tooltips in
+// lockstep. Multi-line (CSS `white-space: pre` on `.has-tooltip::after`
+// renders the `\n` breaks). Format:
+//   [size] label (modifier)
+//   [recovery from PTR-XXXX]  |  [lost]         (if applicable)
+//   → destination
+//   Xc
+export function formatPkgTooltip(pkg) {
+  const modTag = pkg.modifier ? ` (${pkg.modifier})` : '';
+  const lines = [`[${pkg.size}] ${pkg.label}${modTag}`];
+  if (pkg.isRecovery && pkg.recoveryFromPorter) {
+    lines.push(`[recovery from ${shortPorterId(pkg.recoveryFromPorter)}]`);
+  } else if (pkg.isLost) {
+    lines.push(`[lost]`);
+  }
+  lines.push(`\u2192 ${getDisplayLabel(pkg.destId)}`);
+  lines.push(`${pkg.scrip}\u00a2`);
+  return lines.join('\n');
+}
+
+// v0.0.9.4.1 — exported for the cursor-pickup path in world.js's
+// fieldstrip click handler so both auto and manual pickup compute
+// the same reach.
+// Base C.PKG_PICKUP_RANGE when bare-handed; extended to
+// C.STICKY_GUN_RANGE when gun is owned and has ammo. Holstering
+// does NOT extend range — you can't shoot through the holster.
+export function pickupRange() {
   let range;
   if (S.stickyGun && !S.stickyGun.holstered && S.stickyGun.ammo > 0) {
     range = C.STICKY_GUN_RANGE;
@@ -333,6 +357,62 @@ function confirmOutboundAccept() {
 // ============================================================
 // PACKAGE PICKUP
 // ============================================================
+// v0.0.9.4.1 — shared pickup-acceptance body. Both the auto-pickup
+// scan (scanForPickup) and the cursor-pickup click handler
+// (tryCursorPickup) funnel here. Returns true on success, false on
+// failure (slots/weight short — logs the "can't lift" line once via
+// the dedupe key). offset is the distance-from-courier; used to
+// decide whether the sticky-gun spent ammo (cross-range pick).
+function acceptPickup(ci, offset) {
+  const cell = worldCells[ci];
+  if (!cell || !cell.pkg || cell.pkg.picked) return false;
+  const pkg = cell.pkg;
+  const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
+  const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
+  if (slotsShort || weightShort) {
+    // v0.0.7.19 commit 2b — pickup-fail log lines. Dedupe by
+    // (ci:usedSlots:usedWeight) so we don't spam the log each tick
+    // while walking past a too-heavy pkg, but DO re-fire after the
+    // player drops or delivers cargo and walks past again.
+    const key = `${ci}:${S.usedSlots}:${S.usedWeight}`;
+    if (S._transient.lastPickupFailKey !== key) {
+      S._transient.lastPickupFailKey = key;
+      const reason = slotsShort ? 'no cargo slots' : 'too heavy';
+      addLog(`<span class="log-wn">can't lift</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
+    }
+    return false;
+  }
+
+  pkg.picked = true;
+  // v0.0.7.21 — sticky gun ammo decrement. Only on cross-range picks:
+  // if offset > C.PKG_PICKUP_RANGE, the gun reached past bare-hand
+  // range and a shot was spent. Offsets within bare-hand range don't
+  // consume ammo (courier just walked up to it).
+  if (S.stickyGun && !S.stickyGun.holstered && offset > C.PKG_PICKUP_RANGE && S.stickyGun.ammo > 0) {
+    S.stickyGun.ammo--;
+  }
+  const carried = {
+    size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
+    scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
+    modifier: pkg.modifier || null,
+    isRecovery: !!pkg.isRecovery,
+    recoveryFromPorter: pkg.recoveryFromPorter || null,
+    _worldCell: ci,
+  };
+  S.inventory.push(carried);
+  S.usedSlots  += carried.slots;
+  S.usedWeight += carried.kg;
+  S.status = 'carrying';
+  renderCourierStack();
+  renderCargoSlots(true);
+  if (els.courierAt) els.courierAt.className = 'tlh-at bounce carry';
+  const lostTag = carried.isRecovery
+    ? ` <span class="log-wn">[recovery]</span> from <span class="log-hi">${shortPorterId(carried.recoveryFromPorter)}</span>`
+    : (carried.isLost ? ' <span class="log-wn">[lost pkg]</span>' : '');
+  addLog(`picked up <span class="log-hi">[${carried.size}] ${carried.label}</span>${lostTag}`);
+  return true;
+}
+
 export function scanForPickup() {
   if (S.status !== 'walking' && S.status !== 'carrying') return;
   const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
@@ -342,6 +422,9 @@ export function scanForPickup() {
     const cell = worldCells[ci];
     if (!cell) continue;
 
+    // Sandalweed auto-harvest always runs (it's not pkg pickup —
+    // not gated by S.autoGrab). v0.0.9.4.1: player's "grab: off"
+    // toggle targets packages specifically.
     if (cell.sandal) {
       if (S.sandalweedCount >= sandalCap()) continue;
       cell.sandal = false;
@@ -353,54 +436,26 @@ export function scanForPickup() {
     }
 
     if (!cell.pkg || cell.pkg.picked) continue;
-    const pkg = cell.pkg;
-    // v0.0.7.19 commit 2b — pickup-fail log lines. Dedupe by
-    // (ci:usedSlots:usedWeight) so we don't spam the log each tick
-    // while walking past a too-heavy pkg, but DO re-fire after the
-    // player drops or delivers cargo and walks past again.
-    // v0.0.7.21 — slot capacity now goes through effectiveMaxSlots()
-    // so the sticky gun occupying a slot is accounted for.
-    const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
-    const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
-    if (slotsShort || weightShort) {
-      const key = `${ci}:${S.usedSlots}:${S.usedWeight}`;
-      if (S._transient.lastPickupFailKey !== key) {
-        S._transient.lastPickupFailKey = key;
-        const reason = slotsShort ? 'no cargo slots' : 'too heavy';
-        addLog(`<span class="log-wn">can't lift</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
-      }
-      continue;
-    }
-
-    pkg.picked = true;
-    // v0.0.7.21 — sticky gun ammo decrement. Only on cross-range picks:
-    // if offset > C.PKG_PICKUP_RANGE, the gun reached past bare-hand range
-    // and a shot was spent. Offsets within bare-hand range don't consume
-    // ammo (courier just walked up to it).
-    if (S.stickyGun && !S.stickyGun.holstered && offset > C.PKG_PICKUP_RANGE && S.stickyGun.ammo > 0) {
-      S.stickyGun.ammo--;
-    }
-    const carried = {
-      size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
-      scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
-      modifier: pkg.modifier || null,
-      isRecovery: !!pkg.isRecovery,
-      recoveryFromPorter: pkg.recoveryFromPorter || null,
-      _worldCell: ci,
-    };
-    S.inventory.push(carried);
-    S.usedSlots  += carried.slots;
-    S.usedWeight += carried.kg;
-    S.status = 'carrying';
-    renderCourierStack();
-    renderCargoSlots(true);
-    if (els.courierAt) els.courierAt.className = 'tlh-at bounce carry';
-    const lostTag = carried.isRecovery
-      ? ` <span class="log-wn">[recovery]</span> from <span class="log-hi">${shortPorterId(carried.recoveryFromPorter)}</span>`
-      : (carried.isLost ? ' <span class="log-wn">[lost pkg]</span>' : '');
-    addLog(`picked up <span class="log-hi">[${carried.size}] ${carried.label}</span>${lostTag}`);
-    return;
+    // v0.0.9.4.1 — auto-pickup gated. Cursor path (tryCursorPickup)
+    // remains available even when autoGrab is off.
+    if (!S.autoGrab) continue;
+    if (acceptPickup(ci, offset)) return;
   }
+}
+
+// v0.0.9.4.1 — cursor-driven manual pickup. Called from the fieldstrip
+// click handler bound in world.js. Verifies the clicked cell is
+// within current pickupRange() (defensive — the in-range class on
+// the span could lag one tick), then routes through acceptPickup.
+// Return value unused by callers; exists for parity w/ scan path.
+export function tryCursorPickup(ci) {
+  if (S.status !== 'walking' && S.status !== 'carrying') return false;
+  const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
+  const range = pickupRange();
+  // Compute offset = ring-wrapped distance courierCell → ci.
+  const raw    = (ci - courierCell + C.TOTAL_CELLS) % C.TOTAL_CELLS;
+  if (raw > range) return false;
+  return acceptPickup(ci, raw);
 }
 
 // ============================================================

@@ -290,6 +290,16 @@ html, body {
 .fc-sw       { color: #2a5c5a; }
 .fc-pk       { color: #77bfcf; font-weight: 700; }
 .fc-pk-lost  { color: #da8bda; font-weight: 700; }
+/* v0.0.9.4.1 — cursor-pointer on in-range ground pkgs (overrides the
+   .has-tooltip default `cursor: help`). Out-of-range pkgs keep the
+   help cursor + still show their tooltip, so the player can examine
+   pkgs before they're close enough to grab. */
+.fc-pk.in-range { cursor: pointer; }
+/* v0.0.9.4.1 — ground pkg tooltip flips BELOW the cell (default is
+   above, which clips against the viewport's top edge on the fieldstrip
+   row). Keep the cargo-style tooltip above; fieldstrip specifically
+   opens downward. */
+.fc-pk.has-tooltip::after { bottom: auto; top: calc(100% + 5px); }
 .fc-sw-plant { color: #2a7a58; }
 .fc-depot    { color: #4a7a78; font-weight: 700; }
 

@@ -62,6 +62,7 @@ export function buildSavePayload() {
       canteen:          S.canteen,
       autobuyBoots:   S.autobuyBoots,
       autodrink:      S.autodrink,
+      autoGrab:       S.autoGrab,
     },
     position: { edgeIdx: S.edgeIdx, dotT: S.dotT },
     inventory: S.inventory.map(p => ({
@@ -179,6 +180,7 @@ function _applyValidated(data) {
     if (typeof p.canteen          === 'number') S.canteen        = p.canteen;
     if (typeof p.autobuyBoots   === 'boolean') S.autobuyBoots   = p.autobuyBoots;
     if (typeof p.autodrink      === 'boolean') S.autodrink      = p.autodrink;
+    if (typeof p.autoGrab       === 'boolean') S.autoGrab       = p.autoGrab;
 
     const pos = data.position || {};
     if (typeof pos.edgeIdx === 'number' && pos.edgeIdx >= 0 && pos.edgeIdx < S.edges.length) S.edgeIdx = pos.edgeIdx;

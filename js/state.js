@@ -25,6 +25,10 @@ export const S = {
   sandalweedCount: 0,
   stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
   canteen: 100, canteenMax: 100, autodrink: false,
+  // v0.0.9.4.1 — auto-pickup toggle. Default true ("idle game first";
+  // player flips to false via the `grab:` button in the stamina row to
+  // switch into cursor-only pickup mode).
+  autoGrab: true,
   inRiver: false,  // stub for future river mechanic
 
   // v0.0.8 — weather system. Storms are spatial world objects on the ring.
