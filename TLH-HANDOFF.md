@@ -1,20 +1,21 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-16 (v0.0.9.1 + .2 + .3 + .3.1 all shipped. Day/night cycle on the play area + route-map panel as a 2D plane + typewriter settlement emergence + shortcut travel across the interior with a segment-abstraction refactor + stamina-overboost overlay polish. Next up: v0.0.9.4 — package destination diversification + NPC outbound dispatch (original plan preserved). Dispatch log virtualization + significance-tagged persistence benched to v0.0.9.8 (post-NPC-work) so the significance taxonomy can expand with the new event vocabulary from .4-.7 before persisting a journal; plan fully fleshed out with every design decision locked, see [v0.0.9.8 implementation plan](#v0098-implementation-plan). Final polish pass lives at v0.0.9.9+.)_
+_last updated: 2026-04-16 (v0.0.9.1 + .2 + .3 + .3.1 + .4 all shipped. Day/night cycle + route-map panel as a 2D plane + typewriter settlement emergence + shortcut travel + stamina-overboost overlay polish + **package destination diversification + NPC outbound dispatch with trust-dense reward loop**. Next up: v0.0.9.4.1 — cursor pickup + drag-drop + ground tooltips + eject-from-cargo (the "glue of the active gameloop" — idle-first framed, auto-pickup remains the default). Plan fully locked; see [v0.0.9.4.1 implementation plan](#v00941-implementation-plan). Dispatch log virtualization + significance-tagged persistence still benched at v0.0.9.8 post-NPC-work; final polish pass at v0.0.9.9+.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.9.3 + .3.1 shipped; v0.0.9.4 queued
+## ✅ CURRENT STATE: v0.0.9.3 + .3.1 + .4 shipped; v0.0.9.4.1 queued
 
-Game is at `v0.0.9.3.1` on the `claude/angry-lehmann` branch (unmerged as of this update). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches plus a micro-polish:
+Game is at `v0.0.9.4` on the `claude/angry-lehmann` branch (unmerged as of this update). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches, a micro-polish, and the dest-div + outbound dispatch patch:
 
 - **v0.0.9.1 — day/night cycle.** Side-view play-area strip gets a sky layer: sun arcs by day, moon with phases by night, stars flicker between. Backdrop paints as a layered gradient (cool vertical base + sun-anchored warm radial at sunrise/sunset). Real-scale sun + moon (eclipse-ready). See [v0.0.9.1 implementation plan](#v0091-implementation-plan).
 - **v0.0.9.2 — route-map panel → 2D plane.** Abstract 6-node ring became a square 2D plane with the ring drawn as a solid line and the interior textured (dim dots inside the ring polygon). Node glyphs `?` → φ and `·` → ψ to match the v0.0.8.4 identity patch. Typewriter settlement-emergence reveal when a node crosses stage-2 → stage-3. Right column widened to 320px; network + channels placed side-by-side below the route map. See [v0.0.9.2 implementation plan](#v0092-implementation-plan).
 - **v0.0.9.3 — shortcut travel.** Clicking a non-adjacent node on the 2D route-map cuts the courier through the interior on a natural bezier curve. Dotted trail fades behind. Live tooltip on hover with via-ring / via-shortcut km + savings. Segment-abstraction refactor (option c) — `S._transient.currentSegment` becomes the source of truth for "which leg is the courier walking." Interior is off-grid (no pickup / weather / wetland refill during shortcut). Cost tax (stamina ×1.2, trip ×1.5) primes v0.0.9.6's trample decay model. See [v0.0.9.3 implementation plan](#v0093-implementation-plan).
 - **v0.0.9.3.1 — overboost overlay + trust-rewards bug-list note.** Stamina overboost moved from a 25×8 side-segment to a 100×8 overlay on the main bar (same size and shape, `position:absolute; inset:0`), so overboost reads as "stamina is above its cap" rather than "an extra gauge next to stamina." Overlay `display:none`'s once excess hits 0 — it simply goes away. Trust-reward auto-grant → shop-claimable added to the queued bug list (see bug-list item #5).
+- **v0.0.9.4 — package destination diversification + NPC outbound dispatch.** Two-commit patch. (1) World-spawn destinations now picked by a ring-distance-weighted curve (40/25/15/10/5/5 across offsets 0-5 clockwise from spawn-edge endpoint) instead of defaulting to the edge endpoint — heavy forward bias keeps idle play smooth while the long tail gives shortcut travel real gameplay weight. Niche label audit added 10 new labels for the two thin dests (rho/A: dispatch ticket, waybill, logbook bundle, depot stamp kit, pallet jack wheels. tau/H: family letter, knit gloves, preserves jar, family photos, heirloom chest). (2) NPC outbound dispatch: all 6 NPCs can offer a pkg on arrival with chance scaling `OUTBOUND_BASE_RATE * (trust/100)` capped 0.8; per-visit cooldown; label pick filters to `dests.includes(origin) && dests.length >= 2` (uses the v0.0.8.1 dests[] as a story-compatibility set); destination picked from label's other dests weighted by the same ring-distance curve. Log-button accept follows the depot-rest pattern. Reward structure: `+N` at origin on accept (N = 1 + floor(slots/2)), `+N+1` at dest on delivery (normal + outbound bonus) — ≈2N+1 trust per successful dispatch vs a regular delivery's N. pkg flagged with `outboundFrom` carries through to tryDeliver for the bonus. See [v0.0.9.4 implementation plan](#v0094-implementation-plan).
 
-The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2, v0.0.9.3, and .3.1 — the gameplay camera stays the 1-row strip; all the 2D + interactive work lives in the route-map panel.
+The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2, .3, .3.1, and .4 — the gameplay camera stays the 1-row strip; all the 2D + interactive work lives in the route-map panel. The fieldstrip's auto-pickup behavior is untouched by .4 as well; v0.0.9.4.1 adds cursor-based manual pickup (alongside auto) + drag-drop + toss.
 
 **v0.0.8 scope redefinition (historical note):** the handoff previously framed v0.0.8 as terrain expansion (deserts, rivers, slopes). User rescoped it around **three mechanical-depth threads**: packages, trust, rain. All three shipped. Terrain moved to v0.0.9 and is now the lead thread there.
 
@@ -43,7 +44,7 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 18. ✅ **v0.0.8.7 — weather rework**: spatial storms as travelling world objects, dual-gaussian isobar minimap, intensity zones, weather radio tiering (L1 storm prediction, L2 map unlock). Rain thread complete.
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
-**Resume next session**: v0.0.9.3.1 is shipped on the branch. Next patch is **v0.0.9.4 — package destination diversification + NPC outbound dispatch**. Every design decision locked during the .3.1 walkthrough; picking this up is turnkey — see [v0.0.9.4 implementation plan](#v0094-implementation-plan) for the full spec (ring-distance-weighted dest picker, NPC outbound offer mechanic, reward structure, niche label audit for thin dests A and H). Cursor pickup + drag-drop / eject (the "glue of the active gameloop") deferred to its own micro-patch **v0.0.9.4.1** on top of .4. See the [v0.0.9 sequencing](#sequencing) for the full queue, including the benched **v0.0.9.8 — dispatch log virtualization + significance-tagged persistence** with its fully-locked [implementation plan](#v0098-implementation-plan).
+**Resume next session**: v0.0.9.4 is shipped on the branch (2 commits: dest-div backend + outbound dispatch). Next patch is **v0.0.9.4.1 — cursor pickup + drag-drop + ground tooltips + eject-from-cargo**. All design decisions locked during the v0.0.9.4 walkthrough; see [v0.0.9.4.1 implementation plan](#v00941-implementation-plan) for the full spec (tooltip + click-to-pickup + `grab:` toggle in commit 1; drag-to-place + drag-to-toss with modifier-scaled lost-chance in commit 2). Auto-pickup stays the default per "idle game first" memory; cursor mode is opt-in. See the [v0.0.9 sequencing](#sequencing) for the full queue, including the benched **v0.0.9.8 — dispatch log virtualization + significance-tagged persistence** with its fully-locked [implementation plan](#v0098-implementation-plan).
 
 ## planned but not built (as of v0.0.8.3)
 
@@ -220,12 +221,13 @@ Placement: rounded-square corners. Existing 6 NPCs stay on rim sides in their cu
 1. **v0.0.9.1** — renderer audit + day/night cycle (cheap win, confirms the renderer pipeline is still friendly)
 2. **v0.0.9.2** — route-map panel becomes a 2D plane: expand panel size, ring laid as a solid-line road on the plane, interior rendered with placeholder texture + distinct landmass boundary, courier position shown as a dot moving along the ring, storm renderer generalized to sweep across the plane. Shelter-emergence polish (typewriter reveal in settlements side panel) rides here. The side-view play-area strip is **not** touched.
 3. **v0.0.9.3** — shortcut travel (click-across-ring → interior segment path). Interior rendered but empty.
-4. **v0.0.9.4** — package destination diversification + NPC outbound dispatch. Data foundation already shipped in v0.0.8.1 (`PKG_LABELS_BY_SIZE[size][].dests` has been dest-tagged since then) — .4 is the roller-side change + NPC outbound hand-offs at trust-reward depots. With .3's shortcut in place, destination diversification gives the shortcut real gameplay weight (packages destined for nodes you'd skip create a concrete tradeoff). All design decisions locked during .3.1 walkthrough — see [v0.0.9.4 implementation plan](#v0094-implementation-plan). Cursor pickup + drag-drop ("glue of the active gameloop") deferred to **v0.0.9.4.1** as its own focused patch.
-5. **v0.0.9.5** — terrain bones: new zone types, rivers, mountain massif + pass generation, rocky hills, desert. Ladder/anchor as inventory-only gear (world-overlay comes next).
-6. **v0.0.9.6** — **world-overlay system**: save-stored + multiplayer-synced. Trails + persistent ladders/anchors land together (shared data model, two decay curves).
-7. **v0.0.9.7** — world refresh pass: rounded-square rim, existing-building relocations, name updates, 4 new NPC corners, new landmarks, dialogue + trust tiers + upgrade gifts.
-8. **v0.0.9.8** — dispatch log virtualization + significance-tagged persistence (benched here during .3.1 planning). Windowed DOM render backed by an unbounded `_transient.logHistory`; significant events (deliveries, trust unlocks, discoveries, milestones, trip losses, in-progress pickups, etc.) tagged at `addLog` time and persisted into `S.log` so a player can scroll back through a courier's journey across sessions. Slotted after NPC work so the significance taxonomy can fold in the .4-.7 event vocabulary (new NPC dialogue, terrain-specific events, new trust gifts) before the journal starts persisting — bigger patch when picked up, much richer persistent journal. All .3.1 design decisions (window sizing, scroll-pinning, persisted cap, pickup-on-inventory, prior-session separator) remain locked; only the taxonomy list needs an audit-and-expand pass before building. See [v0.0.9.8 implementation plan](#v0098-implementation-plan).
-9. **v0.0.9.9+** — balance, dialogue polish, mountain-pass-carving tuning, deferred tail. Final polish pass across the whole v0.0.9 arc.
+4. ✅ **v0.0.9.4** — package destination diversification + NPC outbound dispatch. Shipped as two commits: ring-distance-weighted spawn dest picker + 10 niche labels for thin dests (rho A, tau H); trust-scaled NPC outbound dispatch with `+N` origin / `+N+1` dest reward structure. See [v0.0.9.4 implementation plan](#v0094-implementation-plan).
+5. **v0.0.9.4.1** — cursor pickup + drag-drop + ground tooltips + eject-from-cargo. Two-commit patch: (1) hover tooltips on ground pkgs + in-range click-to-pickup + `grab:` auto/off toggle (auto stays default per "idle game first"); (2) drag-drop manual placement + drag-to-toss from cargo with modifier-scaled lost-chance (base 10%, fragile 30%, unwieldy 25%, lightweight 20%, heavy 5%). Tossed-kept lands at courier's current cell (±3 search for empty); tossed-lost tagged with porter ID and enters the multiplayer recovery pipeline. See [v0.0.9.4.1 implementation plan](#v00941-implementation-plan).
+6. **v0.0.9.5** — terrain bones: new zone types, rivers, mountain massif + pass generation, rocky hills, desert. Ladder/anchor as inventory-only gear (world-overlay comes next).
+7. **v0.0.9.6** — **world-overlay system**: save-stored + multiplayer-synced. Trails + persistent ladders/anchors land together (shared data model, two decay curves).
+8. **v0.0.9.7** — world refresh pass: rounded-square rim, existing-building relocations, name updates, 4 new NPC corners, new landmarks, dialogue + trust tiers + upgrade gifts.
+9. **v0.0.9.8** — dispatch log virtualization + significance-tagged persistence (benched here during .3.1 planning). Windowed DOM render backed by an unbounded `_transient.logHistory`; significant events (deliveries, trust unlocks, discoveries, milestones, trip losses, in-progress pickups, etc.) tagged at `addLog` time and persisted into `S.log` so a player can scroll back through a courier's journey across sessions. Slotted after NPC work so the significance taxonomy can fold in the .4-.7 event vocabulary (new NPC dialogue, terrain-specific events, new trust gifts) before the journal starts persisting — bigger patch when picked up, much richer persistent journal. All .3.1 design decisions (window sizing, scroll-pinning, persisted cap, pickup-on-inventory, prior-session separator) remain locked; only the taxonomy list needs an audit-and-expand pass before building. See [v0.0.9.8 implementation plan](#v0098-implementation-plan).
+10. **v0.0.9.9+** — balance, dialogue polish, mountain-pass-carving tuning, deferred tail. Final polish pass across the whole v0.0.9 arc.
 
 Each patch ships independently playable; no later patch is gated on the next.
 
@@ -497,7 +499,7 @@ Numbers chosen so shortcuts remain viable (player still wants them for distance 
 
 ## v0.0.9.4 implementation plan
 
-Drafted 2026-04-16 during the v0.0.9.3.1 design walkthrough. Not yet implemented — next session picks up from here.
+Shipped 2026-04-16 as two commits on `claude/angry-lehmann` (`d3d14c2` dest-div backend + niche labels, `757d038` NPC outbound dispatch). The plan below was drafted during the v0.0.9.3.1 design walkthrough; everything listed shipped as-specified with no divergences.
 
 ### thesis
 
@@ -612,6 +614,133 @@ Two commits. Kept tight because cursor pickup is its own patch.
 - **Preferred-partner tables for outbound dispatch.** Launched with uniform-among-compatible-dests (via the ring-distance curve). Explicit per-NPC affinities deferred — user wants data to settle first.
 - **Dest weight retune for expanded NPC roster.** 40/25/15/10/5/5 sized for the current 6-node ring; v0.0.9.7's 10-node ring needs recalculation.
 - **Outbound dispatch for lost/damaged pkgs.** v1 only offers fresh pkgs. Lost-pkg dispatch (an NPC asks you to haul something they scavenged) is a natural .5+ beat once terrain lands and lost spawning has more spatial meaning.
+
+---
+
+## v0.0.9.4.1 implementation plan
+
+Drafted 2026-04-16 during the v0.0.9.4 design walkthrough. Not yet implemented — picks up immediately after v0.0.9.4 ships.
+
+### thesis
+
+Turn pickup into a decision instead of a background tick. With v0.0.9.4's dest-div now generating interesting "which pkg do I take?" moments, the player needs an affordance to actually make that choice. Today `scanForPickup()` auto-grabs any fitting pkg in range — the player's role in pkg selection is zero.
+
+Ship two layers: a **tooltip + click-to-pickup** layer that makes "examining + choosing" possible (commit 1), and a **drag-to-place + drag-to-toss** layer that makes "managing the bag + evicting mistakes" possible (commit 2). Together they are the **"glue of the active gameloop"** the user called out — but framed as glue, not the main event: **auto-pickup stays as the default**; the manual mode is an opt-in toggle. Idle play remains playable and pleasant with minimal attention.
+
+### architecture notes
+
+**Fieldstrip hover/click is simple.** `renderFieldstrip()` in [world.js:129](js/world.js:129) re-renders `strip.innerHTML` every tick. Every `.fc-pk` span already carries `data-ci="${ci}"`. Event delegation on the fieldstrip container (mouseover / mouseout / click / mousedown) can read `data-ci` off the target and look up the pkg in `worldCells[ci].pkg`. Re-render on every tick is fine for hover — the span stays under the cursor from one paint to the next since the strip's `translateX` offset moves the strip, not the cursor.
+
+**Drag is trickier because of the tick re-render.** If the player starts dragging a fieldstrip pkg and the strip repaints mid-drag, the dragged span gets destroyed. Solution: drag operates on a **floating ghost element** (an absolutely-positioned clone appended to the body that follows the cursor). The source pkg is flagged `pkg._dragging = true` in state; `renderFieldstrip()` / `renderCargoSlots()` render a translucent placeholder for dragging cells. Ghost lives outside the render path so tick re-renders don't disturb it.
+
+**Cargo drop targets come free from the existing grid.** `renderCargoSlots()` in [hud.js:111](js/render/hud.js:111) already paints cells with known positions. On drag-hover, check if the cursor is over the cargo grid (`getBoundingClientRect` on the grid container) and highlight the target slot(s) — the bin-packer can re-run with the dragged pkg inserted at the hovered position to compute the drop layout. Release inside grid = apply the layout; release outside = ground-pickup drag snaps back (no-op) OR cargo-drag toss (with lost-chance).
+
+### commit 1 — tooltips + click-to-pickup + grab toggle
+
+**Scope:** "examining + choosing" layer. No drag anywhere yet. Ships independently — game still works identically with the toggle set to `auto`, but with hover tooltips added as a pure gain.
+
+**Ground pkg tooltip (hover):**
+- Same format as cargo pkg tooltips ([hud.js](js/render/hud.js) — match the existing tooltip content shape exactly, update both call sites in lockstep if needed).
+- Content: size, label, destination (settlement label), scrip, kg, slots, modifier (if present), `[lost]` or `[recovery] from PTR-XXXX` tag where applicable (`pkg.isLost` / `pkg.isRecovery` / `pkg.recoveryFromPorter`).
+- 150ms show-delay to kill flicker during rapid hover-over.
+- Anchored near cursor, small offset. Same element as the v0.0.9.3 route-map tooltip `#routeTooltip` repurposed, OR a fresh `#pkgTooltip` div.
+- Event delegation on fieldstrip container: `mouseover` / `mouseout` sets/clears `S._transient.hoveredGroundCi`; tick re-render or tooltip refresher consults that + cursor coords.
+
+**In-range affordance:**
+- In-range = within `pickupRange()` (existing helper at [packages.js:69](js/packages.js:69)) of courier cell.
+- Visual: cursor: pointer on `.fc-pk` elements that resolve to in-range `worldCells[ci]`. Out-of-range → default cursor.
+- No radius visualization on the fieldstrip (user decision — the cursor affordance alone is enough).
+- Compute in-range bucket once per tick (small set of ci values), tooltip + click handlers gate on membership.
+
+**Click-to-pickup (auto-bin-pack):**
+- Single click on in-range `.fc-pk` → same flow as the existing `scanForPickup` pickup body (slot/weight check, sticky-gun ammo decrement if cross-range pick, push to `S.inventory`, HUD repaint, pickup log). Refactor the pickup-acceptance tail of `scanForPickup` into a shared `acceptPickup(cell)` helper so manual + auto paths call the same thing.
+- Out-of-range click → no-op (cursor already signals unclickable).
+- Click-during-shortcut → blocked (interior is off-grid per v0.0.9.3; same gate as auto-pickup).
+
+**`grab:` toggle:**
+- New button in the stamina-row alongside `auto: on|off` (the autodrink toggle). Button label: `grab: auto` / `grab: off` matching the existing toggle's visual language.
+- New persisted state: `S.autoGrab: boolean` (default `true` — idle-first). Add to state.js + persist through serialize/deserialize (no schema bump needed if we use the "unknown fields accepted" path).
+- `scanForPickup()` early-returns if `!S.autoGrab`. Cursor pickup path works regardless.
+
+**Sticky gun interaction:**
+- Gun extends cursor reach the same way it extends auto-reach (`pickupRange()` helper). Clicks within bare-hand range (≤ `PKG_PICKUP_RANGE`) spend no ammo; clicks in the extended 3..8 band spend ammo (same cross-range check as `scanForPickup`).
+- Holstered gun → bare-hand range only for cursor, same as auto.
+
+**Cargo tooltips:**
+- Audit existing cargo hover tooltip (current shape in `renderCargoSlots`). Ensure it matches the ground tooltip content 1:1. User call: "same as cargo packages."
+
+### commit 2 — drag-to-place + drag-to-toss + lost-chance
+
+**Scope:** the "managing the bag" layer. Drag-drop on both the fieldstrip (pickup with manual placement) and the cargo grid (rearrange + toss).
+
+**Drag infrastructure:**
+- `S._transient.drag = { source, pkg, ghostEl, originCi?, originInvIdx? }` — null when not dragging.
+- Pointer-based (mousedown/mousemove/mouseup; touch polish deferred to a later patch per user call).
+- `mousedown` on draggable element → start drag threshold of 4px to disambiguate click-vs-drag. Above threshold → create ghost, mark source with `_dragging` flag.
+- `mousemove` → follow cursor, check for valid drop target (cargo grid or outside).
+- `mouseup` → resolve drop; destroy ghost.
+
+**Ground drag-to-cargo (manual placement):**
+- Source: `.fc-pk` cell within `pickupRange()`.
+- Drop on cargo grid: re-run binpack with this pkg inserted at the hovered slot position. If fits → apply (same acceptPickup tail). If collides with existing cargo → reject (cursor indicates invalid drop).
+- Drop outside cargo → snap back to ground (no toss — you can't toss something you haven't picked up).
+- Release over a cargo cell that can hold the pkg (dimensional fit) but is occupied → reject.
+
+**Cargo drag-to-cargo (rearrange):**
+- Source: cargo grid item.
+- Drop on empty slot(s) → move pkg to new position, re-paint. Persisted in `inventory[i]` ordering + any explicit position field (binpack currently doesn't store positions — need to confirm how it paints; might need to add `inventory[i].gridPos` or just rely on bin-pack order and let drag change the order).
+- Drop on occupied slot → swap if footprint-compatible, else reject.
+
+**Cargo drag-to-toss (eject):**
+- Source: cargo grid item.
+- Drop outside cargo grid → eject path fires.
+- **Lost-chance (modifier-scaled):**
+  - base: 10%
+  - fragile: 30%
+  - unwieldy: 25%
+  - lightweight: 20%
+  - heavy: 5%
+  - (default for no-modifier pkgs: base 10%)
+- **Kept branch** (rolled not-lost): pkg drops to the courier's current cell if `worldCells[courierCell].pkg === null`; otherwise walk ±3 cells looking for an empty `pkg` slot. If no empty cell found in that window → escalated to lost (vanishes cleanly). Pkg retains all properties (label, dest, scrip, modifier). Becomes a normal world pkg that auto-pickup or cursor will grab.
+- **Lost branch**: pkg tagged with player's porter ID (`recoveryFromPorter = S.porterId` — same mechanism as trip-loss at [trip.js:181](js/trip.js:181)). Enters the multiplayer recovery pipeline — other players can pick it up as "recovered from PTR-XXXX." Vanishes locally (doesn't drop to this world).
+- Removed from `S.inventory`, `usedSlots/usedWeight` reduced. HUD repaint.
+- Log line: kept → `tossed [size] label onto the trail`; lost → `lost [size] label in the toss`.
+
+**During shortcut:**
+- Cursor pickup is gated (interior = off-grid, same as auto-pickup).
+- Toss still allowed — the interior is still terrain, you can toss into it. Lost-branch tosses during shortcut might even increase lost-chance as a small flavor bump (flag only if user wants). v1: same lost-chance.
+
+### files the patch will touch
+
+**Commit 1:**
+- [js/world.js](js/world.js) — fieldstrip mouseover/out/click delegation bound once; per-tick in-range bucket compute.
+- [js/packages.js](js/packages.js) — extract `acceptPickup(cell, offset)` helper from `scanForPickup`; `S.autoGrab` early-return in `scanForPickup`.
+- [js/render/hud.js](js/render/hud.js) — `grab:` toggle button + click handler; tooltip content helper shared between ground + cargo.
+- [js/state.js](js/state.js) — `S.autoGrab: true`, `S._transient.hoveredGroundCi: null`.
+- [js/persistence.js](js/persistence.js) — serialize/deserialize `S.autoGrab`.
+- [the-long-haul.html](the-long-haul.html) — new `grab:` button markup next to the drink auto toggle; `#pkgTooltip` element near the end of body (or reuse `#routeTooltip` plumbing).
+- [the-long-haul.css](the-long-haul.css) — tooltip styling (match `#routeTooltip` palette); `.fc-pk.in-range { cursor: pointer }` selector.
+- subtitle `.4` → `.4.1`.
+
+**Commit 2:**
+- [js/render/hud.js](js/render/hud.js) — cargo-grid drag source/target; re-binpack preview on drop hover.
+- [js/world.js](js/world.js) OR new [js/render/drag.js](js/render/drag.js) — ghost element + global mousemove/mouseup listeners (kept session-scoped via single `bindDrag()` at init).
+- [js/packages.js](js/packages.js) — new `ejectFromCargo(invIdx)` helper: lost-chance roll, kept → drop to world cell; lost → tag + broadcast via existing recovery pipeline.
+- [js/trip.js](js/trip.js) / [js/recovery.js](js/recovery.js) — may need a touch if eject-lost wants to share the trip-loss broadcast path. Likely no change — just reuse the `postActivity('lost', ...)` pattern.
+- [the-long-haul.css](the-long-haul.css) — drag-ghost styling, drop-target highlight, drag-invalid cursor.
+- [js/state.js](js/state.js) — `S._transient.drag` shape.
+
+### save schema
+
+No bump. `S.autoGrab` is a new top-level field with a sensible default (`true`); existing saves deserialize with the default. Eject-lost pkgs ride the existing recovery path — no new persisted fields.
+
+### scope — deferred
+
+- **Touch/mobile drag.** User will dogfood on desktop first. Touch polish revisited when the user plays on mobile and finds gaps.
+- **Drag-range-scaled lost chance.** User picked modifier-scaled only; a future polish pass could add "throw distance" as a player-controlled variable.
+- **Drag-to-throw trajectory anim.** A visual arc + landing thump when tossing would be nice flavor. Pure polish — not blocking.
+- **Visual range viz on fieldstrip.** User explicitly declined; noting here in case it ever feels needed.
+- **Cargo rearrangement between laps / hotkey auto-sort.** Auto-sort is always-on via binpack; explicit "sort now" hotkey is a feature only needed if manual placement gets messy.
 
 ---
 
