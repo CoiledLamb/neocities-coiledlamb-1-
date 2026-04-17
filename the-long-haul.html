@@ -167,6 +167,11 @@
 
   <!-- v0.0.9.3 — route-map hover tooltip (absolute positioned, driven by route-map.js) -->
   <div id="routeTooltip" aria-hidden="true"></div>
+  <!-- v0.0.9.4.1 — ground pkg hover tooltip. Body-portal pattern: the
+       fieldstrip's ancestors (#viewport, #gameShell) have overflow:
+       hidden for the scrolling strip, which clips a pseudo-element
+       tooltip. Hosting the element at body level lets it escape. -->
+  <div id="pkgTooltip" aria-hidden="true"></div>
 
   <script src="boot.js"></script>
   <script type="module" src="js/main.js"></script>

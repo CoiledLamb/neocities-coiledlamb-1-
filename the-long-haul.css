@@ -320,11 +320,38 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 /* Cargo items get grab cursor on hover so players discover the drag
    affordance even before they start. */
 .cslot.has-tooltip[data-inv-idx] { cursor: grab; }
-/* v0.0.9.4.1 — ground pkg tooltip flips BELOW the cell (default is
-   above, which clips against the viewport's top edge on the fieldstrip
-   row). Keep the cargo-style tooltip above; fieldstrip specifically
-   opens downward. */
-.fc-pk.has-tooltip::after { bottom: auto; top: calc(100% + 5px); }
+/* v0.0.9.4.1 — ground pkg tooltip switched from the CSS ::after
+   pseudo-element to a body-level #pkgTooltip div (positioned by JS
+   on hover). Reason: the fieldstrip is inside #viewport + #gameShell
+   which have overflow:hidden for scroll clipping, and the fieldstrip
+   itself has `transform: translateX(...)` which creates a containing
+   block that traps position:fixed. The ::after tooltip gets clipped;
+   a body-hosted element escapes. Mirrors the v0.0.9.3 #routeTooltip
+   pattern. The .has-tooltip class still sets cursor: help (overridden
+   to cursor: pointer on .in-range), but the ::after is suppressed so
+   there's no double-render when the JS tooltip shows. */
+.fc-pk.has-tooltip::after { content: none !important; }
+
+#pkgTooltip {
+  position: absolute;
+  pointer-events: none;
+  background: #0b2e2d;
+  border: 1px solid #40a4b9;
+  color: #b1c9c3;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: pre;
+  padding: 4px 7px;
+  border-radius: 1px;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.1s;
+  min-width: 80px;
+  text-align: left;
+}
+#pkgTooltip.on { opacity: 1; }
 .fc-sw-plant { color: #2a7a58; }
 .fc-depot    { color: #4a7a78; font-weight: 700; }
 

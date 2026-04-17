@@ -168,9 +168,13 @@ export function renderFieldstrip() {
   strip.style.transform = `translateX(${-fracOffset}px)`;
 }
 
-// v0.0.9.4.1 — wire the fieldstrip click handler. Called once at init
-// after `els.fieldstrip` is bound. Event delegation — tick re-renders
-// of the strip's innerHTML don't detach this.
+// v0.0.9.4.1 — wire the fieldstrip click + hover handlers. Called
+// once at init after `els.fieldstrip` is bound. Event delegation —
+// tick re-renders of the strip's innerHTML don't detach this.
+//
+// Tooltip uses a body-level #pkgTooltip element (positioned by JS on
+// hover). CSS ::after can't escape #viewport's overflow:hidden nor
+// the strip's transform-containing-block, so we portal-host instead.
 export function bindFieldstripInteractions() {
   const strip = els.fieldstrip;
   if (!strip || strip.__fsBound) return;
@@ -182,4 +186,39 @@ export function bindFieldstripInteractions() {
     if (Number.isNaN(ci)) return;
     tryCursorPickup(ci);
   });
+  strip.addEventListener('mouseover', (ev) => {
+    const target = ev.target.closest('.fc-pk[data-tooltip]');
+    if (!target) return;
+    showPkgTooltip(target);
+  });
+  strip.addEventListener('mouseout', (ev) => {
+    const target = ev.target.closest('.fc-pk[data-tooltip]');
+    if (!target) return;
+    // Only hide if we've left the pkg entirely (relatedTarget not a
+    // descendant) — prevents flicker when mousing across inner text.
+    const to = ev.relatedTarget;
+    if (to && target.contains(to)) return;
+    hidePkgTooltip();
+  });
+}
+
+function showPkgTooltip(targetEl) {
+  const tip = document.getElementById('pkgTooltip');
+  if (!tip) return;
+  tip.textContent = targetEl.getAttribute('data-tooltip') || '';
+  // Position below the pkg, roughly centered. Use page coordinates
+  // (client + scroll) so absolute positioning still works if the
+  // page scrolls. Center offset approximated because tooltip width
+  // varies with content.
+  const r = targetEl.getBoundingClientRect();
+  const x = r.left + r.width / 2 + window.scrollX;
+  const y = r.bottom + 5 + window.scrollY;
+  tip.style.left = (x - 60) + 'px';
+  tip.style.top  = y + 'px';
+  tip.classList.add('on');
+}
+
+function hidePkgTooltip() {
+  const tip = document.getElementById('pkgTooltip');
+  if (tip) tip.classList.remove('on');
 }
