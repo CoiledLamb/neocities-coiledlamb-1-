@@ -11,7 +11,7 @@
    Imports:
      S — game state (state.js)
      STATUS_COLORS — visual map (data/glyphs.js)
-     getDisplayLabel — identification.js (for cargo tooltips)
+     formatPkgTooltip — packages.js (shared cargo + ground pkg tooltip)
      Upg.renderUpgrades — upgrades.js (namespace import)
 
    Local aliases:
@@ -21,7 +21,8 @@
 
 import { S } from '../state.js';
 import { STATUS_COLORS } from '../data/glyphs.js';
-import { getDisplayLabel } from '../identification.js';
+import { formatPkgTooltip } from '../packages.js';
+import { bindCargoDragSource } from './drag.js';
 import * as Upg from '../upgrades.js';
 
 const els = S._transient.els;
@@ -165,11 +166,15 @@ export function renderCargoSlots(force) {
   // 2px grid gap communicating the asymmetry.
   for (const p of placements) {
     if (p.overflow) continue;
-    const destLabel = getDisplayLabel(p.pkg.destId);
-    const recoveryTag = p.pkg.isRecovery ? ' [recovery]' : (p.pkg.isLost ? ' [lost]' : '');
-    const modTag = p.pkg.modifier ? ` (${p.pkg.modifier})` : '';
-    const tip = `[${p.pkg.size}] ${p.pkg.label}${modTag}${recoveryTag}\n\u2192 ${destLabel}\n${p.pkg.scrip}\u00a2`;
+    // v0.0.9.4.1 commit 1: use shared formatPkgTooltip so ground pkgs
+    // and cargo show the same tooltip content. Includes porter id on
+    // recovery pkgs (surfaces which peer the recovery came from).
+    const tip = formatPkgTooltip(p.pkg);
     const modClass = p.pkg.modifier ? ` mod-${p.pkg.modifier}` : '';
+    // v0.0.9.4.1 commit 2: pkg's index in S.inventory — needed by the
+    // drag layer to know which item to eject. Computed now (before
+    // any splicing) so it stays stable through this render frame.
+    const invIdx = S.inventory.indexOf(p.pkg);
 
     const main = document.createElement('div');
     main.className = `cslot ${p.pkg.size}${modClass} has-tooltip`;
@@ -178,6 +183,8 @@ export function renderCargoSlots(force) {
     main.textContent = p.pkg.size;
     main.setAttribute('data-tooltip', tip);
     main.setAttribute('aria-label', tip);
+    main.setAttribute('data-inv-idx', String(invIdx));
+    bindCargoDragSource(main, invIdx, p.pkg);
     els.cargoSlots.appendChild(main);
 
     if (p.hasTrail) {
@@ -187,6 +194,8 @@ export function renderCargoSlots(force) {
       trail.style.gridRow    = `${p.y + p.base.h}`;
       trail.setAttribute('data-tooltip', tip);
       trail.setAttribute('aria-label', tip);
+      trail.setAttribute('data-inv-idx', String(invIdx));
+      bindCargoDragSource(trail, invIdx, p.pkg);
       els.cargoSlots.appendChild(trail);
     }
   }

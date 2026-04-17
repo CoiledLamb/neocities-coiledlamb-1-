@@ -113,6 +113,7 @@ import { addLog } from './render/log.js';
 import {
   updateHUD, renderCargoSlots, renderCourierStack,
 } from './render/hud.js';
+import { bindDragGlobals } from './render/drag.js';
 import {
   drawRouteMap, updateRouteDot, layoutRouteNodes, currentEdge,
   initSegment, advanceSegmentAfterArrival, bindRouteInteractions,
@@ -475,6 +476,10 @@ function init() {
   if (els.tieDownBtn) els.tieDownBtn.addEventListener('click', Boots.toggleTieDown);
   // v0.0.9.4.1 — fieldstrip click delegation for cursor pickup.
   bindFieldstripInteractions();
+  // v0.0.9.4.1 commit 2 — global drag layer (document-level
+  // mousemove/mouseup). Cargo items bind their own mousedown via
+  // bindCargoDragSource in renderCargoSlots.
+  bindDragGlobals();
 
   // v0.0.7.31 — silent / appear-offline toggle. localStorage-backed so it
   // survives reloads (critical: the whole point is to avoid dummy events

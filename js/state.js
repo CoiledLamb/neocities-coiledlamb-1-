@@ -207,6 +207,12 @@ export const S = {
     outboundOfferPending: null,
     outboundLastVisit: null,
 
+    // v0.0.9.4.1 commit 2 — active drag state. null when idle;
+    // { invIdx, pkg, ghostEl } while a cargo item is being dragged.
+    // Populated by js/render/drag.js on mousedown+threshold; cleared
+    // on mouseup when the drop resolves (toss or snap-back).
+    drag: null,
+
     // Weather system (v0.0.8). Transient rendering state — the storms
     // themselves live on S.storms (persisted). These are session-only
     // helpers for overlay dirty-checking, spawn ID generation, and

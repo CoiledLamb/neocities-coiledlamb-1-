@@ -295,6 +295,31 @@ html, body {
    help cursor + still show their tooltip, so the player can examine
    pkgs before they're close enough to grab. */
 .fc-pk.in-range { cursor: pointer; }
+
+/* v0.0.9.4.1 commit 2 — drag layer.
+   Ghost is a clone of the .cslot visual that follows the cursor via
+   `position: fixed` coordinates set in JS. pointer-events: none so
+   the ghost never eats mouse events intended for drop targets. */
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.75;
+  transform: scale(1.08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+/* Cargo grid gets `.drag-over` while cursor is inside its bbox during
+   a drag — a subtle cyan inset glow hints "release here = keep". */
+#cargoSlots.drag-over {
+  outline: 1px dashed #40a4b9;
+  outline-offset: 2px;
+}
+/* body.drag-toss-pending when cursor is OUTSIDE the grid — change the
+   cursor globally so the player feels "I'm about to toss this." */
+body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; }
+/* Cargo items get grab cursor on hover so players discover the drag
+   affordance even before they start. */
+.cslot.has-tooltip[data-inv-idx] { cursor: grab; }
 /* v0.0.9.4.1 — ground pkg tooltip flips BELOW the cell (default is
    above, which clips against the viewport's top edge on the fieldstrip
    row). Keep the cargo-style tooltip above; fieldstrip specifically

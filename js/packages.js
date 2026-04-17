@@ -38,7 +38,7 @@ import {
   PKG_BASES, PKG_SIZE_WEIGHTS, PKG_SIZE_WEIGHTS_RISKY,
   PKG_MODIFIERS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
 } from './data/packages.js';
-import { postActivity, shortPorterId } from './multiplayer.js';
+import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js';
 import { updatePorterStripBadges } from './recovery.js';
 import { addTrust, computeTrustGain, speakDelivery } from './trust.js';
 import { getNodeStage, setNodeStage } from './identification.js';
@@ -456,6 +456,96 @@ export function tryCursorPickup(ci) {
   const raw    = (ci - courierCell + C.TOTAL_CELLS) % C.TOTAL_CELLS;
   if (raw > range) return false;
   return acceptPickup(ci, raw);
+}
+
+// v0.0.9.4.1 commit 2 — eject a cargo item via drag-to-toss. Called
+// from the drag layer (render/drag.js) when a cargo drag releases
+// outside the cargo-grid bounding box.
+//
+// Lost chance is modifier-scaled — fragile/lightweight pkgs scatter
+// more often (they catch wind, they shatter on landing); heavy pkgs
+// land where you throw them. Base 10% for no-modifier pkgs.
+//
+//   kept branch  → pkg drops at the courier's current cell (walks ±3
+//                  cells looking for an empty pkg slot; if nothing
+//                  empty in that window, escalates to lost — "the
+//                  trail's too dense to set it down"). Becomes a
+//                  normal world pkg; cursor/auto pickup will grab it
+//                  again normally.
+//   lost branch  → pkg enters the multiplayer recovery pipeline via
+//                  postLostDrop, tagged with this player's porter ID.
+//                  Other porters can recover it. Vanishes locally.
+const OUTBOUND_LOST_CHANCE = {
+  fragile:     0.30,
+  unwieldy:    0.25,
+  lightweight: 0.20,
+  heavy:       0.05,
+};
+const OUTBOUND_LOST_BASE = 0.10;
+
+export function ejectFromCargo(invIdx) {
+  const pkg = S.inventory[invIdx];
+  if (!pkg) return;
+
+  const chance = pkg.modifier && (pkg.modifier in OUTBOUND_LOST_CHANCE)
+    ? OUTBOUND_LOST_CHANCE[pkg.modifier]
+    : OUTBOUND_LOST_BASE;
+  const lostRoll = Math.random() < chance;
+
+  // Try to find a world cell to drop into (for the kept branch, or
+  // as a fallback if we escalate to lost).
+  const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
+  let dropCi = -1;
+  // Candidates: current cell, then ±1, ±2, ±3 (outward).
+  const offsets = [0, 1, -1, 2, -2, 3, -3];
+  for (const off of offsets) {
+    const ci = (courierCell + off + C.TOTAL_CELLS) % C.TOTAL_CELLS;
+    const cell = worldCells[ci];
+    if (cell && !cell.pkg && !cell.sandal) { dropCi = ci; break; }
+  }
+
+  // Escalate kept → lost if no drop cell found in the ±3 window.
+  const forcedLost = dropCi < 0;
+  const wentLost = lostRoll || forcedLost;
+
+  // Remove from inventory first (so all paths share the removal logic).
+  S.inventory.splice(invIdx, 1);
+  S.usedSlots  = Math.max(0, S.usedSlots - pkg.slots);
+  S.usedWeight = Math.max(0, S.usedWeight - pkg.kg);
+
+  if (wentLost) {
+    // Broadcast to the recovery pipeline (tags with porter id inside
+    // postLostDrop via getCachedPorterId).
+    const lostPkg = { ...pkg, isLost: true };
+    postLostDrop(lostPkg);
+    const reason = forcedLost ? 'trail too crowded' : 'scattered on the toss';
+    addLog(`<span class="log-wn">lost</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
+  } else {
+    // Drop to world cell. Build a fresh pkg shape matching what
+    // rollPkg produces so auto/cursor pickup works normally.
+    const dropped = {
+      size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
+      scrip: pkg.scrip,
+      modifier: pkg.modifier || null,
+      isLost: !!pkg.isLost,
+      destId: pkg.destId,
+      isRecovery: !!pkg.isRecovery,
+      recoveryFromPorter: pkg.recoveryFromPorter || null,
+      outboundFrom: pkg.outboundFrom,  // preserve outbound-dispatch flag
+      picked: false,
+      respawnIn: 0,
+    };
+    worldCells[dropCi].pkg = dropped;
+    addLog(`tossed <span class="log-hi">[${pkg.size}] ${pkg.label}</span> onto the trail`);
+    postActivity('toss', { label: pkg.label, size: pkg.size });
+  }
+
+  if (S.inventory.length === 0) {
+    S.status = 'walking';
+    if (els.courierAt) els.courierAt.className = 'tlh-at bounce';
+  }
+  renderCourierStack();
+  renderCargoSlots(true);
 }
 
 // ============================================================
