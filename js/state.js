@@ -213,6 +213,13 @@ export const S = {
     // on mouseup when the drop resolves (toss or snap-back).
     drag: null,
 
+    // v0.0.9.4.1 bugfix — ci of the fc-pk span currently hovered (or
+    // null). Used by renderFieldstrip to detect when a hovered span
+    // gets destroyed across a tick re-render — browsers don't fire
+    // mouseout on detached elements, so without tracking this the
+    // #pkgTooltip gets stuck visible indefinitely.
+    hoveredPkgCi: null,
+
     // Weather system (v0.0.8). Transient rendering state — the storms
     // themselves live on S.storms (persisted). These are session-only
     // helpers for overlay dirty-checking, spawn ID generation, and

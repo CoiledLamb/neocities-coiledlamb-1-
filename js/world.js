@@ -138,10 +138,19 @@ export function renderFieldstrip() {
   // whether to advertise click affordance + tooltip. Interior (shortcut)
   // travel is off-grid — pickup is gated, so no in-range cells during
   // shortcut (matches scanForPickup gate in main.js).
+  //
+  // In-range here is BIDIRECTIONAL (±range from courier cell) so a pkg
+  // behind the courier is still clickable — auto-pickup stays forward-
+  // only but manual clicks work in either direction. Without this, a
+  // drag-to-toss that lands at a -1/-2/-3 offset (one of ejectFromCargo's
+  // fallback cells) would drop an unclickable pkg. tryCursorPickup does
+  // the same bidirectional math so handler + class stay in sync.
   const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
   const range = (S.status === 'walking' || S.status === 'carrying') && !isOnShortcut() ? pickupRange() : -1;
   const inRange = new Set();
-  for (let o = 0; o <= range; o++) inRange.add((courierCell + o) % C.TOTAL_CELLS);
+  for (let o = -range; o <= range; o++) {
+    inRange.add((courierCell + o + C.TOTAL_CELLS) % C.TOTAL_CELLS);
+  }
   let html = '';
   for (let i = 0; i < renderCount; i++) {
     const ci   = (leftCell + i) % C.TOTAL_CELLS;
@@ -166,6 +175,10 @@ export function renderFieldstrip() {
   strip.innerHTML = html;
   const fracOffset = (S.worldPos - Math.floor(S.worldPos)) * cellPxWidth;
   strip.style.transform = `translateX(${-fracOffset}px)`;
+  // v0.0.9.4.1 bugfix — innerHTML replacement destroys any hovered span
+  // silently (no mouseout fires). Reconcile tooltip state with the new
+  // DOM: refresh position if the span re-rendered, else hide.
+  refreshPkgTooltipAfterRender();
 }
 
 // v0.0.9.4.1 — wire the fieldstrip click + hover handlers. Called
@@ -189,6 +202,8 @@ export function bindFieldstripInteractions() {
   strip.addEventListener('mouseover', (ev) => {
     const target = ev.target.closest('.fc-pk[data-tooltip]');
     if (!target) return;
+    const ci = parseInt(target.getAttribute('data-ci'), 10);
+    if (!Number.isNaN(ci)) S._transient.hoveredPkgCi = ci;
     showPkgTooltip(target);
   });
   strip.addEventListener('mouseout', (ev) => {
@@ -198,8 +213,37 @@ export function bindFieldstripInteractions() {
     // descendant) — prevents flicker when mousing across inner text.
     const to = ev.relatedTarget;
     if (to && target.contains(to)) return;
+    S._transient.hoveredPkgCi = null;
     hidePkgTooltip();
   });
+  // v0.0.9.4.1 bugfix — also clear on full strip leave. Catches the
+  // case where the cursor exits the strip's bounding box while the
+  // last hovered span is already destroyed (mouseout on the span
+  // never fires in that case).
+  strip.addEventListener('mouseleave', () => {
+    S._transient.hoveredPkgCi = null;
+    hidePkgTooltip();
+  });
+}
+
+// v0.0.9.4.1 bugfix — called from renderFieldstrip after the new
+// innerHTML is in place. If a pkg was being hovered but its span
+// vanished in the re-render (pkg scrolled off, got picked up, or is
+// now outside the render window), hide the tooltip and clear state.
+// If the same ci is still rendered (new span in its place), refresh
+// the tooltip's position so it tracks the span's new screen coords.
+export function refreshPkgTooltipAfterRender() {
+  const ci = S._transient.hoveredPkgCi;
+  if (ci == null) return;
+  const strip = els.fieldstrip;
+  if (!strip) return;
+  const span = strip.querySelector(`.fc-pk[data-ci="${ci}"]`);
+  if (span) {
+    showPkgTooltip(span);
+  } else {
+    S._transient.hoveredPkgCi = null;
+    hidePkgTooltip();
+  }
 }
 
 function showPkgTooltip(targetEl) {

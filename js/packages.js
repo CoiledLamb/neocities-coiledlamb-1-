@@ -451,14 +451,29 @@ export function scanForPickup() {
 // within current pickupRange() (defensive — the in-range class on
 // the span could lag one tick), then routes through acceptPickup.
 // Return value unused by callers; exists for parity w/ scan path.
+//
+// Cursor pickup is bidirectional — unlike auto-scan which only looks
+// forward, clicking works for pkgs behind the courier too. Lets the
+// player reclaim a just-tossed pkg that landed at a -1/-2/-3 fallback
+// cell in ejectFromCargo's offset search.
+//
+// Cursor pickup also BYPASSES the toss-cooldown (tossedUntilTick) —
+// a click is an explicit choice; the cooldown only exists to stop
+// auto-scan from instant-regrabbing. acceptPickup doesn't check the
+// cooldown at all, so calling it directly from here is the bypass.
 export function tryCursorPickup(ci) {
   if (S.status !== 'walking' && S.status !== 'carrying') return false;
   const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
   const range = pickupRange();
-  // Compute offset = ring-wrapped distance courierCell → ci.
-  const raw    = (ci - courierCell + C.TOTAL_CELLS) % C.TOTAL_CELLS;
-  if (raw > range) return false;
-  return acceptPickup(ci, raw);
+  // Ring-wrapped bidirectional distance: shorter of forward + backward
+  // arcs from courierCell to ci.
+  const raw      = (ci - courierCell + C.TOTAL_CELLS) % C.TOTAL_CELLS;
+  const distance = Math.min(raw, C.TOTAL_CELLS - raw);
+  if (distance > range) return false;
+  // Pass the absolute distance as `offset` so acceptPickup's sticky-gun
+  // ammo threshold (offset > PKG_PICKUP_RANGE = cross-range shot)
+  // works uniformly for forward + backward clicks.
+  return acceptPickup(ci, distance);
 }
 
 // v0.0.9.4.1 commit 2 — eject a cargo item via drag-to-toss. Called
