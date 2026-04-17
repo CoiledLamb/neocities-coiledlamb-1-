@@ -194,6 +194,15 @@ export const S = {
     depotRestPending: null,
     clipRefillPending: null,
 
+    // v0.0.9.4 — NPC outbound dispatch. outboundOfferPending is
+    // { originNodeId, pkg } while an offer awaits accept; cleared on
+    // accept or on arrival at a different node. outboundLastVisit
+    // tracks the last NPC node the courier arrived at so we can
+    // detect "same visit" (no re-roll) vs "new visit" (offer again
+    // if conditions hold).
+    outboundOfferPending: null,
+    outboundLastVisit: null,
+
     // Weather system (v0.0.8). Transient rendering state — the storms
     // themselves live on S.storms (persisted). These are session-only
     // helpers for overlay dirty-checking, spawn ID generation, and

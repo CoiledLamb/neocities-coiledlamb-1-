@@ -254,3 +254,18 @@ export const RISKY_EDGE_DEST = new Set(['C', '?']);
 // distant nodes create carry-vs-shortcut decisions).
 // Will need retune at v0.0.9.7 when 4 corner NPCs expand the ring.
 export const DEST_DIV_WEIGHTS = [40, 25, 15, 10, 5, 5];
+
+// ----- v0.0.9.4: NPC outbound dispatch -----
+// On arrival at an NPC node, the NPC may offer a package destined for
+// another node. Offer chance scales with trust; per-visit cooldown.
+// Label pool filtered via the v0.0.8.1 dests[] tagging (treats dests
+// as a story-compatibility set — if origin is in the label's dests,
+// the label is part of that NPC's vocabulary; dest is any OTHER node
+// in the label's dests, weighted by ring-distance curve).
+// Reward structure: +N trust at origin on accept (same weight-scaled
+// formula as delivery — 1 + floor(slots/2)), +N+1 trust at dest on
+// delivery (normal delivery trust plus the outbound bonus). Both
+// fire; no replacement. Net ≈ 2N+1 total — dispatch is trust-dense.
+export const OUTBOUND_BASE_RATE    = 0.8;  // chance-at-trust-100 cap
+export const OUTBOUND_MIN_TRUST    = 5;    // below this, no offers
+export const OUTBOUND_BONUS_TRUST  = 1;    // +N+1 on delivery

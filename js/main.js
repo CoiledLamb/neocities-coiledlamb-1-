@@ -339,6 +339,11 @@ function tick() {
             addLog(`<span class="log-ok">battery charged</span> at ${NPC_DEFS[arrivedAt].callsign}'s`);
           }
         }
+
+        // v0.0.9.4 — NPC outbound dispatch. Trust-scaled chance to be
+        // handed a package destined for another node. Fires after
+        // tryDeliver so cargo space reflects post-delivery state.
+        Pkg.tryOutboundDispatch(arrivedAt);
       }
     }
   } else {

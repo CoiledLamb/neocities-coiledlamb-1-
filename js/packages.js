@@ -176,6 +176,160 @@ export function rollPkg(destId, cellRisky, forceLost) {
   };
 }
 
+// v0.0.9.4 — NPC outbound dispatch. On arrival at an NPC node, that NPC
+// may offer a package destined for another node. Trust-scaled offer
+// chance, per-visit cooldown. Uses the v0.0.8.1 dests[] tagging as a
+// story-compatibility set — labels where originNodeId ∈ dests are part
+// of that NPC's vocabulary; destination is any OTHER node in the
+// label's dests, weighted by the same ring-distance curve as world-
+// spawn (near > far > backwards).
+export function tryOutboundDispatch(originNodeId) {
+  if (!NPC_DEFS[originNodeId]) return;
+  const npc = S.npcs[originNodeId];
+  if (!npc || npc.trust < C.OUTBOUND_MIN_TRUST) return;
+
+  // Per-visit guard: if we already handled an offer roll this arrival
+  // (either offered or skipped), don't re-roll. outboundLastVisit is
+  // reset when a DIFFERENT NPC is visited — see the !== check below.
+  if (S._transient.outboundLastVisit === originNodeId) return;
+  S._transient.outboundLastVisit = originNodeId;
+
+  // Clear any stale pending offer from a previous NPC visit — the old
+  // log button resolves to `if (!pending) return` when clicked.
+  if (S._transient.outboundOfferPending &&
+      S._transient.outboundOfferPending.originNodeId !== originNodeId) {
+    S._transient.outboundOfferPending = null;
+  }
+
+  // Offer chance scales with trust, capped by OUTBOUND_BASE_RATE.
+  const chance = Math.min(C.OUTBOUND_BASE_RATE, C.OUTBOUND_BASE_RATE * (npc.trust / 100));
+  if (Math.random() >= chance) return;
+
+  // Size roll (no risky-cell bump — arrival cells aren't "risky").
+  const size = weightedKey(PKG_SIZE_WEIGHTS);
+
+  // Filter labels: origin ∈ dests AND ≥2 dests (need somewhere to send).
+  const candidates = (PKG_LABELS_BY_SIZE[size] || []).filter(
+    l => l.dests.includes(originNodeId) && l.dests.length >= 2
+  );
+  if (candidates.length === 0) return;
+  const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+
+  // Destination — pick from chosen.dests minus origin, weighted by
+  // ring-distance curve (index into DEST_DIV_WEIGHTS by clockwise
+  // offset from origin).
+  const originEdgeIdx = S.edges.findIndex(e => e[0] === originNodeId);
+  if (originEdgeIdx < 0) return; // defensive
+  const ringLen = S.edges.length;
+  const otherDests = chosen.dests.filter(d => d !== originNodeId);
+  if (otherDests.length === 0) return;
+  const weighted = otherDests.map(d => {
+    let off = -1;
+    for (let i = 0; i < ringLen; i++) {
+      if (S.edges[(originEdgeIdx + i) % ringLen][1] === d) { off = i; break; }
+    }
+    return { dest: d, weight: (off >= 0 ? C.DEST_DIV_WEIGHTS[off] : 1) || 1 };
+  });
+  const totalW = weighted.reduce((s, w) => s + w.weight, 0);
+  let r = Math.random() * totalW;
+  let destId = weighted[0].dest;
+  for (const w of weighted) {
+    r -= w.weight;
+    if (r <= 0) { destId = w.dest; break; }
+  }
+
+  // Build the pkg. Size + label are fixed (our chosen), but modifier,
+  // kg/slots/scrip get re-rolled via the same PKG_BASES + PKG_MODIFIERS
+  // machinery as rollPkg so the pkg is internally consistent.
+  const base = PKG_BASES[size];
+  const validMods = PKG_MODIFIERS.filter(m => !m.incompat || !m.incompat.includes(size));
+  const mod = weightedArr(validMods, m => m.weight);
+  let kg = base.kg, slots = base.slots, scrip = base.scrip;
+  if (mod.id) {
+    if (mod.kgDelta === 'halve')   kg = Math.max(1, Math.floor(kg / 2));
+    if (mod.kgDelta === 'add1to3') kg = kg + 1 + Math.floor(Math.random() * 3);
+    if (mod.slotDelta)             slots = slots + mod.slotDelta;
+    if (mod.scripMult)             scrip = Math.floor(scrip * mod.scripMult);
+  }
+
+  const pkg = {
+    size, label: chosen.label, kg, slots, scrip,
+    modifier: mod.id || null,
+    isLost: false,
+    destId,
+    picked: false,
+    respawnIn: 0,
+    outboundFrom: originNodeId,    // v0.0.9.4 — flags delivery bonus
+  };
+
+  // Cargo check — if no room, no offer. Defer silently (player may
+  // come back later with more space; next-visit guard re-rolls).
+  if (pkg.slots > effectiveMaxSlots() - S.usedSlots) return;
+  if (pkg.kg > S.maxWeight - S.usedWeight) return;
+
+  S._transient.outboundOfferPending = { originNodeId, pkg };
+  const callsign = NPC_DEFS[originNodeId].callsign;
+  const destSettle = S.settlements[destId];
+  const destLabel = destSettle ? destSettle.label : destId;
+  addLog(
+    `<span class="log-hi">${callsign}</span> offers a <span class="log-hi">[${size}] ${chosen.label}</span> for <span class="log-hi">${destLabel}</span> ` +
+    `\u2014 <button class="log-btn" id="outboundAcceptBtn">accept parcel</button>`
+  );
+  // Wire the click handler after the log line renders.
+  setTimeout(() => {
+    const btn = document.getElementById('outboundAcceptBtn');
+    if (btn) btn.addEventListener('click', confirmOutboundAccept);
+  }, 0);
+}
+
+function confirmOutboundAccept() {
+  const pending = S._transient.outboundOfferPending;
+  if (!pending) return;
+  S._transient.outboundOfferPending = null;
+  const { originNodeId, pkg } = pending;
+
+  // Cargo space may have changed between offer + click. Re-check.
+  if (pkg.slots > effectiveMaxSlots() - S.usedSlots ||
+      pkg.kg   > S.maxWeight - S.usedWeight) {
+    addLog(`<span class="log-wn">no cargo room</span> for ${pkg.label}`);
+    return;
+  }
+
+  // Push into inventory — same shape as scanForPickup's carried obj.
+  const carried = {
+    size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
+    scrip: pkg.scrip, isLost: false, destId: pkg.destId,
+    modifier: pkg.modifier || null,
+    isRecovery: false,
+    recoveryFromPorter: null,
+    outboundFrom: originNodeId,    // carries through to tryDeliver
+    _worldCell: undefined,          // no world cell — dispatched, not picked up
+  };
+  S.inventory.push(carried);
+  S.usedSlots  += carried.slots;
+  S.usedWeight += carried.kg;
+  S.status = 'carrying';
+  renderCourierStack();
+  renderCargoSlots(true);
+
+  // +N trust at origin for accepting. Same weight-scaled formula as
+  // delivery; +1 bonus does NOT apply here (that's the dest-side bonus).
+  const callsign = NPC_DEFS[originNodeId].callsign;
+  const originGain = 1 + Math.floor(pkg.slots / 2);
+  addTrust(originNodeId, originGain, 'outbound-accept');
+  addLog(
+    `accepted parcel from <span class="log-hi">${callsign}</span> ` +
+    `\u2014 <span class="log-ok">+${Math.round(originGain * 10) / 10} trust</span>`
+  );
+
+  // Remove the button's log-line so the prompt doesn't linger.
+  const btn = document.getElementById('outboundAcceptBtn');
+  if (btn) {
+    const ll = btn.closest('.log-line');
+    if (ll) ll.remove();
+  }
+}
+
 // ============================================================
 // PACKAGE PICKUP
 // ============================================================
@@ -298,9 +452,17 @@ export function tryDeliver(arrivedNodeId) {
     }
     // v0.0.8.5: compute trust gain before logging so we can surface it.
     // Weight-scaled base (1 + floor(slots/2)) with profile multipliers.
-    const gain = NPC_DEFS[arrivedNodeId] ? computeTrustGain(pkg, arrivedNodeId) : 0;
-    const trustSuffix = gain > 0 ? ` +${Math.round(gain * 10) / 10} trust` : '';
-    addLog(`delivered <span class="log-hi">[${pkg.size}] ${pkg.label}</span> to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2${trustSuffix}</span>`);
+    // v0.0.9.4: outbound-flagged pkgs get +OUTBOUND_BONUS_TRUST at dest
+    // for being a relationship-spanning delivery (origin NPC already
+    // awarded their own trust on accept).
+    const gain  = NPC_DEFS[arrivedNodeId] ? computeTrustGain(pkg, arrivedNodeId) : 0;
+    const bonus = pkg.outboundFrom && NPC_DEFS[arrivedNodeId] ? C.OUTBOUND_BONUS_TRUST : 0;
+    const totalGain = gain + bonus;
+    const trustSuffix = totalGain > 0 ? ` +${Math.round(totalGain * 10) / 10} trust` : '';
+    const outboundTag = pkg.outboundFrom
+      ? ` <span class="log-hi">[from ${NPC_DEFS[pkg.outboundFrom] ? NPC_DEFS[pkg.outboundFrom].callsign : pkg.outboundFrom}]</span>`
+      : '';
+    addLog(`delivered <span class="log-hi">[${pkg.size}] ${pkg.label}</span>${outboundTag} to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2${trustSuffix}</span>`);
     postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
 
     if (pkg.isRecovery && pkg.recoveryFromPorter) {
@@ -312,8 +474,11 @@ export function tryDeliver(arrivedNodeId) {
       addLog(`<span class="log-ok">recovered</span> <span class="log-hi">${pkg.label}</span> \u2014 left by <span class="log-hi">${shortPorterId(pkg.recoveryFromPorter)}</span>`);
     }
 
-    if (gain > 0) {
-      addTrust(arrivedNodeId, gain, pkg.isLost ? 'lost-delivery' : 'delivery');
+    if (totalGain > 0) {
+      const reason = pkg.outboundFrom
+        ? 'outbound-delivery'
+        : (pkg.isLost ? 'lost-delivery' : 'delivery');
+      addTrust(arrivedNodeId, totalGain, reason);
     }
   });
   // v0.0.8.4: NPC reacts to the delivery — one line per batch, picking
