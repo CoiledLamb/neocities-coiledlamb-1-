@@ -64,8 +64,15 @@
               <span class="tlh-row-label">cargo</span>
               <div class="cargo-slots" id="cargoSlots"></div>
               <div class="weight-segs" id="weightSegs"></div>
-              <button class="boots-auto" id="autoGrabBtn">grab: auto</button>
-              <button class="tie-down-btn boots-auto" id="tieDownBtn">tie-down: off</button>
+              <!-- v0.0.9.4.1 — grab + tie-down stacked vertically to
+                   reclaim cargo row whitespace without widening the
+                   panel. Exception to the "buttons in rows, not
+                   columns" rule: cargo row has the extra vertical
+                   real estate from the 2-row cargo grid. -->
+              <div class="cargo-btn-stack">
+                <button class="boots-auto" id="autoGrabBtn">grab: auto</button>
+                <button class="tie-down-btn boots-auto" id="tieDownBtn">tie-down: off</button>
+              </div>
             </div>
 
             <div class="tlh-row boots-row">

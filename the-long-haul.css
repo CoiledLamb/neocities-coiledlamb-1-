@@ -641,6 +641,18 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .boots-auto.on { color: #77bfcf; border-color: #40a4b9; }
 .boots-auto:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
 
+/* v0.0.9.4.1 — cargo-row specifically stacks grab + tie-down vertically
+   (exception to the "buttons in rows, not columns" convention; cargo
+   row has extra vertical real estate thanks to the 2-row cargo grid). */
+.cargo-btn-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+.cargo-btn-stack .boots-auto { width: 100%; box-sizing: border-box; }
+
 /* v0.0.7.29 — stamina gets the contiguous bar + tick-line visual
    (previously on kit-battery). Width is driven by JS; ticks every
    25% are baked into a repeating-linear-gradient overlay that sits
