@@ -299,15 +299,30 @@ html, body {
 /* v0.0.9.4.1 commit 2 — drag layer.
    Ghost is a clone of the .cslot visual that follows the cursor via
    `position: fixed` coordinates set in JS. pointer-events: none so
-   the ghost never eats mouse events intended for drop targets. */
-.drag-ghost {
+   the ghost never eats mouse events intended for drop targets.
+
+   Explicit sizing per size class mirrors the cargo grid's footprints
+   (s=1×1, m=2×1, l=2×2, xl=4×2 at 15px cells + 2px gap) so a dragged
+   pkg visually reads as the same shape it occupied in the bag. Without
+   these, `.cslot` outside the grid container collapses to its text
+   content width (the single-letter size tag), which reads as a tiny
+   elongated square regardless of the pkg's actual footprint. */
+/* Double-selector so specificity beats plain `.cslot { position: relative; }`
+   which comes later in the source order — otherwise the ghost renders
+   in the document flow at the bottom of body and the y-offset is way
+   off the cursor. Same trick forces box-sizing and pointer-events. */
+.drag-ghost.cslot {
   position: fixed;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.75;
-  transform: scale(1.08);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  opacity: 0.82;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
 }
+.drag-ghost.cslot.s  { width: 15px; height: 15px; }
+.drag-ghost.cslot.m  { width: 32px; height: 15px; }  /* 2 cells + 2px gap */
+.drag-ghost.cslot.l  { width: 32px; height: 32px; }
+.drag-ghost.cslot.xl { width: 66px; height: 32px; }  /* 4 cells + 3×2px */
 /* Cargo grid gets `.drag-over` while cursor is inside its bbox during
    a drag — a subtle cyan inset glow hints "release here = keep". */
 #cargoSlots.drag-over {

@@ -269,3 +269,10 @@ export const DEST_DIV_WEIGHTS = [40, 25, 15, 10, 5, 5];
 export const OUTBOUND_BASE_RATE    = 0.8;  // chance-at-trust-100 cap
 export const OUTBOUND_MIN_TRUST    = 5;    // below this, no offers
 export const OUTBOUND_BONUS_TRUST  = 1;    // +N+1 on delivery
+
+// v0.0.9.4.1 — toss-cooldown. Dropped pkgs carry a `tossedUntilTick`
+// field; scanForPickup (auto) skips them while `S.ticks < tossedUntilTick`.
+// Prevents the just-dropped pkg from being instantly re-picked-up by
+// the next tick's auto-scan. Cursor pickup is unaffected — clicking
+// is a deliberate choice, cooldown doesn't apply. ~8-9s at 350ms/tick.
+export const TOSS_COOLDOWN_TICKS   = 25;

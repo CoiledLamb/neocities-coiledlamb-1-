@@ -61,11 +61,8 @@ export function bindDragGlobals() {
   document.addEventListener('mousemove', (ev) => {
     const drag = S._transient.drag;
     if (drag) {
-      // Already dragging — follow cursor.
-      if (drag.ghostEl) {
-        drag.ghostEl.style.left = (ev.clientX + 10) + 'px';
-        drag.ghostEl.style.top  = (ev.clientY + 10) + 'px';
-      }
+      // Already dragging — follow cursor, centered on ghost.
+      if (drag.ghostEl) positionGhost(drag.ghostEl, ev);
       updateDropHint(ev);
       return;
     }
@@ -79,9 +76,9 @@ export function bindDragGlobals() {
     ghost.className = `drag-ghost cslot ${pending.pkg.size}` +
       (pending.pkg.modifier ? ` mod-${pending.pkg.modifier}` : '');
     ghost.textContent = pending.pkg.size;
-    ghost.style.left = (ev.clientX + 10) + 'px';
-    ghost.style.top  = (ev.clientY + 10) + 'px';
     document.body.appendChild(ghost);
+    // Ghost is in the DOM now — offsetWidth/Height are meaningful.
+    positionGhost(ghost, ev);
 
     S._transient.drag = {
       invIdx:  pending.invIdx,
@@ -111,6 +108,17 @@ export function bindDragGlobals() {
     }
     pending = null;
   });
+}
+
+// Center the ghost under the cursor so the dragged pkg reads as "held"
+// rather than orbiting next to the pointer. Uses offsetWidth/Height
+// which are meaningful once the element is in the DOM with explicit
+// sizing (set via .drag-ghost.cslot.{size} rules in CSS).
+function positionGhost(ghost, ev) {
+  const w = ghost.offsetWidth  || 15;
+  const h = ghost.offsetHeight || 15;
+  ghost.style.left = (ev.clientX - w / 2) + 'px';
+  ghost.style.top  = (ev.clientY - h / 2) + 'px';
 }
 
 function getCargoGridEl() {

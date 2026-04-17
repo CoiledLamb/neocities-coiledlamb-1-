@@ -439,6 +439,9 @@ export function scanForPickup() {
     // v0.0.9.4.1 — auto-pickup gated. Cursor path (tryCursorPickup)
     // remains available even when autoGrab is off.
     if (!S.autoGrab) continue;
+    // v0.0.9.4.1 — toss-cooldown: skip pkgs we just dropped so they
+    // don't get re-grabbed by auto. Cursor pickup still works on them.
+    if (cell.pkg.tossedUntilTick && S.ticks < cell.pkg.tossedUntilTick) continue;
     if (acceptPickup(ci, offset)) return;
   }
 }
@@ -534,6 +537,10 @@ export function ejectFromCargo(invIdx) {
       outboundFrom: pkg.outboundFrom,  // preserve outbound-dispatch flag
       picked: false,
       respawnIn: 0,
+      // Auto-pickup cooldown so the pkg you just dropped doesn't get
+      // instantly re-picked by the next tick's scanForPickup. Cursor
+      // pickup ignores this — deliberate click is always honored.
+      tossedUntilTick: S.ticks + C.TOSS_COOLDOWN_TICKS,
     };
     worldCells[dropCi].pkg = dropped;
     addLog(`tossed <span class="log-hi">[${pkg.size}] ${pkg.label}</span> onto the trail`);
