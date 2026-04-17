@@ -27,7 +27,7 @@
 import { S } from './state.js';
 import * as C from './constants.js';
 import { ZONE_TYPES } from './data/zones.js';
-import { rollPkg } from './packages.js';
+import { rollPkg, rollDestForSpawn } from './packages.js';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
@@ -42,10 +42,16 @@ function weightedPick(arr, getW) {
 // v0.0.8.1 — routed through rollPkg. The 15% isLost roll is preserved
 // here; recovery pipeline inversion (v0.0.8.2+) will reclaim ownership
 // of all isLost spawning, at which point this stays false unconditionally.
+// v0.0.9.4 — destId now picked by the ring-distance-weighted
+// rollDestForSpawn helper instead of always being the edge endpoint.
+// Gives v0.0.9.3's shortcut travel real gameplay weight: packages
+// destined for nodes you'd skip create a concrete carry-vs-shortcut
+// tradeoff. Default (+0 offset, 40% weight) still lands on the edge
+// endpoint so idle play stays functional.
 function makeWorldPkg(edgeIdx, cellRisky) {
   // v0.0.8.6: scavenger's eye bumps lost chance from 15% → 22%
   const isLost = Math.random() < (S.upgrades.scavengerEye ? 0.22 : 0.15);
-  const destId = S.edges[edgeIdx][1];
+  const destId = rollDestForSpawn(edgeIdx);
   return rollPkg(destId, cellRisky, isLost);
 }
 

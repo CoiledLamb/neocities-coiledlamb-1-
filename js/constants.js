@@ -243,3 +243,14 @@ export const AUTOSAVE_MS  = 30000;
 
 // ----- edges with elevated trip risk -----
 export const RISKY_EDGE_DEST = new Set(['C', '?']);
+
+// ----- v0.0.9.4: world-spawn destination distribution -----
+// Weights for the ring-distance-weighted destination picker. Index =
+// clockwise offset from the spawn edge's endpoint on the 6-node ring
+// A → ? → B → C → H → · → A. Offset 0 = next shelter (delivered this
+// leg); offsets 4-5 are effectively "backwards" around the ring.
+// Heavy forward bias keeps idle play functional while the long tail
+// gives v0.0.9.3's shortcut travel real gameplay weight (pkgs for
+// distant nodes create carry-vs-shortcut decisions).
+// Will need retune at v0.0.9.7 when 4 corner NPCs expand the ring.
+export const DEST_DIV_WEIGHTS = [40, 25, 15, 10, 5, 5];

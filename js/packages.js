@@ -100,6 +100,28 @@ function weightedArr(arr, getW) {
   return arr[0];
 }
 
+// v0.0.9.4 — ring-distance-weighted destination picker. Replaces the
+// old edge-endpoint default (`destId = S.edges[edgeIdx][1]`). Picks a
+// clockwise offset 0..5 from the spawn edge's endpoint using the
+// DEST_DIV_WEIGHTS curve (heavy forward bias, rare backwards), then
+// walks the ring to the resulting node. Offset 0 = next shelter (same
+// as the old default); offsets 1-3 build the medium-haul body; 4-5
+// are effectively "backwards" and rare. Paired with v0.0.8.1's
+// dest-tagged label pool, the spawn now reads as a diverse stream of
+// "for whom" rather than "always the next shelter."
+export function rollDestForSpawn(spawnEdgeIdx) {
+  const offsets = C.DEST_DIV_WEIGHTS;
+  const total = offsets.reduce((s, w) => s + w, 0);
+  let r = Math.random() * total;
+  let off = 0;
+  for (let i = 0; i < offsets.length; i++) {
+    r -= offsets[i];
+    if (r <= 0) { off = i; break; }
+  }
+  const n = S.edges.length;
+  return S.edges[(spawnEdgeIdx + off) % n][1];
+}
+
 // rollPkg — unified package spawn roll.
 //
 //   destId     — where the pkg is going (filters the label pool)

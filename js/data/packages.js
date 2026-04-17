@@ -116,6 +116,11 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'fertilizer packet', dests: ['B']                 },
     { label: 'cuttings',          dests: ['B','H']             },
     { label: 'sealed pouch',      dests: ['\u00b7','C']             },
+    // v0.0.9.4 niche labels — rho (A) depot + tau (H) home identity
+    { label: 'dispatch ticket',   dests: ['A']                 },
+    { label: 'waybill',           dests: ['A']                 },
+    { label: 'family letter',     dests: ['H']                 },
+    { label: 'knit gloves',       dests: ['H']                 },
     // phi (?) \u2014 weather instruments
     { label: 'rain gauge',        dests: ['?']                 },
     { label: 'barometer',         dests: ['?']                 },
@@ -148,6 +153,11 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'patched coat',       dests: ['\u00b7','C']            },
     { label: 'memory box',         dests: ['H','\u00b7']            },
     { label: 'wrapped offering',   dests: ['\u00b7']                },
+    // v0.0.9.4 niche labels — rho (A) depot + tau (H) home identity
+    { label: 'logbook bundle',     dests: ['A']                },
+    { label: 'depot stamp kit',    dests: ['A']                },
+    { label: 'preserves jar',      dests: ['H']                },
+    { label: 'family photos',      dests: ['H']                },
     // phi (?) \u2014 weather work
     { label: 'weather log bundle', dests: ['?']                },
     { label: 'calibration weights',dests: ['?','C']            },
@@ -178,6 +188,9 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'firewood stack',     dests: ['\u00b7','H']            },
     { label: 'cache crate',        dests: ['\u00b7','A']            },
     { label: 'relay stockpile',    dests: ['\u00b7','C']            },
+    // v0.0.9.4 niche labels — rho (A) depot + tau (H) home identity
+    { label: 'pallet jack wheels', dests: ['A']                },
+    { label: 'heirloom chest',     dests: ['H']                },
     // phi (?) \u2014 rain-measurement gear
     { label: 'weather balloon',    dests: ['?']                },
     { label: 'tarp roll',          dests: ['?','\u00b7','H']        },
