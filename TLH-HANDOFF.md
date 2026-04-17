@@ -1,11 +1,11 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-16 (v0.0.9.1 + .2 + .3 + .3.1 all shipped. Day/night cycle on the play area + route-map panel as a 2D plane + typewriter settlement emergence + shortcut travel across the interior with a segment-abstraction refactor + stamina-overboost overlay polish. Next up: v0.0.9.4 — dispatch log virtualization + significance-tagged persistence. Package destination diversification + NPC outbound dispatch moved to v0.0.9.5; downstream terrain/world patches shift one slot.)_
+_last updated: 2026-04-16 (v0.0.9.1 + .2 + .3 + .3.1 all shipped. Day/night cycle on the play area + route-map panel as a 2D plane + typewriter settlement emergence + shortcut travel across the interior with a segment-abstraction refactor + stamina-overboost overlay polish. Next up: v0.0.9.4 — package destination diversification + NPC outbound dispatch (original plan preserved). Dispatch log virtualization + significance-tagged persistence benched to v0.0.9.8 (post-NPC-work) so the significance taxonomy can expand with the new event vocabulary from .4-.7 before persisting a journal; plan fully fleshed out with every design decision locked, see [v0.0.9.8 implementation plan](#v0098-implementation-plan). Final polish pass lives at v0.0.9.9+.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.9.3 + .3.1 shipped; v0.0.9.4 queued (retargeted)
+## ✅ CURRENT STATE: v0.0.9.3 + .3.1 shipped; v0.0.9.4 queued
 
 Game is at `v0.0.9.3.1` on the `claude/angry-lehmann` branch (unmerged as of this update). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches plus a micro-polish:
 
@@ -43,7 +43,7 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 18. ✅ **v0.0.8.7 — weather rework**: spatial storms as travelling world objects, dual-gaussian isobar minimap, intensity zones, weather radio tiering (L1 storm prediction, L2 map unlock). Rain thread complete.
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
-**Resume next session**: v0.0.9.3.1 is shipped on the branch. Next patch is **v0.0.9.4 — dispatch log virtualization + significance-tagged persistence** (retargeted this session; dest-diversification pushed to v0.0.9.5 and the rest of the v0.0.9 queue shifts one slot). Goal: raise the 14-line hardcoded dispatch-log cap by moving the log onto a virtualized render window backed by an unbounded in-memory history array, and persist a significance-tagged subset across saves so a player feels the weight of their courier's journey. See the [v0.0.9.4 implementation plan](#v0094-implementation-plan) for window-size / significance-taxonomy / save-schema decisions. See the [v0.0.9 sequencing](#sequencing) for the full queue.
+**Resume next session**: v0.0.9.3.1 is shipped on the branch. Next patch is **v0.0.9.4 — package destination diversification + NPC outbound dispatch** (original plan preserved after a brief retarget-and-revert during .3.1 planning). The data foundation already shipped in v0.0.8.1 (`PKG_LABELS_BY_SIZE[size][].dests` has been dest-tagged since then) — .4 is the roller-side change + NPC outbound hand-offs at trust-reward depots. With .3's shortcut now in place, destination diversification gives the shortcut real gameplay weight (packages destined for nodes you'd skip create a concrete tradeoff). See the [v0.0.9 sequencing](#sequencing) for the full queue, including the benched **v0.0.9.8 — dispatch log virtualization + significance-tagged persistence** with its fully-locked [implementation plan](#v0098-implementation-plan). Virtualization lands after NPC work so the significance taxonomy can absorb the new event vocabulary from .4-.7 (new NPCs, new terrain, new trust gifts) before the journal starts persisting — a bigger patch when picked up, but a much richer journal.
 
 ## planned but not built (as of v0.0.8.3)
 
@@ -181,7 +181,7 @@ Durability model summary (for v0.0.10 foresight too):
 - **Rocky hills** — spillover from delta's mountain corner into gamma's side; intermediate terrain, higher trip chance but no gear required.
 - **Desert** — nu's corner; canteen drain accelerated, especially at day (plugs into day/night cycle).
 
-**Package destination diversification** — without this, shortcut travel is cosmetic; players never use 2D freedom if every pkg is for the next shelter. Data is already ready (`PKG_LABELS_BY_SIZE[size][].dests` has been dest-tagged since v0.0.8.1). Originally planned for v0.0.9.4 but pushed to **v0.0.9.5** as of the .3.1 resume-next retarget (dispatch log virtualization took the .4 slot).
+**Package destination diversification** — without this, shortcut travel is cosmetic; players never use 2D freedom if every pkg is for the next shelter. Data is already ready (`PKG_LABELS_BY_SIZE[size][].dests` has been dest-tagged since v0.0.8.1).
 - Roller picks uniformly from cells-that-match-this-label rather than always tagging edge endpoint.
 - Labels already shape intent — some local (firewood for nearest shelter), some long-haul (research sample for a specific distant NPC).
 - Natural moment to also land the deferred **NPC outbound dispatch** — trust-reward NPCs hand you pkgs destined for other NPCs on visit.
@@ -220,12 +220,12 @@ Placement: rounded-square corners. Existing 6 NPCs stay on rim sides in their cu
 1. **v0.0.9.1** — renderer audit + day/night cycle (cheap win, confirms the renderer pipeline is still friendly)
 2. **v0.0.9.2** — route-map panel becomes a 2D plane: expand panel size, ring laid as a solid-line road on the plane, interior rendered with placeholder texture + distinct landmass boundary, courier position shown as a dot moving along the ring, storm renderer generalized to sweep across the plane. Shelter-emergence polish (typewriter reveal in settlements side panel) rides here. The side-view play-area strip is **not** touched.
 3. **v0.0.9.3** — shortcut travel (click-across-ring → interior segment path). Interior rendered but empty.
-4. **v0.0.9.4** — dispatch log virtualization + significance-tagged persistence. Windowed DOM render backed by an unbounded in-memory history array; significant events (deliveries, trust unlocks, discoveries, milestones, trip losses, etc.) tagged at `addLog` time and persisted into the save so a player can scroll back through a courier's journey across sessions. Session-only chatter (harvesting ticks, drinks, auto-drinks, pickup fails, scan cooldowns, save confirmations) stays ephemeral. See [v0.0.9.4 implementation plan](#v0094-implementation-plan).
-5. **v0.0.9.5** — package destination diversification + NPC outbound dispatch (pushed from .4 this session). Data foundation already shipped in v0.0.8.1 (`PKG_LABELS_BY_SIZE[size][].dests` has been dest-tagged since then) — .5 is the roller-side change + NPC outbound hand-offs at trust-reward depots. With .3's shortcut in place, destination diversification gives the shortcut real gameplay weight (packages destined for nodes you'd skip create a concrete tradeoff).
-6. **v0.0.9.6** — terrain bones: new zone types, rivers, mountain massif + pass generation, rocky hills, desert. Ladder/anchor as inventory-only gear (world-overlay comes next).
-7. **v0.0.9.7** — **world-overlay system**: save-stored + multiplayer-synced. Trails + persistent ladders/anchors land together (shared data model, two decay curves).
-8. **v0.0.9.8** — world refresh pass: rounded-square rim, existing-building relocations, name updates, 4 new NPC corners, new landmarks, dialogue + trust tiers + upgrade gifts.
-9. **v0.0.9.9+** — balance, dialogue polish, mountain-pass-carving tuning, deferred tail.
+4. **v0.0.9.4** — package destination diversification + NPC outbound dispatch. Data foundation already shipped in v0.0.8.1 (`PKG_LABELS_BY_SIZE[size][].dests` has been dest-tagged since then) — .4 is the roller-side change + NPC outbound hand-offs at trust-reward depots. With .3's shortcut in place, destination diversification gives the shortcut real gameplay weight (packages destined for nodes you'd skip create a concrete tradeoff).
+5. **v0.0.9.5** — terrain bones: new zone types, rivers, mountain massif + pass generation, rocky hills, desert. Ladder/anchor as inventory-only gear (world-overlay comes next).
+6. **v0.0.9.6** — **world-overlay system**: save-stored + multiplayer-synced. Trails + persistent ladders/anchors land together (shared data model, two decay curves).
+7. **v0.0.9.7** — world refresh pass: rounded-square rim, existing-building relocations, name updates, 4 new NPC corners, new landmarks, dialogue + trust tiers + upgrade gifts.
+8. **v0.0.9.8** — dispatch log virtualization + significance-tagged persistence (benched here during .3.1 planning). Windowed DOM render backed by an unbounded `_transient.logHistory`; significant events (deliveries, trust unlocks, discoveries, milestones, trip losses, in-progress pickups, etc.) tagged at `addLog` time and persisted into `S.log` so a player can scroll back through a courier's journey across sessions. Slotted after NPC work so the significance taxonomy can fold in the .4-.7 event vocabulary (new NPC dialogue, terrain-specific events, new trust gifts) before the journal starts persisting — bigger patch when picked up, much richer persistent journal. All .3.1 design decisions (window sizing, scroll-pinning, persisted cap, pickup-on-inventory, prior-session separator) remain locked; only the taxonomy list needs an audit-and-expand pass before building. See [v0.0.9.8 implementation plan](#v0098-implementation-plan).
+9. **v0.0.9.9+** — balance, dialogue polish, mountain-pass-carving tuning, deferred tail. Final polish pass across the whole v0.0.9 arc.
 
 Each patch ships independently playable; no later patch is gated on the next.
 
@@ -428,7 +428,7 @@ Shipped 2026-04-16 as a single commit (`d680823` on `claude/stoic-jepsen`). Plan
 
 ### thesis
 
-The ring stops being the only route. **Clicking a non-adjacent node on the 2D route-map cuts the courier through the interior** instead of sending them around the ring. Opens up route-planning as an active gameplay loop: default = walk the ring clockwise delivering packages as you go; shortcut = trade skipped delivery opportunities for speed. With package destination diversification (originally planned v0.0.9.4, now v0.0.9.5 after the .3.1 retarget) behind this, the shortcut gains concrete gameplay weight — packages for nodes you'd skip become a real tradeoff.
+The ring stops being the only route. **Clicking a non-adjacent node on the 2D route-map cuts the courier through the interior** instead of sending them around the ring. Opens up route-planning as an active gameplay loop: default = walk the ring clockwise delivering packages as you go; shortcut = trade skipped delivery opportunities for speed. With package destination diversification (v0.0.9.4) right behind this, the shortcut gains concrete gameplay weight — packages for nodes you'd skip become a real tradeoff.
 
 ### data-model shift: "option (c) thin segment shape"
 
@@ -495,9 +495,14 @@ Numbers chosen so shortcuts remain viable (player still wants them for distance 
 
 ---
 
-## v0.0.9.4 implementation plan
+## v0.0.9.8 implementation plan
 
-Drafted 2026-04-16 during the v0.0.9.3.1 polish commit; retargets the .4 slot from dest-diversification (pushed to .5) to **dispatch log virtualization + significance-tagged persistence**. Not yet implemented — next session picks up from here.
+Drafted 2026-04-16 during the v0.0.9.3.1 polish commit. Briefly took the .4 slot, then the .6 slot, before the user settled on **v0.0.9.8 (post-NPC-work, pre-final-polish)**. Rationale: letting all the v0.0.9.4-.7 systemic work land first means the significance taxonomy can absorb the new event vocabulary (new NPC dialogue, terrain-specific events, ladder/anchor/trail interactions, new trust gifts) before the journal starts persisting. The patch gets bigger (more tag sites to audit) but the journal it produces is much richer — a player scrolling back through a save actually reads something resembling a courier's story across the full world.
+
+**All six design decisions locked during the .3.1 walkthrough** (see below). Only open work when picking this up:
+1. **Re-audit `addLog` call sites** across the .4-.7 patches to find new event types that should be tagged significant (expect: NPC hand-offs, NPC gift dialogue at new callsigns, ladder/anchor place + break events, river wade, mountain ascent, desert canteen-stress warnings, etc.).
+2. **Confirm `SAVE_VERSION`** in [constants.js](js/constants.js) — currently v7 as of .3.1; likely advanced during .4-.7. Bump to the next integer.
+3. **Update the subtitle bump target** to whatever sub-version this ships as (probably v0.0.9.8; confirm no v0.0.9.7.N micro-patches displaced it).
 
 ### thesis
 
@@ -545,12 +550,12 @@ Tagged at `addLog` call sites via a second arg: `addLog(msg, { sig: true })`. De
 - New package spotted — [packages.js:318](js/packages.js:318)
 - Battery charged at depot — [main.js:339](js/main.js:339)
 - Exhaustion → auto-rest — [main.js:285](js/main.js:285)
+- **Package pickups** — [packages.js:225](js/packages.js:225). Tagged `{ sig: true, pkgId: pkg.id }`. Pruned from `S.log` on successful delivery (see taxonomy q#6 below) so the persistent journal collapses pickup+delivery into just the delivery. Kept on trip-loss / drop so the "picked up X → lost X" story survives. In-progress pickups (still in cargo at save time) persist — unfinished stories carry across reloads.
 
 **Ephemeral (session only, `sig: false` by default — no code change needed at call sites):**
 - Harvested sandalweed (fires per harvest, spammy) — [packages.js:174](js/packages.js:174)
 - Drank from canteen (fires per drink, spammy) — [stamina.js:139](js/stamina.js:139)
 - Pickup fails — [packages.js:194](js/packages.js:194)
-- Picked up (happens often; arguable — revisit if journal feels thin) — [packages.js:225](js/packages.js:225)
 - Sticky gun refill — [packages.js:239](js/packages.js:239)
 - Scanner cooldown — [scanner.js:81](js/scanner.js:81)
 - Manual scan — [scanner.js:45](js/scanner.js:45) (borderline; lean ephemeral)
@@ -567,25 +572,26 @@ Roughly 15-17 call sites flip to `sig: true`; ephemeral ones stay unchanged.
 
 ### save schema
 
-Bump `SAVE_VERSION` in [constants.js](js/constants.js) from current **v7 → v8**. Add `data.version !== 7` to the accepted-for-migration list in [persistence.js](js/persistence.js) (lines 141, 158). New persisted field: `S.log: []`. Migration for pre-v8 saves: load with `S.log = []` — no history before the patch; player's journal starts at .4 ship time. Document the cap (`LOG_PERSIST_CAP = 1000`) as a constant in constants.js so tuning is single-file.
+Bump `SAVE_VERSION` in [constants.js](js/constants.js) to the next version (as of .3.1 plan draft, current is **v7** — verify at build time, may have moved during v0.0.9.4/.5). Add the previous accepted version to the accepted-for-migration list in [persistence.js](js/persistence.js) (currently lines 141, 158 — line numbers may drift). New persisted field: `S.log: []`. Migration for pre-bump saves: load with `S.log = []` — no history before the patch; player's journal starts at this patch's ship time. Document the cap (`LOG_PERSIST_CAP = 1000`) as a constant in constants.js so tuning is single-file.
 
-### open design questions (lock before building)
+### design decisions (locked with user during v0.0.9.3.1 planning walkthrough)
 
-1. **Window tuning.** `WINDOW_SIZE = 30 / WINDOW_EXTEND = 30 / MAX_DOM = 500` are starting guesses. Tune once the scroll feel is live — likely fine but may want bigger on desktop / smaller on mobile.
-2. **Scroll-pinning.** Plan above goes "pill when viewing history, auto-insert when viewing top." Alternative: auto-follow always, user must scroll up to see history. Pill approach matches chat-app conventions; I think it's right for TLH but confirm.
-3. **Persisted hard cap.** 1000 entries. If saves start pressing localStorage, drop to 500. Migration should tolerate either.
-4. **Post-death recovery view.** The recovery flow shows a separate view. Does the journal stay visible there, or clear? Probably stays — death is itself a significant entry the player should see.
-5. **Prior-session separator.** On load, entries from `S.log` (last session) hydrate first. Visual break (`— session resumed —` or a color shift on older entries) would thematically reinforce "journal across time." Defer as polish — not load-bearing for the mechanic.
-6. **`picked up` tagging.** Borderline: happens frequently enough to feel ephemeral, but each is a distinct event. Lean ephemeral for v1; revisit if the journal feels thin without pickups.
+1. **Window tuning** — ✅ approved. `WINDOW_SIZE = 30 / WINDOW_EXTEND = 30 / MAX_DOM = 500`. Tune if the scroll feel wants it after the feature is live.
+2. **Scroll-pinning** — ✅ approved. Pill-when-viewing-history; new messages insert silently into top of DOM only when the user is already at the top. User clicks the pill to jump up and flush pending inserts.
+3. **Persisted hard cap** — ✅ 1000 entries. At ~130-250 bytes/entry (JSON of rendered HTML strings) that's ~150-250KB, well inside the 5-10MB localStorage budget (~20× headroom over current save size). If we ever want 5000+, switch persisted shape from rendered-HTML strings to event-type + args and re-render on read (~60-80 bytes/entry).
+4. **Post-death recovery view** — ❌ question was hallucinated. TLH has no death/game-over mechanic. `js/recovery.js` handles *lost-cargo recovery* (picking up other porters' dropped pkgs) — nothing to do with player death. Dropped from the plan.
+5. **Prior-session separator** — ✅ approved as polish: subtle color shift on entries loaded from `S.log`, open to a `— session resumed —` line. User noted UI polish is always a plus for this game and is happy to iterate in mockup. Not load-bearing for the mechanic — lives in commit 5.
+6. **`picked up` tagging — conditional on still-in-inventory.** ✅ refined from "ephemeral for v1" to: tag pickups `sig: true` AND give each pkg a unique `id`; log entries optionally carry `pkgId`. **On successful delivery** — prune the matching pickup entry from `S.log` (collapses pickup+delivery pair into just "delivered" in the persistent journal). **On trip-loss, drop, or other unresolved ends** — keep the pickup (story `picked up X → lost X in the mud` is exactly what a player should remember). **In-progress pickups** (still in cargo at save time) persist — unfinished stories carry across reloads. Tiny implementation: one `id` field added at `rollPkg` time, one `pkgId` field on log entries, one `removeLogEntryByPkgId(pkgId)` call in the delivery path.
 
 ### files the patch will touch
 
-- [js/render/log.js](js/render/log.js) — core rewrite. `addLog(msg, opts)` signature, window rendering, scroll listener, pill element, rehydrate-on-load helper.
+- [js/render/log.js](js/render/log.js) — core rewrite. `addLog(msg, opts)` signature, window rendering, scroll listener, pill element, rehydrate-on-load helper, `removeLogEntryByPkgId(pkgId)` helper.
 - [js/state.js](js/state.js) — add `S.log: []` (persisted), `S._transient.logHistory: []`.
 - [js/persistence.js](js/persistence.js) — serialize/deserialize `S.log`, schema bump + migration, rehydrate `_transient.logHistory` on `loadGame`.
-- ~15 `addLog` call sites across [js/packages.js](js/packages.js), [js/trust.js](js/trust.js), [js/trip.js](js/trip.js), [js/main.js](js/main.js), [js/boots.js](js/boots.js), [js/multiplayer.js](js/multiplayer.js), [js/save-io.js](js/save-io.js) — tag `sig: true` at the significant sites.
-- [the-long-haul.html](the-long-haul.html) — "↑ new messages" pill element (absolute-positioned inside the dispatch-log panel). Subtitle bump `.3.1` → `.4`.
-- [the-long-haul.css](the-long-haul.css) — pill styling; optional prior-session visual separator.
+- [js/packages.js](js/packages.js) — add `pkg.id = crypto.randomUUID()` (or an incrementing counter) in `rollPkg`. Tag pickup log `{ sig: true, pkgId: pkg.id }`. Tag delivery log `{ sig: true }` + call `removeLogEntryByPkgId(pkg.id)` to prune the pickup from `S.log`.
+- ~15 other `addLog` call sites across [js/trust.js](js/trust.js), [js/trip.js](js/trip.js), [js/main.js](js/main.js), [js/boots.js](js/boots.js), [js/multiplayer.js](js/multiplayer.js), [js/save-io.js](js/save-io.js) — tag `sig: true` at the significant sites.
+- [the-long-haul.html](the-long-haul.html) — "↑ new messages" pill element (absolute-positioned inside the dispatch-log panel). Subtitle bump to whatever sub-version this patch ships as.
+- [the-long-haul.css](the-long-haul.css) — pill styling; prior-session visual separator (subtle color shift on pre-session entries, optional `— session resumed —` line; user approved a mockup pass for this).
 
 ### sequence — proposed commit split
 
