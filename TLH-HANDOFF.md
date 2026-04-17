@@ -43,7 +43,7 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 18. ✅ **v0.0.8.7 — weather rework**: spatial storms as travelling world objects, dual-gaussian isobar minimap, intensity zones, weather radio tiering (L1 storm prediction, L2 map unlock). Rain thread complete.
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
-**Resume next session**: v0.0.9.3.1 is shipped on the branch. Next patch is **v0.0.9.4 — package destination diversification + NPC outbound dispatch** (original plan preserved after a brief retarget-and-revert during .3.1 planning). The data foundation already shipped in v0.0.8.1 (`PKG_LABELS_BY_SIZE[size][].dests` has been dest-tagged since then) — .4 is the roller-side change + NPC outbound hand-offs at trust-reward depots. With .3's shortcut now in place, destination diversification gives the shortcut real gameplay weight (packages destined for nodes you'd skip create a concrete tradeoff). See the [v0.0.9 sequencing](#sequencing) for the full queue, including the benched **v0.0.9.8 — dispatch log virtualization + significance-tagged persistence** with its fully-locked [implementation plan](#v0098-implementation-plan). Virtualization lands after NPC work so the significance taxonomy can absorb the new event vocabulary from .4-.7 (new NPCs, new terrain, new trust gifts) before the journal starts persisting — a bigger patch when picked up, but a much richer journal.
+**Resume next session**: v0.0.9.3.1 is shipped on the branch. Next patch is **v0.0.9.4 — package destination diversification + NPC outbound dispatch**. Every design decision locked during the .3.1 walkthrough; picking this up is turnkey — see [v0.0.9.4 implementation plan](#v0094-implementation-plan) for the full spec (ring-distance-weighted dest picker, NPC outbound offer mechanic, reward structure, niche label audit for thin dests A and H). Cursor pickup + drag-drop / eject (the "glue of the active gameloop") deferred to its own micro-patch **v0.0.9.4.1** on top of .4. See the [v0.0.9 sequencing](#sequencing) for the full queue, including the benched **v0.0.9.8 — dispatch log virtualization + significance-tagged persistence** with its fully-locked [implementation plan](#v0098-implementation-plan).
 
 ## planned but not built (as of v0.0.8.3)
 
@@ -220,7 +220,7 @@ Placement: rounded-square corners. Existing 6 NPCs stay on rim sides in their cu
 1. **v0.0.9.1** — renderer audit + day/night cycle (cheap win, confirms the renderer pipeline is still friendly)
 2. **v0.0.9.2** — route-map panel becomes a 2D plane: expand panel size, ring laid as a solid-line road on the plane, interior rendered with placeholder texture + distinct landmass boundary, courier position shown as a dot moving along the ring, storm renderer generalized to sweep across the plane. Shelter-emergence polish (typewriter reveal in settlements side panel) rides here. The side-view play-area strip is **not** touched.
 3. **v0.0.9.3** — shortcut travel (click-across-ring → interior segment path). Interior rendered but empty.
-4. **v0.0.9.4** — package destination diversification + NPC outbound dispatch. Data foundation already shipped in v0.0.8.1 (`PKG_LABELS_BY_SIZE[size][].dests` has been dest-tagged since then) — .4 is the roller-side change + NPC outbound hand-offs at trust-reward depots. With .3's shortcut in place, destination diversification gives the shortcut real gameplay weight (packages destined for nodes you'd skip create a concrete tradeoff).
+4. **v0.0.9.4** — package destination diversification + NPC outbound dispatch. Data foundation already shipped in v0.0.8.1 (`PKG_LABELS_BY_SIZE[size][].dests` has been dest-tagged since then) — .4 is the roller-side change + NPC outbound hand-offs at trust-reward depots. With .3's shortcut in place, destination diversification gives the shortcut real gameplay weight (packages destined for nodes you'd skip create a concrete tradeoff). All design decisions locked during .3.1 walkthrough — see [v0.0.9.4 implementation plan](#v0094-implementation-plan). Cursor pickup + drag-drop ("glue of the active gameloop") deferred to **v0.0.9.4.1** as its own focused patch.
 5. **v0.0.9.5** — terrain bones: new zone types, rivers, mountain massif + pass generation, rocky hills, desert. Ladder/anchor as inventory-only gear (world-overlay comes next).
 6. **v0.0.9.6** — **world-overlay system**: save-stored + multiplayer-synced. Trails + persistent ladders/anchors land together (shared data model, two decay curves).
 7. **v0.0.9.7** — world refresh pass: rounded-square rim, existing-building relocations, name updates, 4 new NPC corners, new landmarks, dialogue + trust tiers + upgrade gifts.
@@ -492,6 +492,126 @@ Numbers chosen so shortcuts remain viable (player still wants them for distance 
 - Mountain passes + ladder/anchor placement → .5 / .6.
 - Full path-list data model (routes as arrays of segments, multi-hop planning) → v0.0.9.6 when it becomes load-bearing.
 - Shortcut via multiple segments in sequence (e.g., "shortcut through two interior nodes") — .3 ships single-segment shortcuts only.
+
+---
+
+## v0.0.9.4 implementation plan
+
+Drafted 2026-04-16 during the v0.0.9.3.1 design walkthrough. Not yet implemented — next session picks up from here.
+
+### thesis
+
+Delivers on v0.0.9.3's shortcut travel promise: package destinations stop defaulting to the edge endpoint. World-spawn destinations follow a **ring-distance-weighted curve** (mostly next shelter to keep idle play functional, some medium hauls, rare backwards); the existing `PKG_LABELS_BY_SIZE[size][].dests` identity tagging from v0.0.8.1 handles label flavor automatically. Paired with **NPC outbound dispatch** — trust-reward NPCs hand out packages on arrival, story-compatible labels matched via `dests[]` overlap.
+
+After .4, the shortcut becomes a real decision: a pkg destined for a node you'd skip creates the "carry via ring or cut across" tradeoff that v0.0.9.3 was priming.
+
+### dest-div: ring-distance-weighted picker
+
+Replace the `destId = S.edges[edgeIdx][1]` at [world.js:48](js/world.js:48) with a new `rollDestForSpawn(spawnEdgeIdx)` helper. Weights relative to the spawn edge's endpoint on the ring `A → ? → B → C → H → · → A`:
+
+| Relative dest | Meaning | Weight |
+|---|---|---|
+| edge endpoint (+0) | next shelter, delivered this leg | 40 |
+| +1 past endpoint | one extra leg | 25 |
+| +2 past endpoint | two more legs | 15 |
+| +3 past endpoint | halfway around | 10 |
+| +4 (≡ −2) | two legs back | 5 |
+| +5 (≡ −1) | one leg back | 5 |
+
+Implementation: weighted pick over offsets `[0..5]`, compute node ID via `(spawnEdgeEnd + offset) % 6` on the node order, pass to existing `rollPkg(destId, cellRisky, forceLost)`. Existing label filter (`l.dests.includes(destId)`) unchanged — data flows naturally through the v0.0.8.1 roller.
+
+**Fallback:** if the rolled dest has zero label candidates at the rolled size (shouldn't happen after the niche audit but defensive), re-roll once to +0 which always has label coverage.
+
+**Tuning flag:** the 40/25/15/10/5/5 curve is sized for the current 6-node ring. When v0.0.9.7 adds 4 corner NPCs (nu, theta, gamma, delta) and the ring expands to 10 nodes, this distribution needs recalculation to preserve the forward-bias shape across longer distances.
+
+### label-pool niche audit
+
+Single-dest identity inventory at .4 plan time:
+
+| Dest | NPC | Single-dest label count | Needs additions? |
+|---|---|---|---|
+| A | rho (depot) | 2 | ✅ 5 more |
+| B | iota | 6 | — |
+| C | xi (ruins researcher) | 11 | — |
+| H | tau (home / sibling) | 2 | ✅ 5 more |
+| ? | phi (weather) | 9 | — |
+| · | psi (scavenger) | 10 | — |
+
+10 new labels to add in [data/packages.js](js/data/packages.js):
+
+**A (rho — depot, logistics):**
+- s: `dispatch ticket` (A), `waybill` (A)
+- m: `logbook bundle` (A), `depot stamp kit` (A)
+- l: `pallet jack wheels` (A)
+
+**H (tau — home, sibling warmth):**
+- s: `family letter` (H), `knit gloves` (H)
+- m: `preserves jar` (H), `family photos` (H)
+- l: `heirloom chest` (H)
+
+### NPC outbound dispatch
+
+Trust-reward NPCs offer a package on arrival. Offer chance scales with trust; per-lap cooldown prevents spam.
+
+**Who:** All 6 current NPCs (rho / iota / tau / xi / phi / psi).
+
+**When:** On arrival at any NPC node, if:
+- `npc.trust >= OUTBOUND_MIN_TRUST` (floor: 5 — avoids brand-new NPCs spontaneously dispatching)
+- `!S._transient.outboundOffered[nodeId]` (cleared when courier passes a lap-boundary leaving that NPC's zone)
+- Cargo has room for the offered pkg
+
+**Offer chance:** `OUTBOUND_BASE_RATE * (trust / 100)`, clamped `[0, 0.8]`. At trust 25 → 20% chance per arrival; trust 50 → 40%; trust 100 → 80%.
+
+**Label + dest pick:**
+1. Roll size (same weighted pick as world-spawn; no risky-cell bump since arrival cells aren't risky).
+2. Filter `PKG_LABELS_BY_SIZE[size]` to labels where `dests.includes(originNodeId)` **AND** `dests.length >= 2` — "xi's vocabulary, with somewhere to send it."
+3. Pick label uniformly.
+4. Pick destination: other nodes from the label's `dests` (exclude origin). Weight by the same ring-distance curve as dest-div so outbound naturally favors short hauls with rare cross-map sends.
+
+Explicit preferred-partner tables (rho → H, xi → B, etc.) deferred to a later polish pass — user call was "not really sure on this one, we could just have it be random and then refine it later on."
+
+**Player agency:** log-button prompt, same pattern as the t80 rest prompt at [trust.js:273](js/trust.js:273). Button reads `accept parcel from {callsign}` in the dispatch log. Click → pkg enters cargo. No decline button in v1 — the offer times out when the courier leaves (sets `S._transient.outboundOffered[nodeId] = true` to suppress re-offer). Manual eject via the cursor pickup system in the deferred followup patch gives the full "decline later" path.
+
+**Reward structure** — both payouts fire, no replacement:
+- **On acceptance:** `+N trust at origin NPC` where `N = 1 + floor(pkg.slots / 2)` — the same weight-scaled formula as v0.0.8.5's delivery trust. Origin NPC rewards you for accepting the dispatch.
+- **On delivery:** normal delivery trust (`+N`) at destination **plus +1 bonus** because of the outbound flag. Destination NPC rewards you extra for the relationship-spanning delivery.
+
+Net: successful outbound dispatch = `N` origin trust + `N+1` dest trust ≈ `2N+1` total, vs regular delivery's `N` at dest only. Outbound dispatch becomes the trust-dense loop.
+
+Flag the pkg with `pkg.outboundFrom = originNodeId` so `tryDeliver` can detect + apply the `+1` bonus.
+
+### what stays the same
+
+- `rollPkg(destId, cellRisky, forceLost)` signature unchanged.
+- Delivery path in `packages.js tryDeliver` unchanged except for reading `pkg.outboundFrom` for the +1.
+- Cargo system unchanged (2D bin-pack, same shapes).
+- Scrip / trust baseline formulas unchanged.
+- World-spawn cadence unchanged — only the destination picker changes.
+- Auto-pickup on proximity unchanged — cursor pickup lives in the deferred followup.
+
+### files the patch will touch
+
+- [js/world.js](js/world.js) — `makeWorldPkg` uses `rollDestForSpawn(edgeIdx)` instead of edge-endpoint.
+- [js/packages.js](js/packages.js) — export new `rollDestForSpawn(edgeIdx)`; new `tryOutboundDispatch(nodeId)` called from arrival hook; `tryDeliver` reads `pkg.outboundFrom`.
+- [js/main.js](js/main.js) — arrival hook calls `tryOutboundDispatch(arrivedAt)` before pickup scan at around [main.js:308](js/main.js:308).
+- [js/state.js](js/state.js) — `S._transient.outboundOffered: {}` map.
+- [js/data/packages.js](js/data/packages.js) — 10 new niche labels per the audit above.
+- [js/constants.js](js/constants.js) — `DEST_DIV_WEIGHTS` (40/25/15/10/5/5), `OUTBOUND_BASE_RATE = 0.8`, `OUTBOUND_MIN_TRUST = 5`, `OUTBOUND_BONUS_TRUST = 1`.
+- [the-long-haul.html](the-long-haul.html) — subtitle bump `.3.1` → `.4`.
+
+### sequence — proposed commit split
+
+1. **Dest-div backend + niche labels.** `rollDestForSpawn`, 10 new labels, `makeWorldPkg` routed through. Verifiable: pick up several world-spawn pkgs, observe dest diversity + identity-appropriate labels.
+2. **NPC outbound dispatch.** `tryOutboundDispatch` arrival hook, log-button prompt, accept path, outbound flag + delivery bonus. Verifiable: arrive at an NPC with trust ≥ 5, sometimes get an offer; accept, observe dest follows the ring-distance curve; deliver, observe the bonus trust.
+
+Two commits. Kept tight because cursor pickup is its own patch.
+
+### scope — deferred
+
+- **Cursor pickup + drag-drop + ground-tooltips + eject-from-cargo.** The "glue of the active gameloop" per user during .3.1 planning. Without it, dest-div's interesting choices are invisible — the player still auto-picks everything in range, so "which pkg do I take?" is never a decision. Sized comparably to dest-div + outbound dispatch combined. Slotted as **v0.0.9.4.1** (micro-patch on top of .4), or could re-scope into a fat .4 at merge time. User framing: "it's an idle game first" — the cursor system is glue, not the center of gravity; idle mode (auto-pickup) should remain available as default or toggle.
+- **Preferred-partner tables for outbound dispatch.** Launched with uniform-among-compatible-dests (via the ring-distance curve). Explicit per-NPC affinities deferred — user wants data to settle first.
+- **Dest weight retune for expanded NPC roster.** 40/25/15/10/5/5 sized for the current 6-node ring; v0.0.9.7's 10-node ring needs recalculation.
+- **Outbound dispatch for lost/damaged pkgs.** v1 only offers fresh pkgs. Lost-pkg dispatch (an NPC asks you to haul something they scavenged) is a natural .5+ beat once terrain lands and lost spawning has more spatial meaning.
 
 ---
 
