@@ -1,21 +1,22 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-16 (v0.0.9.1 + .2 + .3 + .3.1 + .4 all shipped. Day/night cycle + route-map panel as a 2D plane + typewriter settlement emergence + shortcut travel + stamina-overboost overlay polish + **package destination diversification + NPC outbound dispatch with trust-dense reward loop**. Next up: v0.0.9.4.1 — cursor pickup + drag-drop + ground tooltips + eject-from-cargo (the "glue of the active gameloop" — idle-first framed, auto-pickup remains the default). Plan fully locked; see [v0.0.9.4.1 implementation plan](#v00941-implementation-plan). Dispatch log virtualization + significance-tagged persistence still benched at v0.0.9.8 post-NPC-work; final polish pass at v0.0.9.9+.)_
+_last updated: 2026-04-16 (v0.0.9.1 + .2 + .3 + .3.1 + .4 + .4.1 all shipped. Day/night cycle + route-map panel as a 2D plane + typewriter settlement emergence + shortcut travel + stamina-overboost overlay polish + package destination diversification + NPC outbound dispatch + cursor pickup / drag-drop / ground tooltips / eject-from-cargo. Next up: **v0.0.9.5 — NPC expansion**. 6 new NPCs anchor the refreshed world (4 corner NPCs previously sketched — nu / theta / gamma / delta — plus 2 rim additions TBD), rim regens from 6-node ring to rounded-square with ~10-12 rim nodes, upgrade migrations (efficientConsumption iota → nu as camelback; xi's terrain map gift; delta's mountain gear + walking stick). Terrain bones + ladder/anchor gear + world-overlay + trails all bundle into v0.0.9.6 as the "new world" mechanics patch — sequencing updated this session after confirming NPCs anchor terrain placement and should land first. See [v0.0.9.5 implementation plan](#v0095-implementation-plan). Dispatch log virtualization still benched at v0.0.9.8; final polish pass at v0.0.9.9+.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.9.3 + .3.1 + .4 shipped; v0.0.9.4.1 queued
+## ✅ CURRENT STATE: v0.0.9.3 + .3.1 + .4 + .4.1 shipped; v0.0.9.5 queued
 
-Game is at `v0.0.9.4` on the `claude/angry-lehmann` branch (unmerged as of this update). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches, a micro-polish, and the dest-div + outbound dispatch patch:
+Game is at `v0.0.9.4.1` on the `claude/angry-lehmann` branch (unmerged as of this update). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches, a micro-polish, dest-div + outbound dispatch, and cursor-based cargo UX:
 
 - **v0.0.9.1 — day/night cycle.** Side-view play-area strip gets a sky layer: sun arcs by day, moon with phases by night, stars flicker between. Backdrop paints as a layered gradient (cool vertical base + sun-anchored warm radial at sunrise/sunset). Real-scale sun + moon (eclipse-ready). See [v0.0.9.1 implementation plan](#v0091-implementation-plan).
 - **v0.0.9.2 — route-map panel → 2D plane.** Abstract 6-node ring became a square 2D plane with the ring drawn as a solid line and the interior textured (dim dots inside the ring polygon). Node glyphs `?` → φ and `·` → ψ to match the v0.0.8.4 identity patch. Typewriter settlement-emergence reveal when a node crosses stage-2 → stage-3. Right column widened to 320px; network + channels placed side-by-side below the route map. See [v0.0.9.2 implementation plan](#v0092-implementation-plan).
 - **v0.0.9.3 — shortcut travel.** Clicking a non-adjacent node on the 2D route-map cuts the courier through the interior on a natural bezier curve. Dotted trail fades behind. Live tooltip on hover with via-ring / via-shortcut km + savings. Segment-abstraction refactor (option c) — `S._transient.currentSegment` becomes the source of truth for "which leg is the courier walking." Interior is off-grid (no pickup / weather / wetland refill during shortcut). Cost tax (stamina ×1.2, trip ×1.5) primes v0.0.9.6's trample decay model. See [v0.0.9.3 implementation plan](#v0093-implementation-plan).
 - **v0.0.9.3.1 — overboost overlay + trust-rewards bug-list note.** Stamina overboost moved from a 25×8 side-segment to a 100×8 overlay on the main bar (same size and shape, `position:absolute; inset:0`), so overboost reads as "stamina is above its cap" rather than "an extra gauge next to stamina." Overlay `display:none`'s once excess hits 0 — it simply goes away. Trust-reward auto-grant → shop-claimable added to the queued bug list (see bug-list item #5).
 - **v0.0.9.4 — package destination diversification + NPC outbound dispatch.** Two-commit patch. (1) World-spawn destinations now picked by a ring-distance-weighted curve (40/25/15/10/5/5 across offsets 0-5 clockwise from spawn-edge endpoint) instead of defaulting to the edge endpoint — heavy forward bias keeps idle play smooth while the long tail gives shortcut travel real gameplay weight. Niche label audit added 10 new labels for the two thin dests (rho/A: dispatch ticket, waybill, logbook bundle, depot stamp kit, pallet jack wheels. tau/H: family letter, knit gloves, preserves jar, family photos, heirloom chest). (2) NPC outbound dispatch: all 6 NPCs can offer a pkg on arrival with chance scaling `OUTBOUND_BASE_RATE * (trust/100)` capped 0.8; per-visit cooldown; label pick filters to `dests.includes(origin) && dests.length >= 2` (uses the v0.0.8.1 dests[] as a story-compatibility set); destination picked from label's other dests weighted by the same ring-distance curve. Log-button accept follows the depot-rest pattern. Reward structure: `+N` at origin on accept (N = 1 + floor(slots/2)), `+N+1` at dest on delivery (normal + outbound bonus) — ≈2N+1 trust per successful dispatch vs a regular delivery's N. pkg flagged with `outboundFrom` carries through to tryDeliver for the bonus. See [v0.0.9.4 implementation plan](#v0094-implementation-plan).
+- **v0.0.9.4.1 — cursor pickup + drag-drop + ground tooltips + eject-from-cargo.** Two-commit patch + several follow-up bugfix commits. (1) Tooltips on ground pkgs (shared format with cargo via `formatPkgTooltip`), in-range cursor-pointer affordance, click-to-pickup with `grab: auto|off` toggle (auto remains the default per "idle game first"). (2) Drag-to-toss from cargo with modifier-scaled lost chance (fragile 30%, unwieldy 25%, lightweight 20%, heavy 5%, base 10%); kept pkgs drop at the courier's current cell (±3 search), lost pkgs route through the existing `postLostDrop` recovery pipeline tagged with player porter id. Bugfix cycle resolved: body-portal `#pkgTooltip` to escape `overflow:hidden` clipping; `.drag-ghost.cslot` specificity bump so position:fixed wins; explicit ghost dimensions per size class; ghost centered on cursor; `tossedUntilTick` cooldown so auto-scan doesn't re-grab a just-dropped pkg; bidirectional cursor pickup (±range) so tossed pkgs landing behind the courier are clickable; sticky-tooltip fix (track hoveredPkgCi, reconcile after every renderFieldstrip's innerHTML rewrite); grab+tie-down toggles stacked vertically in the cargo row. See [v0.0.9.4.1 implementation plan](#v00941-implementation-plan).
 
-The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2, .3, .3.1, and .4 — the gameplay camera stays the 1-row strip; all the 2D + interactive work lives in the route-map panel. The fieldstrip's auto-pickup behavior is untouched by .4 as well; v0.0.9.4.1 adds cursor-based manual pickup (alongside auto) + drag-drop + toss.
+The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2 → .4.1 — the gameplay camera stays the 1-row strip; all the 2D + interactive work lives in the route-map panel + cargo grid.
 
 **v0.0.8 scope redefinition (historical note):** the handoff previously framed v0.0.8 as terrain expansion (deserts, rivers, slopes). User rescoped it around **three mechanical-depth threads**: packages, trust, rain. All three shipped. Terrain moved to v0.0.9 and is now the lead thread there.
 
@@ -44,7 +45,7 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 18. ✅ **v0.0.8.7 — weather rework**: spatial storms as travelling world objects, dual-gaussian isobar minimap, intensity zones, weather radio tiering (L1 storm prediction, L2 map unlock). Rain thread complete.
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
-**Resume next session**: v0.0.9.4 is shipped on the branch (2 commits: dest-div backend + outbound dispatch). Next patch is **v0.0.9.4.1 — cursor pickup + drag-drop + ground tooltips + eject-from-cargo**. All design decisions locked during the v0.0.9.4 walkthrough; see [v0.0.9.4.1 implementation plan](#v00941-implementation-plan) for the full spec (tooltip + click-to-pickup + `grab:` toggle in commit 1; drag-to-place + drag-to-toss with modifier-scaled lost-chance in commit 2). Auto-pickup stays the default per "idle game first" memory; cursor mode is opt-in. See the [v0.0.9 sequencing](#sequencing) for the full queue, including the benched **v0.0.9.8 — dispatch log virtualization + significance-tagged persistence** with its fully-locked [implementation plan](#v0098-implementation-plan).
+**Resume next session**: v0.0.9.4.1 is shipped on the branch (2 scope commits + several bugfix cascades). Next patch is **v0.0.9.5 — NPC expansion** (sequencing updated this session: originally .5 was terrain, .7 was NPCs; merging put NPCs first at .5 so terrain in .6 can anchor at them instead of being provisionally placed and re-jiggered later). Scope: rim regens from the current 6-node ring to a rounded-square with ~10-12 rim nodes, **6 new NPCs land** (4 corner NPCs previously sketched — nu desert / theta riverbed / gamma rocky hillside / delta mountain — plus 2 rim additions the user will lock when picking up the work), full dialogue per NPC, trust tiers + upgrade gifts wired, upgrade migrations (efficientConsumption iota → nu as camelback; xi's terrain map gift; delta's mountain gear + walking stick). See [v0.0.9.5 implementation plan](#v0095-implementation-plan). Terrain bones + ladder/anchor gear + world-overlay + trails all bundle into **v0.0.9.6** as the mechanics/geography patch; see [v0.0.9.6 implementation plan](#v0096-implementation-plan). Dispatch log virt still benched at **v0.0.9.8**; see [its plan](#v0098-implementation-plan).
 
 ## planned but not built (as of v0.0.8.3)
 
@@ -140,11 +141,11 @@ Planning sketch captured 2026-04-16. Not locked; terrain + NPC cast + renderer d
 1. **Renderer refresh.** Untouched since before v0.0.7 UI pass; user calls it "dated." Stay ASCII — sprites are a long-term ambition but too big to lift in-house now. v0.0.9 lifts via 2D viewport + atmospheric polish, not glyph-system rewrite.
 2. **2D world — on the route-map panel, not replacing the play area.** The existing side-view play-area strip (`.tlh-viewport` where the courier `@` walks) **stays exactly as it is** — that's the gameplay camera and it's finished. The **route-map panel** (currently the small 6-node SVG ring) is what becomes a 2D plane: a flat top-down space with the ring laid down as a road and the interior traversable in any direction. Clicking a non-adjacent node routes the courier's path through the interior. Interior needs texture (trails + terrain) so it's not featureless.
 3. **New terrain types:** rivers, mountains, rocky hills, deserts. Plus a refresh pass on the existing ring biomes (building locations/names may shift, existing NPCs stay in their buildings).
-4. **4 new NPCs** (nu, theta, gamma, delta). See cast below.
+4. **6 new NPCs** total in v0.0.9.5 — 4 corner anchors (nu, theta, gamma, delta) plus 2 additional rim-side NPCs (TBD). See cast below.
 
 ### design sketch from the planning session (not locked)
 
-**Map shape: rounded square with 10-node rim.** Hex-with-10 is uneven; true circle is rotationally-symmetric but regionally-flat. Rounded square gives 4 corners as natural geographic anchors (one biome per corner) + 2-3 rim nodes per side. Existing 6 NPCs stay on rim sides; 4 new NPCs anchor the 4 corners.
+**Map shape: rounded square with ~10-12 node rim.** Hex-with-10 is uneven; true circle is rotationally-symmetric but regionally-flat. Rounded square gives 4 corners as natural geographic anchors (one biome per corner) + 2-3 rim nodes per side. Existing 6 NPCs stay on rim sides; **6 new NPCs** join — 4 anchoring the corners, 2 adding additional rim presence (TBD at .5 scope-lock time). Total post-.5 NPC count: 12.
 
 **Shortcut traversal.** Routes become lists of segments rather than an implicit `edgeIdx`. Click-across-ring = a single straight(ish) segment through the interior. Existing tick/distance/stamina/trip math reuses — the courier is still advancing along a segment, the segment just happens to cross the middle.
 
@@ -193,9 +194,11 @@ Durability model summary (for v0.0.10 foresight too):
 - **Day/night cycle**: shipped in v0.0.9.1 on the side-view strip. See [v0.0.9.1 implementation plan](#v0091-implementation-plan) for the shipped model (layered CSS gradient + sun-anchored radial glow) — supersedes the primer's original "single CSS variable interpolated through color ramps" sketch.
 - Weather already spatial — storms are currently drawn along edge line-paths; once the route-map panel is a 2D plane, storms should sweep across it as world objects (generalization bundled with v0.0.9.2 per user's intent since the storm data model already supports it).
 
-### new NPC cast (v0.0.9 landmass — 4 corners)
+### new NPC cast (v0.0.9.5 — 6 NPCs, 4 corners + 2 rim TBD)
 
-Placement: rounded-square corners. Existing 6 NPCs stay on rim sides in their current buildings (locations may shift on the refreshed rim).
+Placement: 4 corner NPCs anchor the biomes at the rounded-square corners; 2 additional rim-side NPCs join them (voice / role / gifts TBD — user will lock when picking up v0.0.9.5). Existing 6 NPCs stay on the rim sides in their current buildings (locations may shift on the refreshed rim).
+
+Scope as of this update (2026-04-16) — 4 sketched, 2 TBD. Total new: 6. Total NPC count after .5: **12** (6 existing + 6 new).
 
 | NPC | Corner | Voice / personality | Gifts |
 |---|---|---|---|
@@ -203,12 +206,16 @@ Placement: rounded-square corners. Existing 6 NPCs stay on rim sides in their cu
 | **theta** | riverbed (clay source) | Motherly + warm, but disciplined and hardworking. Carves clay from the riverbed for pottery (essential regional good). Respected, revered. Makes very good tea. | **river navigation** (reduced trip chance when wading); **ceramic wrapping** (fragile pkgs absorb +1 hit / reduced damage — hooks into v0.0.8.1 fragile modifier) |
 | **gamma** | rocky hillside | Tit-for-tat helpful. Hates owing people; goes out of their way to pay back favors. Expects the same from you. | **improved tie-downs** (chance to withstand a hit); **mobile carrier / exoskeleton** (the deferred v0.0.8.3 spec lands here — battery-powered shared carry expansion) |
 | **delta** | mountain | Gregarious mountain climber. Used to risking life + limb on sharp rock faces just to catch a view. Miracle they're still alive, but someone always comes to their aid. | **mountain gear** (improved ladder + anchor durability); **walking stick** (physical item — reduces trip damage on mountain/rocky cells; alt mechanic = stamina drain ↓, see open questions) |
+| **rim NPC #5** | rim TBD | — | — |
+| **rim NPC #6** | rim TBD | — | — |
 
 **Tier placement (tentative)** — follows v0.0.8.6 pattern (t20 = first gift, t40 = second):
 - nu: t20 = camelback (moved from iota); t40 = reservoir tank
 - theta: t20 = river navigation; t40 = ceramic wrapping
 - gamma: t20 = improved tie-downs; t40 = mobile carrier / exoskeleton
 - delta: t20 = mountain gear durability; t40 = walking stick
+- rim NPC #5: TBD
+- rim NPC #6: TBD
 
 **iota migration.** `efficientConsumption` moves off iota → nu (reflavored as camelback). iota stays sandalweed-themed with sandalSatchel + sandalEfficiency — not gift-starved. iota's remaining tier structure unchanged.
 
@@ -222,11 +229,11 @@ Placement: rounded-square corners. Existing 6 NPCs stay on rim sides in their cu
 2. **v0.0.9.2** — route-map panel becomes a 2D plane: expand panel size, ring laid as a solid-line road on the plane, interior rendered with placeholder texture + distinct landmass boundary, courier position shown as a dot moving along the ring, storm renderer generalized to sweep across the plane. Shelter-emergence polish (typewriter reveal in settlements side panel) rides here. The side-view play-area strip is **not** touched.
 3. **v0.0.9.3** — shortcut travel (click-across-ring → interior segment path). Interior rendered but empty.
 4. ✅ **v0.0.9.4** — package destination diversification + NPC outbound dispatch. Shipped as two commits: ring-distance-weighted spawn dest picker + 10 niche labels for thin dests (rho A, tau H); trust-scaled NPC outbound dispatch with `+N` origin / `+N+1` dest reward structure. See [v0.0.9.4 implementation plan](#v0094-implementation-plan).
-5. **v0.0.9.4.1** — cursor pickup + drag-drop + ground tooltips + eject-from-cargo. Two-commit patch: (1) hover tooltips on ground pkgs + in-range click-to-pickup + `grab:` auto/off toggle (auto stays default per "idle game first"); (2) drag-drop manual placement + drag-to-toss from cargo with modifier-scaled lost-chance (base 10%, fragile 30%, unwieldy 25%, lightweight 20%, heavy 5%). Tossed-kept lands at courier's current cell (±3 search for empty); tossed-lost tagged with porter ID and enters the multiplayer recovery pipeline. See [v0.0.9.4.1 implementation plan](#v00941-implementation-plan).
-6. **v0.0.9.5** — terrain bones: new zone types, rivers, mountain massif + pass generation, rocky hills, desert. Ladder/anchor as inventory-only gear (world-overlay comes next).
-7. **v0.0.9.6** — **world-overlay system**: save-stored + multiplayer-synced. Trails + persistent ladders/anchors land together (shared data model, two decay curves).
-8. **v0.0.9.7** — world refresh pass: rounded-square rim, existing-building relocations, name updates, 4 new NPC corners, new landmarks, dialogue + trust tiers + upgrade gifts.
-9. **v0.0.9.8** — dispatch log virtualization + significance-tagged persistence (benched here during .3.1 planning). Windowed DOM render backed by an unbounded `_transient.logHistory`; significant events (deliveries, trust unlocks, discoveries, milestones, trip losses, in-progress pickups, etc.) tagged at `addLog` time and persisted into `S.log` so a player can scroll back through a courier's journey across sessions. Slotted after NPC work so the significance taxonomy can fold in the .4-.7 event vocabulary (new NPC dialogue, terrain-specific events, new trust gifts) before the journal starts persisting — bigger patch when picked up, much richer persistent journal. All .3.1 design decisions (window sizing, scroll-pinning, persisted cap, pickup-on-inventory, prior-session separator) remain locked; only the taxonomy list needs an audit-and-expand pass before building. See [v0.0.9.8 implementation plan](#v0098-implementation-plan).
+5. ✅ **v0.0.9.4.1** — cursor pickup + drag-drop + ground tooltips + eject-from-cargo. Two scope commits + bugfix cascade. Tooltips via body-portal (#pkgTooltip escapes fieldstrip clipping), in-range cursor-pointer + click-to-pickup + `grab: auto|off` toggle, drag-to-toss with modifier-scaled lost chance, kept pkgs drop at courier cell ±3 (cooldown so auto doesn't re-grab), lost pkgs route through postLostDrop recovery pipeline. Bidirectional cursor pickup, sticky-tooltip reconciliation, button stacking fixes rolled in. See [v0.0.9.4.1 implementation plan](#v00941-implementation-plan).
+6. **v0.0.9.5** — **NPC expansion** (sequencing swap this session — NPCs pulled forward from old .7 slot so terrain can anchor at them). Rim regens from 6-node ring to rounded-square with ~10-12 rim nodes. **6 new NPCs** land (4 corner NPCs — nu / theta / gamma / delta — plus 2 rim additions user locks when picking up). Full dialogue per NPC (ambient + threshold + warning + preview + rest + delivery categories, matching the v0.0.8.4 pattern). Trust tiers + upgrade gifts wired. Upgrade migrations: efficientConsumption iota → nu as camelback (reservoir tank at t40); theta's river navigation + ceramic wrapping; gamma's improved tie-downs + mobile carrier; delta's mountain gear + walking stick; xi gets terrain map. Save schema bump for the rim topology + new npc entries. See [v0.0.9.5 implementation plan](#v0095-implementation-plan).
+7. **v0.0.9.6** — **world patch: terrain bones + gear + world-overlay + trails** (merged from old .5 + .6). Terrain types land anchored at corner NPCs from .5 — rivers diagonal across interior (theta source, clay beds in `#98875f` / `#a64a2e`), mountain massifs clustered at delta's corner with natural passes + gated massifs, rocky hills as spillover, desert at nu's with day-scaled stamina drain (stamina ×1.4 day / ×1.0 night, canteen untouched — player drinks more as secondary effect). Shortcut mechanic rewrite: flat SHORTCUT_STAMINA_MULT / SHORTCUT_TRIP_MULT retired in favor of per-cell terrain effects. Interior brought on-grid (weather + scanner + river-refill + terrain effects active during shortcut; pkg pickup stays off pending .7+). Ladder + anchor as inventory-only kit-bar gear (1×1 slots each, purchased at shop, ~1 IRL-day durability, storm-accelerated only when player-in-storm; visible wear states via glyph/color shift + tooltip label `fresh` / `weathered` / `rotting`). Mountain penalty: 2.0× trip / 1.5× stamina base; ladder (carried) → 1.5× / 1.25× on ascent; anchor (carried) → 1.5× / 1.25× on descent; both → 1.5× / 1.25× on both sides. Placement consumes inventory item + creates world-overlay structure usable by others (ladder/anchor persists ~1 IRL day, wear + storm-modulation carried forward). Trails land with shared world-overlay data plumbing — per-cell trample value, save-stored + multiplayer-synced, virgin terrain costs more than walked-in paths, emergent social paving. Mountain-pass carving as natural extension (repeated crossings reduce penalties, eventually free pass). Storms sweep across 2D interior (not just ring); spawn frequency 2×; multiple concurrent storms; combine/intersect logic stubbed for future. See [v0.0.9.6 implementation plan](#v0096-implementation-plan).
+8. **v0.0.9.7** — open polish slot. Held for bugfix cascades or whatever micro-work shakes out of .5 + .6.
+9. **v0.0.9.8** — dispatch log virtualization + significance-tagged persistence (benched here during .3.1 planning). Windowed DOM render backed by an unbounded `_transient.logHistory`; significant events (deliveries, trust unlocks, discoveries, milestones, trip losses, in-progress pickups, etc.) tagged at `addLog` time and persisted into `S.log` so a player can scroll back through a courier's journey across sessions. Slotted after NPC + world work so the significance taxonomy can fold in the .4-.6 event vocabulary (new NPC dialogue, terrain-specific events, new trust gifts) before the journal starts persisting — bigger patch when picked up, much richer persistent journal. All .3.1 design decisions (window sizing, scroll-pinning, persisted cap, pickup-on-inventory, prior-session separator) remain locked; only the taxonomy list needs an audit-and-expand pass before building. See [v0.0.9.8 implementation plan](#v0098-implementation-plan).
 10. **v0.0.9.9+** — balance, dialogue polish, mountain-pass-carving tuning, deferred tail. Final polish pass across the whole v0.0.9 arc.
 
 Each patch ships independently playable; no later patch is gated on the next.
@@ -235,7 +242,7 @@ Each patch ships independently playable; no later patch is gated on the next.
 
 - **Walking stick mechanic.** Item is locked; effect still open between (a) **survivor's instinct** — reduced trip damage on mountain/rocky cells (lean, because the stick literally catches you), or (b) **altitude conditioning** — reduced stamina drain on elevated terrain. Either works; pick when building.
 - **Delta's lost-idea gift.** User had a different t40 gift in mind and forgot; walking stick takes the slot as a placeholder. If the original idea resurfaces, walking stick could move to t60 or retire.
-- **xi tier for terrain map.** t20 or t40 depends on xi's existing gift slots and the player-unlock pacing. Review when v0.0.9.7 NPC work comes up.
+- **xi tier for terrain map.** t20 or t40 depends on xi's existing gift slots and the player-unlock pacing. Review when v0.0.9.5 NPC work comes up (NPC patch moved from old .7 slot to .5 during the .4.1 planning swap).
 - **Ladder/anchor decay numbers.** Base ≈ 1 IRL day. Mountain-gear upgrade multiplier — ×2? ×3? Tune empirically once placed ladders are live.
 - **Weather modifier on decay — v0.0.9 or v0.0.10?** Storm system is already spatial so the accumulator is cheap, but it adds tuning surface. Probably stub the field in v0.0.9 and activate in v0.0.10 alongside real shelters.
 - **Trail decay schedule.** Stubbed for v0.0.9; revisit when trails have been playable long enough to read feel. (Per-biome rates — wetland fast, desert slow — was discussed but deferred.)
@@ -324,7 +331,7 @@ Backdrop = `warmOverlay + ', ' + coolBaseGradient`. `coolBaseGradient` is always
 - **Storm/rain layer interaction with sky.** Currently rain renders over a clear sky, showing stars through raindrops. Looks off but is not a regression — revisit during the weather/storm renderer generalization that v0.0.9.2+ will need for the 2D viewport. Note this clearly in the commit message so nobody thinks it's a bug we missed.
 - **Route-map sky glyph** (small sun/moon indicator on the route panel). Deferred indefinitely; the route map stays reserved for route-relevant info.
 - **Shelter-emergence polish.** Stage-2 → stage-3 settlement reveal is still a dry className swap. Lands in v0.0.9.2 alongside the viewport rework.
-- **Ground-strip terrain variety.** Current single-line `. , ; -` ASCII is thematic but flat. Terrain variety lands in v0.0.9.5 (desert / rocky hills / rivers / mountains).
+- **Ground-strip terrain variety.** Current single-line `. , ; -` ASCII is thematic but flat. Terrain variety lands in v0.0.9.6 (desert / rocky hills / rivers / mountains; terrain moved from old .5 slot during the .4.1 planning swap).
 - **Scene backdrop + destDrift rework.** The destination-sliding-past-the-courier effect doesn't physically make sense; eventual direction is per-destination backdrop polish + character animations + ruined-ASCII environments. Parked; candidate for a dedicated polish pass after v0.0.9.7.
 - **Richer warm palette.** The warm radial uses O/m/M as the three warm colors. A fuller sunset palette (e.g. adding a dedicated peach or salmon) is aspirational — the current set is enough for a convincing first pass.
 
@@ -333,7 +340,7 @@ Backdrop = `warmOverlay + ', ' + coolBaseGradient`. `coolBaseGradient` is always
 Things the audit surfaced that are **not in .1 scope** — recorded here so they don't get forgotten:
 
 1. **Shelter emergence is a dry swap** → v0.0.9.2.
-2. **Fieldstrip terrain is one-line and invariant** → v0.0.9.5.
+2. **Fieldstrip terrain is one-line and invariant** → v0.0.9.6 (was old .5 slot; terrain moved during the .4.1 planning swap).
 3. **destDrift right-to-left animation is cosmetic filler, not a physical fact** → post-.7 polish.
 4. **Storm renderer is tied to edge linear path**; needs to sweep across the map once 2D lands → v0.0.9.2 weather rework.
 5. **Hardcoded colors throughout the stylesheet.** Only the new palette additions (O/B/b) get CSS variables in .1; broader CSS-var refactor is not justified yet and would swell scope.
@@ -399,11 +406,11 @@ Captured separately in [HANDOFF.md](HANDOFF.md) to keep this doc game-focused. S
 ### scope — explicitly deferred
 
 - Literal ASCII road glyphs on the ring → future "structures" patch.
-- Real terrain types (rivers / mountain massifs / rocky hills / desert) → v0.0.9.5.
-- Terrain depth/height visualization → later than .5, or its own pass.
+- Real terrain types (rivers / mountain massifs / rocky hills / desert) → v0.0.9.6 (shifted from old .5 during the .4.1 planning swap).
+- Terrain depth/height visualization → later than .6, or its own pass.
 - Click-across-ring shortcut travel → v0.0.9.3.
 - Interior trails (save-stored, multiplayer-synced) → v0.0.9.6.
-- Rounded-square rim with 4 corner NPCs → v0.0.9.7 (world-map regen).
+- Rounded-square rim with 6 new NPCs (4 corner + 2 rim) → v0.0.9.5 (pulled forward from old .7 during the .4.1 planning swap so terrain at .6 can anchor at them).
 - Full 2D storm physics (free XY drift) → future patch after .2.
 - Expandable isobar legend bar in the route-panel — currently feels cramped at the new route-map size. Revisit alongside the storm/weather rework.
 
@@ -459,7 +466,7 @@ While `currentSegment.type === 'shortcut'`:
 - Weather lookup, wetland refill, river refill, package scan-for-pickup, scanner tick — all gated behind `!isOnShortcut()` in [main.js](js/main.js) tick.
 - In [trip.js](js/trip.js), the cell-indexed risky-cell + weather trip multipliers are skipped; replaced by the flat `SHORTCUT_TRIP_MULT` tax.
 
-Clean boundary — interior is genuinely empty of game content until v0.0.9.5 terrain bones and v0.0.9.6 trail overlays fill it in.
+Clean boundary — interior is genuinely empty of game content until v0.0.9.6's terrain bones + trail overlays fill it in (both previously split across .5 + .6; consolidated into .6 during the .4.1 planning swap).
 
 ### cost tax during shortcut
 
@@ -490,8 +497,8 @@ Numbers chosen so shortcuts remain viable (player still wants them for distance 
 ### scope — deferred
 
 - Persistent multiplayer-synced trails with trample mechanics → v0.0.9.6.
-- Real terrain types inside the interior (rivers, mountain massifs, rocky hills, desert) → v0.0.9.5.
-- Mountain passes + ladder/anchor placement → .5 / .6.
+- Real terrain types inside the interior (rivers, mountain massifs, rocky hills, desert) → v0.0.9.6 (shifted from old .5 during the .4.1 planning swap).
+- Mountain passes + ladder/anchor placement → .6.
 - Full path-list data model (routes as arrays of segments, multi-hop planning) → v0.0.9.6 when it becomes load-bearing.
 - Shortcut via multiple segments in sequence (e.g., "shortcut through two interior nodes") — .3 ships single-segment shortcuts only.
 
@@ -524,7 +531,7 @@ Implementation: weighted pick over offsets `[0..5]`, compute node ID via `(spawn
 
 **Fallback:** if the rolled dest has zero label candidates at the rolled size (shouldn't happen after the niche audit but defensive), re-roll once to +0 which always has label coverage.
 
-**Tuning flag:** the 40/25/15/10/5/5 curve is sized for the current 6-node ring. When v0.0.9.7 adds 4 corner NPCs (nu, theta, gamma, delta) and the ring expands to 10 nodes, this distribution needs recalculation to preserve the forward-bias shape across longer distances.
+**Tuning flag:** the 40/25/15/10/5/5 curve is sized for the current 6-node ring. When v0.0.9.5 adds 6 new NPCs and the rim expands to ~10-12 nodes (moved from old .7 slot during the .4.1 planning swap), this distribution needs recalculation to preserve the forward-bias shape across longer distances.
 
 ### label-pool niche audit
 
@@ -612,7 +619,7 @@ Two commits. Kept tight because cursor pickup is its own patch.
 
 - **Cursor pickup + drag-drop + ground-tooltips + eject-from-cargo.** The "glue of the active gameloop" per user during .3.1 planning. Without it, dest-div's interesting choices are invisible — the player still auto-picks everything in range, so "which pkg do I take?" is never a decision. Sized comparably to dest-div + outbound dispatch combined. Slotted as **v0.0.9.4.1** (micro-patch on top of .4), or could re-scope into a fat .4 at merge time. User framing: "it's an idle game first" — the cursor system is glue, not the center of gravity; idle mode (auto-pickup) should remain available as default or toggle.
 - **Preferred-partner tables for outbound dispatch.** Launched with uniform-among-compatible-dests (via the ring-distance curve). Explicit per-NPC affinities deferred — user wants data to settle first.
-- **Dest weight retune for expanded NPC roster.** 40/25/15/10/5/5 sized for the current 6-node ring; v0.0.9.7's 10-node ring needs recalculation.
+- **Dest weight retune for expanded NPC roster.** 40/25/15/10/5/5 sized for the current 6-node ring; v0.0.9.5's ~10-12-node rim needs recalculation (NPC patch moved from old .7 to .5 during the .4.1 planning swap).
 - **Outbound dispatch for lost/damaged pkgs.** v1 only offers fresh pkgs. Lost-pkg dispatch (an NPC asks you to haul something they scavenged) is a natural .5+ beat once terrain lands and lost spawning has more spatial meaning.
 
 ---
@@ -741,6 +748,202 @@ No bump. `S.autoGrab` is a new top-level field with a sensible default (`true`);
 - **Drag-to-throw trajectory anim.** A visual arc + landing thump when tossing would be nice flavor. Pure polish — not blocking.
 - **Visual range viz on fieldstrip.** User explicitly declined; noting here in case it ever feels needed.
 - **Cargo rearrangement between laps / hotkey auto-sort.** Auto-sort is always-on via binpack; explicit "sort now" hotkey is a feature only needed if manual placement gets messy.
+
+---
+
+## v0.0.9.5 implementation plan
+
+Drafted 2026-04-16 during the v0.0.9.4.1 design walkthrough. Not yet implemented — next session picks up from here. This patch was originally slotted at .7 as "world refresh pass"; pulled forward to .5 this session after confirming terrain placement should anchor at NPCs rather than be provisionally placed and re-jiggered later. Terrain + gear + world-overlay now consolidate into v0.0.9.6.
+
+### thesis
+
+The world gets its cast. Current 6 NPCs on a 6-node ring become 12 NPCs on a ~10-12 node rounded-square rim — 4 new NPCs anchor the corners (each biome's geographic identity), 2 more add rim-side presence (TBD — user locks voice / role / gifts at scope-lock time). Shipping the NPCs first means v0.0.9.6's terrain lands anchored at real named locations with dialogue that reacts to the player — "theta is working the riverbed today" is a different experience than "there's a river in an unnamed part of the map."
+
+### map reshape
+
+**From:** 6-node ring with `S.edges = [['A','?'],['?','B'],['B','C'],['C','H'],['H','·'],['·','A']]` — hex-ish, fixed.
+
+**To:** rounded-square rim with ~10-12 nodes. 4 corners + 2-3 rim nodes per side. Existing 6 NPCs stay on the rim sides (positions may shift). 4 new corner NPCs + 2 new rim NPCs (TBD) join, bringing total to 12.
+
+Considerations:
+- **Route-map panel redraw.** The 2D plane from v0.0.9.2 stays, but the polygon defining the ring + interior boundary updates to a rounded-square. Shortcut bezier paths in v0.0.9.3 re-resolve against the new geometry automatically (the pathFn math is endpoint-agnostic).
+- **Save migration.** Existing saves have `edgeIdx: 0..5`. The new rim has ~10-12 edges. Need to map old edge positions to closest new equivalents and preserve courier position smoothly. Simple version: snap to the nearest new edge endpoint that corresponds to the same old NPC (e.g., if old edgeIdx points into rho→? edge, new edgeIdx points into the new rho→next-node edge). Schema bump `SAVE_VERSION` v7 → v8.
+- **Node-glyph palette.** Greek letters for all 12 NPCs. 6 existing: rho / iota / tau / xi / phi / psi. 4 locked corners: nu / theta / gamma / delta. 2 TBD: user picks when defining.
+- **Visual treatment.** Corners read as MORE than rim nodes — perhaps a slightly larger glyph, a subtle biome-color halo on the route map, or a corner marker. Worth a mockup pass before building.
+
+### new NPCs — what ships
+
+4 sketched + 2 TBD. All six need:
+
+- **NPC def** entry in [js/data/npc-defs.js](js/data/npc-defs.js) — id / callsign / trustProfile ('default' / 'careful' / 'scavenger' per v0.0.8.4 dispatcher) / node placement.
+- **NPC_LINES** entry in [js/data/npc-lines.js](js/data/npc-lines.js) — full category-first dialogue shape from v0.0.8.4. At minimum: ambient chatter, threshold (trust ↑ lines), warning (pre-trip), preview (pre-weather), restPrompt (t80+), delivery (5 conditions × 3 variants = 15 lines). ~40-60 dialogue lines per new NPC × 6 = 240-360 new lines.
+- **trustProfile dispatch** — nu (protective / water-oriented), theta (riverbed/ pottery), gamma (tit-for-tat), delta (mountain risk-taker). Behavior per v0.0.8.4 — 'scavenger' doubles s-size gain / halves l+xl; 'careful' halves non-fragile + non-xl. nu could be a new profile (reward carefulness with canteen-related pkgs?) but we could also just fit into existing dispatcher.
+- **Upgrade gifts wired** via `trustReward` flags on upgrade defs. `onTrustUnlock` dispatcher already exists from v0.0.8.6; just register new entries.
+- **Shop visibility** — `renderUpgrades()` filters trust-reward upgrades out of the scrip menu; new entries follow suit. (Note: "trust rewards should go through the shop as claimable" is still a flagged bug from earlier feedback — may be addressed in this patch or deferred.)
+
+### upgrade migrations + new upgrades
+
+Migrations (existing upgrades that move):
+- **`efficientConsumption`: iota → nu** — reflavored as camelback (physical item, per "items > skills" design preference). Migration path: existing saves that have `efficientConsumption` via iota's t40 keep the benefit, but the canonical owner is nu t20. On load, if `S.upgrades.efficientConsumption && !S.npcs.nu?.unlocks.t20`, grant-ratchet nu to t20 (retro-grant pattern from v0.0.8.6).
+
+New upgrades (first-time unlocks):
+- **nu t20: camelback** (efficientConsumption's new home, same 60% canteen drain multiplier)
+- **nu t40: reservoir tank** (canteen capacity ↑ + passive fill ↑ — numbers TBD)
+- **theta t20: river navigation** (reduced trip chance when wading — scales with river-wade mechanic from .6)
+- **theta t40: ceramic wrapping** (fragile pkgs absorb +1 damage hit before degrading — hooks into v0.0.8.1 fragile modifier)
+- **gamma t20: improved tie-downs** (chance to withstand a hit — specifics TBD, could add a second tie-down charge or a passive absorb)
+- **gamma t40: mobile carrier / exoskeleton** (battery-powered shared carry expansion — v0.0.8.3 deferred spec lands here; interacts with battery + kit bar)
+- **delta t20: mountain gear durability** (ladder + anchor wear rate reduced ×2)
+- **delta t40: walking stick** (physical item; reduces trip damage on mountain/rocky cells — or stamina drain ↓ on elevated terrain; pick mechanic when building)
+- **xi: terrain map** (unlocked as a new gift for xi — tier TBD; could be t20 if it lands cleanly alongside scannerT1 or t40 if xi's slot fills up)
+- **rim NPC #5 gifts**: TBD
+- **rim NPC #6 gifts**: TBD
+
+### label pool updates
+
+Each new NPC needs labels tagged with their dest. The v0.0.8.1 dest-tagged pool already covers rho/iota/tau/xi/phi/psi; adding destinations for nu (ν), theta (θ), gamma (γ), delta (δ) + 2 TBD means adding their IDs to existing labels where thematically appropriate AND authoring new niche labels per their identity:
+
+- **nu (desert)** — water-related, survival: waterskin, salt tabs, sand goggles, sun tarp, dust mask, etc. ~6-10 single-dest labels across sizes.
+- **theta (riverbed)** — pottery, clay, ceramics: clay bundle, pot shards, kiln fuel, tea leaves, glaze samples, etc.
+- **gamma (rocky hillside)** — mechanical / repair: rope bundle, carabiners, climbing holds, stove fuel, etc.
+- **delta (mountain)** — mountaineering / route-finding: pitons, ice screws, summit logs, topo maps, signal flares, etc.
+- **rim NPC #5 + #6**: TBD.
+
+Full audit when drafting the commit — ensure each new NPC has ≥4-6 single-dest labels for strong identity, matching the v0.0.9.4 niche-audit standard for rho/tau.
+
+### proposed commit split
+
+1. **Rim reshape + save migration.** Update `S.edges` to the new ~10-12 node shape. Redraw the route-map polygon. Migrate existing saves (edgeIdx remap). Schema bump v7 → v8. Verifiable: load an old save, courier arrives at the correct NPC equivalent, shortcut paths still work.
+2. **4 corner NPCs + dialogue + trust profiles.** nu / theta / gamma / delta NPC defs + NPC_LINES + trustProfile dispatcher updates. Verifiable: arrive at each new NPC, receive dialogue, trust accrues on delivery.
+3. **2 rim-TBD NPCs.** Once the user locks their voices / roles / gifts, ship them. Same pattern as commit 2.
+4. **Upgrade migrations + new upgrade defs + trust-gift wiring.** efficientConsumption migration, 8+ new upgrades, `onTrustUnlock` registrations. Verifiable: cross each threshold, receive each gift, existing saves don't lose efficientConsumption in migration.
+5. **Label pool expansion.** Add nu/theta/gamma/delta + TBD-NPC destinations to existing labels; add new niche labels per NPC identity. Verifiable: roll pkgs for each dest, observe identity-appropriate labels.
+
+Save schema bump lands in commit 1 so subsequent commits don't have to migrate multiple times.
+
+### scope — deferred
+
+- **Rim regen visual polish.** First pass of the rounded-square may look geometric; smoother curves + biome-color halos land in .7 / .9+.
+- **Existing NPC building relocations.** Primer calls out "locations may shift on the refreshed rim." Minor shifts land in this patch; big relocations (if any emerge) defer.
+- **Trust-rewards-via-shop refactor.** Flagged in the bug-list — trust-tier upgrades currently auto-apply via `onTrustUnlock` + `loadGame` retro-grant; user wants them claimable from a shop surface with per-NPC flavor. Could land here (aligned with new NPC gifts) or defer as its own patch.
+- **Walking stick mechanic choice.** Either "trip damage reduction on mountain/rocky" or "stamina drain reduction on elevated" — picked at build time.
+- **Delta's lost t40 idea.** User had a different t40 gift in mind and forgot; walking stick takes the slot. If it resurfaces, walking stick moves to t60 or retires.
+- **rim NPC #5 + #6 voices + gifts** — TBD by user. Block commit 3 until locked.
+
+---
+
+## v0.0.9.6 implementation plan
+
+Drafted 2026-04-16 during the v0.0.9.4.1 design walkthrough. Not yet implemented — follows v0.0.9.5. Consolidates the old .5 (terrain bones) + old .6 (world-overlay system) into a single coherent "world patch" since terrain, gear, placement, and overlay all interact tightly.
+
+### thesis
+
+The world gets its mechanics. v0.0.9.5 added the cast and reshaped the rim; .6 fills the interior with terrain that matters, adds the gear that lets you traverse it (ladder + anchor), wires the world-overlay persistence system so placed structures + carved trails survive across sessions + sync across players, and brings storms into the 2D interior. After .6, the shortcut from v0.0.9.3 becomes a real exploration-traversal choice rather than a cosmetic shortcut.
+
+### terrain bones
+
+Interior-only placement (the rim keeps its existing zones from `js/data/zones.js`). Deterministic generation anchored at corner NPCs from .5 — rivers originate at theta, mountains cluster at delta's corner, etc. Deterministic means a given world seed produces the same terrain for all players (lets multiplayer-synced trails converge).
+
+**Terrain types:**
+
+| Type | Location | Visual | Mechanics |
+|---|---|---|---|
+| River (water) | Diagonal across interior from theta's corner to opposite side | `~ ~ ~` in blue-teal | Wading: trip ×1.2, stamina ×1.3, canteen refill +0.3/tick. Closes the long-stubbed `S.inRiver` flag. |
+| River (clay bed) | Banks of river, especially near theta | `-- --` in `#98875f` (dry) or `#a64a2e` (saturated near source) | Walkable without wading, slower (stamina ×1.1). Clay is harvestable for future crafting (not wired in .6). |
+| Mountain | Clustered 3-5 cell massifs at delta's corner, some with natural passes | `^ ^ ^` in slate | Base penalty: trip ×2.0, stamina ×1.5. Ladder (carried) → ×1.5/×1.25 on ascent side. Anchor → ×1.5/×1.25 on descent side. Both → ×1.5/×1.25 both sides. Natural passes have no penalty (but slower than flat ground). Gated massifs (no pass) unavoidable by route — must use gear or accept full penalty. |
+| Rocky hills | Spillover ring around delta's mountain corner into gamma's side | `, ~ , .` in muted beige | Intermediate: trip ×1.4-1.6, stamina ×1.15. No gear required. |
+| Desert | nu's corner | `. . . .` in warm sand tone | Stamina ×1.4 during day (plugs into v0.0.9.1 sun arc), ×1.0 at night. Canteen untouched — player drinks more as a secondary effect, thematically "sun tires you out." |
+
+**Shortcut mechanic rewrite.** v0.0.9.3's flat `SHORTCUT_STAMINA_MULT = 1.20` and `SHORTCUT_TRIP_MULT = 1.50` retire. Per-cell terrain effects apply during shortcut traversal. Flat terrain (no named type) = ×1.0 baseline (cheaper than the old 1.20 / 1.50 flat tax — the penalty is now tied to ACTUAL terrain, not just "you're in the interior").
+
+### interior on-grid
+
+v0.0.9.3 gated many systems behind `isOnShortcut()`:
+- Pickup scanning (skip) — **stays skipped in .6** (no pkgs spawn in the interior yet; revisit in .7+ once NPC dispatch expands into interior-spawn flows)
+- Wetland canteen refill (skip) — **wire for rivers**: if current shortcut cell is a river-water cell, refill applies
+- Weather lookup (skip) — **on-grid**: storm effects apply in interior now (since storms sweep interior per the spawn changes below)
+- Scanner tick (skip) — **on-grid**: scanning is useful in the interior (pre-mountain visibility, rocky-hill trip risk reduction)
+
+Net: interior is on-grid for everything except package pickup.
+
+### ladder + anchor gear
+
+**Inventory presence:** ladder = 1×1 slot, anchor = 1×1 slot. Live in the **kit bar** (new structure in the stamina row's cargo area, introducing the kit concept before battery shows up at delta's t20 → gamma t40 mobile carrier tie-in). Purchased at the shop for scrip, repeat-buyable.
+
+**Durability:** base ≈ 1 IRL day (wall-clock, not ticks). delta's mountain gear upgrade ×2. Wear accelerator: while player is IN a storm (spatial check, not ambient), wear ticks 3× faster. Wear represented as 0..1 float with wall-clock decay; gear breaks + log message when wear ≥ 1.
+
+**Visual wear states** via glyph/color shift + tooltip label change:
+- 0.0–0.35 = `fresh` (cyan text, crisp glyph `/\` for ladder, `|^` for anchor)
+- 0.35–0.7 = `weathered` (mid-teal, glyph with subtle fray)
+- 0.7–1.0 = `rotting` (rust/muted, glyph with visible damage)
+
+Tooltip surfaces state: `ladder — fresh` / `ladder — weathered` / `ladder — rotting`.
+
+**Directional gating:** ladder helps ascent, anchor helps descent. Mountain cells tag their ascent vs descent side based on elevation gradient (deterministic per seed).
+
+**Placement:** dragging a ladder/anchor from inventory onto a mountain cell → consumes the inventory item, creates a **world-overlay structure** at that cell. Structure is visible to all players (multiplayer-synced via the world-overlay system below). Structure retains ~1 IRL day durability (wall-clock) from placement time, storm-accelerated same as inventory wear. Once consumed, the inventory item is gone.
+
+### world-overlay system
+
+Save-stored + multiplayer-synced object table. Keyed by canonical ID: `${placerId}-${placedWallClock}-${ci}`. Wall-clock timestamps (not ticks) for cross-session decay math.
+
+**Object types (v0.0.9.6):**
+- Placed ladder / anchor structures (as above)
+- Trail cells (per-cell trample value, see below)
+
+**Baked upgrade flags at placement.** A ladder placed by a player with delta's mountain-gear-upgrade lasts longer *for all viewers*, not dependent on the observer's upgrades. Required field in the placed object.
+
+**Visibility sharding**: build sharding-compatible shapes now (canonical IDs, wall-clock timestamps). Actual filter function activates when active player count reaches ~10 (user's threshold call). For v0.0.9.6: every save sees every object.
+
+### trails
+
+Per-cell `trample` float + `lastStepTick`. Tracked in the world-overlay table. Each courier step on a cell adds `TRAMPLE_PER_STEP` (starting value 0.1). Cap at 1.0 (fully paved).
+
+**Effects scale with trample:**
+- Virgin terrain (trample = 0): full terrain penalty
+- Walked-in path (trample ≈ 0.5): penalties reduced ~30%
+- Paved (trample ≥ 0.9): penalties reduced ~70-80% (effectively flat terrain)
+
+**Multiplayer sync:** each player's steps contribute to the shared trample value. Emergent "paving" — popular shortcut routes become easier for everyone over time.
+
+**Visual:** glyph/color ramps with trample: `.` → `,` → `;` → `:` or a cyan-intensity ramp.
+
+**Decay schedule:** stubbed in .6, real decay revisit in v0.0.9.9+.
+
+### mountain-pass carving
+
+Natural extension of trails. Repeated crossings of the same mountain cell increase trample. At high trample (≥0.85), the cell becomes a **free pass** — no gear required, minimal penalty. This is the long-described "mountain-pass-carving" mechanic finally landed.
+
+### storm system rework
+
+Storms already spatial (v0.0.8.7). Extensions for .6:
+- **Interior sweep.** Storm center can be ANY world point (ring or interior), not just edge cells. Isobar minimap redraws to show the full 2D plane.
+- **Spawn frequency 2×.** Current `nextStormSpawnTick` interval halved.
+- **Multiple concurrent storms.** Current code assumes 1 storm at a time; rework `S.storms[]` to handle multiple. Each has its own center, radius, intensity.
+- **Combine/intersect stub.** When two storms' radii overlap, flag combine/intersect logic as FUTURE — stub the detection (store overlap percentage) without implementing behavior. Revisit in v0.0.9.9+.
+- **Cloud layer over terrain.** Storms fly over mountains unimpeded (cloud layer > terrain). No terrain-storm interaction in .6.
+- **Storm wear accelerator.** Placed ladders + anchors accelerate wear when physically within a storm's radius. Spatial check per tick.
+
+### proposed commit split
+
+1. **Terrain bones + zone data.** Add terrain types to `js/data/zones.js` (or new `js/data/terrain.js`), deterministic placement algorithm anchored at .5's NPC corners. Verifiable: inspect world cells, confirm terrain layout matches spec.
+2. **Shortcut mechanic rewrite + interior on-grid.** Retire flat multipliers, wire per-cell terrain effects, flip gates for weather + scanner + river-refill. Verifiable: shortcut through various terrain, observe per-cell effects.
+3. **Ladder + anchor gear.** Kit-bar integration, shop entries, durability math, wear visual states, directional penalty mitigation. Verifiable: buy gear, cross mountain, observe penalty changes.
+4. **World-overlay system.** Shared data plumbing, canonical IDs, wall-clock timestamps, multiplayer sync, baked upgrade flags. Verifiable: cross-session persistence, two sessions see same objects.
+5. **Placement mechanic + trails + pass carving.** Drag-to-place ladders/anchors, trample-per-step, visual ramps, pass-carving at trample ≥ 0.85. Verifiable: place a ladder, reload, ladder still there; walk the same path many times, observe trample ramp.
+6. **Storm sweep + multi-concurrent + spawn 2×.** Interior storm travel, multiple storms, combine/intersect stub, spatial wear accelerator. Verifiable: observe multiple concurrent storms across ring + interior; placed ladder inside storm radius wears faster.
+
+Six commits. Each verifiable. Save schema bump lands in commit 4 (world-overlay table is the first persisted addition); all other commits ride on v8 schema from .5.
+
+### scope — deferred
+
+- **Package spawning in interior.** Interior stays pkg-free in .6. Revisit when NPC dispatch expands (v0.0.9.7 / .9+).
+- **Trail decay schedule.** Stubbed in .6; real decay curves revisit in v0.0.9.9+ when trail data has been playable long enough to read feel.
+- **Storm combine/intersect behavior.** Detection stubbed; behavioral rules (merge into super-storm? cancel each other out? create intensity gradient?) punted to v0.0.9.9+.
+- **Interior landmarks / points of interest.** Clay deposits at theta's, a mountain summit marker, etc. Atmospheric polish — land post-core mechanics.
+- **Visibility sharding active filter.** Shapes ready (canonical IDs + wall-clock), filter activates at ~10 active players.
+- **Weather-modulated decay rate for placed structures beyond storm-spatial.** Current .6: only active-storm wear accelerator. Ambient humidity / rain-inside-a-storm modulation deferred to v0.0.10 with real shelters.
+- **Trust-rewards-via-shop refactor.** Still a flagged bug; may land in .5 or push further out depending on scope bandwidth.
 
 ---
 
