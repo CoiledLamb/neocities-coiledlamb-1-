@@ -275,26 +275,33 @@ export function tick() {
     const seg = S._transient.currentSegment;
     const onInterior = seg && (seg.type === 'shortcut' || seg.type === 'river-drift');
     let currentTerrain = null;
-    let courierXYNow = null;
-    if (onInterior) {
-      currentTerrain = courierTerrain();
+    let courierXYNow = seg && seg.pathFn ? seg.pathFn(S.dotT) : null;
+    // v0.0.9.6.9.3 — courierTerrain returns 'plateau' when a ring-
+    // walking courier enters a mesa-outcrop zone (midpoint between
+    // early-route NPCs). Process terrain effects whenever a terrain
+    // is non-flat, regardless of segment type.
+    currentTerrain = courierTerrain();
+    if (currentTerrain !== 'flat') {
       staminaMult = TERRAIN_STAMINA_MULT[currentTerrain] || 1.0;
       if (currentTerrain === 'desert') {
         staminaMult = desertStaminaMult(daylightOf(S.ticks));
       }
       // v0.0.9.6 commit 4 — auto-place ladder/anchor on terrains
       // that benefit. Placed gear mitigates stamina drain.
-      courierXYNow = seg.pathFn(S.dotT);
-      if (GEAR_FOR_TERRAIN[currentTerrain]) {
+      if (GEAR_FOR_TERRAIN[currentTerrain] && courierXYNow) {
         const placed = autoPlaceForCell(currentTerrain, courierXYNow);
         if (placed) staminaMult *= GEAR_STAMINA_MITIGATION;
       }
-      // v0.0.9.6 commit 6 — trample. Each tick on an interior cell
-      // bumps that cell's trample value; current trample reduces
-      // staminaMult continuously toward 1.0 (flat). Combined with
-      // gear mitigation above for composable cell-level easing.
-      addTrampleAt(courierXYNow.x, courierXYNow.y);
-      staminaMult = reduceMultWithTrample(staminaMult, trampleAt(courierXYNow.x, courierXYNow.y));
+      // v0.0.9.6 commit 6 — trample reduces staminaMult per cell.
+      // Only accumulate trample on the interior (shortcut / river-
+      // drift) — ring cells are already the "road" and shouldn't
+      // get paved by the courier walking them (that's the rim
+      // biome's job). Ring mesas still get trample since their
+      // (x,y) is along the road and worth reducing penalty on.
+      if (onInterior || currentTerrain === 'plateau') {
+        addTrampleAt(courierXYNow.x, courierXYNow.y);
+        staminaMult = reduceMultWithTrample(staminaMult, trampleAt(courierXYNow.x, courierXYNow.y));
+      }
     }
     const staminaDrain = C.STAMINA_DRAIN * staminaMult;
     S.stamina = Math.max(0, S.stamina - staminaDrain);

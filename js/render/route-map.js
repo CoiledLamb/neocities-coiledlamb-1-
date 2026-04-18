@@ -24,7 +24,7 @@ import {
   terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY,
   projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength,
   GEAR_GLYPH, gearWear, gearWearTier,
-  cellKeyFromCoords,
+  cellKeyFromCoords, mesaOutcropAt,
 } from '../data/terrain.js';
 import { trampleTier } from '../trail.js';
 
@@ -63,15 +63,22 @@ export function courierXY() {
   return seg.pathFn(S.dotT);
 }
 
-/** Terrain type under the courier — only meaningful while on a
- *  shortcut or river-drift segment (interior positions). Returns
- *  'flat' as a safe default for ring segments where the interior
- *  terrain classifier isn't the source of truth. */
+/** Terrain type under the courier. Shortcut + river-drift segments
+ *  use the full terrainAt classifier (interior positions). Ring
+ *  segments default to 'flat' but ALSO check mesa outcrops —
+ *  v0.0.9.6.9.3 placed these on ring-edge midpoints so courier
+ *  walking the road physically passes through them, engaging the
+ *  auto-gear → ladder → plateau-pickup chain without requiring
+ *  manual shortcut interaction. */
 export function courierTerrain() {
   const seg = S._transient.currentSegment;
   if (!seg) return 'flat';
-  if (seg.type === 'ring') return 'flat';
   const xy = seg.pathFn(S.dotT);
+  if (seg.type === 'ring') {
+    // Mesa outcrops on the ring line read as plateau.
+    if (mesaOutcropAt(xy.x, xy.y)) return 'plateau';
+    return 'flat';
+  }
   return terrainAt(xy.x, xy.y);
 }
 
