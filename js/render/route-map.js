@@ -763,9 +763,15 @@ function renderStorms(svg, ns) {
     const rand = makeRand(storm.seed);
     const typeCfg = C.STORM_TYPES[storm.type];
 
-    // Convert ring positions to SVG coordinates
-    const primary   = cellToSvg(storm.primaryCell);
-    const secondary = cellToSvg(storm.secondaryCell);
+    // v0.0.9.6 commit 7 — storms now live natively in SVG (x, y) coords
+    // (rather than ring-cell indices), so render reads positions
+    // directly. Primary center + secondary offset give the dual-
+    // gaussian shape.
+    const primary   = { x: storm.x, y: storm.y };
+    const secondary = {
+      x: storm.x + (storm.secondaryOffsetX || 0),
+      y: storm.y + (storm.secondaryOffsetY || 0),
+    };
 
     // Color mass uses slightly offset centers (precipitation drifts)
     const mOff = { x: (rand() - 0.5) * 6, y: (rand() - 0.5) * 6 };

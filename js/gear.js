@@ -28,6 +28,7 @@
 'use strict';
 
 import { S } from './state.js';
+import * as C from './constants.js';
 import {
   GEAR_FOR_TERRAIN,
   GEAR_LIFETIME_BASE_MS, GEAR_LIFETIME_EXTENDED_MS,
@@ -201,10 +202,31 @@ const MISSING_GEAR_MSG = {
   plateau:    '<span class="log-wn">mesa edge unclimbed</span> \u2014 a ladder would reach the top',
 };
 
-/** Remove expired placed gear. Called from main.js tick. */
+/** Remove expired placed gear + apply storm wear accelerator. Called
+ *  from main.js tick. v0.0.9.6 commit 7 — each piece of placed gear
+ *  inside an active storm's radius accumulates 2×TICK_MS extra wear
+ *  per tick (so effective decay = 3× while exposed). Once stormDecay
+ *  Extra pushes total wear past 1.0, the gear is removed as usual. */
 export function tickGearDecay() {
   const arr = S.placedGear;
   if (!arr || arr.length === 0) return;
+  const storms = S.storms || [];
+  const bonus  = 2 * C.TICK_MS;   // +2× on top of baseline tick elapsed = 3× total
+  if (storms.length > 0 && bonus > 0) {
+    for (const entry of arr) {
+      let inStorm = false;
+      for (const storm of storms) {
+        const typeCfg = C.STORM_TYPES[storm.type];
+        if (!typeCfg) continue;
+        const radius = typeCfg.radiusSvg || 30;
+        const d = Math.hypot(entry.x - storm.x, entry.y - storm.y);
+        if (d < radius) { inStorm = true; break; }
+      }
+      if (inStorm) {
+        entry.stormDecayExtra = (entry.stormDecayExtra || 0) + bonus;
+      }
+    }
+  }
   for (let i = arr.length - 1; i >= 0; i--) {
     if (gearWear(arr[i]) >= 1) arr.splice(i, 1);
   }

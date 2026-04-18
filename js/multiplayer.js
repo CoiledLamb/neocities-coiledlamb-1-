@@ -268,6 +268,21 @@ export function broadcastGearPlacement(payload) {
   });
 }
 
+// v0.0.9.6 commit 7 — trample milestone broadcast. Fires when an
+// interior cell crosses 0.25 / 0.5 / 0.85 trample thresholds so
+// peers see each other's paving. At most 3 broadcasts per cell over
+// its lifetime — bounded volume, no per-tick flooding. Receivers
+// (trail.receiveTrampleMilestone) merge by max value.
+export function broadcastTrampleMilestone(cellKey, value) {
+  if (isSilent()) return;
+  if (!cellKey) return;
+  postActivity('trample_milestone', {
+    cellKey,
+    value: +value,
+    placerId: getCachedPorterId(),
+  });
+}
+
 export async function fetchLostFromPeer(peerPorterId) {
   try {
     const res = await fetch(C.FEED_URL + '/lost/' + encodeURIComponent(peerPorterId));
@@ -294,6 +309,7 @@ export async function pollFeed() {
     const myId = getCachedPorterId();
     const seen = new Set(S.networkFeed.map(e => `${e.timestamp}|${e.porterId}|${e.type}`));
     const freshGearEvents = [];
+    const freshTrampleEvents = [];
     data.events.forEach(e => {
       const key = `${e.timestamp}|${e.porterId}|${e.type}`;
       if (!seen.has(key)) {
@@ -313,11 +329,23 @@ export async function pollFeed() {
         if (e.type === 'gear_placement' && e.data) {
           freshGearEvents.push(e.data);
         }
+        // v0.0.9.6 commit 7 — dispatch trample_milestone events into
+        // trail.js receiver. Peer paving merges into local
+        // S.interiorTrample (max-value wins). Carved-threshold
+        // crossings post a channel line.
+        if (e.type === 'trample_milestone' && e.data) {
+          freshTrampleEvents.push(e.data);
+        }
       }
     });
     if (freshGearEvents.length) {
       import('./gear.js').then((gearMod) => {
         freshGearEvents.forEach(data => gearMod.receiveGearPlacement(data));
+      });
+    }
+    if (freshTrampleEvents.length) {
+      import('./trail.js').then((trailMod) => {
+        freshTrampleEvents.forEach(data => trailMod.receiveTrampleMilestone(data));
       });
     }
 
