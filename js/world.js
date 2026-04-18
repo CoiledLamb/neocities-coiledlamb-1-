@@ -110,6 +110,15 @@ export function buildWorld() {
     if (worldCells[i].wetland) wetSet.add(worldCells[i].edgeIdx);
   }
   S._transient.wetlandEdges = [...wetSet];
+
+  // v0.0.9.6 commit 5 — seed interior pkgs on plateau / mountain /
+  // rockyHills cells per INTERIOR_SPAWN_* rates. Idempotent: skips
+  // cells already in the table (so loading a save with pre-existing
+  // interior pkgs doesn't double-seed). Late-imported to avoid a
+  // cycle with packages.js -> terrain.js -> gear.js -> state.js.
+  import('./packages.js').then(({ seedInteriorPkgs }) => {
+    if (typeof seedInteriorPkgs === 'function') seedInteriorPkgs();
+  });
 }
 
 export function calcCellPxWidth() {

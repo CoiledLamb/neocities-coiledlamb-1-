@@ -40,6 +40,23 @@ export function speak(depotId, text) {
   renderChannels();
 }
 
+// v0.0.9.6 commit 5 — peer-placed-gear channel line. Bypasses the
+// speak() NPC-def check since the "sender" is a peer porter rather
+// than a known NPC. depotId 'peer' is an unused sentinel — renders
+// without per-NPC color; .9.7 polish can theme peer lines separately.
+export function postGearChannelMsg(shortPorterId, article, type, noun) {
+  S.channels.unshift({
+    depotId: 'peer',
+    callsign: shortPorterId || 'PTR-????',
+    text: `placed ${article} ${type} on the ${noun}`,
+    ts: S.ticks,
+  });
+  if (S.channels.length > C.CHANNELS_DISPLAY_CAP) {
+    S.channels.length = C.CHANNELS_DISPLAY_CAP;
+  }
+  renderChannels();
+}
+
 export function tickAmbientChatter() {
   if (S.ticks % 10 !== 0) return;
   Object.keys(NPC_DEFS).forEach(depotId => {

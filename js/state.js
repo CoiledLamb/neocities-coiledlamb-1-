@@ -96,13 +96,49 @@ export const S = {
   // anchor). Counts persist; autoGear toggle governs whether auto-
   // buy-and-place fires when kit is empty but scrip is available.
   // Defaults to ON per idle-first bias (same spirit as auto-grab).
-  // No save version bump — migration in persistence.js seeds defaults
-  // for existing v8 saves that lack the kit field.
   kit: {
     ladders:  0,
     anchors:  0,
     autoGear: true,
   },
+
+  // v0.0.9.6 commit 5 — world-overlay placed structures. Promoted
+  // from transient (commit 4 session-local) to persistent at schema
+  // v9 so the amortization loop works — first placer pays, every
+  // other player rides free until decay. Shared infrastructure.
+  //
+  // Entry shape:
+  //   {
+  //     id:               `${porterId}-${placedWallClock}-${cellKey}`
+  //                       canonical; dedup key for broadcast receive
+  //     placerId:         originating porter id
+  //     type:             'ladder' | 'anchor'
+  //     x, y:             SVG viewBox coords (snapped)
+  //     placedWallClock:  Date.now() at placement
+  //     lifetimeMs:       12h or 24h baked from placer's mountainGear
+  //                       flag; applies for all viewers
+  //     stormDecayExtra:  accumulated extra wear from storm exposure
+  //                       (commit 7 sets the real rate)
+  //   }
+  placedGear: [],
+
+  // v0.0.9.6 commit 5 — cell-native interior pkgs. Keyed by cell
+  // position (`${x},${y}` string) so the table is sparse and save
+  // payloads stay small. Spawned at world-init on plateau / mountain
+  // / rockyHills cells per the INTERIOR_SPAWN_* rates. Respawns on
+  // the ring's cadence (INTERIOR_RESPAWN_TICKS) after pickup so the
+  // interior doesn't go picked-clean permanently.
+  //
+  // Entry shape:
+  //   {
+  //     x, y:           viewBox coords (snapped)
+  //     terrainOrigin:  'plateau' | 'mountain' | 'rockyHills'
+  //     pkg:            normal pkg object (label, size, scrip, ...)
+  //                     plus terrainOrigin propagated into the pkg
+  //     respawnIn:      ticks until re-spawn (0 = active)
+  //     picked:         current pickup state
+  //   }
+  interiorPkgs: {},
 
   // v0.0.7.24 — kit-row battery (prototype stub). Shared charge pool
   // that powers scanner + future electronic gadgets (exoskeleton, etc).
@@ -391,22 +427,8 @@ export const S = {
     // Shape: { type: 'mountain' | 'rockyHills', ticksRemaining: number }
     severeTripState: null,
 
-    // v0.0.9.6 commit 4 — placed ladder/anchor infrastructure.
-    // Session-local in commit 4; promoted to world-overlay (save-
-    // stored + multiplayer-synced) in commit 5. Each entry:
-    //   {
-    //     id:               unique string
-    //     type:             'ladder' | 'anchor'
-    //     x, y:             SVG viewBox coords
-    //     placedWallClock:  Date.now() at placement
-    //     lifetimeMs:       12h or 24h (baked at placement from
-    //                       lambda's mountainGear flag for all
-    //                       future viewers)
-    //     stormDecayExtra:  accumulated extra wear from storm
-    //                       exposure (ms). Storm sweep lands in
-    //                       commit 7; 0 until then.
-    //   }
-    placedGear: [],
+    // v0.0.9.6 commit 5 — placedGear promoted to persistent S root
+    // (above); transient slot retired.
 
     // v0.0.9.6 commit 4 — throttled "no gear available" log
     // tracking. Set when the courier crosses a terrain that could
@@ -420,5 +442,10 @@ export const S = {
     // for the throttled PLACEMENT-from-stack log, which fires once
     // per shortcut rather than per-cell (consumption signal only).
     placementLogged: false,
+
+    // v0.0.9.6 commit 5 — throttles the plateau-gate-out-of-reach
+    // message. Without this separate flag the message collides with
+    // cargo-full (both use lastPickupFailKey) and ping-pongs.
+    plateauGateLogged: false,
   },
 };

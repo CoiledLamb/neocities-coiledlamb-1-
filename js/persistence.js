@@ -120,11 +120,14 @@ export function buildSavePayload() {
     // (solar trickle + new consumers + delta's regen upgrades) lands
     // in commit 4a; this commit just reserves the persistence slot.
     battery: { charge: S.battery.charge, max: S.battery.max },
-    // v0.0.9.6 commit 4 — placeable-gear kit inventory. Piggybacks
-    // on v8 schema (no bump). Placed-gear structures themselves stay
-    // session-local in commit 4; commit 5 lifts them into world-
-    // overlay persistence.
+    // v0.0.9.6 commit 4 — placeable-gear kit inventory (persisted).
     kit: S.kit ? { ladders: S.kit.ladders, anchors: S.kit.anchors, autoGear: !!S.kit.autoGear } : undefined,
+    // v0.0.9.6 commit 5 (schema v9) — shared world-overlay placed
+    // structures + cell-native interior pkgs. placedGear is the full
+    // array (each entry carries id, placerId, lifetimeMs, etc);
+    // interiorPkgs is the sparse (x,y)-keyed table.
+    placedGear:   Array.isArray(S.placedGear) ? S.placedGear.slice() : [],
+    interiorPkgs: S.interiorPkgs ? { ...S.interiorPkgs } : {},
     // v0.0.9.5.1 — dispatch log tail persisted (last ~100 rendered
     // lines). HTML includes timestamps baked in. Restored into the
     // in-session logHistory + DOM via restoreLogFromSave on load.
@@ -160,13 +163,14 @@ export function saveGame(silent) {
 // S in place. Returns true on success, false on any parse/schema failure.
 export function applySavePayload(data) {
   if (!data) return false;
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7 && data.version !== C.SAVE_VERSION) return false;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7 && data.version !== 8 && data.version !== C.SAVE_VERSION) return false;
   return _applyValidated(data);
 }
 
 export function loadGame() {
   let raw;
-  try { raw = localStorage.getItem(C.SAVE_KEY_V8); } catch (e) { return false; }
+  try { raw = localStorage.getItem(C.SAVE_KEY_V9); } catch (e) { return false; }
+  if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V8); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V7); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V6); } catch (e) { return false; } }
   if (!raw) { try { raw = localStorage.getItem(C.SAVE_KEY_V5); } catch (e) { return false; } }
@@ -178,7 +182,7 @@ export function loadGame() {
   let data;
   try { data = JSON.parse(raw); } catch (e) { return false; }
   if (!data) return false;
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7 && data.version !== C.SAVE_VERSION) return false;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5 && data.version !== 6 && data.version !== 7 && data.version !== 8 && data.version !== C.SAVE_VERSION) return false;
   return _applyValidated(data);
 }
 
@@ -339,14 +343,49 @@ function _applyValidated(data) {
 
     // v0.0.9.6 commit 4 — kit inventory for placeable gear. Saves
     // from before this commit won't have a kit field; seed defaults.
-    // No schema bump (persistence piggybacks on v8); world-overlay
-    // persistence for placed structures lands in commit 5.
     if (data.kit && typeof data.kit === 'object') {
       S.kit = {
         ladders:  typeof data.kit.ladders  === 'number' ? Math.max(0, Math.floor(data.kit.ladders))  : 0,
         anchors:  typeof data.kit.anchors  === 'number' ? Math.max(0, Math.floor(data.kit.anchors))  : 0,
         autoGear: data.kit.autoGear !== false,  // default ON
       };
+    }
+
+    // v0.0.9.6 commit 5 (schema v9) — world-overlay placed structures
+    // + interior pkg table. Pre-v9 saves lack both; seed empty. Re-
+    // seeding interior pkgs happens at world-init when the save has
+    // an empty interiorPkgs table, so upgraded saves get fresh
+    // content on first tick.
+    if (Array.isArray(data.placedGear)) {
+      S.placedGear = data.placedGear.filter(g => g && g.id && g.type).map(g => ({
+        id:              String(g.id),
+        placerId:        g.placerId || null,
+        type:            g.type,
+        x:               +g.x || 0,
+        y:               +g.y || 0,
+        placedWallClock: +g.placedWallClock || Date.now(),
+        lifetimeMs:      +g.lifetimeMs || (12 * 3600 * 1000),
+        stormDecayExtra: +g.stormDecayExtra || 0,
+      }));
+    } else {
+      S.placedGear = [];
+    }
+    if (data.interiorPkgs && typeof data.interiorPkgs === 'object') {
+      S.interiorPkgs = {};
+      for (const k of Object.keys(data.interiorPkgs)) {
+        const e = data.interiorPkgs[k];
+        if (!e || !e.pkg) continue;
+        S.interiorPkgs[k] = {
+          x: +e.x || 0,
+          y: +e.y || 0,
+          terrainOrigin: e.terrainOrigin,
+          pkg: e.pkg,
+          respawnIn: +e.respawnIn || 0,
+          picked: !!e.picked,
+        };
+      }
+    } else {
+      S.interiorPkgs = {};
     }
 
     // v0.0.7.21 (schema v6) — sticky gun + scanner.
