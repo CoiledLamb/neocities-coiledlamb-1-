@@ -53,7 +53,13 @@ export const UPGRADE_DEFS = [
   { id:'cargoSling',  name:'cargo sling',        desc:'+2 carry slots',                cost:80,  requires:null,          apply:()=>{ S.maxSlots+=2; } },
   { id:'cargoPack',   name:'expedition pack',    desc:'+4 more carry slots',           cost:180, requires:'cargoSling',  apply:()=>{ S.maxSlots+=4; } },
   { id:'cargoWeight', name:'molly netting',      desc:'+5 kg capacity',                cost:150, requires:null,          apply:()=>{ S.maxWeight+=5; } },
-  { id:'stickyGun',   name:'sticky gun',         desc:'+range pickup, 8 shots, refill at H, takes 1 slot', cost:100, requires:null, apply:()=>{ S.stickyGun = { ammo: C.STICKY_GUN_AMMO_MAX, ammoMax: C.STICKY_GUN_AMMO_MAX, holstered: false }; } },
+  // v0.0.9.5.3 — steadyFeet (traction cleats) moved FROM tau t20
+  // TO the open scrip shop at its historical price. Available from
+  // the first upgrades-panel open; no trust gate. Impact unchanged
+  // (trip.js reads S.upgrades.steadyFeet for trip + catch mods).
+  { id:'steadyFeet',  name:'traction cleats',    desc:'-30% trip chance, +15% catch',  cost:120, requires:null,          apply:()=>{} },
+  // v0.0.9.5.3 — stickyGun moved FROM open scrip shop TO tau t20
+  // (trust-gated, same 100¢ cost). See tau's trust-reward block below.
 
   // ----- trust-reward: rho (A) — boot depot -----
   { id:'bootClip1',   name:'boot clip',          desc:'carry 1 spare pair of boots',   cost:40,  requires:null,      trustReward: { npc:'A', tier:'t20' }, apply:()=>{ S.bootClipMax=1; S.bootClipCount=1; } },
@@ -64,8 +70,11 @@ export const UPGRADE_DEFS = [
   { id:'sandalEfficiency', name:'interwoven lashing',  desc:'sandalweed repair 30 \u2192 50 durability', cost:60, requires:null, trustReward: { npc:'B', tier:'t40' }, apply:()=>{} },
 
   // ----- trust-reward: tau (H) — your sibling -----
-  { id:'steadyFeet',    name:'traction cleats',  desc:'-30% trip chance, +15% catch',                  cost:120, requires:null,        trustReward: { npc:'H', tier:'t20' }, apply:()=>{} },
-  { id:'stickyHolster', name:'gun holster',      desc:'frees the slot when not firing',                cost:80,  requires:'stickyGun', trustReward: { npc:'H', tier:'t40' }, apply:()=>{ if (S.stickyGun) S.stickyGun.holstered = true; } },
+  // v0.0.9.5.3: traction cleats moved to open scrip shop (above);
+  // sticky gun arrives here at the same 100¢ price (now trust-gated).
+  // Holster chain unchanged — still t40, still requires stickyGun.
+  { id:'stickyGun',     name:'sticky gun',       desc:'+range pickup, 8 shots, refill at H, takes 1 slot', cost:100, requires:null,        trustReward: { npc:'H', tier:'t20' }, apply:()=>{ S.stickyGun = { ammo: C.STICKY_GUN_AMMO_MAX, ammoMax: C.STICKY_GUN_AMMO_MAX, holstered: false }; } },
+  { id:'stickyHolster', name:'gun holster',      desc:'frees the slot when not firing',                    cost:80,  requires:'stickyGun', trustReward: { npc:'H', tier:'t40' }, apply:()=>{ if (S.stickyGun) S.stickyGun.holstered = true; } },
 
   // ----- trust-reward: phi (?) — weather station -----
   { id:'weatherRadio',   name:'weather radio',  desc:'storm warnings with intensity prediction',       cost:120, requires:null,           trustReward: { npc:'?', tier:'t20' }, apply:()=>{ S.weatherRadio = { unlocked: true, level: 1 }; updateWeatherGearVisibility(); } },
