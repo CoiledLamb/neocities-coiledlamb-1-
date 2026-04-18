@@ -21,10 +21,16 @@ export const S = {
   status: 'walking', restTimer: 0, tripTimer: 0,
   maxSlots: 6, usedSlots: 0, maxWeight: 5, usedWeight: 0, inventory: [],
   tieDownActive: false,
-  bootDurability: 80, autobuyBoots: false, bootClipCount: 0, bootClipMax: 0, usingMakeshift: false,
+  // v0.0.9.6.9 — default auto-toggles (autobuy, autodrink, autoGrab,
+  // autoGear) all flip to ON for fresh saves, matching the game's
+  // established idle-first philosophy. Existing saves keep whatever
+  // they had (persistence doesn't touch boolean fields that were
+  // already saved as false). New players get frictionless play from
+  // first tick.
+  bootDurability: 80, autobuyBoots: true, bootClipCount: 0, bootClipMax: 0, usingMakeshift: false,
   sandalweedCount: 0,
   stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
-  canteen: 100, canteenMax: 100, autodrink: false,
+  canteen: 100, canteenMax: 100, autodrink: true,
   // v0.0.9.4.1 — auto-pickup toggle. Default true ("idle game first";
   // player flips to false via the `grab:` button in the stamina row to
   // switch into cursor-only pickup mode).

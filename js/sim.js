@@ -22,6 +22,8 @@ import {
   startCollection, stopCollection, emit, sample, series, isActive as telemetryActive,
 } from './telemetry.js';
 import { aggregateReports } from './sim-stats.js';
+import { UPGRADE_DEFS } from './data/upgrades.js';
+import * as Upg from './upgrades.js';
 
 // ============================================================
 // SNAPSHOT / RESTORE
@@ -64,6 +66,9 @@ function restoreGame(snap) {
 
 // Minimal fresh-state reset. Rebuilds the world, re-inits weather,
 // zeros progress fields. Doesn't wipe transient DOM refs (els).
+// v0.0.9.6.9 — forces max automation to match a configured-player
+// baseline. Sim characterizes game balance, not tutorial friction;
+// new-player-defaults sim mode can come as a separate variant later.
 function applyFreshState() {
   S.ticks     = 0;
   S.scrip     = 0;
@@ -86,6 +91,13 @@ function applyFreshState() {
   S.interiorTrample = {};
   S.sandalweedCount = 0;
   S.distKm    = 0;
+  // Max automation — every auto-toggle ON. Sim represents configured
+  // player behavior, not tutorial onboarding.
+  S.autobuyBoots = true;
+  S.autodrink    = true;
+  S.autoGrab     = true;
+  if (!S.kit) S.kit = { ladders: 0, anchors: 0, autoGear: true };
+  else S.kit.autoGear = true;
   // Reset NPC trust — copy from defaults
   if (S.npcs) {
     for (const id of Object.keys(S.npcs)) {
@@ -179,43 +191,116 @@ function emitPerTickSamples() {
 // RUNNER
 // ============================================================
 
+// v0.0.9.6.9 — auto-upgrade helper. Called periodically during sim.
+// Picks the cheapest affordable upgrade the player hasn't bought yet
+// that's actually available (trust + resource gates respected by
+// Upg.buyUpgrade). Matches a "configured player who buys upgrades
+// as soon as they become affordable" heuristic.
+function autoUpgradeBuy() {
+  // UPGRADE_DEFS is an array of { id, cost, requires, trustReward?, ... }.
+  // Collect affordable, unowned, requirement-met candidates.
+  const candidates = [];
+  for (const def of UPGRADE_DEFS) {
+    if (!def || !def.id) continue;
+    if (S.upgrades[def.id]) continue;
+    if (typeof def.cost !== 'number' || def.cost <= 0) continue;
+    if (S.scrip < def.cost) continue;
+    // Requires chain — don't try if prereq isn't bought yet
+    if (def.requires && !S.upgrades[def.requires]) continue;
+    // Trust-gated upgrades — skip if the NPC hasn't hit the tier
+    if (def.trustReward) {
+      const npc = S.npcs[def.trustReward.npc];
+      if (!npc || !npc.unlocks || !npc.unlocks[def.trustReward.tier]) continue;
+    }
+    candidates.push(def);
+  }
+  if (candidates.length === 0) return;
+  candidates.sort((a, b) => a.cost - b.cost);
+  // Buy cheapest — let buyUpgrade's internal guards handle edge cases
+  Upg.buyUpgrade(candidates[0].id);
+}
+
+// Loop-completion detector. Tracks whether the courier has left home
+// since the last H-arrival — prevents a double-count at dotT=0
+// immediately after a loop fires.
+let loopState = { leftHomeSinceLast: false, lastCountedLoop: 0 };
+
+function checkLoopCompletion(loopsSoFar) {
+  const seg = S._transient.currentSegment;
+  if (!seg) return loopsSoFar;
+  const at = seg.from;
+  if (at !== 'H') {
+    loopState.leftHomeSinceLast = true;
+    return loopsSoFar;
+  }
+  // Courier is on a segment whose from is H, with dotT near 0 — a
+  // home-arrival just completed. Count it only if we've been away
+  // since the last one.
+  if (S.dotT < 0.02 && loopState.leftHomeSinceLast) {
+    loopState.leftHomeSinceLast = false;
+    loopsSoFar++;
+    emit('loop.completed', { scrip: S.scrip, delivered: S.delivered });
+  }
+  return loopsSoFar;
+}
+
+/** Run one sim. Termination is whichever fires first:
+ *    loops reached   (default 10)
+ *    ticks reached   (safety cap, default 200000)
+ *    realtime reached (default 60s)
+ *  Returns a report with meta.terminated_by indicating why it ended. */
 export function runSimulation(opts) {
   opts = opts || {};
-  const ticks = opts.ticks || 50000;
+  const maxLoops       = opts.loops !== undefined ? opts.loops : 10;
+  const maxTicks       = opts.ticks !== undefined ? opts.ticks : 200000;
+  const maxRealtimeMs  = opts.maxRealtimeMs || 60000;
+  const autoUpgrade    = opts.autoUpgrade !== false;  // default on
+  const upgradeEvery   = 50;   // attempt one auto-upgrade every N ticks
 
-  // Snapshot user's state so we can restore it after.
   const snap = snapshotGame();
-
-  // Force silent/offline so no network calls fire during sim.
   const wasSilent = isSilent();
   setSilent(true);
-
-  // simMode flag — render paths check this and no-op.
   S._transient.simMode = true;
 
-  // Fresh state for the run.
   applyFreshState();
+  loopState = { leftHomeSinceLast: false, lastCountedLoop: 0 };
 
-  // Start collecting. startCollection seeds startTick = S.ticks = 0.
   startCollection();
-
   const startRealMs = Date.now();
+  let tickCount  = 0;
+  let loopCount  = 0;
+  let terminated = 'max_ticks';
 
   try {
-    for (let i = 0; i < ticks; i++) {
+    while (true) {
       tick();
       emitPerTickSamples();
+      tickCount++;
+
+      // Loop detection on home arrivals
+      const before = loopCount;
+      loopCount = checkLoopCompletion(loopCount);
+
+      // Auto-upgrade attempt periodically (cheap)
+      if (autoUpgrade && tickCount % upgradeEvery === 0) autoUpgradeBuy();
+
+      // Termination checks
+      if (maxLoops > 0 && loopCount >= maxLoops) { terminated = 'max_loops'; break; }
+      if (tickCount >= maxTicks)                 { terminated = 'max_ticks'; break; }
+      if (Date.now() - startRealMs >= maxRealtimeMs) { terminated = 'max_realtime'; break; }
     }
   } catch (e) {
     console.error('[sim] tick loop crashed at', S.ticks, e);
+    terminated = 'crashed';
   }
 
   const durationRealMs = Date.now() - startRealMs;
   const report = stopCollection();
   report.meta.duration_real_ms = durationRealMs;
-  report.meta.ticks_per_sec = +(ticks / (durationRealMs / 1000)).toFixed(1);
+  report.meta.ticks_per_sec    = +(tickCount / Math.max(0.001, durationRealMs / 1000)).toFixed(1);
+  report.meta.loops_completed  = loopCount;
+  report.meta.terminated_by    = terminated;
 
-  // Cleanup: restore user's state + silent flag.
   S._transient.simMode = false;
   restoreGame(snap);
   setSilent(wasSilent);
@@ -225,12 +310,20 @@ export function runSimulation(opts) {
 
 export async function runBatch(opts) {
   opts = opts || {};
-  const runs = opts.runs || 20;
-  const ticks = opts.ticks || 50000;
+  const runs         = opts.runs || 20;
+  const loops        = opts.loops !== undefined ? opts.loops : 10;
+  const ticks        = opts.ticks;  // optional — omitted = no ticks cap
+  const maxRealtimeMs = opts.maxRealtimeMs;
+  const autoUpgrade  = opts.autoUpgrade;
+
+  const runOpts = { loops };
+  if (ticks !== undefined) runOpts.ticks = ticks;
+  if (maxRealtimeMs !== undefined) runOpts.maxRealtimeMs = maxRealtimeMs;
+  if (autoUpgrade !== undefined) runOpts.autoUpgrade = autoUpgrade;
 
   const reports = [];
   for (let i = 0; i < runs; i++) {
-    const r = runSimulation({ ticks });
+    const r = runSimulation(runOpts);
     reports.push(r);
     // yield to the event loop so long batches don't deadlock the
     // browser UI
