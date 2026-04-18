@@ -1194,6 +1194,9 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .upg-item:last-child { border-bottom: none; }
 .upg-name { color: #b1c9c3; line-height: 1.4; }
 .upg-name small { color: #3a6a68; font-size: 9px; display: block; }
+/* v0.0.9.5.2 — trust-reward gift tag: tiny purple chip next to the
+   upgrade name indicating which NPC unlocked it for purchase. */
+.upg-gift { color: #9d78d4; font-size: 8px; font-weight: 400; letter-spacing: 0.04em; margin-left: 4px; opacity: 0.8; }
 .upg-btn {
   background: transparent;
   border: 1px solid #1e5554;
