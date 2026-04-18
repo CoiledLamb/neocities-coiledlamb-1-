@@ -99,23 +99,23 @@ export const PKG_LOST_SCRIP_MULT = 1.5;
 //              pressed/carved trinkets, practical orphan supplies
 export const PKG_LABELS_BY_SIZE = {
   s: [
-    { label: 'medicine',          dests: ['A','B','C','H','\u00b7'] },
-    { label: 'sealed letter',     dests: ['A','B','C','H','?','\u00b7'] },
+    { label: 'medicine',          dests: ['B','C']             },
+    { label: 'sealed letter',     dests: ['A','\u00b7']         },
     { label: 'seeds',             dests: ['B','H','\u00b7']         },
-    { label: 'dispatch packet',   dests: ['A','\u00b7']             },
-    { label: 'dried herbs',       dests: ['B','C','H']         },
+    { label: 'dispatch packet',   dests: ['A']                 },
+    { label: 'dried herbs',       dests: ['B','C']             },
     { label: 'flare cartridge',   dests: ['C']                 },
     { label: 'signal mirror',     dests: ['C']                 },
-    { label: 'film canister',     dests: ['H','C']             },
+    { label: 'film canister',     dests: ['H']                 },
     { label: 'pressed flowers',   dests: ['H','\u00b7']             },
     { label: 'beaded bracelet',   dests: ['\u00b7']                 },
     { label: 'carved charm',      dests: ['\u00b7']                 },
     { label: 'knit cap',          dests: ['\u00b7','H']             },
-    { label: 'spare socks',       dests: ['\u00b7','H','C']         },
+    { label: 'spare socks',       dests: ['\u00b7','H']         },
     { label: 'ammo packet',       dests: ['C']                 },
     { label: 'fertilizer packet', dests: ['B']                 },
     { label: 'cuttings',          dests: ['B','H']             },
-    { label: 'sealed pouch',      dests: ['\u00b7','C']             },
+    { label: 'sealed pouch',      dests: ['\u00b7']             },
     // v0.0.9.4 niche labels — rho (A) depot + tau (H) home identity
     { label: 'dispatch ticket',   dests: ['A']                 },
     { label: 'waybill',           dests: ['A']                 },
@@ -129,7 +129,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'ink for charts',    dests: ['?','H']             },
     // psi (\u00b7) \u2014 scavenger adds on top of migrated orphan labels
     { label: 'pocket cache',      dests: ['\u00b7']                 },
-    { label: 'polished scrap',    dests: ['\u00b7','C']             },
+    { label: 'polished scrap',    dests: ['\u00b7']             },
     // xi (C) \u2014 research + ruin salvage
     { label: 'specimen jar',      dests: ['C']                 },
     { label: 'copper coil',       dests: ['C']                 },
@@ -165,11 +165,11 @@ export const PKG_LABELS_BY_SIZE = {
     // -- pi (\u03c0) summit research / electronics --
     { label: 'capacitor bag',         dests: ['\u03c0']                       },
     { label: 'solder spool',          dests: ['\u03c0','\u03b4']              },
-    { label: 'lab notes',             dests: ['\u03c0','C']                   },
+    { label: 'lab notes',             dests: ['\u03c0']                       },
     { label: 'sensor chip',           dests: ['\u03c0']                       },
     { label: 'calibration disc',      dests: ['\u03c0','?']                   },
     // -- delta (\u03b4) dam / electrical --
-    { label: 'fuse pack',             dests: ['\u03b4','C']                   },
+    { label: 'fuse pack',             dests: ['\u03b4']                       },
     { label: 'seal ring',             dests: ['\u03b4']                       },
     { label: 'gasket',                dests: ['\u03b4','\u03b3']              },
     { label: 'pressure dial',         dests: ['\u03b4','?']                   },
@@ -177,7 +177,7 @@ export const PKG_LABELS_BY_SIZE = {
     // -- iota (B) boost --
     { label: 'growing medium',        dests: ['B']                            },
     { label: 'pollen sample',         dests: ['B']                            },
-    { label: 'cutting tray',          dests: ['B','H']                        },
+    { label: 'cutting tray',          dests: ['B','\u03b8']                   },
     { label: 'sapling wrap',          dests: ['B']                            },
     // -- phi (?) boost --
     { label: 'humidity sensor',       dests: ['?']                            },
@@ -194,24 +194,65 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'plateau pollen sample', dests: ['B','\u03b8']                   },
     { label: 'sun-baked pot shard',   dests: ['\u03b8']                       },
     { label: 'glaze mineral sample',  dests: ['\u03b8']                       },
+    // v0.0.9.6 commit 2: flavored variants + new-cast normalization fill.
+    // Generic multi-dest labels (sealed letter, medicine) narrowed to
+    // 2-dest niche pairings above; the variants below replace their
+    // breadth with character-specific flavor — letters with sender-voice,
+    // medicines with terrain-voice. Then unique fill pulls the new cast
+    // (pi/lambda/gamma/nu/theta/delta) up to ~32 labels each.
+    // -- letter family (ex-"sealed letter") --
+    { label: 'weather-report letter', dests: ['?','\u03c0']                   },
+    { label: 'glaze recipe letter',   dests: ['\u03b8','\u03b3']              },
+    { label: 'expedition letter home',dests: ['\u03bb','H']                   },
+    { label: 'dam log letter',        dests: ['\u03b4','A']                   },
+    { label: 'pressed-leaf note',     dests: ['B','\u03b8']                   },
+    // -- medicine family (ex-"medicine") --
+    { label: 'sun salve',             dests: ['\u03bd','\u03bb']              },
+    { label: 'bone-mend splint',      dests: ['\u03bb','\u03b3']              },
+    { label: 'fever poultice',        dests: ['B','\u03b8']                   },
+    // -- pi (\u03c0) fill --
+    { label: 'radio crystal',         dests: ['\u03c0']                       },
+    { label: 'signal reel',           dests: ['\u03c0','?']                   },
+    { label: 'multimeter probe',      dests: ['\u03c0','\u03b3']              },
+    { label: 'ferrite bead',          dests: ['\u03c0']                       },
+    { label: 'lab log',               dests: ['\u03c0']                       },
+    // -- lambda (\u03bb) fill --
+    { label: 'trail marker stake',    dests: ['\u03bb']                       },
+    { label: 'belay plate',           dests: ['\u03bb','\u03b3']              },
+    { label: 'avalanche beacon',      dests: ['\u03bb']                       },
+    // -- gamma (\u03b3) fill --
+    { label: 'hex keys',              dests: ['\u03b3']                       },
+    { label: 'bearing pack',          dests: ['\u03b3']                       },
+    { label: 'copper shim',           dests: ['\u03b3','C']                   },
+    // -- nu (\u03bd) fill --
+    { label: 'sun-cracked goggles',   dests: ['\u03bd','\u00b7']              },
+    { label: 'gourd stopper',         dests: ['\u03bd','\u03b8']              },
+    { label: 'sun charm',             dests: ['\u03bd','\u00b7']              },
+    // -- theta (\u03b8) fill --
+    { label: 'tea bundle',            dests: ['\u03b8','H']                   },
+    { label: 'slip cup',              dests: ['\u03b8']                       },
+    { label: 'firing schedule',       dests: ['\u03b8']                       },
+    // -- delta (\u03b4) fill --
+    { label: 'bypass valve',          dests: ['\u03b4']                       },
+    { label: 'sluice pin',            dests: ['\u03b4','\u03b3']              },
   ],
   m: [
-    { label: 'tool roll',          dests: ['A','B','C','H']    },
-    { label: 'first-aid kit',      dests: ['A','C','H','?']    },
-    { label: 'battery pack',       dests: ['A','C','H','?']    },
-    { label: 'ration tin',         dests: ['A','C','H','\u00b7']    },
+    { label: 'tool roll',          dests: ['A','\u03b3']       },
+    { label: 'first-aid kit',      dests: ['A','\u03bb']       },
+    { label: 'battery pack',       dests: ['\u03c0','\u03b4']  },
+    { label: 'ration tin',         dests: ['\u03bd','\u03bb']  },
     { label: 'surveyor kit',       dests: ['B']                },
-    { label: 'field notes',        dests: ['B','C','\u00b7']        },
+    { label: 'field notes',        dests: ['B','C']            },
     { label: 'water filter',       dests: ['B','C','H']        },
     { label: 'salvage kit',        dests: ['C','A','B']        },
-    { label: 'repair kit',         dests: ['A','C','H','?']    },
-    { label: 'rope coil',          dests: ['B','C','H']        },
-    { label: 'spare parts',        dests: ['A','C','H']        },
-    { label: 'book bundle',        dests: ['H','?','\u00b7']        },
+    { label: 'repair kit',         dests: ['\u03b3','\u03b4']  },
+    { label: 'rope coil',          dests: ['B','\u03bb','\u03b3'] },
+    { label: 'spare parts',        dests: ['A','\u03b3']       },
+    { label: 'book bundle',        dests: ['H','?']            },
     { label: 'pantry crate',       dests: ['H','\u00b7']            },
     { label: 'linen roll',         dests: ['H','B']            },
     { label: 'hearth kit',         dests: ['H','\u00b7']            },
-    { label: 'patched coat',       dests: ['\u00b7','C']            },
+    { label: 'patched coat',       dests: ['\u00b7']                },
     { label: 'memory box',         dests: ['H','\u00b7']            },
     { label: 'wrapped offering',   dests: ['\u00b7']                },
     // v0.0.9.4 niche labels — rho (A) depot + tau (H) home identity
@@ -221,13 +262,13 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'family photos',      dests: ['H']                },
     // phi (?) \u2014 weather work
     { label: 'weather log bundle', dests: ['?']                },
-    { label: 'calibration weights',dests: ['?','C']            },
+    { label: 'calibration weights',dests: ['?']                },
     { label: 'storm journal',      dests: ['?']                },
-    { label: 'antenna coil',       dests: ['?','C']            },
+    { label: 'antenna coil',       dests: ['?']                },
     // psi (\u00b7) \u2014 scavenger net-new
     { label: 'rag-tied parcel',    dests: ['\u00b7']                },
     // xi (C) \u2014 research + ruin salvage
-    { label: 'sealed reports',     dests: ['C','H']            },
+    { label: 'sealed reports',     dests: ['C']                },
     { label: 'map fragments',      dests: ['C']                },
     { label: 'cracked tile set',   dests: ['C']                },
     // v0.0.9.5 commit 5 — new-NPC pools + iota/phi boost + plateau-top.
@@ -267,7 +308,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'nursery kit',           dests: ['B']                            },
     { label: 'compost sacks',         dests: ['B']                            },
     { label: 'seedling trays',        dests: ['B']                            },
-    { label: 'field soil kit',        dests: ['B','C']                        },
+    { label: 'field soil kit',        dests: ['B']                            },
     // -- phi (?) boost --
     { label: 'barograph',             dests: ['?']                            },
     { label: 'lightning rod kit',     dests: ['?']                            },
@@ -282,32 +323,74 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'wind-blown sapling wrap', dests: ['B','\u03b8']                 },
     { label: 'wind-dried reed bundle', dests: ['\u03b8','B']                  },
     { label: 'kiln-bound clay slab',  dests: ['\u03b8']                       },
+    // v0.0.9.6 commit 2: flavored variants + new-cast normalization fill.
+    // -- kit family (ex-"tool roll", "repair kit") --
+    { label: 'field toolkit',         dests: ['\u03b3','\u03bb']              },
+    { label: 'domestic mend kit',     dests: ['H','\u00b7']                   },
+    { label: 'sluice wrench set',     dests: ['\u03b4','\u03b3']              },
+    // -- first-aid family (ex-"first-aid kit") --
+    { label: 'blister kit',           dests: ['H','\u00b7']                   },
+    { label: 'mountain trauma kit',   dests: ['\u03bb','C']                   },
+    { label: 'heat-stroke kit',       dests: ['\u03bd','\u03b4']              },
+    // -- battery family (ex-"battery pack") --
+    { label: 'observatory cell',      dests: ['\u03c0','C']                   },
+    { label: 'generator battery',     dests: ['\u03b4','A']                   },
+    // -- ration family (ex-"ration tin") --
+    { label: 'desert ration pouch',   dests: ['\u03bd','\u00b7']              },
+    { label: 'depot ration box',      dests: ['A','?']                        },
+    // -- repair family (ex-"repair kit") --
+    { label: 'wood-patch kit',        dests: ['H','B']                        },
+    { label: 'cable splice kit',      dests: ['\u03b4','\u03c0']              },
+    // -- pi (\u03c0) fill --
+    { label: 'scope analyzer',        dests: ['\u03c0']                       },
+    { label: 'component tray',        dests: ['\u03c0','\u03b3']              },
+    { label: 'signal processor',      dests: ['\u03c0']                       },
+    { label: 'chip catalog',          dests: ['\u03c0','C']                   },
+    // -- lambda (\u03bb) fill --
+    { label: 'bivvy sack',            dests: ['\u03bb']                       },
+    { label: 'climbing harness',      dests: ['\u03bb']                       },
+    { label: 'approach gaiters',      dests: ['\u03bb']                       },
+    { label: 'altimeter',             dests: ['\u03bb','?']                   },
+    // -- gamma (\u03b3) fill --
+    { label: 'bench vise',            dests: ['\u03b3']                       },
+    { label: 'fastener lot',          dests: ['\u03b3']                       },
+    { label: 'honing stones',         dests: ['\u03b3']                       },
+    // -- nu (\u03bd) fill --
+    { label: 'salt-water flask',      dests: ['\u03bd','H']                   },
+    { label: 'dust-sealed bundle',    dests: ['\u03bd','?']                   },
+    { label: 'shade pole kit',        dests: ['\u03bd']                       },
+    // -- theta (\u03b8) fill --
+    { label: 'kiln log',              dests: ['\u03b8']                       },
+    { label: 'clay-stained rag roll', dests: ['\u03b8','\u00b7']              },
+    // -- delta (\u03b4) fill --
+    { label: 'spillway chart',        dests: ['\u03b4','B']                   },
+    { label: 'maintenance ledger',    dests: ['\u03b4','A']                   },
   ],
   l: [
     { label: 'parts crate',        dests: ['A','C']            },
     { label: 'equipment trunk',    dests: ['A']                },
-    { label: 'freight pallet',     dests: ['A','\u00b7']            },
-    { label: 'lumber bundle',      dests: ['A','H','C']        },
+    { label: 'freight pallet',     dests: ['A']                },
+    { label: 'lumber bundle',      dests: ['A','\u03b8']       },
     { label: 'planting stock',     dests: ['B']                },
     { label: 'irrigation coil',    dests: ['B']                },
-    { label: 'reed bundle',        dests: ['B','H']            },
+    { label: 'reed bundle',        dests: ['B','\u03b8']       },
     { label: 'salvage haul',       dests: ['C','A','B']        },
-    { label: 'water drum',         dests: ['B','C','H']        },
-    { label: 'fuel canister',      dests: ['C','H']            },
+    { label: 'water drum',         dests: ['B','\u03bd','\u03b4'] },
+    { label: 'fuel canister',      dests: ['C','\u03b4']       },
     { label: 'scrap bundle',       dests: ['C','A']            },
-    { label: 'generator core',     dests: ['H','C']            },
+    { label: 'generator core',     dests: ['C','\u03b4']       },
     { label: 'appliance crate',    dests: ['H']                },
     { label: 'winter kit',         dests: ['H','\u00b7']            },
     { label: 'firewood stack',     dests: ['\u00b7','H']            },
-    { label: 'cache crate',        dests: ['\u00b7','A']            },
-    { label: 'relay stockpile',    dests: ['\u00b7','C']            },
+    { label: 'cache crate',        dests: ['A']                },
+    { label: 'relay stockpile',    dests: ['\u00b7']                },
     // v0.0.9.4 niche labels — rho (A) depot + tau (H) home identity
     { label: 'pallet jack wheels', dests: ['A']                },
     { label: 'heirloom chest',     dests: ['H']                },
     // phi (?) \u2014 rain-measurement gear
     { label: 'weather balloon',    dests: ['?']                },
-    { label: 'tarp roll',          dests: ['?','\u00b7','H']        },
-    { label: 'sensor stake set',   dests: ['?','C']            },
+    { label: 'tarp roll',          dests: ['?','\u00b7','\u03bd']   },
+    { label: 'sensor stake set',   dests: ['?']                },
     // psi (\u00b7) \u2014 scavenger
     { label: "forager's bag",      dests: ['\u00b7']                },
     // xi (C) \u2014 ruin salvage
@@ -315,7 +398,7 @@ export const PKG_LABELS_BY_SIZE = {
     // v0.0.9.5 commit 5 — new-NPC pools + iota/phi boost.
     // -- nu (\u03bd) --
     { label: 'shade awning',          dests: ['\u03bd']                       },
-    { label: 'purifier coil',         dests: ['\u03bd','C']                   },
+    { label: 'purifier coil',         dests: ['\u03bd']                       },
     { label: 'sand ladder',           dests: ['\u03bd','\u03bb']              },
     { label: 'salt block',            dests: ['\u03bd']                       },
     // -- theta (\u03b8) --
@@ -325,7 +408,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'tea crate',             dests: ['\u03b8','H']                   },
     // -- gamma (\u03b3) --
     { label: 'anvil stand',           dests: ['\u03b3']                       },
-    { label: 'gear cache',            dests: ['\u03b3','C']                   },
+    { label: 'gear cache',            dests: ['\u03b3']                       },
     { label: 'forge bellows',         dests: ['\u03b3']                       },
     // -- lambda (\u03bb) --
     { label: 'cache pack',            dests: ['\u03bb']                       },
@@ -345,6 +428,23 @@ export const PKG_LABELS_BY_SIZE = {
     // -- phi (?) boost --
     { label: 'sounder rocket',        dests: ['?']                            },
     { label: 'anemometer tripod',     dests: ['?']                            },
+    // v0.0.9.6 commit 2: new-cast normalization fill (l tier).
+    // -- pi (\u03c0) --
+    { label: 'lab bench rig',         dests: ['\u03c0']                       },
+    { label: 'repeater stack',        dests: ['\u03c0','?']                   },
+    // -- lambda (\u03bb) --
+    { label: 'glacier kit',           dests: ['\u03bb']                       },
+    { label: 'trailhead cache',       dests: ['\u03bb','A']                   },
+    // -- gamma (\u03b3) --
+    { label: 'machine oil drum',      dests: ['\u03b3','\u03b4']              },
+    { label: 'mill spindle',          dests: ['\u03b3']                       },
+    // -- nu (\u03bd) --
+    { label: 'cistern lining',        dests: ['\u03bd','\u03b4']              },
+    { label: 'sun-whitened tarp',     dests: ['\u03bd','\u00b7']              },
+    // -- theta (\u03b8) --
+    { label: 'reed kiln screen',      dests: ['\u03b8','B']                   },
+    // -- delta (\u03b4) --
+    { label: 'spillway grate',        dests: ['\u03b4','\u03b3']              },
   ],
   xl: [
     { label: 'reinforced crate',   dests: ['A']                },
@@ -369,7 +469,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'roped bundle',       dests: ['\u00b7']                },
     // xi (C) \u2014 research archives + oddments
     { label: 'crate of oddments',  dests: ['C']                },
-    { label: 'archive crate',      dests: ['C','H']            },
+    { label: 'archive crate',      dests: ['C']                },
     // v0.0.9.5 commit 5 — new-NPC xl pools.
     // -- nu (\u03bd) --
     { label: 'reservoir panel',       dests: ['\u03bd','\u03b4']              },
@@ -392,7 +492,107 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'turbine rotor',         dests: ['\u03b4']                       },
     { label: 'dam gate section',      dests: ['\u03b4']                       },
     { label: 'transformer core',      dests: ['\u03b4']                       },
+    // v0.0.9.6 commit 2: new-cast normalization fill (xl tier).
+    { label: 'observatory tower frame', dests: ['\u03c0']                     },
+    { label: 'basecamp frame',          dests: ['\u03bb','\u03b3']            },
+    { label: 'drill press frame',       dests: ['\u03b3']                     },
+    { label: 'clay pit basket',         dests: ['\u03b8','B']                 },
   ],
+};
+
+// ----- terrain-origin label pool (v0.0.9.6 commit 2) -----
+//
+// Cell-native interior pkgs — things *found* on plateau tops, mountain
+// slopes, rocky hill scree. Not NPC-dispatched; no courier picked them
+// up and dropped them. The narrative is discovery: "you climbed to the
+// mesa and pulled this out of a collapsed shelter; it still has a
+// destination scribbled on it."
+//
+// Consumed by commit 5 when interior pkg spawning wires in. For now,
+// this table lives as data ready to be called.
+//
+// Flavor comes from the origin terrain (weathered, frozen, scattered)
+// rather than from the dest NPC — so multi-dest is FINE here. The
+// dest-weight curve routes the pkg; the origin flavor reads in the
+// label regardless of which NPC claims it.
+//
+// Shape: { [terrain]: { [size]: [{ label, dests }, ...] } }.
+// Dest lists keep forward-bias reach so the 12-node ring's dest-weight
+// curve always has a valid pick near the cell's origin location.
+export const PKG_LABELS_BY_TERRAIN_ORIGIN = {
+  plateau: {
+    s: [
+      { label: 'salvage envelope',      dests: ['A','\u00b7','\u03bd','C']      },
+      { label: 'cracked relic',         dests: ['C','\u00b7','\u03b8']          },
+      { label: 'mesa-top trinket',      dests: ['\u00b7','H','B']               },
+      { label: 'fossil fragment',       dests: ['C','\u03c0']                   },
+      { label: 'weathered dispatch',    dests: ['A','\u00b7']                   },
+    ],
+    m: [
+      { label: 'abandoned satchel',     dests: ['A','\u00b7','\u03bd']          },
+      { label: 'dust-choked ledger',    dests: ['A','C','\u00b7']               },
+      { label: 'mesa-top kit',          dests: ['\u00b7','H','\u03bd']          },
+      { label: 'wind-stripped bag',     dests: ['\u00b7','A','B']               },
+      { label: 'plateau-run survey',    dests: ['C','\u03c0']                   },
+    ],
+    l: [
+      { label: 'plateau cache crate',   dests: ['A','\u00b7','C']               },
+      { label: 'sun-weathered trunk',   dests: ['A','\u00b7','H']               },
+      { label: 'mesa-edge bundle',      dests: ['\u00b7','B','\u03b8']          },
+      { label: 'collapsed-shelter find',dests: ['C','\u00b7','H']               },
+    ],
+    xl: [
+      { label: 'mesa-top freight',      dests: ['A','C']                        },
+      { label: 'plateau cargo hoard',   dests: ['C','\u00b7','A']               },
+      { label: 'ruined-tower cache',    dests: ['C','\u00b7']                   },
+    ],
+  },
+  mountain: {
+    s: [
+      { label: 'frozen dispatch',       dests: ['\u03bb','A','\u03c0']          },
+      { label: 'abandoned beacon',      dests: ['\u03bb','?']                   },
+      { label: 'dropped carabiner',     dests: ['\u03b3','\u03bb']              },
+      { label: 'altitude-cracked vial', dests: ['B','C','\u03b8']               },
+    ],
+    m: [
+      { label: 'lost survey pack',      dests: ['\u03bb','C','\u03c0']          },
+      { label: "climber's discarded kit", dests: ['\u03bb','\u03b3']            },
+      { label: 'frost-brittle bundle',  dests: ['\u03bb','H']                   },
+      { label: 'summit castoff',        dests: ['\u03bb','\u03c0','?']          },
+    ],
+    l: [
+      { label: 'expedition wreck cache',dests: ['\u03bb','A','C']               },
+      { label: 'frozen cargo drop',     dests: ['\u03bb','\u03b3']              },
+      { label: 'ice-bound crate',       dests: ['\u03bb','C']                   },
+    ],
+    xl: [
+      { label: 'abandoned ascent rig',  dests: ['\u03bb','\u03b3']              },
+      { label: 'collapsed basecamp crate', dests: ['\u03bb','A']                },
+    ],
+  },
+  rockyHills: {
+    s: [
+      { label: 'scattered cargo',       dests: ['A','\u03b3','C']               },
+      { label: 'spilled crate shard',   dests: ['\u03b3','B','A']               },
+      { label: 'rockfall find',         dests: ['\u03b3','\u00b7']              },
+      { label: 'convoy remnant',        dests: ['A','\u03b3','\u03b4']          },
+    ],
+    m: [
+      { label: 'wrecked wagon cache',   dests: ['A','\u03b3','B']               },
+      { label: 'tumbled parts bundle',  dests: ['\u03b3','\u03b4','A']          },
+      { label: 'rocky-hills salvage kit', dests: ['\u03b3','C']                 },
+      { label: 'scree-bound satchel',   dests: ['\u03b3','\u00b7']              },
+    ],
+    l: [
+      { label: 'overturned freight',    dests: ['A','\u03b3','C']               },
+      { label: 'rocky-draw cargo cache',dests: ['\u03b3','\u03b4','A']          },
+      { label: 'boulder-buried crate',  dests: ['\u03b3','C']                   },
+    ],
+    xl: [
+      { label: 'wreck-site haul',       dests: ['A','\u03b3']                   },
+      { label: 'convoy-wreck frame',    dests: ['\u03b3','\u03b4','A']          },
+    ],
+  },
 };
 
 // ----- lost fallback pool -----
