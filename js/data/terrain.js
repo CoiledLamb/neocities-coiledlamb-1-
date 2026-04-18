@@ -58,9 +58,41 @@ const TRIBUTARIES = [
 // meaningful cell presence without crowding neighbors.
 const MOUNTAIN_R   = 55;   // around pi
 const MOUNTAIN_R_L = 48;   // around lambda (smaller, rim-anchored)
-const PLATEAU_R    = 55;   // around xi
+const PLATEAU_R    = 55;   // around xi (ruined corner plateau)
 const DESERT_R     = 62;   // around nu (slightly broader)
 const ROCKY_R      = 62;   // around gamma
+
+// --- mesa outcrops (v0.0.9.6.9.2) --------------------
+// Scattered small plateaus anchored on the early-route
+// ring band. Designed as "earlygame teaching outcrops"
+// — player walks past them, sees plateau-top pkg, has
+// choice: buy a ladder (5c) to claim the reward, or walk
+// on. All reward, no punishment. Destinations locked to
+// near-start NPCs so payoff is fast + cashable.
+//
+// Each outcrop is a small circle (radius MESA_OUTCROP_R)
+// sitting just inside the ring between two early-route
+// NPCs. Placement slightly offset from the ring line so
+// side-view rendering (v0.0.9.7+) can show the outcrop
+// visually adjacent to the road.
+const MESA_OUTCROP_R = 18;
+const MESA_OUTCROPS = [
+  { x: 130, y: 110, label: 'A-psi outcrop'  },  // between A (85,163) top band + psi (163,85)
+  { x: 200, y:  98, label: 'psi-B outcrop'  },  // between psi (163,85) + B (237,85)
+  { x: 130, y: 200, label: 'A-inner outcrop'},  // just inside left rim between A + B/H band
+  { x:  98, y: 200, label: 'H-A outcrop'    },  // between H (85,237) + A (85,163)
+];
+export const MESA_OUTCROP_CENTERS = MESA_OUTCROPS;
+
+/** Returns the mesa outcrop entry an (x, y) falls within, or null.
+ *  Used by the terrain classifier + interior pkg spawn logic to
+ *  distinguish mesa-outcrop plateaus from xi's corner plateau. */
+export function mesaOutcropAt(x, y) {
+  for (const m of MESA_OUTCROPS) {
+    if (Math.hypot(x - m.x, y - m.y) < MESA_OUTCROP_R) return m;
+  }
+  return null;
+}
 
 // --- geometry helpers --------------------------------
 function distToSegment(px, py, ax, ay, bx, by) {
@@ -136,8 +168,13 @@ export function terrainAt(x, y) {
   if (dPi     < MOUNTAIN_R   + j) return 'mountain';
   if (dLambda < MOUNTAIN_R_L + j) return 'mountain';
 
-  // Plateau: xi corner (ruins on top)
+  // Plateau: xi corner (ruins on top) + scattered mesa outcrops
+  // along the early-route ring (v0.0.9.6.9.2 — earlygame teaching
+  // plateaus with near-start-restricted pkg dests).
   if (dXi < PLATEAU_R + j) return 'plateau';
+  for (const m of MESA_OUTCROPS) {
+    if (Math.hypot(x - m.x, y - m.y) < MESA_OUTCROP_R + (j * 0.5)) return 'plateau';
+  }
 
   // Desert: nu corner (warm, sparse)
   if (dNu < DESERT_R + j) return 'desert';

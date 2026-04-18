@@ -39,7 +39,7 @@ import {
   PKG_MODIFIERS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
   PKG_LABELS_BY_TERRAIN_ORIGIN,
 } from './data/packages.js';
-import { cellKeyFromCoords, snapInteriorCell } from './data/terrain.js';
+import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt } from './data/terrain.js';
 import { placedGearAt } from './gear.js';
 import { emit as tEmit, accum as tAccum } from './telemetry.js';
 import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js';
@@ -258,10 +258,21 @@ export function rollInteriorPkg(terrainOrigin, cellX, cellY) {
     scrip = Math.floor(scrip * C.INTERIOR_MOUNTAIN_SCRIP_MULT);
   }
 
-  // 5. Destination — use cell's nearest-edge as the virtual origin
-  // so DEST_DIV_WEIGHTS forward-bias routes cashable near-cell dests.
-  const nearestEdgeIdx = nearestEdgeToPoint(cellX, cellY);
-  const destId = rollDestForSpawn(nearestEdgeIdx);
+  // 5. Destination — mesa-outcrop plateaus (scattered along early
+  // route as teaching outcrops) restrict dests to the near-start
+  // NPC allowlist so rewards are fast + cashable. xi's corner
+  // plateau + other interior terrains use the standard forward-
+  // bias dest-weight curve.
+  const MESA_NEAR_START_DESTS = ['A', 'B', 'H', '\u00b7', '\u03bd', '\u03b8'];
+  let destId;
+  const outcrop = terrainOrigin === 'plateau' ? mesaOutcropAt(cellX, cellY) : null;
+  if (outcrop) {
+    // Uniform pick from near-start dests for mesa-outcrop plateaus.
+    destId = MESA_NEAR_START_DESTS[Math.floor(Math.random() * MESA_NEAR_START_DESTS.length)];
+  } else {
+    const nearestEdgeIdx = nearestEdgeToPoint(cellX, cellY);
+    destId = rollDestForSpawn(nearestEdgeIdx);
+  }
 
   // 6. Label — terrain-origin pool, size-tier bucket. Filter by dest.
   const pool = (PKG_LABELS_BY_TERRAIN_ORIGIN[terrainOrigin] || {})[size] || [];
