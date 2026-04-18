@@ -92,6 +92,18 @@ export const S = {
     buffMagnitude: 1,       // tripChance() *= this while buffActive
   },
 
+  // v0.0.9.6 commit 4 — kit inventory for placeable gear (ladder +
+  // anchor). Counts persist; autoGear toggle governs whether auto-
+  // buy-and-place fires when kit is empty but scrip is available.
+  // Defaults to ON per idle-first bias (same spirit as auto-grab).
+  // No save version bump — migration in persistence.js seeds defaults
+  // for existing v8 saves that lack the kit field.
+  kit: {
+    ladders:  0,
+    anchors:  0,
+    autoGear: true,
+  },
+
   // v0.0.7.24 — kit-row battery (prototype stub). Shared charge pool
   // that powers scanner + future electronic gadgets (exoskeleton, etc).
   // v0.0.9.5: save-schema slot added (persists via v8 migration). Full
@@ -378,5 +390,35 @@ export const S = {
     //
     // Shape: { type: 'mountain' | 'rockyHills', ticksRemaining: number }
     severeTripState: null,
+
+    // v0.0.9.6 commit 4 — placed ladder/anchor infrastructure.
+    // Session-local in commit 4; promoted to world-overlay (save-
+    // stored + multiplayer-synced) in commit 5. Each entry:
+    //   {
+    //     id:               unique string
+    //     type:             'ladder' | 'anchor'
+    //     x, y:             SVG viewBox coords
+    //     placedWallClock:  Date.now() at placement
+    //     lifetimeMs:       12h or 24h (baked at placement from
+    //                       lambda's mountainGear flag for all
+    //                       future viewers)
+    //     stormDecayExtra:  accumulated extra wear from storm
+    //                       exposure (ms). Storm sweep lands in
+    //                       commit 7; 0 until then.
+    //   }
+    placedGear: [],
+
+    // v0.0.9.6 commit 4 — throttled "no gear available" log
+    // tracking. Set when the courier crosses a terrain that could
+    // benefit from gear but has none; first encounter per shortcut
+    // per terrain-type logs once, subsequent silent. Cleared on
+    // segment change.
+    unpladderedTerrains: null,
+
+    // v0.0.9.6 commit 4 — "bought and placed" log is unthrottled
+    // since it carries a scrip delta; this tracker exists purely
+    // for the throttled PLACEMENT-from-stack log, which fires once
+    // per shortcut rather than per-cell (consumption signal only).
+    placementLogged: false,
   },
 };

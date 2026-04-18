@@ -298,3 +298,76 @@ export function riverPointAt(t) {
   const dx = RIVER_BX - RIVER_AX, dy = RIVER_BY - RIVER_AY;
   return { x: RIVER_AX + t * dx, y: RIVER_AY + t * dy };
 }
+
+// --- placed-gear mechanics (v0.0.9.6 commit 4) -------
+// Which gear item auto-places on which terrain. Non-
+// directional in commit 4 — ladder and anchor each map
+// to specific terrains; directional (ladder=ascent vs
+// anchor=descent) deferred to commit 6 when trample
+// provides per-cell state to make directionality
+// loop-safe.
+export const GEAR_FOR_TERRAIN = {
+  mountain:   'ladder',
+  rockyHills: 'ladder',
+  plateau:    'ladder',   // ascent to plateau tops; content lands commit 5
+  river:      'anchor',   // rope-span across water
+  // flat / clayBed / desert: no gear helps
+};
+
+// Mitigation ratios applied to TRIP_MULT and STAMINA_MULT
+// of a cell when the matching gear is placed there. Chosen
+// so mountain with ladder (2.0 × 0.65 = 1.3) reads like
+// rocky hills without gear — real relief, terrain still
+// matters. Severity chance drops automatically because
+// it scales off trip mult.
+export const GEAR_TRIP_MITIGATION    = 0.65;
+export const GEAR_STAMINA_MITIGATION = 0.75;
+
+// Wall-clock lifetimes. Base 12h; lambda's mountainGear
+// upgrade doubles to 24h at placement time (baked into
+// the placed-gear record so the bonus applies for all
+// viewers, not just the placer). Stored as ms.
+export const GEAR_LIFETIME_BASE_MS    = 12 * 3600 * 1000;
+export const GEAR_LIFETIME_EXTENDED_MS = 24 * 3600 * 1000;
+
+// Storm exposure decay accelerator (wired in commit 4 but
+// dormant until commit 7 spawns interior storms). When a
+// placed structure sits inside a storm's radius, extra
+// wear ms accumulates at this rate per tick.
+export const GEAR_STORM_DECAY_PER_TICK_MS = 0;  // commit 7 will set real value
+
+// Price per item at the kit-bar buy button / auto-buy.
+// Deliberately outside the 60/100/150 trust-reward bands
+// per the v0.0.9.5.2 pricing-memory — this is disposable
+// social infrastructure, not a permanent upgrade.
+export const GEAR_PRICE = 5;
+
+// Glyphs + colors per wear tier for the on-map render.
+// Ladder uses diagonal bars for rung flavor; anchor uses
+// DAGGER unicode for the "stabbed into the earth" shape
+// user called out.
+export const GEAR_GLYPH = {
+  ladder: '\u2010\u2010',  // '‐‐' — rungs
+  anchor: '\u2020',        // '†'  — dagger
+};
+
+export const GEAR_WEAR_TIERS = [
+  { max: 0.35, name: 'fresh',     color: '#6fd4c0' },  // cyan
+  { max: 0.70, name: 'weathered', color: '#7fa39c' },  // mid-teal
+  { max: 1.01, name: 'rotting',   color: '#b87a5a' },  // rust
+];
+
+// Classify wear (0..1) into the fresh/weathered/rotting tier.
+export function gearWearTier(wear) {
+  for (const t of GEAR_WEAR_TIERS) if (wear <= t.max) return t;
+  return GEAR_WEAR_TIERS[GEAR_WEAR_TIERS.length - 1];
+}
+
+// Given a placed-gear entry, compute the current 0..1 wear
+// factor from wall-clock elapsed plus any storm accumulator.
+// Broken when >= 1.
+export function gearWear(entry) {
+  const now = Date.now();
+  const elapsed = Math.max(0, now - entry.placedWallClock) + (entry.stormDecayExtra || 0);
+  return Math.min(1, elapsed / entry.lifetimeMs);
+}

@@ -121,7 +121,11 @@ import {
 } from './render/route-map.js';
 import {
   TERRAIN_STAMINA_MULT, TERRAIN_CANTEEN_DELTA, desertStaminaMult,
+  GEAR_FOR_TERRAIN, GEAR_STAMINA_MITIGATION,
 } from './data/terrain.js';
+import {
+  autoPlaceForCell, placedGearAt, tickGearDecay, resetGearLogThrottles,
+} from './gear.js';
 import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js';
 import { renderNetwork } from './render/network.js';
 import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js';
@@ -260,11 +264,19 @@ function tick() {
     const seg = S._transient.currentSegment;
     const onInterior = seg && (seg.type === 'shortcut' || seg.type === 'river-drift');
     let currentTerrain = null;
+    let courierXYNow = null;
     if (onInterior) {
       currentTerrain = courierTerrain();
       staminaMult = TERRAIN_STAMINA_MULT[currentTerrain] || 1.0;
       if (currentTerrain === 'desert') {
         staminaMult = desertStaminaMult(daylightOf(S.ticks));
+      }
+      // v0.0.9.6 commit 4 — auto-place ladder/anchor on terrains
+      // that benefit. Placed gear mitigates stamina drain.
+      if (GEAR_FOR_TERRAIN[currentTerrain]) {
+        courierXYNow = seg.pathFn(S.dotT);
+        const placed = autoPlaceForCell(currentTerrain, courierXYNow);
+        if (placed) staminaMult *= GEAR_STAMINA_MITIGATION;
       }
     }
     const staminaDrain = C.STAMINA_DRAIN * staminaMult;
@@ -361,9 +373,17 @@ function tick() {
     S.dotT += 0.006 * Stamina.speedMultiplier() * speedScale;
   }
 
+  // v0.0.9.6 commit 4 — tick placed-gear wall-clock decay + remove
+  // rotted entries. Runs every tick (cheap; scales with small placed-
+  // gear count in commit 4's session-local scope).
+  tickGearDecay();
+
   if (S.dotT >= 1) {
     const arrivingSeg = S._transient.currentSegment;
     const arrivedAt   = arrivingSeg ? arrivingSeg.to : null;
+    // Reset gear-log throttles when segment changes so each new
+    // shortcut gets a fresh "first placement" / "no gear" chance.
+    resetGearLogThrottles();
     // advanceSegmentAfterArrival handles edgeIdx + segment + dotT reset
     advanceSegmentAfterArrival(arrivedAt);
 
