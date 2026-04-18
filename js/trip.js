@@ -61,6 +61,7 @@ import { S } from './state.js';
 import * as C from './constants.js';
 import { postLostDrop } from './multiplayer.js';
 import { staminaSegCount } from './stamina.js';
+import { emit as tEmit } from './telemetry.js';
 import { addLog } from './render/log.js';
 import { renderCourierStack, renderCargoSlots } from './render/hud.js';
 import { weatherAtCourier } from './weather.js';
@@ -388,6 +389,7 @@ function applySevereDamage(terrain) {
 }
 
 function triggerSevereTrip(terrain) {
+  tEmit('trip.severe', { terrain });
   if (terrain === 'river') {
     // Sweep courier downstream 5-10 cells along theta→delta main river.
     const cells = 5 + Math.floor(Math.random() * 6);
@@ -420,7 +422,10 @@ export function maybeTrip() {
   if (S._transient.severeTripState) return;
   if (Math.random() >= tripChance()) return;
   const flavor = tripFlavor();
+  // v0.0.9.6.9 sim telemetry
+  tEmit('trip.fired', { flavor });
   if (Math.random() < catchChance()) {
+    tEmit('trip.caught', { flavor });
     addLog(TRIP_MSGS.catch[flavor] || TRIP_MSGS.catch.default);
     return;
   }

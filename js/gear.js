@@ -38,6 +38,7 @@ import {
 } from './data/terrain.js';
 import { addLog } from './render/log.js';
 import { getCachedPorterId, broadcastGearPlacement } from './multiplayer.js';
+import { emit as tEmit } from './telemetry.js';
 
 // Cell-snap grid for placement lookup. Matches the 12-
 // unit step used by drawInterior / terrain classifier.
@@ -97,6 +98,7 @@ function placeEntry(type, x, y, terrain) {
     stormDecayExtra: 0,
   };
   upsertPlacedGear(entry);
+  tEmit('gear.placed', { type, terrain });
   // Broadcast so peers see our placement. Terrain included for the
   // narrative flavor on the channel line ("placed a ladder on the
   // slope"). Receivers dedup on entry.id.
@@ -143,6 +145,7 @@ export function autoPlaceForCell(terrain, xy) {
   if (kit.autoGear && S.scrip >= GEAR_PRICE) {
     S.scrip -= GEAR_PRICE;
     const entry = placeEntry(gearType, xy.x, xy.y, terrain);
+    tEmit('gear.auto_bought', { type: gearType, terrain });
     logAutoBuy(gearType, terrain);
     return entry;
   }
@@ -228,7 +231,10 @@ export function tickGearDecay() {
     }
   }
   for (let i = arr.length - 1; i >= 0; i--) {
-    if (gearWear(arr[i]) >= 1) arr.splice(i, 1);
+    if (gearWear(arr[i]) >= 1) {
+      tEmit('gear.expired', { type: arr[i].type });
+      arr.splice(i, 1);
+    }
   }
 }
 

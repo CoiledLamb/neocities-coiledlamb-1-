@@ -5,7 +5,7 @@ _last updated: 2026-04-18 (**v0.0.9.6 commits 1-2 landed** on branch, plus two p
 
 ---
 
-## ✅ CURRENT STATE: v0.0.9.6 arc COMPLETE (commits 1-7 shipped). Next up: v0.0.9.6.9 sim harness (per approved plan at .claude/plans/wild-twirling-candy.md), then v0.0.9.7 polish pass
+## ✅ CURRENT STATE: v0.0.9.6 arc COMPLETE (commits 1-7 shipped) + v0.0.9.6.9 sim harness shipped. First 20-run batch produced actionable balance data (canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven). Next up: v0.0.9.7 polish pass informed by sim findings.
 
 Game is at `v0.0.9.5` on the `claude/amazing-hermann` branch (merged to main on completion). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches, a micro-polish, dest-div + outbound dispatch, cursor-based cargo UX, and the biggest single-arc expansion so far — NPC doubling + battery baseline + full trust-gift wiring:
 

@@ -125,6 +125,39 @@ function dispatch(cmd, args) {
     case 'ping':
       return stateSnapshot();
 
+    // v0.0.9.6.9 — sim harness admin hooks
+    case 'sim': {
+      // eslint-disable-next-line no-console
+      return import('./sim.js').then(mod => {
+        const ticks = (args && args.n) || 50000;
+        const report = mod.runSimulation({ ticks });
+        addLog(`<span class="log-hi">sim complete</span>: ${ticks} ticks in ${report.meta.duration_real_ms}ms`);
+        addLog(`  delivered ${report.counters['pkg.delivered']||0} | trips ${report.counters['trip.fired']||0} | storms ${report.counters['storm.spawned']||0}`);
+        // Log compactly to console for dev inspection
+        console.log('[sim] report', report);
+        return { ok: true, ticks: report.meta.ticks };
+      });
+    }
+    case 'simBatch': {
+      return import('./sim.js').then(async mod => {
+        const runs  = (args && args.runs) || 20;
+        const ticks = (args && args.n) || 50000;
+        addLog(`<span class="log-hi">sim batch starting</span>: ${runs} runs × ${ticks} ticks…`);
+        const batch = await mod.runBatch({ runs, ticks });
+        const sum = mod.summarizeBatch(batch);
+        console.log('[sim] batch summary\n' + sum);
+        console.log('[sim] full batch:', batch);
+        addLog(`<span class="log-hi">batch done</span>: ${runs} runs — see console`);
+        return { ok: true, summary: sum };
+      });
+    }
+    case 'simDownload': {
+      return import('./sim.js').then(mod => {
+        const ok = mod.downloadLastBatch();
+        return { ok };
+      });
+    }
+
     // ----- resources -----
     case 'setScrip': {
       S.scrip = Math.max(0, Math.floor(args.value || 0));

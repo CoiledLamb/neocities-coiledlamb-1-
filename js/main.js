@@ -128,6 +128,7 @@ import {
   autoPlaceForCell, placedGearAt, tickGearDecay, resetGearLogThrottles,
 } from './gear.js';
 import { addTrampleAt, trampleAt } from './trail.js';
+import { emit as tEmit } from './telemetry.js';
 import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js';
 import { renderNetwork } from './render/network.js';
 import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js';
@@ -224,18 +225,23 @@ function resolveEls() {
 // ============================================================
 // MAIN TICK
 // ============================================================
-function tick() {
+export function tick() {
   S.ticks++;
+
+  // v0.0.9.6.9 — early skip for expensive renders during sim mode.
+  // Everything below these two calls still runs; we just skip the
+  // heaviest DOM paths. Keeps the sim loop ~10× faster.
+  const simMode = S._transient && S._transient.simMode;
 
   // v0.0.9.1 — sky layer renders every tick regardless of game state
   // (trips, rests, walking). Purely visual, no state mutation.
-  renderSky();
+  if (!simMode) renderSky();
 
   // v0.0.9.5.1 — route HUD overlays (clock + coord + next-dest)
   // update every tick for the same reason: clock must advance even
   // during tripped/resting states. Coord + next are safe no-ops when
   // the courier isn't on a ring segment.
-  updateRouteHud();
+  if (!simMode) updateRouteHud();
 
   if (S.tripTimer>0) {
     S.tripTimer--;
@@ -243,7 +249,8 @@ function tick() {
       S.status = S.inventory.length>0?'carrying':'walking';
       if (els.courierAt) { els.courierAt.className='tlh-at bounce'+(S.inventory.length>0?' carry':''); els.courierAt.style.animation=''; }
     }
-    Boots.renderBoots(); Stamina.renderStamina(); updateHUD(); return;
+    if (!simMode) { Boots.renderBoots(); Stamina.renderStamina(); updateHUD(); }
+    return;
   }
 
   if (S.status==='resting') {
@@ -251,10 +258,12 @@ function tick() {
     if (S.restTimer<=0) {
       S.stamina=S.staminaMax*1.25; S.staminaOverboost=true;
       S.canteen=Math.min(S.canteenMax,S.canteen+20); S.status='walking';
+      tEmit('rest.ended');
       addLog('rested at shelter \u2014 <span class="log-hi">stamina restored +25% overboost</span>');
       if (els.courierAt) { els.courierAt.className='tlh-at bounce'; els.courierAt.style.animation=''; }
     }
-    Stamina.renderStamina(); updateHUD(); return;
+    if (!simMode) { Stamina.renderStamina(); updateHUD(); }
+    return;
   }
 
   if (S.status==='walking' || S.status==='carrying') {
@@ -342,9 +351,24 @@ function tick() {
     // v0.0.7.21 — scanner tick. No-op unless unlocked.
     tickScanner();
 
+    // v0.0.9.6.9 sim telemetry — resource zero events
+    if (S.stamina <= 0 && !S._transient.staminaZeroLatch) {
+      S._transient.staminaZeroLatch = true;
+      tEmit('stamina.zero');
+    } else if (S.stamina > 5) {
+      S._transient.staminaZeroLatch = false;
+    }
+    if (S.canteen <= 0 && !S._transient.canteenEmptyLatch) {
+      S._transient.canteenEmptyLatch = true;
+      tEmit('canteen.empty');
+    } else if (S.canteen > 5) {
+      S._transient.canteenEmptyLatch = false;
+    }
+
     if (S.stamina<50 && S.status==='walking' && Math.random()<0.03) {
       S.status='resting'; S.restTimer=C.REST_TICKS_MIN+Math.floor(Math.random()*(C.REST_TICKS_MAX-C.REST_TICKS_MIN));
       addLog('<span class="log-wn">exhausted \u2014 resting at nearest shelter</span>');
+      tEmit('rest.started');
       if (els.courierAt) { els.courierAt.className='tlh-at rest'; els.courierAt.style.animation=''; }
     }
   }
@@ -440,15 +464,15 @@ function tick() {
       }
     }
   } else {
-    updateRouteDot();
+    if (!simMode) updateRouteDot();
   }
 
   // v0.0.9.3 — per-tick interactive route-map updates: trail aging,
   // shortcut preview refresh, live tooltip.
-  tickRouteInteractions();
+  if (!simMode) tickRouteInteractions();
 
   S.worldPos = worldPosFromRoute();
-  renderFieldstrip();
+  if (!simMode) renderFieldstrip();
 
   if (S.ticks%10===0) Pkg.tickPkgRespawns();
 
@@ -529,8 +553,10 @@ function tick() {
     if (gain > 0) S.battery.charge = Math.min(S.battery.max, S.battery.charge + gain);
   }
 
-  Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
-  renderKit();
+  if (!simMode) {
+    Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
+    renderKit();
+  }
 
   // v0.0.9.2 — drive the settlements typewriter reveal each tick while
   // any emergence is in progress. Cheap — the Map is usually empty.

@@ -31,6 +31,7 @@ import { S } from './state.js';
 import * as C from './constants.js';
 import { addLog } from './render/log.js';
 import { updateHUD } from './render/hud.js';
+import { emit as tEmit } from './telemetry.js';
 
 // Local alias — live reference into S._transient. Never reassign.
 const els = S._transient.els;
@@ -51,6 +52,11 @@ export function buyBoots() {
 export function checkAutobuy() {
   // Failsafe ladder when boots hit 0 — runs regardless of autobuy setting.
   // Clip first (real spare pair), sandalweed second (makeshift).
+  if (S.bootDurability <= 0) {
+    // v0.0.9.6.9 sim telemetry — boots failure (regardless of which
+    // fallback fires). Useful for spotting mid-route boot failure rate.
+    tEmit('boots.worn_out', { status: S.status });
+  }
   if (S.bootDurability <= 0 && S.bootClipCount > 0) {
     S.bootClipCount--; S.bootDurability = 100; S.usingMakeshift = false;
     addLog('<span class="log-hi">boot clip</span>: spare pair auto-equipped');
