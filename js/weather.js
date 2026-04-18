@@ -382,11 +382,14 @@ function paintLegendBar() {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
 
-  // Same color ramp as the minimap color mass
+  // v0.0.9.5.1 — inverted ramp: left (low pressure, 984 hPa) = green,
+  // right (high pressure, 1020 hPa) = pink. Reads as a compass-card
+  // isobar reference independent of the minimap's storm-density
+  // color mass (which still uses the pink-for-dense-precip palette).
   const stops = [
-    [0,    '#162e40'], [0.15, '#1e4458'], [0.30, '#2e4a72'],
-    [0.45, '#3e4a7a'], [0.58, '#504a82'], [0.70, '#7a4a78'],
-    [0.82, '#9d68a4'], [0.92, '#b878b8'], [1.0,  '#da8bda'],
+    [0.0,  '#3a6a68'], [0.15, '#4a6a78'], [0.30, '#5a6a88'],
+    [0.45, '#6a5a90'], [0.58, '#7a5a98'], [0.70, '#9568b8'],
+    [0.82, '#b878cc'], [0.92, '#c76cd0'], [1.0,  '#da5bd6'],
   ];
   const grad = ctx.createLinearGradient(0, 0, w, 0);
   stops.forEach(([pos, color]) => grad.addColorStop(pos, color));

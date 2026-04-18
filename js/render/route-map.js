@@ -18,6 +18,8 @@
 import { S } from '../state.js';
 import * as C from '../constants.js';
 import { getNodeStage, getDisplayLabel } from '../identification.js';
+import { TICKS_PER_DAY } from './sky.js';
+import { NPC_DEFS } from '../data/npc-defs.js';
 
 const els = S._transient.els;
 
@@ -457,6 +459,56 @@ export function updateRouteDot() {
   const xy = seg.pathFn(S.dotT);
   dot.setAttribute('cx', xy.x);
   dot.setAttribute('cy', xy.y);
+}
+
+// v0.0.9.5.1 — route-panel HUD overlays: clock (title row), coord
+// (footer left), next-dest (footer right). Called from main's tick.
+// Kept cheap — three text nodes + a guard for missing DOM nodes.
+export function updateRouteHud() {
+  // Clock — maps S.ticks % TICKS_PER_DAY to a 24h HH:MM string.
+  const clockEl = document.getElementById('routeClock');
+  if (clockEl) {
+    const f = (((S.ticks % TICKS_PER_DAY) + TICKS_PER_DAY) % TICKS_PER_DAY) / TICKS_PER_DAY;
+    const mins = Math.floor(f * 24 * 60);
+    const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+    const mm = String(mins % 60).padStart(2, '0');
+    clockEl.textContent = `${hh}:${mm}`;
+  }
+
+  const seg = S._transient.currentSegment;
+
+  // Coord — SVG-space x/y from the current segment's pathFn.
+  // Integer display matches the 400x400 viewBox scale.
+  const coordEl = document.getElementById('routeCoord');
+  if (coordEl) {
+    if (seg) {
+      const xy = seg.pathFn(S.dotT);
+      coordEl.innerHTML =
+        `<span class="lbl">x:</span><span class="val">${Math.round(xy.x)}</span> ` +
+        `<span class="lbl">y:</span><span class="val">${Math.round(xy.y)}</span>`;
+    } else {
+      coordEl.textContent = 'x:-- y:--';
+    }
+  }
+
+  // Next-dest — callsign + remaining km in the current segment.
+  // Uses the NPC callsign when the dest is an NPC node, otherwise the
+  // single-letter nodeId (matches tooltip's dim-fallback behavior).
+  const nextEl = document.getElementById('routeNext');
+  if (nextEl) {
+    if (seg) {
+      const destId   = seg.to;
+      const npcDef   = NPC_DEFS[destId];
+      const destName = npcDef ? npcDef.callsign : destId;
+      const remaining = (1 - S.dotT) * seg.length;
+      const km = (remaining / UNITS_PER_KM).toFixed(1);
+      nextEl.innerHTML =
+        `<span class="lbl">&rarr;</span><span class="val">${destName}</span> ` +
+        `<span class="val">${km}km</span>`;
+    } else {
+      nextEl.textContent = '';
+    }
+  }
 }
 
 // ============================================================

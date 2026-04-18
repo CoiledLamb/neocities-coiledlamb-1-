@@ -109,13 +109,13 @@ import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from 
 import { renderKit } from './render/kit.js';
 import { initAdminChannel } from './admin-channel.js';
 import { initSaveIo } from './save-io.js';
-import { addLog } from './render/log.js';
+import { addLog, restoreLogFromSave } from './render/log.js';
 import {
   updateHUD, renderCargoSlots, renderCourierStack,
 } from './render/hud.js';
 import { bindDragGlobals } from './render/drag.js';
 import {
-  drawRouteMap, updateRouteDot, layoutRouteNodes, currentEdge,
+  drawRouteMap, updateRouteDot, updateRouteHud, layoutRouteNodes, currentEdge,
   initSegment, advanceSegmentAfterArrival, bindRouteInteractions,
   tickRouteInteractions, isOnShortcut,
 } from './render/route-map.js';
@@ -221,6 +221,12 @@ function tick() {
   // v0.0.9.1 — sky layer renders every tick regardless of game state
   // (trips, rests, walking). Purely visual, no state mutation.
   renderSky();
+
+  // v0.0.9.5.1 — route HUD overlays (clock + coord + next-dest)
+  // update every tick for the same reason: clock must advance even
+  // during tripped/resting states. Coord + next are safe no-ops when
+  // the courier isn't on a ring segment.
+  updateRouteHud();
 
   if (S.tripTimer>0) {
     S.tripTimer--;
@@ -453,6 +459,27 @@ function tick() {
 // ============================================================
 // INIT
 // ============================================================
+
+// v0.0.9.5.1 — watch a scroll container and toggle `.has-overflow`
+// based on whether its content exceeds its visible height. Gates
+// the tier-A mask-fade so panels without overflow don't dim their
+// top row for no reason. MutationObserver covers content churn,
+// window resize covers layout churn. Cheap — three observers max.
+function bindOverflowFade(el) {
+  if (!el) return;
+  const update = () => {
+    const over = el.scrollHeight > el.clientHeight + 1;
+    el.classList.toggle('has-overflow', over);
+  };
+  update();
+  try {
+    new MutationObserver(update).observe(el, {
+      childList: true, subtree: true, characterData: true,
+    });
+  } catch (e) {}
+  window.addEventListener('resize', update);
+}
+
 function init() {
   resolveEls();
   calcCellPxWidth();
@@ -463,6 +490,21 @@ function init() {
   buildWorld();
 
   const restored = loadGame();
+
+  // v0.0.9.5.1 — replay the persisted dispatch-log tail into the DOM
+  // so the player's recent history survives across sessions. Safe
+  // on first-ever load (S.log is empty and the call no-ops).
+  restoreLogFromSave();
+
+  // v0.0.9.5.1 — bind overflow-fade gating for the three tier-A
+  // scroll panels. Toggles `.has-overflow` when scrollHeight exceeds
+  // clientHeight so the fade mask only kicks in when there's
+  // actually clipped content (otherwise the top row would dim
+  // for no reason). MutationObserver catches content changes,
+  // window resize catches layout changes.
+  bindOverflowFade(document.getElementById('upgradesEl'));
+  bindOverflowFade(document.getElementById('settlementsEl'));
+  bindOverflowFade(document.getElementById('channelsEl'));
 
   const [curFrom, curTo] = S.edges[S.edgeIdx];
   markEdgeAdjacent(curFrom, curTo);

@@ -52,6 +52,12 @@ export function staminaSegCount() {
 
 function canDrink() {
   if (S.canteen <= 0) return false;
+  // v0.0.9.5.1 — require enough canteen to produce a meaningful sip
+  // (≥ DRINK_MIN_LOSS_PCT of canteenMax). Without this, near-empty
+  // canteens combined with the critLow auto-drink safety net spam
+  // "drank from canteen — +0%" every tick. Same threshold as the
+  // stamina-side gate so manual + auto behave symmetrically.
+  if (S.canteen < S.canteenMax * DRINK_MIN_LOSS_PCT) return false;
   return S.stamina < S.staminaMax * (1 - DRINK_MIN_LOSS_PCT);
 }
 
@@ -95,7 +101,15 @@ export function renderStamina() {
   }
 
   const nowSegs = staminaSegCount();
-  if (S.autodrink && nowSegs < S.prevStaminaSeg && canDrink()) drinkWater();
+  // v0.0.9.5.1 — auto-drink safety net. The seg-transition trigger
+  // (nowSegs < prevStaminaSeg) misses scenarios where prevStaminaSeg
+  // ends up equal to nowSegs while stamina is still draining — e.g.
+  // renderStamina gets called mid-drain from a non-tick path, or the
+  // player's staminaMax is high enough that drain within seg 1 takes
+  // many ticks. Fall-through: if stamina is at or below 15% max and
+  // we have water to drink, fire regardless of seg transition.
+  const critLow = S.stamina <= S.staminaMax * 0.15;
+  if (S.autodrink && canDrink() && (nowSegs < S.prevStaminaSeg || critLow)) drinkWater();
   S.prevStaminaSeg = nowSegs;
   const canteenPct = Math.round((S.canteen/S.canteenMax)*100);
   if (els.drinkBtn) {

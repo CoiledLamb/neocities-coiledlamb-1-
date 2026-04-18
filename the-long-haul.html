@@ -26,7 +26,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.5</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.5.1</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -138,18 +138,34 @@
 
           <div class="tlh-right">
             <div class="tlh-route-panel">
-              <div class="tlh-ptitle">// route</div>
+              <!-- v0.0.9.5.1 — title row now carries the relative-time
+                   clock, right-aligned beside "// route". -->
+              <div class="tlh-ptitle route-ptitle">
+                <span>// route</span>
+                <span class="route-clock" id="routeClock">--:--</span>
+              </div>
               <svg id="routeSvg" viewBox="0 0 400 400" width="100%" style="overflow:visible; aspect-ratio: 1 / 1"></svg>
+              <!-- v0.0.9.5.1 — persistent footer strip: coord left,
+                   next-dest right. Sits flush below the SVG so the
+                   panel bottom shape stays consistent whether or not
+                   the weather legend (gated on S.weatherRadio) shows. -->
+              <div class="route-footer">
+                <span class="route-coord" id="routeCoord">x:-- y:--</span>
+                <span class="route-next" id="routeNext"></span>
+              </div>
               <div class="weather-gear-row" id="weatherGearRow">
                 <button class="boots-gear-btn weather-gear-btn" id="weatherGearBtn" aria-label="weather" aria-expanded="false">&#x2609;</button>
                 <span class="inline-gear-wrap weather-legend-wrap" id="weatherLegendInline" hidden>
-                  <canvas id="weatherLegendBar" width="80" height="6" class="weather-legend-bar"></canvas>
+                  <!-- v0.0.9.5.1 — canvas stretches to fill row; labels
+                       run along the bar with hPa aligned to the high
+                       end (1020). Color ramp inverted in paintLegendBar:
+                       green = low pressure (984), pink = high (1020). -->
+                  <canvas id="weatherLegendBar" width="160" height="5" class="weather-legend-bar"></canvas>
                   <span class="weather-legend-labels">
-                    <span class="weather-legend-lbl wl-hi">1020</span>
-                    <span class="weather-legend-lbl wl-mid">1002</span>
                     <span class="weather-legend-lbl wl-lo">984</span>
+                    <span class="weather-legend-lbl wl-mid">1002</span>
+                    <span class="weather-legend-lbl wl-hi">1020 <span class="weather-legend-unit">hPa</span></span>
                   </span>
-                  <span class="weather-legend-unit">hPa</span>
                 </span>
               </div>
             </div>

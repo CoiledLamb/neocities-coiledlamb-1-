@@ -58,10 +58,10 @@ export const NPC_DEFS = {
   'C':        { callsign: 'xi',     name: 'xi',     depotLabel: 'city ruins',          trustProfile: 'archivist'   },
   '\u00b7':   { callsign: 'psi',    name: 'psi',    depotLabel: 'oasis',               trustProfile: 'wayfinder'   },
   // v0.0.9.5 new 6 — dialogue + profiles authored 2026-04-17.
-  '\u03bd':   { callsign: 'nu',     name: 'nu',     depotLabel: 'purification plant',  trustProfile: 'guardian'    },
+  '\u03bd':   { callsign: 'nu',     name: 'nu',     depotLabel: 'treatment plant',     trustProfile: 'guardian'    },
   '\u03b8':   { callsign: 'theta',  name: 'theta',  depotLabel: 'kiln',                trustProfile: 'artisan'     },
   '\u03b3':   { callsign: 'gamma',  name: 'gamma',  depotLabel: 'workshop',            trustProfile: 'debt-easer'  },
-  '\u03bb':   { callsign: 'lambda', name: 'lambda', depotLabel: 'climbing lodge',      trustProfile: 'adventurer'  },
+  '\u03bb':   { callsign: 'lambda', name: 'lambda', depotLabel: 'lodge',               trustProfile: 'adventurer'  },
   '\u03c0':   { callsign: 'pi',     name: 'pi',     depotLabel: 'radio tower',         trustProfile: 'researcher'  },
   '\u03b4':   { callsign: 'delta',  name: 'delta',  depotLabel: 'reservoir',           trustProfile: 'routine'     },
 };

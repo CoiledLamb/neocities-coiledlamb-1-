@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tlh — v0.0.9.5.1 bugfix mockups: B1 channels scroll / B2 route overlays / B3 weather legend</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --tlh-C: #77bfcf;
+    --tlh-c: #40a4b9;
+    --tlh-K: #155352;
+    --tlh-k: #0f3b3a;
+    --tlh-kk: #081f1e;
+    --tlh-y: #b1c9c3;
+    --tlh-Y: #ffffff;
+    --tlh-purple: #9d78d4;
+    --tlh-border: #1e5554;
+  }
+  html, body {
+    margin: 0;
+    background: #041312;
+    color: var(--tlh-y);
+    font-family: 'Source Code Pro', ui-monospace, monospace;
+    font-weight: 600;
+    min-height: 100vh;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+  h1 {
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    text-transform: lowercase;
+    margin: 0 0 4px;
+    opacity: 0.8;
+  }
+  h1 .v { color: var(--tlh-c); }
+  h1 small { opacity: 0.5; font-weight: 500; display: block; font-size: 11px; }
+
+  .wrap {
+    display: grid;
+    grid-template-columns: 340px 340px;
+    gap: 36px;
+    margin-top: 24px;
+  }
+  .col-title {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin: 0 0 8px;
+    padding: 0 2px;
+  }
+  .col-title.ok  { color: var(--tlh-C); }
+  .col-title.wip { color: #e99f10; }
+
+  /* ROUTE PANEL — shared */
+  .tlh-route-panel {
+    background: var(--tlh-kk);
+    border: 1px solid var(--tlh-border);
+    padding: 8px;
+    margin-bottom: 6px;
+  }
+  .route-svg-wrap {
+    position: relative;
+  }
+  .tlh-ptitle {
+    font-size: 9px;
+    color: var(--tlh-y);
+    opacity: 0.55;
+    margin: 0 0 6px;
+    letter-spacing: 0.04em;
+  }
+  .route-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    overflow: visible;
+  }
+  .route-svg .rim-edge { fill: none; stroke: #1e5554; stroke-width: 0.6; }
+  .route-svg .rim-node {
+    fill: #0f3b3a; stroke: #3a7a78; stroke-width: 1;
+  }
+  .route-svg .node-label {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 6px;
+    fill: var(--tlh-y);
+    opacity: 0.7;
+    text-anchor: middle;
+    font-weight: 400;
+  }
+  .route-svg .player-dot {
+    fill: var(--tlh-C);
+    stroke: #77bfcf;
+    stroke-width: 0.8;
+  }
+  .route-svg .courier-glyph {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 7px;
+    font-weight: 700;
+    fill: var(--tlh-C);
+    text-anchor: middle;
+  }
+
+  /* --- B2: route overlays — borderless, blend with panel bg --- */
+  .route-overlay {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 9px;
+    color: var(--tlh-y);
+    pointer-events: none;
+    user-select: none;
+    letter-spacing: 0.03em;
+  }
+  .route-overlay .lbl {
+    opacity: 0.5;
+    font-weight: 400;
+    margin-right: 3px;
+    text-transform: lowercase;
+  }
+  .route-overlay .val {
+    color: var(--tlh-C);
+    font-weight: 700;
+  }
+  /* Clock sits INSIDE the title row, right-aligned beside "// route" */
+  .tlh-ptitle.route-ptitle {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 2px;
+  }
+  .route-ptitle .route-overlay.clock {
+    font-size: 9px;
+  }
+  /* Route footer strip — always present, holds coord + next-dest so
+     the panel has a consistent bottom edge whether or not the
+     weather legend row is shown (weather gates on S.weatherRadio
+     L1+). Coord left, next right. */
+  .route-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 3px 2px 1px;
+    font-size: 9px;
+    font-family: 'Source Code Pro', monospace;
+    letter-spacing: 0.03em;
+    opacity: 0.85;
+  }
+  .route-footer .route-overlay {
+    position: static;
+    opacity: 1;
+  }
+  .route-footer .route-overlay.next .lbl { opacity: 0.5; font-weight: 400; margin-right: 3px; }
+
+  /* --- B3: weather legend. Gear-toggled (☉ button restored); numbers
+         run along the bar underneath; color ramp inverted so low
+         pressure = green and high pressure = pink/magenta. --- */
+  .weather-gear-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 2px 0;
+    margin-top: 4px;
+  }
+  .weather-gear-btn {
+    font-size: 11px;
+    min-width: 18px;
+    height: 18px;
+    background: transparent;
+    border: 1px solid #3a6a68;
+    color: #3a6a68;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 0 4px;
+    border-radius: 1px;
+    line-height: 1;
+  }
+  .weather-gear-btn:hover { color: var(--tlh-C); border-color: var(--tlh-C); }
+
+  .weather-legend-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-family: 'Source Code Pro', monospace;
+  }
+  .weather-legend-bar {
+    height: 5px;
+    width: 100%;
+    image-rendering: pixelated;
+    border-radius: 1px;
+    /* v0.0.9.5.1 mockup: inverted ramp.
+       LEFT = low pressure (984)  = green
+       RIGHT = high pressure (1020) = pink */
+    background: linear-gradient(
+      to right,
+      #3a6a68 0%,
+      #5a6a88 25%,
+      #7a5a98 50%,
+      #9d78d4 75%,
+      #da5bd6 100%
+    );
+  }
+  .weather-legend-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 7px;
+    font-family: 'Source Code Pro', monospace;
+    line-height: 1;
+    padding: 0 1px;
+  }
+  .wl-lo  { color: #3a6a68; }   /* low pressure = green */
+  .wl-mid { color: #7a5a98; }
+  .wl-hi  { color: #da5bd6; }   /* high pressure = pink */
+  .weather-legend-unit {
+    font-size: 7px;
+    color: #5a6a88;
+    opacity: 0.6;
+    align-self: flex-end;
+    margin-left: 4px;
+  }
+
+  /* --- INFO ROW (channels + network) --- */
+  .tlh-info-row {
+    display: flex;
+    gap: 6px;
+  }
+  .tlh-channels-panel, .tlh-network-panel {
+    flex: 1 1 0;
+    min-width: 0;
+    background: var(--tlh-kk);
+    border: 1px solid var(--tlh-border);
+    padding: 8px;
+    border-radius: 1px;
+    height: 180px;
+    display: flex;
+    flex-direction: column;
+  }
+  .tlh-channels-panel .tlh-ptitle { color: var(--tlh-purple); }
+
+  /* --- channels list, current (with clamp) --- */
+  .channels-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .chan-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 3px 6px;
+    font-size: 9px;
+    line-height: 1.3;
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(30, 85, 84, 0.3);
+  }
+  .chan-item:last-child { border-bottom: none; }
+  .chan-who {
+    color: var(--tlh-purple);
+    font-weight: 700;
+    grid-column: 1;
+  }
+  .chan-ts  {
+    grid-column: 3;
+    font-size: 8px;
+    opacity: 0.4;
+  }
+  .chan-text {
+    grid-column: 1 / -1;
+    color: var(--tlh-y);
+    opacity: 0.85;
+    font-weight: 400;
+    margin-top: 1px;
+  }
+  /* --- CURRENT clamp behavior --- */
+  .clamp-current .chan-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* --- PROPOSED: no clamp, scroll container --- */
+  .no-clamp .chan-text {
+    display: block;
+    overflow: visible;
+    white-space: normal;
+    word-wrap: break-word;
+  }
+
+  /* Scrollbar styling to match the teal palette (default, visible) */
+  .channels-scroll::-webkit-scrollbar { width: 6px; }
+  .channels-scroll::-webkit-scrollbar-track { background: #0b2e2d; }
+  .channels-scroll::-webkit-scrollbar-thumb { background: #2a5c5a; border-radius: 0; }
+  .channels-scroll { scrollbar-width: thin; scrollbar-color: #2a5c5a #0b2e2d; }
+
+  /* --- OPTION A: always-hidden scrollbar + fade-mask overflow hint --- */
+  .channels-scroll.hide-bar-fade {
+    scrollbar-width: none;      /* Firefox */
+    -ms-overflow-style: none;   /* IE/Edge legacy */
+  }
+  .channels-scroll.hide-bar-fade::-webkit-scrollbar { display: none; }
+  /* Mask fades the top/bottom 10px of the scroll container so clipped
+     messages dissolve into the panel edge instead of ending hard. */
+  .fade-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+  }
+  .fade-wrap::before,
+  .fade-wrap::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 14px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .fade-wrap::before {
+    top: 0;
+    background: linear-gradient(to bottom, var(--tlh-kk) 0%, transparent 100%);
+  }
+  .fade-wrap::after {
+    bottom: 0;
+    background: linear-gradient(to top, var(--tlh-kk) 0%, transparent 100%);
+  }
+  .fade-wrap .channels-scroll {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* --- OPTION B: hidden by default, reveal scrollbar on hover --- */
+  .channels-scroll.hover-reveal {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .channels-scroll.hover-reveal::-webkit-scrollbar {
+    width: 0px;
+    transition: width 0.15s ease;
+  }
+  .tlh-channels-panel:hover .channels-scroll.hover-reveal {
+    scrollbar-width: thin;
+    scrollbar-color: #2a5c5a #0b2e2d;
+  }
+  .tlh-channels-panel:hover .channels-scroll.hover-reveal::-webkit-scrollbar {
+    width: 6px;
+  }
+  .channels-scroll.hover-reveal::-webkit-scrollbar-track { background: #0b2e2d; }
+  .channels-scroll.hover-reveal::-webkit-scrollbar-thumb { background: #2a5c5a; border-radius: 0; }
+
+  /* Network mini (for layout context) */
+  .net-item {
+    font-size: 9px;
+    line-height: 1.4;
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(30, 85, 84, 0.3);
+  }
+  .net-hi { color: var(--tlh-C); }
+
+  /* Notes */
+  .notes {
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: #081f1e;
+    border-left: 2px solid var(--tlh-c);
+    font-size: 11px;
+    line-height: 1.55;
+  }
+  .notes code {
+    color: var(--tlh-C);
+    background: #0b2e2d;
+    padding: 0 3px;
+    font-size: 10px;
+  }
+  .notes ul { margin: 4px 0 0; padding-left: 18px; }
+  .notes li { margin-bottom: 3px; }
+  .notes .lbl {
+    display: inline-block;
+    min-width: 30px;
+    color: var(--tlh-C);
+    font-weight: 700;
+    margin-right: 4px;
+  }
+  .notes h3 {
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    margin: 0 0 6px;
+    color: var(--tlh-y);
+    opacity: 0.9;
+    text-transform: lowercase;
+  }
+
+  .coord-alt {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 10px;
+    opacity: 0.7;
+  }
+  .coord-alt .pill {
+    background: #0b2e2d;
+    border: 1px solid #1e5554;
+    padding: 2px 6px;
+    border-radius: 1px;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 9px;
+    color: var(--tlh-y);
+  }
+  .coord-alt .pill .val { color: var(--tlh-C); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1>v0.0.9.5.1 bugfix — mockup: B1 channels / B2 route overlays / B3 weather legend <small>side-by-side — current (left) vs proposed (right)</small></h1>
+
+<div class="wrap">
+
+  <!-- ============ CURRENT (LEFT COLUMN) ============ -->
+  <div>
+    <div class="col-title wip">// current state</div>
+
+    <!-- Route panel — no overlays, no weather legend -->
+    <div class="tlh-route-panel">
+      <div class="tlh-ptitle">// route</div>
+      <svg class="route-svg" viewBox="0 0 400 400">
+        <!-- Rim edges (rounded-square 12-node) -->
+        <path class="rim-edge" d="M 92 92 L 163 92 L 237 92 L 308 92
+                                   Q 308 92 308 117 L 308 163 L 308 237 L 308 283
+                                   Q 308 308 283 308 L 237 308 L 163 308 L 92 308
+                                   Q 92 308 92 283 L 92 237 L 92 163 L 92 117
+                                   Q 92 92 92 92 Z" />
+        <!-- Nodes -->
+        <circle class="rim-node" cx="92"  cy="92"  r="10"/>
+        <circle class="rim-node" cx="163" cy="92"  r="10"/>
+        <circle class="rim-node" cx="237" cy="92"  r="10"/>
+        <circle class="rim-node" cx="308" cy="92"  r="10"/>
+        <circle class="rim-node" cx="308" cy="163" r="10"/>
+        <circle class="rim-node" cx="308" cy="237" r="10"/>
+        <circle class="rim-node" cx="308" cy="308" r="10"/>
+        <circle class="rim-node" cx="237" cy="308" r="10"/>
+        <circle class="rim-node" cx="163" cy="308" r="10"/>
+        <circle class="rim-node" cx="92"  cy="308" r="10"/>
+        <circle class="rim-node" cx="92"  cy="237" r="10"/>
+        <circle class="rim-node" cx="92"  cy="163" r="10"/>
+        <!-- Node labels -->
+        <text class="node-label" x="92"  y="80">nu</text>
+        <text class="node-label" x="163" y="80">oasis</text>
+        <text class="node-label" x="237" y="80">greenhouse</text>
+        <text class="node-label" x="308" y="80">kiln</text>
+        <text class="node-label" x="328" y="166">weather station</text>
+        <text class="node-label" x="328" y="240">workshop</text>
+        <text class="node-label" x="328" y="322">city ruins</text>
+        <text class="node-label" x="237" y="325">reservoir</text>
+        <text class="node-label" x="163" y="325">climbing lodge</text>
+        <text class="node-label" x="92"  y="325">radio tower</text>
+        <text class="node-label" x="72"  y="240">home</text>
+        <text class="node-label" x="72"  y="166">depot</text>
+        <!-- Courier -->
+        <text class="courier-glyph" x="163" y="310" dy="-14">@</text>
+        <circle class="player-dot" cx="163" cy="308" r="3"/>
+      </svg>
+    </div>
+
+    <div class="tlh-info-row">
+      <div class="tlh-channels-panel">
+        <div class="tlh-ptitle">// channels</div>
+        <div class="channels-scroll clamp-current">
+          <div class="chan-item">
+            <span class="chan-who">rho</span>
+            <span class="chan-ts">14:02</span>
+            <span class="chan-text">no callsigns trusted yet — deliver to depots to build trust. this line goes on and on past the three-line clamp and gets cut with an ellipsis, which is the behavior we want to remove.</span>
+          </div>
+          <div class="chan-item">
+            <span class="chan-who">iota</span>
+            <span class="chan-ts">13:44</span>
+            <span class="chan-text">another long message about wetland paths and how the ticks accumulate between visits, eventually unlocking the wetland-path bonus.</span>
+          </div>
+        </div>
+      </div>
+      <div class="tlh-network-panel">
+        <div class="tlh-ptitle">// network</div>
+        <div class="net-item"><span class="net-hi">PTR-4A2</span> scouted: greenhouse</div>
+        <div class="net-item"><span class="net-hi">PTR-88D</span> lost ammo packet</div>
+        <div class="net-item"><span class="net-hi">PTR-162</span> earned trust at xi</div>
+        <div class="net-item"><span class="net-hi">2 others</span> online today</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PROPOSED (RIGHT COLUMN) ============ -->
+  <div>
+    <div class="col-title ok">// proposed — v0.0.9.5.1</div>
+
+    <div class="tlh-route-panel">
+      <!-- B2: clock rides the title row, right-aligned beside "// route" -->
+      <div class="tlh-ptitle route-ptitle">
+        <span>// route</span>
+        <span class="route-overlay clock"><span class="val">14:32</span></span>
+      </div>
+
+      <!-- Overlays (coord / next-dest) anchor to the SVG wrap. -->
+      <div class="route-svg-wrap">
+        <svg class="route-svg" viewBox="0 0 400 400">
+          <path class="rim-edge" d="M 92 92 L 163 92 L 237 92 L 308 92
+                                     Q 308 92 308 117 L 308 163 L 308 237 L 308 283
+                                     Q 308 308 283 308 L 237 308 L 163 308 L 92 308
+                                     Q 92 308 92 283 L 92 237 L 92 163 L 92 117
+                                     Q 92 92 92 92 Z" />
+          <circle class="rim-node" cx="92"  cy="92"  r="10"/>
+          <circle class="rim-node" cx="163" cy="92"  r="10"/>
+          <circle class="rim-node" cx="237" cy="92"  r="10"/>
+          <circle class="rim-node" cx="308" cy="92"  r="10"/>
+          <circle class="rim-node" cx="308" cy="163" r="10"/>
+          <circle class="rim-node" cx="308" cy="237" r="10"/>
+          <circle class="rim-node" cx="308" cy="308" r="10"/>
+          <circle class="rim-node" cx="237" cy="308" r="10"/>
+          <circle class="rim-node" cx="163" cy="308" r="10"/>
+          <circle class="rim-node" cx="92"  cy="308" r="10"/>
+          <circle class="rim-node" cx="92"  cy="237" r="10"/>
+          <circle class="rim-node" cx="92"  cy="163" r="10"/>
+          <text class="node-label" x="92"  y="80">nu</text>
+          <text class="node-label" x="163" y="80">oasis</text>
+          <text class="node-label" x="237" y="80">greenhouse</text>
+          <text class="node-label" x="308" y="80">kiln</text>
+          <text class="node-label" x="328" y="166">weather station</text>
+          <text class="node-label" x="328" y="240">workshop</text>
+          <text class="node-label" x="328" y="322">city ruins</text>
+          <text class="node-label" x="237" y="325">reservoir</text>
+          <text class="node-label" x="163" y="325">climbing lodge</text>
+          <text class="node-label" x="92"  y="325">radio tower</text>
+          <text class="node-label" x="72"  y="240">home</text>
+          <text class="node-label" x="72"  y="166">depot</text>
+          <text class="courier-glyph" x="163" y="310" dy="-14">@</text>
+          <circle class="player-dot" cx="163" cy="308" r="3"/>
+        </svg>
+
+      </div>
+
+      <!-- Route footer (always visible): coord left, next-dest right.
+           Sits flush at the panel bottom so the shape of the panel
+           stays the same whether or not the weather legend is shown. -->
+      <div class="route-footer">
+        <div class="route-overlay coord">
+          <span class="lbl">x:</span><span class="val">163</span>
+          <span class="lbl" style="margin-left:4px">y:</span><span class="val">308</span>
+        </div>
+        <div class="route-overlay next">
+          <span class="lbl">&rarr;</span><span class="val">iota</span>
+          &nbsp;<span class="val">3.2km</span>
+        </div>
+      </div>
+
+      <!-- B3: weather legend. Gear button (☉) restored as toggle.
+           Appears ONLY when S.weatherRadio L1+ is owned; mockup
+           forces it open. hPa sits inside the labels row, aligned
+           with the pressure numbers. -->
+      <div class="weather-gear-row">
+        <button class="weather-gear-btn" title="weather legend">&#x2609;</button>
+        <div class="weather-legend-wrap">
+          <div class="weather-legend-bar"></div>
+          <div class="weather-legend-labels">
+            <span class="wl-lo">984</span>
+            <span class="wl-mid">1002</span>
+            <span class="wl-hi">1020 <span class="weather-legend-unit">hPa</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tlh-info-row">
+      <div class="tlh-channels-panel">
+        <div class="tlh-ptitle">// channels <span style="opacity:0.4;font-weight:400;font-size:8px">— opt a: fade mask</span></div>
+        <div class="fade-wrap">
+          <div class="channels-scroll no-clamp hide-bar-fade">
+            <div class="chan-item">
+              <span class="chan-who">rho</span>
+              <span class="chan-ts">14:02</span>
+              <span class="chan-text">no callsigns trusted yet — deliver to depots to build trust. this line goes on and on past the three-line clamp and gets cut with an ellipsis, which is the behavior we want to remove.</span>
+            </div>
+            <div class="chan-item">
+              <span class="chan-who">iota</span>
+              <span class="chan-ts">13:44</span>
+              <span class="chan-text">another long message about wetland paths and how the ticks accumulate between visits, eventually unlocking the wetland-path bonus.</span>
+            </div>
+            <div class="chan-item">
+              <span class="chan-who">tau</span>
+              <span class="chan-ts">13:30</span>
+              <span class="chan-text">welcome back. long way since last time?</span>
+            </div>
+            <div class="chan-item">
+              <span class="chan-who">theta</span>
+              <span class="chan-ts">13:11</span>
+              <span class="chan-text">kiln dries slow in the sun. wrap the fragile ones tighter.</span>
+            </div>
+            <div class="chan-item">
+              <span class="chan-who">phi</span>
+              <span class="chan-ts">12:45</span>
+              <span class="chan-text">barometer's still dropping. storm coming in from the east.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tlh-network-panel">
+        <div class="tlh-ptitle">// network</div>
+        <div class="net-item"><span class="net-hi">PTR-4A2</span> scouted: greenhouse</div>
+        <div class="net-item"><span class="net-hi">PTR-88D</span> lost ammo packet</div>
+        <div class="net-item"><span class="net-hi">PTR-162</span> earned trust at xi</div>
+        <div class="net-item"><span class="net-hi">2 others</span> online today</div>
+      </div>
+    </div>
+
+    <!-- Second info row just for the alt scroll style (option b) -->
+    <div class="tlh-info-row" style="margin-top:10px">
+      <div class="tlh-channels-panel">
+        <div class="tlh-ptitle">// channels <span style="opacity:0.4;font-weight:400;font-size:8px">— opt b: hover to reveal</span></div>
+        <div class="channels-scroll no-clamp hover-reveal">
+          <div class="chan-item">
+            <span class="chan-who">rho</span>
+            <span class="chan-ts">14:02</span>
+            <span class="chan-text">no callsigns trusted yet — deliver to depots to build trust. this line goes on and on past the three-line clamp and gets cut with an ellipsis, which is the behavior we want to remove.</span>
+          </div>
+          <div class="chan-item">
+            <span class="chan-who">iota</span>
+            <span class="chan-ts">13:44</span>
+            <span class="chan-text">another long message about wetland paths and how the ticks accumulate between visits, eventually unlocking the wetland-path bonus.</span>
+          </div>
+          <div class="chan-item">
+            <span class="chan-who">tau</span>
+            <span class="chan-ts">13:30</span>
+            <span class="chan-text">welcome back. long way since last time?</span>
+          </div>
+          <div class="chan-item">
+            <span class="chan-who">theta</span>
+            <span class="chan-ts">13:11</span>
+            <span class="chan-text">kiln dries slow in the sun. wrap the fragile ones tighter.</span>
+          </div>
+          <div class="chan-item">
+            <span class="chan-who">phi</span>
+            <span class="chan-ts">12:45</span>
+            <span class="chan-text">barometer's still dropping. storm coming in from the east.</span>
+          </div>
+        </div>
+      </div>
+      <div class="tlh-network-panel" style="visibility:hidden"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="notes">
+  <h3>// notes — final spec for implementation</h3>
+  <p><span class="lbl">B1</span>
+    <code>.chan-text</code> loses the <code>-webkit-line-clamp: 3</code>. Panel gets a fixed height (matches the network sibling) and scrolls. <b>Scroll style: option A</b> — scrollbar hidden (<code>scrollbar-width: none</code> + <code>::-webkit-scrollbar{display:none}</code>), top/bottom <code>14px</code> gradient fades mask the clipped edges so the overflow is hinted visually without a bar.
+  </p>
+  <p style="margin-top:6px;opacity:0.9">
+    Same <code>.hide-bar-fade + .fade-wrap</code> treatment also applies to:
+  </p>
+  <ul>
+    <li><b>settlements panel</b> (<code>#settlementsEl</code>)</li>
+    <li><b>upgrades panel</b> (<code>#upgradesEl</code>)</li>
+    <li><b>dispatch log</b> (<code>#logEl</code>) — <i>keeps visible scrollbar</i>. Log is the one panel where a real scrollbar aids searchability (scroll-thumb shows position in history), so the fade treatment does NOT apply here.</li>
+  </ul>
+  <p style="margin-top:10px"><span class="lbl">B2</span>
+    Overlays are borderless, blend with the panel background.
+  </p>
+  <ul>
+    <li><b>clock</b> — rides the title row, right-aligned beside <code>// route</code>. <code>HH:MM</code> 24h, derived from <code>S.ticks % TICKS_PER_DAY / TICKS_PER_DAY × 24h</code>. No day counter.</li>
+    <li><b>coord</b> — <code>x:{x} y:{y}</code> — SVG-space integer coordinates from <code>seg.pathFn(S.dotT)</code> (0..400 range).</li>
+    <li><b>next</b> — <code>→ {callsign}  {km}</code> — reads <code>S._transient.currentSegment.to</code> + remaining-segment km.</li>
+    <li>coord + next sit in a persistent <b>route-footer strip</b> below the SVG, always visible. This keeps the panel bottom shape consistent whether or not the weather row is shown.</li>
+  </ul>
+  <p style="margin-top:10px"><span class="lbl">B3</span>
+    Weather legend row lives below the route-footer. Gated on <code>S.weatherRadio</code> L1+ (existing gate). <code>☉</code> gear button restored as toggle. Gradient <b>inverted</b>: low pressure = green (left), high pressure = pink (right). <code>984 / 1002 / 1020 hPa</code> labels run underneath the bar, hPa aligned with the <code>1020</code> number.
+  </p>
+</div>
+
+</body>
+</html>
