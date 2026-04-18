@@ -287,17 +287,24 @@ function onTrustUnlock(depotId, threshold, tierIndex) {
     }
   }
 
-  // v0.0.8.6: auto-grant trust-reward upgrades at this tier.
-  // Fires after the threshold line speaks so the reward log appears
-  // in sequence: "rho: ..." then "rho gave you boot clip".
-  UPGRADE_DEFS.forEach(def => {
-    if (!def.trustReward) return;
-    if (def.trustReward.npc !== depotId || def.trustReward.tier !== tierKey) return;
-    if (S.upgrades[def.id]) return;
-    S.upgrades[def.id] = true;
-    def.apply();
-    addLog(`<span class="log-hi">${npc.callsign}</span> gave you <span class="log-ok">${def.name}</span>`);
-  });
+  // v0.0.9.5.2 — trust-reward flow change: upgrades no longer auto-grant
+  // on threshold cross. The tier unlock sets npc.unlocks[tierKey]=true
+  // (already done above at line 258-261), which the upgrade shop reads
+  // to enable the buy row for matching trustReward entries. Player pays
+  // scrip to claim — gives more places to spend scrip, lets the player
+  // choose timing. Legacy saves with S.upgrades[id] already true from
+  // the old auto-grant flow stay owned (no migration needed — the shop
+  // renders them as "owned"). Log a single notice so the player knows
+  // something is waiting; full grant log still fires from buyUpgrade.
+  const hasClaimables = UPGRADE_DEFS.some(def =>
+    def.trustReward &&
+    def.trustReward.npc === depotId &&
+    def.trustReward.tier === tierKey &&
+    !S.upgrades[def.id]
+  );
+  if (hasClaimables) {
+    addLog(`<span class="log-hi">${npc.callsign}</span> has something for you \u2014 <span class="log-ok">claim at shop</span>`);
+  }
 }
 
 export function tryWarning(arrivedNodeId) {
