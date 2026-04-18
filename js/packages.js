@@ -294,40 +294,15 @@ export function tryOutboundDispatch(originNodeId) {
     outboundFrom: originNodeId,    // v0.0.9.4 — flags delivery bonus
   };
 
-  // Cargo check — if no room, no offer. Defer silently (player may
-  // come back later with more space; next-visit guard re-rolls).
+  // v0.0.9.5.2 — auto-pickup instead of prompt. Idle-first: never ask
+  // the player to click a log button mid-route. If there's cargo room
+  // the pkg goes straight to inventory with a trust bump; if not, the
+  // outboundLastVisit guard above already blocks re-rolls THIS visit,
+  // and coming back to this NPC later re-rolls (may offer a different
+  // pkg — that's fine, "no worries" per design intent).
   if (pkg.slots > effectiveMaxSlots() - S.usedSlots) return;
-  if (pkg.kg > S.maxWeight - S.usedWeight) return;
+  if (pkg.kg   > S.maxWeight - S.usedWeight)         return;
 
-  S._transient.outboundOfferPending = { originNodeId, pkg };
-  const callsign = NPC_DEFS[originNodeId].callsign;
-  const destSettle = S.settlements[destId];
-  const destLabel = destSettle ? destSettle.label : destId;
-  addLog(
-    `<span class="log-hi">${callsign}</span> offers a <span class="log-hi">[${size}] ${chosen.label}</span> for <span class="log-hi">${destLabel}</span> ` +
-    `\u2014 <button class="log-btn" id="outboundAcceptBtn">accept parcel</button>`
-  );
-  // Wire the click handler after the log line renders.
-  setTimeout(() => {
-    const btn = document.getElementById('outboundAcceptBtn');
-    if (btn) btn.addEventListener('click', confirmOutboundAccept);
-  }, 0);
-}
-
-function confirmOutboundAccept() {
-  const pending = S._transient.outboundOfferPending;
-  if (!pending) return;
-  S._transient.outboundOfferPending = null;
-  const { originNodeId, pkg } = pending;
-
-  // Cargo space may have changed between offer + click. Re-check.
-  if (pkg.slots > effectiveMaxSlots() - S.usedSlots ||
-      pkg.kg   > S.maxWeight - S.usedWeight) {
-    addLog(`<span class="log-wn">no cargo room</span> for ${pkg.label}`);
-    return;
-  }
-
-  // Push into inventory — same shape as scanForPickup's carried obj.
   const carried = {
     size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
     scrip: pkg.scrip, isLost: false, destId: pkg.destId,
@@ -346,20 +321,16 @@ function confirmOutboundAccept() {
 
   // +N trust at origin for accepting. Same weight-scaled formula as
   // delivery; +1 bonus does NOT apply here (that's the dest-side bonus).
-  const callsign = NPC_DEFS[originNodeId].callsign;
+  const callsign  = NPC_DEFS[originNodeId].callsign;
+  const destSettle = S.settlements[destId];
+  const destLabel  = destSettle ? destSettle.label : destId;
   const originGain = 1 + Math.floor(pkg.slots / 2);
   addTrust(originNodeId, originGain, 'outbound-accept');
   addLog(
-    `accepted parcel from <span class="log-hi">${callsign}</span> ` +
+    `picked up <span class="log-hi">[${size}] ${chosen.label}</span> ` +
+    `from <span class="log-hi">${callsign}</span> for <span class="log-hi">${destLabel}</span> ` +
     `\u2014 <span class="log-ok">+${Math.round(originGain)} trust</span>`
   );
-
-  // Remove the button's log-line so the prompt doesn't linger.
-  const btn = document.getElementById('outboundAcceptBtn');
-  if (btn) {
-    const ll = btn.closest('.log-line');
-    if (ll) ll.remove();
-  }
 }
 
 // ============================================================
