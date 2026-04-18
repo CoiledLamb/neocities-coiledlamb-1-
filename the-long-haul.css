@@ -31,6 +31,16 @@ html, body {
 .tlh-page {
   padding: 28px 8px 48px;
   box-sizing: border-box;
+  /* v0.0.9.5.1 — bind the page to viewport height so the panel row
+     below the HUD can flex-grow into the available space without
+     leaving dead air at the bottom. Height is a hard cap (min + max
+     100vh) so the inner flex chain has a defined parent height to
+     divide. Inner scroll containers handle content overflow. */
+  min-height: 100vh;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .tlh-header { margin-bottom: 14px; }
@@ -54,10 +64,15 @@ html, body {
   display: grid;
   /* v0.0.9.2 — right column widened so the 2D route map reads, and
      the network + channels panels side-by-side below it don't feel
-     cramped. Main column uses the remaining space. */
+     cramped. Main column uses the remaining space.
+     v0.0.9.5.1 — layout takes all remaining vertical space in the
+     .tlh-page flex column so panels below the HUD flex-grow into
+     large viewports instead of clamping at their min heights. */
   grid-template-columns: 1fr 320px;
   gap: 10px;
   align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .tlh-shell {
@@ -1090,14 +1105,11 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   overflow-y: auto;
 }
 
-/* v0.0.9.5.1 — shared max-height across the three main list panels so
-   they stay visually aligned and the fade-mask / scrollbar treatments
-   have something to bind against. Without this, #logEl (which now
-   renders up to 500 history entries) would stretch unbounded instead
-   of scrolling internally. Bump if the window feels too cramped. */
-.tlh-panel > #logEl,
-.tlh-panel > #upgradesEl,
-.tlh-panel > #settlementsEl { max-height: 320px; }
+/* v0.0.9.5.1 — no max/min height cap on the panel scroll children;
+   flex: 1 + min-height: 0 above lets them size to whatever vertical
+   space the parent .tlh-panels row actually has. On fullscreen
+   viewports they grow; on short ones they shrink; content always
+   scrolls internally via overflow-y: auto. */
 
 /* v0.0.9.5.1 — two-tier scroll treatment across the game.
    Tier A (mask-fade, hidden scrollbar): upgrades, settlements, channels.
