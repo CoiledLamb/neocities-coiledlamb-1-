@@ -1129,6 +1129,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .tlh-panel > #upgradesEl::-webkit-scrollbar,
 .tlh-panel > #settlementsEl::-webkit-scrollbar,
 #channelsEl::-webkit-scrollbar { display: none; }
+/* Overflow with clipped content on BOTH sides — fade both edges. */
 .tlh-panel > #upgradesEl.has-overflow,
 .tlh-panel > #settlementsEl.has-overflow,
 #channelsEl.has-overflow {
@@ -1138,6 +1139,34 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   -webkit-mask-image: linear-gradient(to bottom,
     transparent 0, #000 14px,
     #000 calc(100% - 14px), transparent 100%);
+}
+/* Scrolled to top — no content hidden above, so don't dim the top
+   row. Only fade the bottom edge. */
+.tlh-panel > #upgradesEl.has-overflow.at-top,
+.tlh-panel > #settlementsEl.has-overflow.at-top,
+#channelsEl.has-overflow.at-top {
+  mask-image: linear-gradient(to bottom,
+    #000 0, #000 calc(100% - 14px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom,
+    #000 0, #000 calc(100% - 14px), transparent 100%);
+}
+/* Scrolled to bottom — no content hidden below. Only fade the top. */
+.tlh-panel > #upgradesEl.has-overflow.at-bottom,
+.tlh-panel > #settlementsEl.has-overflow.at-bottom,
+#channelsEl.has-overflow.at-bottom {
+  mask-image: linear-gradient(to bottom,
+    transparent 0, #000 14px, #000 100%);
+  -webkit-mask-image: linear-gradient(to bottom,
+    transparent 0, #000 14px, #000 100%);
+}
+/* Both at-top AND at-bottom means no actual scroll clipping — no
+   mask at all (defensive for rounding quirks where scrollHeight
+   exceeds clientHeight by a sub-pixel). */
+.tlh-panel > #upgradesEl.has-overflow.at-top.at-bottom,
+.tlh-panel > #settlementsEl.has-overflow.at-top.at-bottom,
+#channelsEl.has-overflow.at-top.at-bottom {
+  mask-image: none;
+  -webkit-mask-image: none;
 }
 
 .log-line { display: block; font-size: 10px; line-height: 1.7; color: #7aa8a6; font-family: 'Source Code Pro', monospace; }
@@ -1283,15 +1312,20 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   animation: overboost-pulse 1.2s ease-in-out infinite;
 }
 
-.tlh-right { display: flex; flex-direction: column; gap: 8px; }
+.tlh-right { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 
 /* v0.0.9.2 — network + channels side-by-side under the widened
    2D route map. Panels share equal width so two narrow lists
-   read side-by-side instead of stacking vertically. */
+   read side-by-side instead of stacking vertically.
+   v0.0.9.5.1 — info-row fills remaining vertical space so the
+   channels + network panels' bottom edge aligns with the shell's
+   bottom on the left column. */
 .tlh-info-row {
   display: flex;
   gap: 8px;
   align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 .tlh-info-row > .tlh-network-panel,
 .tlh-info-row > .tlh-channels-panel {
@@ -1308,16 +1342,18 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   padding: 8px;
 }
 
-/* v0.0.9.5.1 — channels panel caps its own height + scrolls internally.
-   Without this, unbounded chatter (now that .chan-text has no line
-   clamp) would balloon the whole info-row. Match the network panel
-   sibling's natural height so the two read as an equal pair. */
-.tlh-channels-panel {
+/* v0.0.9.5.1 — channels + network panels fill their flex parent
+   (info-row); internal scroll containers handle overflow so neither
+   panel balloons with long chatter. Matching flex layout so the two
+   panels read as an equal pair end-to-end with the game shell. */
+.tlh-channels-panel,
+.tlh-network-panel {
   display: flex;
   flex-direction: column;
-  max-height: 200px;
+  min-height: 0;
 }
-.tlh-channels-panel > #channelsEl {
+.tlh-channels-panel > #channelsEl,
+.tlh-network-panel > #networkEl {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
