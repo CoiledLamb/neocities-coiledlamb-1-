@@ -126,11 +126,11 @@ export const REST_TICKS_MIN    = 43;
 export const REST_TICKS_MAX    = 86;
 
 // ----- v0.0.9.3 shortcut travel -----
-// Cost tax applied while the courier is on an interior shortcut segment.
-// When v0.0.9.6 adds persistent trample, these same values become
-// "virgin-cell cost" and scale down as trample accumulates.
-export const SHORTCUT_STAMINA_MULT = 1.20;
-export const SHORTCUT_TRIP_MULT    = 1.50;
+// v0.0.9.6 commit 3 retired the flat SHORTCUT_STAMINA_MULT (1.20) and
+// SHORTCUT_TRIP_MULT (1.50). Terrain tables in js/data/terrain.js now
+// drive per-cell cost: flat interior = 1.0x (cheaper than old flat
+// tax), river/mountain/rockyHills carry real load, desert ramps with
+// daylight. Trample (commit 6) will scale these down per-cell.
 
 // Session-only trail cell fade. A cell's opacity = max(0, 1 - age/FADE).
 export const TRAIL_FADE_TICKS      = 300;

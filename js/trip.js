@@ -64,6 +64,14 @@ import { staminaSegCount } from './stamina.js';
 import { addLog } from './render/log.js';
 import { renderCourierStack, renderCargoSlots } from './render/hud.js';
 import { weatherAtCourier } from './weather.js';
+import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js';
+import {
+  TERRAIN_TRIP_MULT,
+  TERRAIN_HAS_SEVERE,
+  SEVERITY_SCALE,
+  MOUNTAIN_STALL_TICKS,
+  ROCKYHILLS_STALL_TICKS,
+} from './data/terrain.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -118,14 +126,18 @@ export function tripChance() {
   // v0.0.7.21 — terrain scanner buff. When active, multiplies trip
   // chance by S.scanner.buffMagnitude (set per ping in js/scanner.js).
   if (S.scanner.buffActive) chance *= S.scanner.buffMagnitude;
-  // v0.0.9.3 — shortcut/virgin-terrain trip tax. Interior is genuinely
-  // uncharted until v0.0.9.6 adds trample; that later patch will scale
-  // this multiplier down based on accumulated tread.
+  // v0.0.9.6 commit 3 — per-cell terrain trip multiplier replaces the
+  // v0.0.9.3 flat SHORTCUT_TRIP_MULT. During interior travel the trip
+  // chance scales by what the courier is actually crossing: flat 1.0
+  // (cheaper than old flat tax), river 1.2, rockyHills 1.5, mountain
+  // 2.0 (severe without gear — commit 4 adds ladder/anchor mitigation).
+  // Weather + risky-cell remain ring-only.
   const seg = S._transient.currentSegment;
-  if (seg && seg.type === 'shortcut') chance *= C.SHORTCUT_TRIP_MULT;
-  // Weather lookup + risky-cell check are both cell-indexed and therefore
-  // off-grid during a shortcut; skip their multipliers there.
-  else {
+  const onInterior = seg && (seg.type === 'shortcut' || seg.type === 'river-drift');
+  if (onInterior) {
+    const terr = courierTerrain();
+    chance *= (TERRAIN_TRIP_MULT[terr] || 1.0);
+  } else {
     if (currentCellIsRisky()) chance *= 1.40;
     // v0.0.8 — weather multiplier (spatial intensity from weather.js)
     const w = weatherAtCourier();
@@ -149,16 +161,23 @@ export function catchChance() {
   return Math.min(0.85, c);
 }
 
-// v0.0.9.5.1 — trip-message terrain flavor. Available context at trip
-// time: weather intensity (none/drizzle/rain/downpour), whether the
-// courier is on an interior shortcut, and whether the current cell is
-// marked risky. Priority order when multiple apply: shortcut > downpour
-// > rain > risky > default. Real terrain-keyed flavor (desert /
-// plateau / mountain / river) lands with v0.0.9.6 when those cell
-// tags exist.
+// v0.0.9.5.1 — trip-message flavor by context; v0.0.9.6 commit 3 —
+// terrain-keyed flavor activated now that interior cells carry types.
+// Priority: interior-terrain (mountain/rockyHills/river/desert/plateau)
+// > downpour > rain > risky > default. Shortcut stays as a fallback
+// for interior flats + clayBed until those want their own voice.
 function tripFlavor() {
   const seg = S._transient.currentSegment;
-  if (seg && seg.type === 'shortcut') return 'shortcut';
+  if (seg && (seg.type === 'shortcut' || seg.type === 'river-drift')) {
+    const terr = courierTerrain();
+    if (terr === 'mountain')   return 'mountain';
+    if (terr === 'rockyHills') return 'rockyHills';
+    if (terr === 'river')      return 'river';
+    if (terr === 'desert')     return 'desert';
+    if (terr === 'plateau')    return 'plateau';
+    if (terr === 'clayBed')    return 'clayBed';
+    return 'shortcut';
+  }
   const w = weatherAtCourier();
   if (w.intensity === 'downpour') return 'downpour';
   if (w.intensity === 'rain' || w.intensity === 'drizzle') return 'rain';
@@ -167,51 +186,97 @@ function tripFlavor() {
 }
 
 // Message pools, keyed by flavor. {label} and {lost} are substituted.
+// v0.0.9.6 commit 3 — terrain flavors added (mountain/rockyHills/river/
+// desert/plateau/clayBed). Missing keys fall through to .default via
+// the tripMsg helper's pool[flavor] || pool.default pattern.
 const TRIP_MSGS = {
   catch: {
-    default:  'stumbled on debris \u2014 <span class="log-ok">caught yourself</span>',
-    shortcut: 'pitched into untrodden ground \u2014 <span class="log-ok">caught yourself</span>',
-    downpour: 'slipped in the deluge \u2014 <span class="log-ok">caught yourself</span>',
-    rain:     'slipped on a wet patch \u2014 <span class="log-ok">caught yourself</span>',
-    risky:    'footing gave on the loose stone \u2014 <span class="log-ok">caught yourself</span>',
+    default:    'stumbled on debris \u2014 <span class="log-ok">caught yourself</span>',
+    shortcut:   'pitched into untrodden ground \u2014 <span class="log-ok">caught yourself</span>',
+    downpour:   'slipped in the deluge \u2014 <span class="log-ok">caught yourself</span>',
+    rain:       'slipped on a wet patch \u2014 <span class="log-ok">caught yourself</span>',
+    risky:      'footing gave on the loose stone \u2014 <span class="log-ok">caught yourself</span>',
+    mountain:   'foot slipped on a steep pitch \u2014 <span class="log-ok">caught the rock above</span>',
+    rockyHills: 'ankle rolled on scree \u2014 <span class="log-ok">caught yourself</span>',
+    river:      'current yanked you sideways \u2014 <span class="log-ok">braced against a shallow</span>',
+    desert:     'foot punched into loose sand \u2014 <span class="log-ok">caught yourself</span>',
+    plateau:    'edge of a mesa step shifted \u2014 <span class="log-ok">caught yourself</span>',
+    clayBed:    'clay gave underfoot \u2014 <span class="log-ok">caught yourself</span>',
   },
   empty: {
-    default:  '<span class="log-wn">tripped on loose rubble!</span>',
-    shortcut: '<span class="log-wn">lost footing in the brush!</span>',
-    downpour: '<span class="log-wn">took a soaking fall!</span>',
-    rain:     '<span class="log-wn">slipped in the mud!</span>',
-    risky:    '<span class="log-wn">pitched off the edge!</span>',
+    default:    '<span class="log-wn">tripped on loose rubble!</span>',
+    shortcut:   '<span class="log-wn">lost footing in the brush!</span>',
+    downpour:   '<span class="log-wn">took a soaking fall!</span>',
+    rain:       '<span class="log-wn">slipped in the mud!</span>',
+    risky:      '<span class="log-wn">pitched off the edge!</span>',
+    mountain:   '<span class="log-wn">pitched off a loose boulder!</span>',
+    rockyHills: '<span class="log-wn">skidded on scree!</span>',
+    river:      '<span class="log-wn">went down in the shallows!</span>',
+    desert:     '<span class="log-wn">sunk a foot in soft sand!</span>',
+    plateau:    '<span class="log-wn">stumbled at a mesa step!</span>',
+    clayBed:    '<span class="log-wn">slipped on wet clay!</span>',
   },
   dropLost: {
-    default:  '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> fell into the world \u2014 someone may find it',
-    shortcut: '<span class="log-wn">tripped off-trail!</span> <span class="log-hi">{label}</span> tumbled into the brush \u2014 someone may find it',
-    downpour: '<span class="log-wn">washed out!</span> <span class="log-hi">{label}</span> swept away in the deluge \u2014 someone may find it',
-    rain:     '<span class="log-wn">slipped in the wet!</span> <span class="log-hi">{label}</span> slid into the rough \u2014 someone may find it',
-    risky:    '<span class="log-wn">stone rolled!</span> <span class="log-hi">{label}</span> spilled out of reach \u2014 someone may find it',
+    default:    '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> fell into the world \u2014 someone may find it',
+    shortcut:   '<span class="log-wn">tripped off-trail!</span> <span class="log-hi">{label}</span> tumbled into the brush \u2014 someone may find it',
+    downpour:   '<span class="log-wn">washed out!</span> <span class="log-hi">{label}</span> swept away in the deluge \u2014 someone may find it',
+    rain:       '<span class="log-wn">slipped in the wet!</span> <span class="log-hi">{label}</span> slid into the rough \u2014 someone may find it',
+    risky:      '<span class="log-wn">stone rolled!</span> <span class="log-hi">{label}</span> spilled out of reach \u2014 someone may find it',
+    mountain:   '<span class="log-wn">rockfall!</span> <span class="log-hi">{label}</span> tumbled down a scree field \u2014 someone may find it',
+    rockyHills: '<span class="log-wn">skidded!</span> <span class="log-hi">{label}</span> slid between boulders \u2014 someone may find it',
+    river:      '<span class="log-wn">current took it!</span> <span class="log-hi">{label}</span> floated downstream \u2014 someone may find it',
   },
   dropNormal: {
-    default:  '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> was lost in the scramble',
-    shortcut: '<span class="log-wn">tripped off-trail!</span> <span class="log-hi">{label}</span> is gone in the undergrowth',
-    downpour: '<span class="log-wn">slipped in the downpour!</span> <span class="log-hi">{label}</span> washed into the ditch',
-    rain:     '<span class="log-wn">slipped!</span> <span class="log-hi">{label}</span> slid into the ditch',
-    risky:    '<span class="log-wn">tripped on a loose stone!</span> <span class="log-hi">{label}</span> tumbled out of reach',
+    default:    '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> was lost in the scramble',
+    shortcut:   '<span class="log-wn">tripped off-trail!</span> <span class="log-hi">{label}</span> is gone in the undergrowth',
+    downpour:   '<span class="log-wn">slipped in the downpour!</span> <span class="log-hi">{label}</span> washed into the ditch',
+    rain:       '<span class="log-wn">slipped!</span> <span class="log-hi">{label}</span> slid into the ditch',
+    risky:      '<span class="log-wn">tripped on a loose stone!</span> <span class="log-hi">{label}</span> tumbled out of reach',
+    mountain:   '<span class="log-wn">boulder shifted!</span> <span class="log-hi">{label}</span> cracked open and was lost',
+    rockyHills: '<span class="log-wn">tumbled!</span> <span class="log-hi">{label}</span> broke on the rocks',
+    river:      '<span class="log-wn">dropped in the drink!</span> <span class="log-hi">{label}</span> sank out of reach',
   },
   damage: {
-    default:  '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> damaged \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
-    shortcut: '<span class="log-wn">caught a root!</span> <span class="log-hi">{label}</span> took a hit \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
-    downpour: '<span class="log-wn">hit wet ground hard!</span> <span class="log-hi">{label}</span> soaked through \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
-    rain:     '<span class="log-wn">slipped in the wet!</span> <span class="log-hi">{label}</span> damp and dented \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
-    risky:    '<span class="log-wn">stone rolled underfoot!</span> <span class="log-hi">{label}</span> battered \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    default:    '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> damaged \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    shortcut:   '<span class="log-wn">caught a root!</span> <span class="log-hi">{label}</span> took a hit \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    downpour:   '<span class="log-wn">hit wet ground hard!</span> <span class="log-hi">{label}</span> soaked through \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    rain:       '<span class="log-wn">slipped in the wet!</span> <span class="log-hi">{label}</span> damp and dented \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    risky:      '<span class="log-wn">stone rolled underfoot!</span> <span class="log-hi">{label}</span> battered \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    mountain:   '<span class="log-wn">took a hard knock!</span> <span class="log-hi">{label}</span> cracked \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    rockyHills: '<span class="log-wn">jarred on a rock!</span> <span class="log-hi">{label}</span> dented \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    river:      '<span class="log-wn">water got in!</span> <span class="log-hi">{label}</span> soaked \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
   },
   // v0.0.9.5.1 — A1 "no-value damage" path. Fires when the damage
   // branch would produce a 0-scrip delta (pkg already at its floor).
   // Package is destroyed instead of taking a no-op hit.
   writeOff: {
-    default:  '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> fell out of reach \u2014 written off',
-    shortcut: '<span class="log-wn">stumbled!</span> <span class="log-hi">{label}</span> disappeared into the wild',
-    downpour: '<span class="log-wn">washed out!</span> <span class="log-hi">{label}</span> carried off in the flood',
-    rain:     '<span class="log-wn">slipped!</span> <span class="log-hi">{label}</span> slid down a wet slope, gone',
-    risky:    '<span class="log-wn">rocks gave way!</span> <span class="log-hi">{label}</span> tumbled out of sight',
+    default:    '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> fell out of reach \u2014 written off',
+    shortcut:   '<span class="log-wn">stumbled!</span> <span class="log-hi">{label}</span> disappeared into the wild',
+    downpour:   '<span class="log-wn">washed out!</span> <span class="log-hi">{label}</span> carried off in the flood',
+    rain:       '<span class="log-wn">slipped!</span> <span class="log-hi">{label}</span> slid down a wet slope, gone',
+    risky:      '<span class="log-wn">rocks gave way!</span> <span class="log-hi">{label}</span> tumbled out of sight',
+    mountain:   '<span class="log-wn">slid off a ledge!</span> <span class="log-hi">{label}</span> disappeared below',
+    rockyHills: '<span class="log-wn">rolled down the hill!</span> <span class="log-hi">{label}</span> broke apart on a boulder',
+    river:      '<span class="log-wn">carried off!</span> <span class="log-hi">{label}</span> vanished downstream',
+  },
+  // v0.0.9.6 commit 3 — severe-trip messages. Fire when severity
+  // rolls true: river = swept downstream (plus cargo water damage),
+  // mountain = stall + impact damage, rockyHills = brief slip +
+  // scrape damage.
+  severeEnter: {
+    river:      '<span class="log-wn">swept off your feet!</span> the current is carrying you downstream',
+    mountain:   '<span class="log-wn">rockfall!</span> you\u2019re catching yourself on a ledge',
+    rockyHills: '<span class="log-wn">hit a patch of loose scree!</span> bracing a moment',
+  },
+  severeExit: {
+    river:      'caught a low branch \u2014 <span class="log-ok">back on the bank</span>',
+    mountain:   'steadied on a handhold \u2014 <span class="log-ok">back on the route</span>',
+    rockyHills: 'found footing \u2014 <span class="log-ok">moving again</span>',
+  },
+  severeDamage: {
+    river:      '<span class="log-wn">water got into the pack</span> \u2014 <span class="log-hi">{label}</span> soaked (<span class="log-wn">-{lost}\u00a2</span>)',
+    mountain:   '<span class="log-wn">impact on the rocks</span> \u2014 <span class="log-hi">{label}</span> took a hit (<span class="log-wn">-{lost}\u00a2</span>)',
+    rockyHills: '<span class="log-wn">cargo scraped on stone</span> \u2014 <span class="log-hi">{label}</span> dented (<span class="log-wn">-{lost}\u00a2</span>)',
   },
 };
 
@@ -272,13 +337,92 @@ function dropTrippedPkg(target, invIdx) {
   return { lost: false };
 }
 
+// v0.0.9.6 commit 3 — severe trip consequence dispatch. Called from
+// maybeTrip when severity rolls true on a terrain that has a severe
+// branch (river / mountain / rockyHills). River triggers the sweep
+// segment; mountain/rockyHills set a stall state that main.js tick
+// honors by pausing dotT advancement.
+function applySevereDamage(terrain) {
+  // Per-terrain hit profile. Fragile always hit on mountain/river,
+  // 50% on hills. Non-fragile: 60% mountain, 50% river, 0% hills.
+  // River with ceramicWrap: fragile pkgs immune to water damage.
+  const waterDmg   = terrain === 'river';
+  const waterSaves = waterDmg && !!S.upgrades.ceramicWrap;
+  let nonFragile, fragile;
+  if (terrain === 'river')        { fragile = 1.00; nonFragile = 0.50; }
+  else if (terrain === 'mountain'){ fragile = 1.00; nonFragile = 0.60; }
+  else                             { fragile = 0.50; nonFragile = 0.00; }  // rockyHills
+  for (let i = S.inventory.length - 1; i >= 0; i--) {
+    const pkg = S.inventory[i];
+    const isFragile = pkg.modifier === 'fragile';
+    if (waterSaves && isFragile) continue;  // theta's ceramic wrap protects
+    const hit = isFragile ? fragile : nonFragile;
+    if (Math.random() >= hit) continue;
+    const oldScrip = pkg.scrip;
+    const newScrip = Math.max(1, Math.floor(oldScrip * 0.6));
+    const lost = oldScrip - newScrip;
+    if (lost === 0) continue;  // already at floor, skip to avoid log spam
+    pkg.scrip = newScrip;
+    pkg.damaged = true;
+    addLog(tripMsg('severeDamage', terrain, pkg.label, lost));
+  }
+  renderCourierStack();
+  renderCargoSlots(true);
+}
+
+function triggerSevereTrip(terrain) {
+  if (terrain === 'river') {
+    // Sweep courier downstream 5-10 cells along theta→delta main river.
+    const cells = 5 + Math.floor(Math.random() * 6);
+    if (beginRiverDrift(cells)) {
+      addLog(TRIP_MSGS.severeEnter.river);
+      applySevereDamage('river');
+    }
+    return;
+  }
+  if (terrain === 'mountain') {
+    const pick = MOUNTAIN_STALL_TICKS[Math.floor(Math.random() * MOUNTAIN_STALL_TICKS.length)];
+    S._transient.severeTripState = { type: 'mountain', ticksRemaining: pick };
+    addLog(TRIP_MSGS.severeEnter.mountain);
+    applySevereDamage('mountain');
+    return;
+  }
+  if (terrain === 'rockyHills') {
+    const pick = ROCKYHILLS_STALL_TICKS[Math.floor(Math.random() * ROCKYHILLS_STALL_TICKS.length)];
+    S._transient.severeTripState = { type: 'rockyHills', ticksRemaining: pick };
+    addLog(TRIP_MSGS.severeEnter.rockyHills);
+    applySevereDamage('rockyHills');
+    return;
+  }
+}
+
 export function maybeTrip() {
   if (S.status!=='walking' && S.status!=='carrying') return;
+  // v0.0.9.6 commit 3 — if a stall state is active, we're in the
+  // recovery window already; no double-trip.
+  if (S._transient.severeTripState) return;
   if (Math.random() >= tripChance()) return;
   const flavor = tripFlavor();
   if (Math.random() < catchChance()) {
     addLog(TRIP_MSGS.catch[flavor] || TRIP_MSGS.catch.default);
     return;
+  }
+  // v0.0.9.6 commit 3 — severity roll. On interior terrains that have
+  // a severe branch (river/mountain/rockyHills), roll severityChance =
+  // max(0, (tripMult - 1) * SEVERITY_SCALE). If severe, short-circuit
+  // the normal drop/damage path and dispatch to the terrain-specific
+  // consequence. Non-severe trips fall through to the regular path.
+  const terr = courierTerrain();
+  if (TERRAIN_HAS_SEVERE[terr]) {
+    const tripMult = TERRAIN_TRIP_MULT[terr] || 1.0;
+    const severityChance = Math.max(0, (tripMult - 1.0) * SEVERITY_SCALE);
+    if (Math.random() < severityChance) {
+      // Stumble animation still fires for visual consistency.
+      if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
+      S.bootDurability = Math.max(0, S.bootDurability - 5);
+      triggerSevereTrip(terr);
+      return;
+    }
   }
 
   // v0.0.7.19 commit 2b — tie-down option B.

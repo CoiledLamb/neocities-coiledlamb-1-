@@ -20,7 +20,7 @@ import * as C from '../constants.js';
 import { getNodeStage, getDisplayLabel } from '../identification.js';
 import { TICKS_PER_DAY } from './sky.js';
 import { NPC_DEFS } from '../data/npc-defs.js';
-import { terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY } from '../data/terrain.js';
+import { terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY, projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength } from '../data/terrain.js';
 
 const els = S._transient.els;
 
@@ -47,6 +47,26 @@ export function getCurrentSegment() { return S._transient.currentSegment; }
 export function isOnShortcut() {
   const seg = S._transient.currentSegment;
   return !!(seg && seg.type === 'shortcut');
+}
+
+/** Courier's current SVG (x, y) on whichever segment is active.
+ *  Null only if there's no segment yet (shouldn't happen after init). */
+export function courierXY() {
+  const seg = S._transient.currentSegment;
+  if (!seg) return null;
+  return seg.pathFn(S.dotT);
+}
+
+/** Terrain type under the courier — only meaningful while on a
+ *  shortcut or river-drift segment (interior positions). Returns
+ *  'flat' as a safe default for ring segments where the interior
+ *  terrain classifier isn't the source of truth. */
+export function courierTerrain() {
+  const seg = S._transient.currentSegment;
+  if (!seg) return 'flat';
+  if (seg.type === 'ring') return 'flat';
+  const xy = seg.pathFn(S.dotT);
+  return terrainAt(xy.x, xy.y);
 }
 
 export function currentEdge() {
@@ -112,6 +132,15 @@ export function initSegment() {
 export function advanceSegmentAfterArrival(arrivedAt) {
   const seg = S._transient.currentSegment;
   if (!seg) { initSegment(); return; }
+  // River-drift completion — catch-self + resume toward the original
+  // destination with a fresh shortcut from the drift endpoint.
+  if (seg.type === 'river-drift') {
+    const endXY = seg.pathFn(1);
+    S._transient.currentSegment = makeShortcutSegment(seg.from, seg.resumeTo, endXY);
+    S.dotT = 0;
+    S._transient.shortcutOverlay = null;
+    return;
+  }
   if (seg.type === 'ring') {
     // Advance one ring edge clockwise.
     S.edgeIdx = (seg.edgeIdx + 1) % S.edges.length;
@@ -123,6 +152,47 @@ export function advanceSegmentAfterArrival(arrivedAt) {
   S._transient.currentSegment = makeRingSegment(S.edgeIdx);
   S.dotT = 0;
   S._transient.shortcutOverlay = null;
+}
+
+/** River-drift segment (v0.0.9.6 commit 3) — created when a severe
+ *  river trip fires. Courier is projected onto the theta→delta main
+ *  river line, swept N SVG units downstream over ~5-8 ticks at a
+ *  slower-than-walk pace, then catches themselves. On arrival a fresh
+ *  shortcut segment to the original destination is spawned so the
+ *  idle loop continues unbroken. `resumeTo` is the shortcut's original
+ *  `to` node. */
+function makeRiverDriftSegment(startXY, resumeTo, sweepSvgUnits) {
+  const startProj = projectOntoRiver(startXY.x, startXY.y);
+  const endT      = riverDownstreamT(startProj.t, sweepSvgUnits);
+  const endXY     = riverPointAt(endT);
+  return {
+    from: '_drift_start', to: '_drift_end', type: 'river-drift',
+    edgeIdx: -1,
+    resumeTo,
+    pathFn: (t) => {
+      const riverT = startProj.t + (endT - startProj.t) * t;
+      return riverPointAt(riverT);
+    },
+    length: Math.hypot(endXY.x - startProj.x, endXY.y - startProj.y),
+  };
+}
+
+/** Kicks the courier into a river-drift segment. Called by trip.js
+ *  when a severe-river trip fires. Returns true on success. Caller
+ *  handles cargo damage + log separately. */
+export function beginRiverDrift(sweepCells = 6) {
+  const seg = S._transient.currentSegment;
+  if (!seg) return false;
+  const startXY = seg.pathFn(S.dotT);
+  // Original destination — we repath here after the drift completes.
+  const resumeTo = seg.to;
+  // SVG step is ~12 units per "cell" of texture; swept 5-10 cells lands
+  // in the 60-120 unit range.
+  const sweepSvg = 12 * sweepCells;
+  S._transient.currentSegment = makeRiverDriftSegment(startXY, resumeTo, sweepSvg);
+  S.dotT = 0;
+  S._transient.shortcutOverlay = null;
+  return true;
 }
 
 /** Public entry point for click-to-shortcut. Returns true if shortcut started. */
