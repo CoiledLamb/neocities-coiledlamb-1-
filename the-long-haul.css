@@ -999,6 +999,38 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .kit-cap-lbl { color: #3a6a68; }
 .kit-cap-val { color: #b1c9c3; font-weight: 700; }
 
+/* v0.0.9.6.1 — sticky gun kit-bar capsule. Replaces the "gun:" text
+   label with the shared web SVG; matches the cargo-slot ammo-state
+   color bands (full = white, warn = purple, crit = pink + pulse).
+   currentColor propagates from .kit-cap.gun-cap down through the
+   web glyph + ammo count, so one color var drives the whole pill. */
+.kit-cap.gun-cap {
+  color: #b58df5;
+}
+.kit-cap.gun-cap .kit-cap-val { color: inherit; }
+.kit-cap.gun-cap .gun-web-lbl {
+  display: inline-flex;
+  align-items: center;
+  width: 12px;
+  height: 12px;
+  color: inherit;
+}
+.kit-cap.gun-cap .gun-web-lbl .gun-web {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 1px currentColor);
+}
+.kit-cap.gun-cap.ammo-full { color: #e6f0ee; }
+.kit-cap.gun-cap.ammo-warn { color: #b58df5; }
+.kit-cap.gun-cap.ammo-crit {
+  color: #da5bd6;
+  animation: ammo-crit-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ammo-crit-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
 /* scan button — thematic rework (v0.0.7.25):
    dot is always visible beside the label; during a buff, two
    cyan rings pulse outward from the dot in a sonar pattern.
@@ -1449,12 +1481,39 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
    v0.0.7.21 — courier equipment v2 + admin + save i/o + throttle
    ========================================================== */
 
-/* sticky gun cargo slot */
+/* sticky gun cargo slot
+   v0.0.9.6.1 — 3-band ammo color progression. Base tint is neutral
+   so state classes (ammo-full / ammo-warn / ammo-crit) own the look.
+   full = white fresh-load signal, warn = purple working state,
+   crit = pink + pulse. */
 .cslot.gun {
   background: #132e2d;
   border: 1px solid #9d78d4;
   color: #b58df5;
   text-shadow: 0 0 4px #7a58a4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.cslot.gun .gun-web {
+  width: 72%;
+  height: 72%;
+  display: block;
+  filter: drop-shadow(0 0 1px currentColor);
+}
+.cslot.gun.ammo-full {
+  color: #e6f0ee;
+  border-color: #c9d9d6;
+}
+.cslot.gun.ammo-warn {
+  color: #b58df5;
+  border-color: #9d78d4;
+}
+.cslot.gun.ammo-crit {
+  color: #da5bd6;
+  border-color: #da5bd6;
+  animation: ammo-crit-pulse 1.4s ease-in-out infinite;
 }
 
 /* scanner buff indicator (reuses .boots-auto button class; only a tiny
