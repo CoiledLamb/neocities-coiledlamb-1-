@@ -128,6 +128,10 @@ export function buildSavePayload() {
     // interiorPkgs is the sparse (x,y)-keyed table.
     placedGear:   Array.isArray(S.placedGear) ? S.placedGear.slice() : [],
     interiorPkgs: S.interiorPkgs ? { ...S.interiorPkgs } : {},
+    // v0.0.9.6 commit 6 — per-cell trample state (ride v9 schema,
+    // additive). Sparse table; only cells with non-zero trample
+    // actually persist. Multiplayer sync queued for commit 7.
+    interiorTrample: S.interiorTrample ? { ...S.interiorTrample } : {},
     // v0.0.9.5.1 — dispatch log tail persisted (last ~100 rendered
     // lines). HTML includes timestamps baked in. Restored into the
     // in-session logHistory + DOM via restoreLogFromSave on load.
@@ -139,7 +143,7 @@ export function saveGame(silent) {
   if (S._transient.wipeInProgress) return false;
   try {
     const payload = buildSavePayload();
-    localStorage.setItem(C.SAVE_KEY_V8, JSON.stringify(payload));
+    localStorage.setItem(C.SAVE_KEY_V9, JSON.stringify(payload));
     S._transient.lastSaveAt = payload.savedAt;
     updateSaveStrip();
     if (!silent) addLog('<span class="log-ok">progress saved</span>');
@@ -386,6 +390,21 @@ function _applyValidated(data) {
       }
     } else {
       S.interiorPkgs = {};
+    }
+
+    // v0.0.9.6 commit 6 — per-cell trample. Sparse table; pre-commit
+    // saves have no field so default empty. Values clamped to 0..1
+    // defensively in case of future-incompatible data.
+    if (data.interiorTrample && typeof data.interiorTrample === 'object') {
+      S.interiorTrample = {};
+      for (const k of Object.keys(data.interiorTrample)) {
+        const v = +data.interiorTrample[k];
+        if (isFinite(v) && v > 0) {
+          S.interiorTrample[k] = Math.min(1, Math.max(0, v));
+        }
+      }
+    } else {
+      S.interiorTrample = {};
     }
 
     // v0.0.7.21 (schema v6) — sticky gun + scanner.

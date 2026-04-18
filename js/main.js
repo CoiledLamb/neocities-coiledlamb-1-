@@ -122,10 +122,12 @@ import {
 import {
   TERRAIN_STAMINA_MULT, TERRAIN_CANTEEN_DELTA, desertStaminaMult,
   GEAR_FOR_TERRAIN, GEAR_STAMINA_MITIGATION,
+  reduceMultWithTrample,
 } from './data/terrain.js';
 import {
   autoPlaceForCell, placedGearAt, tickGearDecay, resetGearLogThrottles,
 } from './gear.js';
+import { addTrampleAt, trampleAt } from './trail.js';
 import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js';
 import { renderNetwork } from './render/network.js';
 import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js';
@@ -273,11 +275,17 @@ function tick() {
       }
       // v0.0.9.6 commit 4 — auto-place ladder/anchor on terrains
       // that benefit. Placed gear mitigates stamina drain.
+      courierXYNow = seg.pathFn(S.dotT);
       if (GEAR_FOR_TERRAIN[currentTerrain]) {
-        courierXYNow = seg.pathFn(S.dotT);
         const placed = autoPlaceForCell(currentTerrain, courierXYNow);
         if (placed) staminaMult *= GEAR_STAMINA_MITIGATION;
       }
+      // v0.0.9.6 commit 6 — trample. Each tick on an interior cell
+      // bumps that cell's trample value; current trample reduces
+      // staminaMult continuously toward 1.0 (flat). Combined with
+      // gear mitigation above for composable cell-level easing.
+      addTrampleAt(courierXYNow.x, courierXYNow.y);
+      staminaMult = reduceMultWithTrample(staminaMult, trampleAt(courierXYNow.x, courierXYNow.y));
     }
     const staminaDrain = C.STAMINA_DRAIN * staminaMult;
     S.stamina = Math.max(0, S.stamina - staminaDrain);

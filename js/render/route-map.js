@@ -24,7 +24,9 @@ import {
   terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY,
   projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength,
   GEAR_GLYPH, gearWear, gearWearTier,
+  cellKeyFromCoords,
 } from '../data/terrain.js';
+import { trampleTier } from '../trail.js';
 
 const els = S._transient.els;
 
@@ -382,15 +384,31 @@ function drawInterior(svg, ns) {
       const kind  = terrainAt(xx, yy);
       const pool  = TERRAIN_GLYPHS[kind];
       const ch    = pool[Math.floor(rand() * pool.length)];
+      // v0.0.9.6 commit 6 — trample overlay. Walked/paved/carved
+      // cells shift glyph + color + opacity so the world shows
+      // where feet have gone. Fresh cells fall through to base
+      // terrain rendering below.
+      const trample = (S.interiorTrample && S.interiorTrample[cellKeyFromCoords(xx, yy)]) || 0;
+      const tier    = trampleTier(trample);
+      let ch2, fill, opacity;
+      if (tier === 'carved') {
+        ch2 = ':'; fill = '#6fd4c0'; opacity = 0.95;
+      } else if (tier === 'paved') {
+        ch2 = ';'; fill = '#8fc3b8'; opacity = 0.85;
+      } else if (tier === 'walked') {
+        ch2 = ','; fill = '#6a9d95'; opacity = 0.70;
+      } else {
+        ch2 = ch; fill = TERRAIN_COLORS[kind]; opacity = TERRAIN_OPACITY[kind];
+      }
       const t = document.createElementNS(ns, 'text');
       t.setAttribute('x', xx);
       t.setAttribute('y', yy);
       t.setAttribute('font-family', "'Source Code Pro',monospace");
       t.setAttribute('font-size', '6');
-      t.setAttribute('fill', TERRAIN_COLORS[kind]);
-      t.setAttribute('opacity', TERRAIN_OPACITY[kind]);
+      t.setAttribute('fill', fill);
+      t.setAttribute('opacity', opacity);
       t.setAttribute('text-anchor', 'middle');
-      t.textContent = ch;
+      t.textContent = ch2;
       g.appendChild(t);
     }
   }
