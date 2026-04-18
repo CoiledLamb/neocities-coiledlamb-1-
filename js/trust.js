@@ -370,35 +370,24 @@ export function tryRestPrompt(arrivedNodeId) {
   if (!NPC_DEFS[arrivedNodeId]) return;
   const npc = S.npcs[arrivedNodeId];
   if (!npc || !npc.unlocks || !npc.unlocks.t80) return;
-  if (S._transient.depotRestPending) return;
+  // Gate: only rest when the player would genuinely benefit. Above 85%
+  // stamina, skip — prevents an overboost state (>100%) from being
+  // downgraded to 105%. A player resting at 84% stamina gains ~20%+
+  // headroom; the branch is safe-benefit-only by construction.
   if (S.stamina >= S.staminaMax * 0.85) return;
   const def = NPC_DEFS[arrivedNodeId];
-  // v0.0.8.4: rest lines are arrays under NPC_LINES.rest[depotId].
-  // Old code accessed NPC_LINES[depotId].rest — shape mismatch meant
-  // this early-returned and the rest button never appeared.
+  // v0.0.8.4: rest lines live under NPC_LINES.rest[depotId]; speak one.
   const lines = NPC_LINES.rest[arrivedNodeId] || [];
-  if (!lines.length) return;
-  S._transient.depotRestPending = { nodeId: arrivedNodeId };
-  speak(arrivedNodeId, pickRandom(lines));
-  addLog(`<button class="log-btn" id="depotRestBtn">accept rest at ${def.callsign}</button>`);
-  setTimeout(() => {
-    const btn = document.getElementById('depotRestBtn');
-    if (btn) btn.addEventListener('click', confirmDepotRest);
-  }, 0);
-}
-
-function confirmDepotRest() {
-  if (!S._transient.depotRestPending) return;
-  const { nodeId } = S._transient.depotRestPending;
-  S._transient.depotRestPending = null;
-  const def = NPC_DEFS[nodeId];
-  // v0.0.8.6: rest is free at t80 — you've earned the NPC's hospitality.
+  if (lines.length) speak(arrivedNodeId, pickRandom(lines));
+  // v0.0.9.5.4 — idle-first: auto-apply instead of prompt. At t80
+  // you've earned the NPC's hospitality; clicking "accept rest" is
+  // pure friction. Rename kept (tryRestPrompt) since it still reads
+  // from the same trust + stamina gates — just no UI interaction
+  // now. _transient.depotRestPending vestigial, no longer written.
   S.stamina = S.staminaMax * 1.05;
   S.staminaOverboost = true;
   S.canteen = Math.min(S.canteenMax, S.canteen + 30);
-  addLog(`rested at <span class="log-hi">${def ? def.callsign : nodeId}</span> \u2014 <span class="log-ok">+stamina +canteen</span>`);
+  addLog(`rested at <span class="log-hi">${def.callsign}</span> \u2014 <span class="log-ok">+stamina +canteen</span>`);
   renderStamina();
   updateHUD();
-  const btn = document.getElementById('depotRestBtn');
-  if (btn) btn.closest('.log-line').remove();
 }

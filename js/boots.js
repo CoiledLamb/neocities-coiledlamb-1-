@@ -73,28 +73,21 @@ export function checkAutobuy() {
 export function refillBootClip(nodeId) {
   if (S.bootClipMax === 0 || !['A','B','H'].includes(nodeId)) return;
   if (S.bootClipCount >= S.bootClipMax) return;
-  if (S._transient.clipRefillPending) return;
+  // v0.0.9.5.4 — idle-first: auto-refill gated on autobuyBoots. If the
+  // player already opted into autobuy (same toggle that buys new boots
+  // when durability hits the floor), extend that consent to cover clip
+  // refills at depot. No click, no prompt. Autobuy off → silent skip;
+  // player who wants to hoard scrip doesn't get ambushed with a log
+  // button mid-route. Re-affording the cost post-load re-triggers the
+  // auto-refill at the next depot arrival naturally.
+  if (!S.autobuyBoots) return;
   const cost = (S.bootClipMax - S.bootClipCount) * C.BOOT_PRICE;
   if (S.scrip < cost) return;
-  const settle = S.settlements[nodeId];
-  S._transient.clipRefillPending = { nodeId, cost };
-  addLog(`<span class="log-wn">boot clip low</span> at <span class="log-hi">${settle?settle.label:nodeId}</span> \u2014 refill for ${cost}\u00a2? <button class="log-btn" id="clipRefillBtn">refill</button>`);
-  setTimeout(() => {
-    const btn = document.getElementById('clipRefillBtn');
-    if (btn) btn.addEventListener('click', confirmClipRefill);
-  }, 0);
-}
-
-function confirmClipRefill() {
-  if (!S._transient.clipRefillPending) return;
-  const { cost } = S._transient.clipRefillPending;
-  S._transient.clipRefillPending = null;
-  if (S.scrip < cost) { addLog('<span class="log-wn">not enough scrip</span>'); return; }
-  S.scrip -= cost; S.bootClipCount = S.bootClipMax;
-  addLog(`boot clip refilled (${cost}\u00a2)`);
-  renderBoots(); updateHUD();
-  const btn = document.getElementById('clipRefillBtn');
-  if (btn) btn.closest('.log-line').remove();
+  S.scrip -= cost;
+  S.bootClipCount = S.bootClipMax;
+  addLog(`autobuy: boot clip refilled (${cost}\u00a2)`);
+  renderBoots();
+  updateHUD();
 }
 
 export function toggleAutobuy() {
