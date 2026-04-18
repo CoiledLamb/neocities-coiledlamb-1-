@@ -37,6 +37,7 @@ import { S } from './state.js';
 import * as C from './constants.js';
 import { addLog } from './render/log.js';
 import { pointInRing } from './render/route-map.js';
+import { emit as tEmit } from './telemetry.js';
 
 const els = S._transient.els;
 
@@ -243,6 +244,7 @@ function spawnStormFromPreroll() {
     intersects: [],
   };
   S.storms.push(storm);
+  tEmit('storm.spawned', { type: storm.type, isInterior: storm.isInterior });
 }
 
 function moveStorm(storm) {
@@ -255,6 +257,7 @@ function moveStorm(storm) {
 function removeStorm(storm) {
   const idx = S.storms.indexOf(storm);
   if (idx >= 0) S.storms.splice(idx, 1);
+  tEmit('storm.ended', { type: storm.type, age: storm.age });
 }
 
 // ============================================================

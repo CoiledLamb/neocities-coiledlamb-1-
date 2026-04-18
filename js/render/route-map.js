@@ -416,6 +416,10 @@ function drawInterior(svg, ns) {
 }
 
 export function drawRouteMap() {
+  // v0.0.9.6.9 — skip rebuild during sim runs. Route-map draw is
+  // the most expensive render in the tick loop; sim mode runs
+  // thousands of ticks and doesn't need the DOM to reflect any of it.
+  if (S._transient && S._transient.simMode) return;
   const svg = els.routeSvg;
   if (!svg) return;
   svg.innerHTML = '';

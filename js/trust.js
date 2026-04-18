@@ -64,6 +64,7 @@ import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js';
 import { NPC_LINES } from './data/npc-lines.js';
 import { UPGRADE_DEFS } from './data/upgrades.js';
 import { postActivity } from './multiplayer.js';
+import { emit as tEmit, accum as tAccum, markFirst as tMarkFirst } from './telemetry.js';
 import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js';
 import { speak } from './channels.js';
 import { pickRandom } from './util.js';
@@ -244,9 +245,17 @@ export function addTrust(depotId, amount, reason) {
   // the fractional multipliers from computeTrustGain's profile table.
   npc.trust = Math.max(0, Math.min(100, Math.round(npc.trust + amount)));
   if (npc.trust === before) return;
+  // v0.0.9.6.9 sim telemetry — attribution by reason
+  const delta = npc.trust - before;
+  tEmit('trust.granted', { npc: depotId, amount: delta, reason });
+  tAccum('trust.granted', 'total_' + depotId, delta);
+  tAccum('trust.granted', 'by_reason_' + (reason || 'delivery'), delta);
   for (let i = 0; i < C.TRUST_THRESHOLDS.length; i++) {
     const t = C.TRUST_THRESHOLDS[i];
     if (before < t && npc.trust >= t) onTrustUnlock(depotId, t, i);
+  }
+  if (before < 100 && npc.trust >= 100) {
+    tMarkFirst('npc_max', depotId);
   }
   renderSettlements();
 }
@@ -254,6 +263,8 @@ export function addTrust(depotId, amount, reason) {
 function onTrustUnlock(depotId, threshold, tierIndex) {
   const npc = NPC_DEFS[depotId];
   if (!npc) return;
+  tEmit('trust.tier_unlocked', { npc: depotId, threshold });
+  tMarkFirst('tier_unlock_' + threshold, depotId);
   const tierKey = `t${threshold}`;
   // v0.0.7.19: write to canonical npc.unlocks[tierKey] (was npc[tierKey],
   // a phantom property that bypassed channels.js's chatter gate).

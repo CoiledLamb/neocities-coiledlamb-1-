@@ -41,6 +41,7 @@ import {
 } from './data/packages.js';
 import { cellKeyFromCoords, snapInteriorCell } from './data/terrain.js';
 import { placedGearAt } from './gear.js';
+import { emit as tEmit, accum as tAccum } from './telemetry.js';
 import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js';
 import { updatePorterStripBadges } from './recovery.js';
 import { addTrust, computeTrustGain, speakDelivery, recordDelivery } from './trust.js';
@@ -538,6 +539,7 @@ function acceptInteriorPickup(entry) {
   // once per shortcut, not on every tick. Resets on segment change
   // via resetGearLogThrottles() in gear.js.
   if (entry.terrainOrigin === 'plateau' && !placedGearAt(entry.x, entry.y)) {
+    tEmit('pickup.failed', { reason: 'plateau_gate' });
     if (!S._transient.plateauGateLogged) {
       S._transient.plateauGateLogged = true;
       addLog('<span class="log-wn">plateau top out of reach</span> \u2014 a ladder would do it');
@@ -556,6 +558,7 @@ function acceptInteriorPickup(entry) {
     return false;
   }
   entry.picked = true;
+  tEmit('pkg.picked', { size: pkg.size, terrainOrigin: entry.terrainOrigin });
   const carried = {
     size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
     scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
@@ -774,6 +777,11 @@ export function tryDeliver(arrivedNodeId) {
   const settle = S.settlements[arrivedNodeId];
   const destLabel = settle ? settle.label : arrivedNodeId;
   toDeliver.forEach(pkg => {
+    // v0.0.9.6.9 sim telemetry
+    tEmit('pkg.delivered', { npc: arrivedNodeId, size: pkg.size, scrip: pkg.scrip, terrainOrigin: pkg.terrainOrigin || 'ring' });
+    tAccum('pkg.delivered', 'scrip', pkg.scrip);
+    tAccum('pkg.delivered', 'scrip_' + arrivedNodeId, pkg.scrip);
+    tAccum('pkg.delivered', 'count_' + (pkg.terrainOrigin || 'ring'), 1);
     S.scrip      += pkg.scrip;
     S.delivered  += 1;
     S.usedSlots  -= pkg.slots;
