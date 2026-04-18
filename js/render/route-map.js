@@ -20,6 +20,7 @@ import * as C from '../constants.js';
 import { getNodeStage, getDisplayLabel } from '../identification.js';
 import { TICKS_PER_DAY } from './sky.js';
 import { NPC_DEFS } from '../data/npc-defs.js';
+import { terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY } from '../data/terrain.js';
 
 const els = S._transient.els;
 
@@ -286,28 +287,32 @@ function makeSeededRand(seed) {
   return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
 }
 
-// Placeholder interior texture — dim dots plotted only inside the
-// ring polygon. The absence of texture outside communicates "not
-// crossable" without needing a drawn boundary. Real terrain lands
-// in v0.0.9.5; depth/height map is a later concern.
+// Interior terrain texture — per-cell glyph + color
+// keyed on biome type from data/terrain.js (v0.0.9.6
+// commit 1). Classifier is deterministic on (x, y)
+// so the world shape is stable across reloads and
+// convergent across players. Glyph-within-type still
+// uses the session-seeded RNG so texture reads alive
+// rather than perfectly tiled.
 function drawInterior(svg, ns) {
   const g = document.createElementNS(ns, 'g');
   g.setAttribute('class', 'route-interior');
-  g.setAttribute('opacity', '0.35');
   const rand = makeSeededRand(9111);
   const step = 12;
   // v0.0.9.2 — ranges tuned for the 400×400 square viewBox.
   for (let yy = 50; yy <= 350; yy += step) {
     for (let xx = 50; xx <= 350; xx += step) {
       if (!pointInRing(xx, yy)) continue;
-      const r = rand();
-      const ch = r < 0.7 ? '.' : r < 0.9 ? ',' : '\u00b7';
+      const kind  = terrainAt(xx, yy);
+      const pool  = TERRAIN_GLYPHS[kind];
+      const ch    = pool[Math.floor(rand() * pool.length)];
       const t = document.createElementNS(ns, 'text');
       t.setAttribute('x', xx);
       t.setAttribute('y', yy);
       t.setAttribute('font-family', "'Source Code Pro',monospace");
       t.setAttribute('font-size', '6');
-      t.setAttribute('fill', '#2a5c5a');
+      t.setAttribute('fill', TERRAIN_COLORS[kind]);
+      t.setAttribute('opacity', TERRAIN_OPACITY[kind]);
       t.setAttribute('text-anchor', 'middle');
       t.textContent = ch;
       g.appendChild(t);
