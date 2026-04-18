@@ -210,6 +210,15 @@ export const SCANNER_MANUAL_BUFF_TICKS    = 34;   // ~12s
 export const SCANNER_MANUAL_COOLDOWN_TICKS = 86;  // ~30s
 export const SCANNER_BUFF_MAGNITUDE       = 0.5;  // trip chance ×0.5 while buffed
 
+// ----- v0.0.9.5 commit 4: scannerT2 (xi t40) level-2 tuning -----
+// scanner.js reads S.scanner.level; at level 2 these values supersede
+// the base values above. Stronger magnitude (trip ×0.35), faster auto
+// interval (~21s), slightly longer buff window (~8s).
+export const SCANNER_AUTO_INTERVAL_TICKS_T2 = 60;
+export const SCANNER_BUFF_DURATION_TICKS_T2 = 24;
+export const SCANNER_MANUAL_BUFF_TICKS_T2   = 46;
+export const SCANNER_BUFF_MAGNITUDE_T2      = 0.35;
+
 // ----- battery (v0.0.7.28 prototype drain) -----
 // Time-only drain for now — no gadget-use cost, no regen. Just enough
 // for the kit-row battery animation to move through thresholds during
@@ -229,6 +238,14 @@ export const BATTERY_DRAIN_PER_TICK = 0.03;
 // from zero if nothing is using it" intent without overshooting.
 // Delta's advanced solar panel upgrade (commit 4) multiplies this.
 export const BATTERY_SOLAR_PEAK_PER_TICK = 0.20;
+
+// ----- v0.0.9.5 commit 4: reservoirTank passive fill (nu t40) -----
+// Per-tick passive canteen refill when reservoirTank is owned. Stacks on
+// top of environmental refill (rain/wetland/river). Sized small so it
+// supplements rather than replaces active drinking — 0.02/tick is ~6
+// canteen per in-game day at a constant rate, roughly matching a light
+// drizzle channel. Pairs with the +50% canteenMax that apply() sets.
+export const RESERVOIR_TANK_PASSIVE_FILL = 0.02;
 
 // ----- admin (v0.0.7.21) -----
 // SHA-256 (hex) of the admin token. Admin is OFF when null. To enable:

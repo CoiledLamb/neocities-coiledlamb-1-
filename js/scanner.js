@@ -46,6 +46,27 @@ function applyBuff(durationTicks, magnitude, source) {
   }
 }
 
+// v0.0.9.5 commit 4: scannerT2 (xi t40) upgrade promotes scanner.level
+// from 1 to 2. Level-2 tuning constants (SCANNER_*_T2) supersede the
+// base values for stronger magnitude + faster auto interval + slightly
+// longer buff window. Pure read of sc.level — no separate state path.
+function scannerTuning(sc) {
+  if ((sc.level || 1) >= 2) {
+    return {
+      autoInterval: C.SCANNER_AUTO_INTERVAL_TICKS_T2,
+      autoDuration: C.SCANNER_BUFF_DURATION_TICKS_T2,
+      manualDuration: C.SCANNER_MANUAL_BUFF_TICKS_T2,
+      magnitude:    C.SCANNER_BUFF_MAGNITUDE_T2,
+    };
+  }
+  return {
+    autoInterval: C.SCANNER_AUTO_INTERVAL_TICKS,
+    autoDuration: C.SCANNER_BUFF_DURATION_TICKS,
+    manualDuration: C.SCANNER_MANUAL_BUFF_TICKS,
+    magnitude:    C.SCANNER_BUFF_MAGNITUDE,
+  };
+}
+
 export function tickScanner() {
   const sc = S.scanner;
   if (!sc.unlocked) return;
@@ -67,9 +88,10 @@ export function tickScanner() {
   if (sc.autoTimer > 0) {
     sc.autoTimer--;
   } else {
-    // Fire auto-ping.
-    applyBuff(C.SCANNER_BUFF_DURATION_TICKS, C.SCANNER_BUFF_MAGNITUDE, 'auto');
-    sc.autoTimer = C.SCANNER_AUTO_INTERVAL_TICKS;
+    // Fire auto-ping. Tuning pulled from level (1 or 2).
+    const t = scannerTuning(sc);
+    applyBuff(t.autoDuration, t.magnitude, 'auto');
+    sc.autoTimer = t.autoInterval;
   }
 }
 
@@ -81,7 +103,8 @@ export function manualPing() {
     addLog(`<span class="log-wn">scanner on cooldown</span> \u2014 ${secs}s`);
     return false;
   }
-  applyBuff(C.SCANNER_MANUAL_BUFF_TICKS, C.SCANNER_BUFF_MAGNITUDE, 'manual');
+  const t = scannerTuning(sc);
+  applyBuff(t.manualDuration, t.magnitude, 'manual');
   sc.manualCooldown = C.SCANNER_MANUAL_COOLDOWN_TICKS;
   return true;
 }

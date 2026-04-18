@@ -296,6 +296,18 @@ function _applyValidated(data) {
       });
     }
 
+    // v0.0.9.5 commit 4: inverse retro-grant for efficientConsumption.
+    // Old saves may own S.upgrades.efficientConsumption from the v0.0.8.6-
+    // era scrip-shop purchase. Commit 4 retargets this upgrade as nu's
+    // t20 trust reward. For existing owners, ratchet nu to t20 so the
+    // attribution is correct and the v0.0.8.6 retro-grant loop below
+    // doesn't try to re-apply (it's already owned). Runs BEFORE the
+    // forward retro-grant so ordering is clean.
+    if (S.upgrades.efficientConsumption && S.npcs['\u03bd'] && !S.npcs['\u03bd'].unlocks.t20) {
+      S.npcs['\u03bd'].trust        = Math.max(20, S.npcs['\u03bd'].trust || 0);
+      S.npcs['\u03bd'].unlocks.t20  = true;
+    }
+
     // v0.0.8.6: retro-grant trust-reward upgrades for existing saves.
     // If a player's NPC trust already exceeds a reward tier but the
     // upgrade isn't owned (pre-.6 save), auto-apply it now.

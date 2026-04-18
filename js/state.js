@@ -47,6 +47,19 @@ export const S = {
     scannerT1: false,
     // v0.0.8.6 — trust-reward upgrades
     weatherRadio: false, weatherRadioT2: false, sandalEfficiency: false, scavengerEye: false,
+    // v0.0.9.5 commit 4 — new trust-reward upgrades. Real effects where
+    // v0.0.9.5 systems exist (reservoirTank, solarPanel, rainfallTurbine,
+    // scannerT2). Flag-only for v0.0.9.6-gated mechanics (riverWaders,
+    // ceramicWrap, mobileCarrier1/2, mountainGear, improvedTieDowns,
+    // exoskeleton1/2, topographicMap).
+    reservoirTank: false,
+    riverWaders:   false, ceramicWrap:      false,
+    mobileCarrier1: false, mobileCarrier2:  false,
+    mountainGear:  false, improvedTieDowns: false,
+    exoskeleton1:  false, exoskeleton2:     false,
+    solarPanel:    false, rainfallTurbine:  false,
+    scannerT2:     false,
+    topographicMap: false,
   },
 
   // v0.0.7.21 — sticky gun state. null when not owned; object when owned.

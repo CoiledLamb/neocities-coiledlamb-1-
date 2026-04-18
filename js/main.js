@@ -275,6 +275,14 @@ function tick() {
       if (currentCellIsWetland() && S.npcs && S.npcs['B']) {
         S.npcs['B'].wetlandTicksSinceLastVisit = (S.npcs['B'].wetlandTicksSinceLastVisit || 0) + 1;
       }
+
+      // v0.0.9.5 commit 4: reservoirTank (nu t40) adds a slow passive fill
+      // on top of whatever environmental refill (rain/wetland/river) is
+      // firing. Small enough to not trivialize drinking/stamina management,
+      // consistent enough to keep the courier topped up on long routes.
+      if (S.upgrades.reservoirTank && S.canteen < S.canteenMax) {
+        S.canteen = Math.min(S.canteenMax, S.canteen + C.RESERVOIR_TANK_PASSIVE_FILL);
+      }
     }
 
     Trip.accumulateDist();
@@ -404,13 +412,34 @@ function tick() {
   // v0.0.9.5 commit 3: innate solar trickle regen. The baseline feature
   // (no upgrade required). daylightOf() peaks at 1.0 at midday, 0 at
   // night, smooth through dawn/dusk. A full idle day charges 0 → ~95.
-  // Delta's t20 'advanced solar panel' upgrade (commit 4) multiplies
-  // the peak regen + adds a desert-cell bonus.
+  //
+  // v0.0.9.5 commit 4 additions:
+  //   - solarPanel    (delta t20): peak regen ×1.5. Desert-cell bonus
+  //                                 hook stays latent; v0.0.9.6 terrain
+  //                                 tagging flips it on.
+  //   - rainfallTurbine (delta t40): opens a rain-weighted regen channel
+  //                                    during active weather. Scales with
+  //                                    intensity: drizzle 0.25× peak /
+  //                                    rain 0.50× peak / downpour 0.75× peak.
+  //                                    Works day or night.
   if (S.battery.charge < S.battery.max) {
+    let gain = 0;
+    // Solar channel (day only).
     const sun = daylightOf(S.ticks % TICKS_PER_DAY);
     if (sun > 0) {
-      S.battery.charge = Math.min(S.battery.max, S.battery.charge + sun * C.BATTERY_SOLAR_PEAK_PER_TICK);
+      const solarMult = S.upgrades.solarPanel ? 1.5 : 1.0;
+      gain += sun * C.BATTERY_SOLAR_PEAK_PER_TICK * solarMult;
     }
+    // Rain channel (any time) via rainfall turbine.
+    if (S.upgrades.rainfallTurbine) {
+      const _w = weatherAtCourier();
+      const rainMult = _w.intensity === 'downpour' ? 0.75
+                     : _w.intensity === 'rain'     ? 0.50
+                     : _w.intensity === 'drizzle'  ? 0.25
+                     : 0;
+      if (rainMult > 0) gain += rainMult * C.BATTERY_SOLAR_PEAK_PER_TICK;
+    }
+    if (gain > 0) S.battery.charge = Math.min(S.battery.max, S.battery.charge + gain);
   }
 
   Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
