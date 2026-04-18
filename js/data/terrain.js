@@ -62,25 +62,49 @@ const PLATEAU_R    = 55;   // around xi (ruined corner plateau)
 const DESERT_R     = 62;   // around nu (slightly broader)
 const ROCKY_R      = 62;   // around gamma
 
-// --- mesa outcrops (v0.0.9.6.9.2) --------------------
-// Scattered small plateaus anchored on the early-route
-// ring band. Designed as "earlygame teaching outcrops"
-// — player walks past them, sees plateau-top pkg, has
-// choice: buy a ladder (5c) to claim the reward, or walk
-// on. All reward, no punishment. Destinations locked to
-// near-start NPCs so payoff is fast + cashable.
+// --- mesa outcrops (v0.0.9.6.9.3) --------------------
+// Small plateaus placed ON the early-route ring path, at
+// edge midpoints between near-start NPCs. Designed as
+// "earlygame teaching outcrops" — courier walking the
+// ring passes THROUGH them (not around), engaging the
+// auto-gear → ladder → pickup chain without requiring
+// manual shortcut activation. All reward, no punishment:
+// plateau adds minor time loss on the road, plateau-top
+// pkg is a bonus the ladder gate makes the player earn.
 //
-// Each outcrop is a small circle (radius MESA_OUTCROP_R)
-// sitting just inside the ring between two early-route
-// NPCs. Placement slightly offset from the ring line so
-// side-view rendering (v0.0.9.7+) can show the outcrop
-// visually adjacent to the road.
-const MESA_OUTCROP_R = 18;
+// Positions: midpoints between H↔A, A↔ν, ν↔·, ·↔B.
+// Clustered on the top-north + left-rim sequence so
+// players hit all 4 in quick succession during their
+// first lap — teaching density is concentrated early,
+// then the reward curve drops (motivating engagement
+// with further systems).
+//
+// Anchors (see layoutRouteNodes in route-map.js):
+//   H   ( 85, 237)    tau
+//   A   ( 85, 163)    rho
+//   ν   ( 92,  92)    nu (NW corner)
+//   ·   (163,  85)    psi
+//   B   (237,  85)    iota
+// Outer radius — covers all cells gates + plateau-pickup considers
+// "part of the mesa." 24 units = 2 full grid cells in any direction
+// from center, big enough that courier-placed ladders in adjacent
+// cells count as serving the outcrop.
+const MESA_OUTCROP_R = 24;
+// Inner radius — controls how many ticks the courier spends in
+// plateau-classified terrain. Tighter than outer so passage time
+// is brief. Only the classifier uses this; mesaOutcropAt uses outer.
+const MESA_INNER_R = 10;
+// Each outcrop has a `pathCell` where the pkg spawns + ladder
+// auto-places. Derived from snapping the ring midpoint onto the
+// 12u cell grid, ensuring courier walking the ring passes through
+// the exact cell that auto-place snaps to. Mesa center vs path
+// cell are identical when the midpoint already lands on a grid
+// multiple; otherwise the path cell takes the nearest valid cell.
 const MESA_OUTCROPS = [
-  { x: 130, y: 110, label: 'A-psi outcrop'  },  // between A (85,163) top band + psi (163,85)
-  { x: 200, y:  98, label: 'psi-B outcrop'  },  // between psi (163,85) + B (237,85)
-  { x: 130, y: 200, label: 'A-inner outcrop'},  // just inside left rim between A + B/H band
-  { x:  98, y: 200, label: 'H-A outcrop'    },  // between H (85,237) + A (85,163)
+  { x:  84, y: 204, label: 'H-A mesa'  },  // H (85,237) ↔ A (85,163); path cell on left rim
+  { x:  84, y: 132, label: 'A-nu mesa' },  // A (85,163) ↔ ν (92,92)
+  { x: 132, y:  84, label: 'nu-psi mesa'}, // ν (92,92)  ↔ · (163,85); path on top
+  { x: 204, y:  84, label: 'psi-B mesa' }, // · (163,85) ↔ B (237,85)
 ];
 export const MESA_OUTCROP_CENTERS = MESA_OUTCROPS;
 
@@ -170,10 +194,14 @@ export function terrainAt(x, y) {
 
   // Plateau: xi corner (ruins on top) + scattered mesa outcrops
   // along the early-route ring (v0.0.9.6.9.2 — earlygame teaching
-  // plateaus with near-start-restricted pkg dests).
+  // plateaus with near-start-restricted pkg dests). Classifier uses
+  // the tighter MESA_INNER_R so courier passage through the outcrop
+  // is brief (~8-12 ticks); membership checks (mesaOutcropAt below)
+  // use the wider MESA_OUTCROP_R so gate logic + gear-in-outcrop
+  // checks cover adjacent snapped cells.
   if (dXi < PLATEAU_R + j) return 'plateau';
   for (const m of MESA_OUTCROPS) {
-    if (Math.hypot(x - m.x, y - m.y) < MESA_OUTCROP_R + (j * 0.5)) return 'plateau';
+    if (Math.hypot(x - m.x, y - m.y) < MESA_INNER_R + (j * 0.5)) return 'plateau';
   }
 
   // Desert: nu corner (warm, sparse)

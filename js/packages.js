@@ -224,10 +224,20 @@ export function rollPkg(destId, cellRisky, forceLost) {
 // start NPCs via forward-bias; mountain pkgs near pi similarly route
 // SW-locals.
 export function rollInteriorPkg(terrainOrigin, cellX, cellY) {
+  // v0.0.9.6.9.3 — mesa outcrops (ring-placed teaching plateaus)
+  // detected early so size bias can favor small pkgs that fit
+  // when courier already has ring cargo. Reward should be
+  // claimable, not forced-drop.
+  const outcrop = terrainOrigin === 'plateau' ? mesaOutcropAt(cellX, cellY) : null;
   // 1. Size roll with per-terrain bias.
   let sizeWeights = { ...PKG_SIZE_WEIGHTS };
   if (terrainOrigin === 'mountain') {
     sizeWeights.xl = (sizeWeights.xl || 1) * C.INTERIOR_MOUNTAIN_XL_BIAS;
+  }
+  if (outcrop) {
+    // Heavy bias toward small sizes on mesa outcrops — these are
+    // claimable earlygame teaching rewards, not giant xl payloads.
+    sizeWeights = { s: 70, m: 25, l: 5, xl: 0 };
   }
   const size = weightedKey(sizeWeights);
   const base = PKG_BASES[size];
@@ -262,10 +272,9 @@ export function rollInteriorPkg(terrainOrigin, cellX, cellY) {
   // route as teaching outcrops) restrict dests to the near-start
   // NPC allowlist so rewards are fast + cashable. xi's corner
   // plateau + other interior terrains use the standard forward-
-  // bias dest-weight curve.
+  // bias dest-weight curve. `outcrop` captured at function top.
   const MESA_NEAR_START_DESTS = ['A', 'B', 'H', '\u00b7', '\u03bd', '\u03b8'];
   let destId;
-  const outcrop = terrainOrigin === 'plateau' ? mesaOutcropAt(cellX, cellY) : null;
   if (outcrop) {
     // Uniform pick from near-start dests for mesa-outcrop plateaus.
     destId = MESA_NEAR_START_DESTS[Math.floor(Math.random() * MESA_NEAR_START_DESTS.length)];
@@ -316,22 +325,20 @@ function nearestEdgeToPoint(x, y) {
 export function seedInteriorPkgs() {
   // Lazy-imported to avoid cycle — terrain.js doesn't need packages.js.
   // Late dynamic import is fine at seed time (runs once, not hot path).
-  return import('./data/terrain.js').then(({ terrainAt }) => {
+  return import('./data/terrain.js').then(({ terrainAt, mesaOutcropAt, snapInteriorCell: snap, MESA_OUTCROP_CENTERS }) => {
     const SPAWN_RATES = {
       plateau:    C.INTERIOR_SPAWN_PLATEAU,
       mountain:   C.INTERIOR_SPAWN_MOUNTAIN,
       rockyHills: C.INTERIOR_SPAWN_ROCKYHILLS,
     };
     if (!S.interiorPkgs) S.interiorPkgs = {};
+    // Standard grid pass — handles interior terrain (plateau near
+    // xi, mountain, rockyHills).
     for (let yy = 50; yy <= 350; yy += 12) {
       for (let xx = 50; xx <= 350; xx += 12) {
-        // Only seed cells that are actually inside the ring polygon;
-        // terrainAt() classifies by distance from NPC anchors which
-        // can leak slightly outside the crossable area (e.g. plateau
-        // circle extending past xi's corner).
         if (!pointInRing(xx, yy)) continue;
         const key = cellKeyFromCoords(xx, yy);
-        if (S.interiorPkgs[key]) continue;  // already seeded
+        if (S.interiorPkgs[key]) continue;
         const terr = terrainAt(xx, yy);
         const rate = SPAWN_RATES[terr];
         if (!rate) continue;
@@ -346,6 +353,24 @@ export function seedInteriorPkgs() {
           picked: false,
         };
       }
+    }
+    // v0.0.9.6.9.3 — GUARANTEED mesa outcrop seeding. Each of the
+    // 4 ring-placed outcrops gets exactly one plateau pkg at its
+    // snapped center cell. Deterministic placement (not rate-
+    // rolled) so the teaching mechanic always has content —
+    // earlygame mesas can't afford to spawn empty.
+    for (const m of MESA_OUTCROP_CENTERS) {
+      const sn = snapInteriorCell(m.x, m.y);
+      const key = cellKeyFromCoords(sn.x, sn.y);
+      if (S.interiorPkgs[key]) continue;
+      const pkg = rollInteriorPkg('plateau', sn.x, sn.y);
+      S.interiorPkgs[key] = {
+        x: sn.x, y: sn.y,
+        terrainOrigin: 'plateau',
+        pkg,
+        respawnIn: 0,
+        picked: false,
+      };
     }
   });
 }
@@ -545,21 +570,37 @@ function acceptInteriorPickup(entry) {
   if (!entry || entry.picked) return false;
   const pkg = entry.pkg;
   if (!pkg) return false;
-  // Plateau gate — require a placed ladder at the same snapped cell.
-  // Throttle uses a segment-scoped flag so the gate message fires
-  // once per shortcut, not on every tick. Resets on segment change
-  // via resetGearLogThrottles() in gear.js.
-  if (entry.terrainOrigin === 'plateau' && !placedGearAt(entry.x, entry.y)) {
-    tEmit('pickup.failed', { reason: 'plateau_gate' });
-    if (!S._transient.plateauGateLogged) {
-      S._transient.plateauGateLogged = true;
-      addLog('<span class="log-wn">plateau top out of reach</span> \u2014 a ladder would do it');
+  // Plateau gate — a placed ladder at the pkg cell OR anywhere in
+  // the same mesa outcrop unlocks pickup. Design intent: one ladder
+  // per outcrop grants access to all plateau tops in that cluster.
+  // v0.0.9.6.9.3 — relaxed from "same cell" to "any ladder in
+  // outcrop" because courier's ring-walk rarely lands on the exact
+  // grid cell of a seeded pkg; placement cell and pkg cell can
+  // differ even when both are in the same tight outcrop.
+  if (entry.terrainOrigin === 'plateau') {
+    const outcrop = mesaOutcropAt(entry.x, entry.y);
+    let hasLadder = !!placedGearAt(entry.x, entry.y);
+    if (!hasLadder && outcrop) {
+      // Any ladder whose snapped cell sits within the same outcrop
+      // radius grants access to this pkg.
+      for (const g of (S.placedGear || [])) {
+        if (g.type !== 'ladder') continue;
+        if (mesaOutcropAt(g.x, g.y) === outcrop) { hasLadder = true; break; }
+      }
     }
-    return false;
+    if (!hasLadder) {
+      tEmit('pickup.failed', { reason: 'plateau_gate' });
+      if (!S._transient.plateauGateLogged) {
+        S._transient.plateauGateLogged = true;
+        addLog('<span class="log-wn">plateau top out of reach</span> \u2014 a ladder would do it');
+      }
+      return false;
+    }
   }
   const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
   const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
   if (slotsShort || weightShort) {
+    tEmit('pickup.failed', { reason: slotsShort ? 'slots' : 'weight', terrainOrigin: entry.terrainOrigin });
     const key = `${S.usedSlots}:${S.usedWeight}`;
     if (S._transient.lastPickupFailKey !== key) {
       S._transient.lastPickupFailKey = key;
@@ -594,7 +635,11 @@ function acceptInteriorPickup(entry) {
 // interior pickups don't get blocked by ring-cell iteration.
 function scanInteriorPickups() {
   const seg = S._transient.currentSegment;
-  if (!seg || (seg.type !== 'shortcut' && seg.type !== 'river-drift')) return false;
+  if (!seg) return false;
+  // v0.0.9.6.9.3 — scan on ring too so courier passing through a
+  // ring-placed mesa outcrop can pick up plateau pkgs. Gating is
+  // still handled per-entry by acceptInteriorPickup (plateau gate
+  // requires a placed ladder).
   const here = courierXY();
   if (!here) return false;
   if (!S.autoGrab) return false;  // auto-grab toggle respects commit 4 parity
