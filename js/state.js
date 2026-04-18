@@ -172,11 +172,19 @@ export const S = {
     // declaring up-front keeps state shape explicit and ensures the
     // persistence ratchet covers everyone on first save without surprise.
     // v0.0.9.5: 6 new NPCs added (nu/theta/gamma/lambda/pi/delta).
-    // Trust starts at 0. Dialogue + trust profiles + gifts land in
-    // commits 2-4. Save-migration v7→v8 adds these slots to older saves.
+    // Trust starts at 0. Full dialogue + trust profiles authored this
+    // commit. Save-migration v7→v8 adds these slots to older saves.
+    //
+    // Per-NPC profile state (v0.0.9.5, commit 2) added for the three
+    // stateful trust profiles:
+    //   B.wetlandTicksSinceLastVisit — iota's 'wetland-path' profile
+    //   H.kmAtLastVisit              — tau's 'homecoming' distance axis
+    //   \u03b4.visitedSinceLastDelta — delta's 'routine' loop counter
+    // Other NPCs include the fields as 0 for save-shape uniformity but
+    // only read/update them when their trust profile requires it.
     'A':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'B':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    'H':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    'B':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0, wetlandTicksSinceLastVisit: 0 },
+    'H':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0, kmAtLastVisit: 0 },
     '?':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
     'C':        { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
     '\u00b7':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
@@ -185,7 +193,7 @@ export const S = {
     '\u03b3':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
     '\u03bb':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
     '\u03c0':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
-    '\u03b4':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0 },
+    '\u03b4':   { trust: 0, unlocks: { t20:false, t40:false, t60:false, t80:false }, nextChatterTick: 0, visitedSinceLastDelta: 0 },
   },
 
   channels: [],

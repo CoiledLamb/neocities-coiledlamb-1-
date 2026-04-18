@@ -49,20 +49,21 @@
 'use strict';
 
 export const NPC_DEFS = {
-  // Existing 6 — area-name relabels applied.
-  'A':        { callsign: 'rho',    name: 'rho',    depotLabel: 'depot',               trustProfile: 'default'   },
-  'B':        { callsign: 'iota',   name: 'iota',   depotLabel: 'greenhouse',          trustProfile: 'default'   },
-  'H':        { callsign: 'tau',    name: 'tau',    depotLabel: 'home',                trustProfile: 'default'   },
-  '?':        { callsign: 'phi',    name: 'phi',    depotLabel: 'weather station',     trustProfile: 'default'   },
-  'C':        { callsign: 'xi',     name: 'xi',     depotLabel: 'city ruins',          trustProfile: 'careful'   },
-  '\u00b7':   { callsign: 'psi',    name: 'psi',    depotLabel: 'oasis',               trustProfile: 'scavenger' },
-  // v0.0.9.5 new 6 — stubs. Real content lands commits 2-4.
-  '\u03bd':   { callsign: 'nu',     name: 'nu',     depotLabel: 'purification plant',  trustProfile: 'default'   },
-  '\u03b8':   { callsign: 'theta',  name: 'theta',  depotLabel: 'kiln',                trustProfile: 'default'   },
-  '\u03b3':   { callsign: 'gamma',  name: 'gamma',  depotLabel: 'workshop',            trustProfile: 'default'   },
-  '\u03bb':   { callsign: 'lambda', name: 'lambda', depotLabel: 'climbing lodge',      trustProfile: 'default'   },
-  '\u03c0':   { callsign: 'pi',     name: 'pi',     depotLabel: 'radio tower',         trustProfile: 'default'   },
-  '\u03b4':   { callsign: 'delta',  name: 'delta',  depotLabel: 'reservoir',           trustProfile: 'default'   },
+  // Existing 6 — area-name relabels applied. v0.0.9.5: all shift from
+  // default/careful/scavenger to character-expressive profiles.
+  'A':        { callsign: 'rho',    name: 'rho',    depotLabel: 'depot',               trustProfile: 'veteran'     },
+  'B':        { callsign: 'iota',   name: 'iota',   depotLabel: 'greenhouse',          trustProfile: 'wetland-path'},
+  'H':        { callsign: 'tau',    name: 'tau',    depotLabel: 'home',                trustProfile: 'homecoming'  },
+  '?':        { callsign: 'phi',    name: 'phi',    depotLabel: 'weather station',     trustProfile: 'stormwise'   },
+  'C':        { callsign: 'xi',     name: 'xi',     depotLabel: 'city ruins',          trustProfile: 'archivist'   },
+  '\u00b7':   { callsign: 'psi',    name: 'psi',    depotLabel: 'oasis',               trustProfile: 'wayfinder'   },
+  // v0.0.9.5 new 6 — dialogue + profiles authored 2026-04-17.
+  '\u03bd':   { callsign: 'nu',     name: 'nu',     depotLabel: 'purification plant',  trustProfile: 'guardian'    },
+  '\u03b8':   { callsign: 'theta',  name: 'theta',  depotLabel: 'kiln',                trustProfile: 'artisan'     },
+  '\u03b3':   { callsign: 'gamma',  name: 'gamma',  depotLabel: 'workshop',            trustProfile: 'debt-easer'  },
+  '\u03bb':   { callsign: 'lambda', name: 'lambda', depotLabel: 'climbing lodge',      trustProfile: 'adventurer'  },
+  '\u03c0':   { callsign: 'pi',     name: 'pi',     depotLabel: 'radio tower',         trustProfile: 'researcher'  },
+  '\u03b4':   { callsign: 'delta',  name: 'delta',  depotLabel: 'reservoir',           trustProfile: 'routine'     },
 };
 
 // v0.0.9.5: reveal chain through the 12-node rim. Existing trust

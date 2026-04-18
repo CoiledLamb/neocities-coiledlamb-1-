@@ -83,28 +83,129 @@ export function getNpc(depotId) {
 }
 
 // v0.0.8.4: per-NPC trust gain dispatcher. NPC_DEFS[depotId].trustProfile
-// selects the branch. 'careful' (xi) halves gain on non-fragile/non-xl;
-// 'scavenger' (psi) doubles on s, normal on m, halves on l/xl. Discovery
-// trust stays flat (TRUST_GAIN_DISCOVERY) — no pkg context.
+// selects the branch.
 //
 // v0.0.8.5: base is now weight-scaled: 1 + floor(pkg.slots / 2).
 //   s(1 slot) → +1, m(2) → +2, l(4) → +3, xl(8) → +5.
 //   Lost/recovery adds TRUST_GAIN_LOST_BONUS (+1) on top.
 //   Profile multipliers apply after the base.
+//
+// v0.0.9.5 (commit 2): all 12 NPCs get character-expressive profiles.
+// Legacy 'default' / 'careful' / 'scavenger' retained as fallback but
+// no NPC points at them anymore.
+//
+//   veteran      (rho)    — long-haul bonus (size-proxied until real
+//                           ring-distance tracking lands in a follow-up)
+//   wetland-path (iota)   — +25% if wetlandTicksSinceLastVisit ≥ threshold
+//   homecoming   (tau)    — ×(1 + min(km/60, 1.0)) × (pkg.damaged? 0.85 : 1.0)
+//                           distance since last tau visit; safety uses
+//                           pkg.damaged as a trip-proxy until the real
+//                           per-route trip counter lands.
+//   stormwise    (phi)    — +40% if courier is in storm weather at arrival
+//   archivist    (xi)     — size-scaled: s×1.0 / m×1.15 / l×1.3 / xl×1.6
+//   wayfinder    (psi)    — +50% on isLost deliveries
+//   guardian     (nu)     — +30% on undamaged deliveries (trip-free proxy)
+//   artisan      (theta)  — +50% on fragile-intact
+//   debt-easer   (gamma)  — base always (no pristine bonus, no damage
+//                           penalty amplification; damage scaling stays
+//                           wherever the base system applies it)
+//   adventurer   (lambda) — +30% on l/xl (mountain-gear proxy until .6)
+//   researcher   (pi)     — +40% on any modifier-flagged intact
+//   routine      (delta)  — +20% if ≥4 other NPCs visited since last delta
 export function computeTrustGain(pkg, depotId) {
   const def = NPC_DEFS[depotId];
   const profile = (def && def.trustProfile) || 'default';
   const base = 1 + Math.floor(pkg.slots / 2) + (pkg.isLost ? C.TRUST_GAIN_LOST_BONUS : 0);
-  if (profile === 'scavenger') {
-    if (pkg.size === 's') return base * 2;
-    if (pkg.size === 'm') return base;
-    return base * 0.5;
+  const npcState = (S.npcs && S.npcs[depotId]) || null;
+
+  switch (profile) {
+    case 'veteran': {
+      if (pkg.size === 'xl') return base * 1.5;
+      if (pkg.size === 'l')  return base * 1.25;
+      return base;
+    }
+    case 'wetland-path': {
+      const ticks = (npcState && npcState.wetlandTicksSinceLastVisit) || 0;
+      return ticks >= C.WETLAND_PATH_TICK_THRESHOLD ? base * 1.25 : base;
+    }
+    case 'homecoming': {
+      const kmSince     = Math.max(0, S.distKm - ((npcState && npcState.kmAtLastVisit) || 0));
+      const distFactor  = 1 + Math.min(kmSince / C.HOMECOMING_KM_FULL, 1.0);
+      const safetyFactor = pkg.damaged ? 0.85 : 1.0;
+      return base * distFactor * safetyFactor;
+    }
+    case 'stormwise': {
+      const w = weatherAtCourier();
+      const inStorm = w && w.intensity && w.intensity !== 'none';
+      return inStorm ? base * 1.4 : base;
+    }
+    case 'archivist': {
+      if (pkg.size === 'xl') return base * 1.6;
+      if (pkg.size === 'l')  return base * 1.3;
+      if (pkg.size === 'm')  return base * 1.15;
+      return base;
+    }
+    case 'wayfinder': {
+      return pkg.isLost ? base * 1.5 : base;
+    }
+    case 'guardian': {
+      return pkg.damaged ? base : base * 1.3;
+    }
+    case 'artisan': {
+      if (pkg.modifier === 'fragile' && !pkg.damaged) return base * 1.5;
+      return base;
+    }
+    case 'debt-easer': {
+      return base;
+    }
+    case 'adventurer': {
+      return (pkg.size === 'l' || pkg.size === 'xl') ? base * 1.3 : base;
+    }
+    case 'researcher': {
+      if (pkg.modifier && !pkg.damaged) return base * 1.4;
+      return base;
+    }
+    case 'routine': {
+      const visits = (npcState && npcState.visitedSinceLastDelta) || 0;
+      return visits >= C.ROUTINE_VISIT_THRESHOLD ? base * 1.2 : base;
+    }
+    // Legacy fallbacks (retained for save-compat — no NPC uses these after v0.0.9.5).
+    case 'scavenger': {
+      if (pkg.size === 's') return base * 2;
+      if (pkg.size === 'm') return base;
+      return base * 0.5;
+    }
+    case 'careful': {
+      const isCareful = (pkg.modifier === 'fragile' || pkg.size === 'xl');
+      return isCareful ? base : base * 0.5;
+    }
+    default:
+      return base;
   }
-  if (profile === 'careful') {
-    const isCareful = (pkg.modifier === 'fragile' || pkg.size === 'xl');
-    return isCareful ? base : base * 0.5;
+}
+
+// v0.0.9.5 (commit 2): state-update hook for stateful trust profiles.
+// Called once per delivery BATCH from packages.js after addTrust fires.
+// Resets per-NPC counters at the destination NPC; accrues at others.
+// Separate from computeTrustGain (which stays pure).
+export function recordDelivery(depotId) {
+  // tau (H) — homecoming: snapshot current km so future delta is (now - snapshot).
+  if (depotId === 'H' && S.npcs && S.npcs['H']) {
+    S.npcs['H'].kmAtLastVisit = S.distKm;
   }
-  return base;
+  // iota (B) — wetland-path: reset tick counter.
+  if (depotId === 'B' && S.npcs && S.npcs['B']) {
+    S.npcs['B'].wetlandTicksSinceLastVisit = 0;
+  }
+  // delta (δ) — routine: any delivery to a NON-delta NPC accrues; delivery
+  // to delta itself resets the counter.
+  if (S.npcs && S.npcs['\u03b4']) {
+    if (depotId === '\u03b4') {
+      S.npcs['\u03b4'].visitedSinceLastDelta = 0;
+    } else if (NPC_DEFS[depotId]) {
+      S.npcs['\u03b4'].visitedSinceLastDelta = (S.npcs['\u03b4'].visitedSinceLastDelta || 0) + 1;
+    }
+  }
 }
 
 // v0.0.8.4: delivery dialogue. Fires once per delivery batch (not per-pkg)

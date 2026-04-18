@@ -260,6 +260,25 @@ export const RISKY_EDGE_DEST = new Set(['C', '?']);
 // (readable as percentages).
 export const DEST_DIV_WEIGHTS = [30, 20, 15, 10, 8, 6, 4, 3, 2, 1, 0.7, 0.3];
 
+// ----- v0.0.9.5: per-profile trust thresholds (commit 2) -----
+// Tuning knobs for the stateful trust profiles. See trust.js::computeTrustGain.
+//
+// WETLAND_PATH_TICK_THRESHOLD: iota's 'wetland-path' profile needs this
+// many ticks-in-wetland since last iota visit before the +25% trust bonus
+// applies on delivery. 60 ticks ≈ several wetland cells of exposure.
+//
+// HOMECOMING_KM_FULL: tau's distance factor caps at ×2.0 when the courier
+// has traveled this many km since their last tau delivery. Shorter returns
+// scale linearly from ×1.0 to ×2.0.
+//
+// ROUTINE_VISIT_THRESHOLD: delta's 'routine' profile awards +20% trust
+// once ≥ this many non-delta deliveries have landed since the last delta
+// delivery. "On a loop" = the courier is doing real rounds, not bouncing
+// delta-to-delta.
+export const WETLAND_PATH_TICK_THRESHOLD = 60;
+export const HOMECOMING_KM_FULL           = 60;
+export const ROUTINE_VISIT_THRESHOLD      = 4;
+
 // ----- v0.0.9.4: NPC outbound dispatch -----
 // On arrival at an NPC node, the NPC may offer a package destined for
 // another node. Offer chance scales with trust; per-visit cooldown.

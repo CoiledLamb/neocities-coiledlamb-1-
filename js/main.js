@@ -267,6 +267,14 @@ function tick() {
       else if (_w.intensity === 'drizzle')  S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DRIZZLE);
       else if (S.inRiver)                   S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
       else if (currentCellIsWetland())      S.canteen = Math.min(S.canteenMax, S.canteen + C.WETLAND_CANTEEN_REFILL);
+
+      // v0.0.9.5 (commit 2): iota's 'wetland-path' trust profile rewards
+      // iota deliveries where the courier has spent time in wetland cells
+      // since their last iota visit. Tick the counter whenever courier is
+      // in a wetland cell (canteen-refill trigger is a clean proxy).
+      if (currentCellIsWetland() && S.npcs && S.npcs['B']) {
+        S.npcs['B'].wetlandTicksSinceLastVisit = (S.npcs['B'].wetlandTicksSinceLastVisit || 0) + 1;
+      }
     }
 
     Trip.accumulateDist();

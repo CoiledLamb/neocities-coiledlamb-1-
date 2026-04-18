@@ -68,13 +68,43 @@ export const NPC_LINES = {
       60:  'i see a lot from here. i can tell you what\'s moving on the route if you want.',
       80:  'there\'s room here if you need it. the stone keeps the wind off.',
     },
-    // v0.0.9.5 new 6 — stubs. Real threshold lines land in commits 2-3.
-    '\u03bd':  {},  // nu
-    '\u03b8':  {},  // theta
-    '\u03b3':  {},  // gamma
-    '\u03bb':  {},  // lambda
-    '\u03c0':  {},  // pi
-    '\u03b4':  {},  // delta
+    // v0.0.9.5 new 6 — authored 2026-04-17.
+    '\u03bd': {
+      20:  'you made it. \u2014 drink. there\'s water in the tank.',
+      40:  'the desert decides who comes back. you\'ve been coming back.',
+      60:  'i can tell you which stretches drink a canteen faster. sit. listen.',
+      80:  'the cot\'s in the shade by the pipes. sleep. no one finds you here uninvited.',
+    },
+    '\u03b8': {
+      20:  'welcome to the kiln. the clay remembers rain better than we do.',
+      40:  'your hands are steady. i saw it in how you set the crate down. that\'s rare.',
+      60:  'i fire pots at dawn. \u2014 the route goes quiet then. good time for a run.',
+      80:  'there\'s a warm spot by the kiln wall. rest here. the clay won\'t mind.',
+    },
+    '\u03b3': {
+      20:  'you brought something in. alright. i\'ll remember.',
+      40:  'you keep showing up. fine. that means i owe you. i don\'t like owing.',
+      60:  'ask me about the road east. i\'ve been there more than i like to admit.',
+      80:  'there\'s a bunk in the back. you earned it. \u2014 don\'t make me say that often.',
+    },
+    '\u03bb': {
+      20:  'oh hey! the climber\'s come to visit. \u2014 drink, drink, there\'s water on the bench.',
+      40:  'you keep coming back. good. you\'ve got the spirit for it. i can tell.',
+      60:  'ask me about any pitch on the mountain. i\'ve fallen off most of them.',
+      80:  'the lodge is yours. hot stew, warm fire, stories on tap. stay.',
+    },
+    '\u03c0': {
+      20:  'arrival noted. set it there.',
+      40:  'your delivery intervals remain within expected tolerance. efficient.',
+      60:  'research parameters benefit from unmodified cargo. preference logged.',
+      80:  'sleeping platform. fourth level. available if required.',
+    },
+    '\u03b4': {
+      20:  'you came. \u2014 good. i\'ve been fixing the north sluice. don\'t let me keep you from your route.',
+      40:  'you\'ve come back a few times now. the dam counts anyone who returns. so do i.',
+      60:  'ask me about the old flow charts. the water tells you more than the maps.',
+      80:  'there\'s a spare bunk in the pumphouse. i sleep there when i can\'t let the work go.',
+    },
   },
 
   ambient: {
@@ -126,13 +156,55 @@ export const NPC_LINES = {
       'the waypoint\'s mine. i take care of it.',
       'small things last longer than big things, mostly.',
     ],
-    // v0.0.9.5 new 6 — stubs. Real ambient chatter lands in commits 2-3.
-    '\u03bd':  [],  // nu
-    '\u03b8':  [],  // theta
-    '\u03b3':  [],  // gamma
-    '\u03bb':  [],  // lambda
-    '\u03c0':  [],  // pi
-    '\u03b4':  [],  // delta
+    // v0.0.9.5 new 6 — authored 2026-04-17.
+    '\u03bd': [
+      'filters clog. i clean them. that\'s the work.',
+      'if you hear the pipes hiss, the system\'s still alive.',
+      'water first. always water first.',
+      'used to be a proper plant here. most of it still is.',
+      'you don\'t see many strangers this far out. most don\'t want to.',
+      'the heat takes people quietly. pay attention.',
+    ],
+    '\u03b8': [
+      'the riverbed gives up its clay slowly. patience is part of the craft.',
+      'the kiln\'s been going all morning. feel the heat on your face.',
+      'tea\'s on the bench. help yourself.',
+      'rain softens the banks. good day for gathering.',
+      'some pots crack in firing. not all of them. that\'s the lesson.',
+      'clay teaches you what your hands already knew.',
+    ],
+    '\u03b3': [
+      'every favor\'s a debt. every debt, a repayment.',
+      'the hillside\'s rougher than it looks. mind your ankles.',
+      'the forge\'s cold. i\'ll fire it when something needs fixing.',
+      'someone passed through and didn\'t say hi. rude.',
+      'keep your tools oiled. you know why.',
+      'i don\'t like leaving things undone. neither should you.',
+    ],
+    '\u03bb': [
+      'i watched the sun rise over the summit today. you would\'ve liked it.',
+      'rope\'s coiled on the hook if you need it. take some.',
+      'there\'s a new crack on the north face. i call it \'the disagreement.\'',
+      'someone left gear here. probably me. i forget where i leave things.',
+      'the mountain doesn\'t forgive, but it forgets. usually.',
+      'best view on the route is about twenty meters higher than safe.',
+    ],
+    '\u03c0': [
+      'the antenna detects only static from the northwest. always static.',
+      'one variable per iteration. standard.',
+      'i do not sleep often. inefficient.',
+      'the summit wind interferes with the microphones. i adjust for it.',
+      'someone climbed up and left again. the footprints were logged.',
+      'precision is a constraint. neither virtuous nor flawed.',
+    ],
+    '\u03b4': [
+      'the gate creaks less when i oil it. \u2014 i always forget to oil it.',
+      'this dam will outlive me. that\'s the goal.',
+      'water finds every crack. every single one.',
+      'the reservoir\'s holding. for now.',
+      'i lost count of the repairs. \u2014 i should recount.',
+      'someone has to stay with the work. might as well be me.',
+    ],
   },
 
   warning: {
@@ -257,15 +329,127 @@ export const NPC_LINES = {
         'rest here. i\'ve got water. take some.',
       ],
     },
-    // v0.0.9.5 new 6 — warning stubs. Full sets land in commits 2-3.
-    // Empty rain/trip/stamina arrays prevent trust.js warn access from
-    // throwing on `undefined.trip` (pickRandom([]) → undefined → speak no-op).
-    '\u03bd':  { rain: [], trip: [], stamina: [] }, // nu
-    '\u03b8':  { rain: [], trip: [], stamina: [] }, // theta
-    '\u03b3':  { rain: [], trip: [], stamina: [] }, // gamma
-    '\u03bb':  { rain: [], trip: [], stamina: [] }, // lambda
-    '\u03c0':  { rain: [], trip: [], stamina: [] }, // pi
-    '\u03b4':  { rain: [], trip: [], stamina: [] }, // delta
+    // v0.0.9.5 new 6 — authored 2026-04-17.
+    '\u03bd': {
+      rain: [
+        'sky\'s darker than it ought to be. go careful.',
+        'rain out here is a rare mercy. don\'t mistake it for safe.',
+        'weather\'s turning. i\'d tie your kit down.',
+        'storm\'s cooking. sit a while if you need.',
+      ],
+      trip: [
+        'you\'re unsteady. \u2014 drink. take a breath.',
+        'that was a hard one. rest the leg.',
+        'sand shifts. nothing to be ashamed of.',
+        'you fell. you got up. that\'s what matters.',
+      ],
+      stamina: [
+        'you look half-drained. canteen. now.',
+        'tired doesn\'t negotiate. sit.',
+        'you\'re running thin. i\'ve watched this happen before.',
+        'drink something, porter. i mean it.',
+      ],
+    },
+    '\u03b8': {
+      rain: [
+        'the sky smells like wet clay. storm\'s coming.',
+        'rain\'ll swell the river. mind your footing.',
+        'pull the kiln cover before you go. \u2014 thank you.',
+        'storm weather. the route doesn\'t care if you\'re ready.',
+      ],
+      trip: [
+        'you caught yourself. \u2014 good.',
+        'careful. bones don\'t fire like clay does.',
+        'sit a moment. the road will wait.',
+        'even strong hands slip. rest.',
+      ],
+      stamina: [
+        'you\'re spent. tea\'s on.',
+        'sit by the kiln. warm up. then decide.',
+        'tiredness makes fragile choices. rest.',
+        'drink something hot. then we talk.',
+      ],
+    },
+    '\u03b3': {
+      rain: [
+        'storm\'s rolling. tie down your kit.',
+        'wet rocks are slick rocks. take the long way.',
+        'weather\'s mean today. \u2014 keep moving if you can.',
+        'when the rain comes this hot, it comes hard.',
+      ],
+      trip: [
+        'that\'s a hit. sit down, or don\'t. your call.',
+        'loose stone. you know better.',
+        'you\'re bruised. \u2014 i\'ve got liniment if you want it.',
+        'you walked that off. good.',
+      ],
+      stamina: [
+        'you\'re burning out. eat. rest. i\'m not running after you.',
+        'porters collapse. i\'ve seen it. don\'t be one.',
+        'you need fuel. i\'ve got stew on.',
+        'sit. i don\'t take kindly to scraping you off my step.',
+      ],
+    },
+    '\u03bb': {
+      rain: [
+        'rain on rock is an enemy. wait it out if you can.',
+        'the cliffs shed water funny. be careful.',
+        'a storm pinned me on the face for a full day once. it was wonderful.',
+        'if lightning starts, get off anything metal. \u2014 i learned that late.',
+      ],
+      trip: [
+        'oh! \u2014 you alright? i\'ve done worse falling off a chair.',
+        'that\'s not even a real fall. you should see what a real fall looks like.',
+        'you caught yourself. that\'s the whole game, really.',
+        'sit, sit. let me look. \u2014 i know bruises.',
+      ],
+      stamina: [
+        'you\'re running empty. i\'ve been there. \u2014 sit.',
+        'tired legs make bad decisions. i\'ve got stew.',
+        'rest now. the mountain\'ll still be there.',
+        'eat something. you can\'t climb on air.',
+      ],
+    },
+    '\u03c0': {
+      rain: [
+        'precipitation incoming. shelter recommended.',
+        'electrical weather. the tower is grounded. you are not.',
+        'storm front. revise your route.',
+        'rain will damage unsealed cargo. adjust accordingly.',
+      ],
+      trip: [
+        'impact noted. assess for injury.',
+        'you fell. catalog the cause before repeating the action.',
+        'damaged porters are inefficient. sit.',
+        'rest. restart. standard sequence.',
+      ],
+      stamina: [
+        'energy reserves below threshold. rest.',
+        'continuing would be inefficient. sit.',
+        'you are operating at a loss. remedy it.',
+        'fatigue impairs judgment. the data is conclusive.',
+      ],
+    },
+    '\u03b4': {
+      rain: [
+        'the spillway\'s ready for rain. \u2014 i hope.',
+        'watch your cargo in the weather. the dam can\'t shelter you.',
+        'pressure\'s up. \u2014 that\'s the rain talking.',
+        'storms test the dam. and you. be careful.',
+      ],
+      trip: [
+        'you caught yourself. \u2014 that\'s most of the battle.',
+        'i\'ve slipped on that same stretch. don\'t feel alone.',
+        'the ground here gets soft near the outflow. \u2014 i should mark it.',
+        'sit. i\'ll bring water.',
+      ],
+      stamina: [
+        'you\'re worn down. \u2014 sit a while.',
+        'tiredness accumulates. like silt. same remedy.',
+        'rest. the dam isn\'t going anywhere. neither should you.',
+        'eat something. \u2014 i\'ve got bread.',
+      ],
+    },
   },
 
   preview: {
@@ -307,9 +491,43 @@ export const NPC_LINES = {
       'a {label} on the road \u2014 {size}. {dest} probably wants it.',
       'if you pass a {label}, it\'s headed for {dest}. looks like a decent carry.',
     ],
-    // v0.0.9.5 new 6 — preview stubs. Real preview templates in commits 2-3.
-    '\u03bd':  [], '\u03b8':  [], '\u03b3':  [],
-    '\u03bb':  [], '\u03c0':  [], '\u03b4':  [],
+    // v0.0.9.5 new 6 — authored 2026-04-17.
+    '\u03bd': [
+      'there\'s a {size} {label} out there. {dest} needs it. go careful.',
+      'i heard about a {label} on the next stretch. bound for {dest}.',
+      'someone left a {size} {label} out past the dunes. {dest}\'s, i think.',
+      '{label} waiting on the road. for {dest}. keep water close.',
+    ],
+    '\u03b8': [
+      'a {label} came through the ledger. {size}, for {dest}. good carry if you can take it.',
+      'i heard of a {size} {label} on the road. {dest} ordered it.',
+      'if you find a {label}, it\'s headed for {dest}. handle it like a pot.',
+      '{label} out past the reed bend. {size}. {dest}\'s mark on it.',
+    ],
+    '\u03b3': [
+      'there\'s a {label} out on the slope. {size}. {dest}\'s waiting on it.',
+      'someone staged a {size} {label} near the pass. for {dest}.',
+      '{label} bound for {dest}. {size}. \u2014 take it or leave it.',
+      'i heard a {label} went on the next stretch. {dest}\'s mark.',
+    ],
+    '\u03bb': [
+      'a {size} {label} came down the pass this morning. for {dest}.',
+      'there\'s a {label} staged at the base. {dest} wants it. \u2014 fun carry.',
+      'if you pass a {label} on the slope, it\'s bound for {dest}. {size}.',
+      '{label} heading to {dest}. sounds like a trip i\'d take.',
+    ],
+    '\u03c0': [
+      'a {size} {label} has been logged on the next segment. destination: {dest}.',
+      'package data available: {label}, {size}. receiving party: {dest}.',
+      'record shows a {label} bound for {dest}. {size} class.',
+      'incoming staging: {size} {label}, for {dest}. evaluate the carry.',
+    ],
+    '\u03b4': [
+      'i heard a {label} was staged upstream. {size}. for {dest}.',
+      'a {size} {label} on the next stretch, headed to {dest}.',
+      'if you see a {label} out there, it\'s {dest}\'s. \u2014 go gentle.',
+      '{label} bound for {dest}. {size}. \u2014 route goes past the spillway.',
+    ],
   },
 
   rest: {
@@ -349,9 +567,43 @@ export const NPC_LINES = {
       'spot by the big stone is the warmest. \u2014 i tested them all.',
       'stay if you want. candles are on anyway.',
     ],
-    // v0.0.9.5 new 6 — rest stubs. Real rest lines in commits 2-3.
-    '\u03bd':  [], '\u03b8':  [], '\u03b3':  [],
-    '\u03bb':  [], '\u03c0':  [], '\u03b4':  [],
+    // v0.0.9.5 new 6 — authored 2026-04-17.
+    '\u03bd': [
+      'lay down. i\'ll watch the pipes.',
+      'the cot\'s cool. sleep as long as you need.',
+      'nothing\'s going to find you here. rest.',
+      'drink before you sleep. drink when you wake.',
+    ],
+    '\u03b8': [
+      'the wall stays warm long after the fire\'s down. sleep there.',
+      'tea before bed. it\'s the rule here.',
+      'the kiln hums all night. some find it comforting. i do.',
+      'rest. i\'ll watch the fire.',
+    ],
+    '\u03b3': [
+      'bunk\'s solid. heavy blanket. don\'t snore.',
+      'you earned the bed. i\'ll wake you at first light.',
+      'stay. i\'ll keep watch. i owe you that.',
+      'rest here. it squares us, mostly.',
+    ],
+    '\u03bb': [
+      'the cot by the fire is the best one. i tested them all.',
+      'stay as long as you want. i like the company.',
+      'warm stew, warm bed. i know what you need.',
+      'sleep in. the mountain won\'t mind.',
+    ],
+    '\u03c0': [
+      'the platform is flat. sufficient.',
+      'sleep cycle accepted. frequencies monitored.',
+      'rest period logged. resume when ready.',
+      'you will wake. historical data confirms.',
+    ],
+    '\u03b4': [
+      'the pumphouse bunk is dry. that\'s the highest praise i can give a bed.',
+      'sleep. i\'ll watch the gauges.',
+      'rest here. the water\'s steady tonight.',
+      'lie down. i\'ve been keeping the reservoir quiet for nights like this.',
+    ],
   },
 
   // v0.0.8.4: delivery-complete lines. Fire once per delivery batch via
@@ -520,14 +772,168 @@ export const NPC_LINES = {
         'someone dropped this and you picked it up. good.',
       ],
     },
-    // v0.0.9.5 new 6 — delivery stubs. Real delivery lines in commits 2-3.
-    // `speakDelivery()` safely falls back when condition arrays are empty
-    // or the entry is missing entirely (see trust.js:115).
-    '\u03bd':  {}, // nu
-    '\u03b8':  {}, // theta
-    '\u03b3':  {}, // gamma
-    '\u03bb':  {}, // lambda
-    '\u03c0':  {}, // pi
-    '\u03b4':  {}, // delta
+    // v0.0.9.5 new 6 — authored 2026-04-17.
+    '\u03bd': {
+      normal: [
+        'safe arrival. \u2014 thank you.',
+        'you made it back. good.',
+        'you\'re still standing. that\'s the only delivery that matters.',
+      ],
+      fragile: [
+        'fragile, and whole. you paid attention.',
+        'not a crack. careful hands.',
+        'you treated it like it mattered. it did.',
+      ],
+      heavy: [
+        'that weight broke lesser porters. it didn\'t break you.',
+        'you carried more than the cargo, i think.',
+        'heavy haul in the heat. \u2014 sit. drink.',
+      ],
+      damaged: [
+        'banged up, but here. you\'re here too. that\'s what matters.',
+        'cargo takes hits. so do porters. you both made it.',
+        'it can be repaired. so can you. drink.',
+      ],
+      lost: [
+        'this was lost? \u2014 and you found it. the desert usually keeps what it takes.',
+        'someone dropped this out there. you picked it up. that\'s rare.',
+        'lost and found. \u2014 you brought it home.',
+      ],
+    },
+    '\u03b8': {
+      normal: [
+        'arrived. \u2014 well done. tea?',
+        'i take it you walked the long way. sit.',
+        'you brought it in. the work continues.',
+      ],
+      fragile: [
+        'not one chip. \u2014 i noticed.',
+        'you handle fragile things like you understand them.',
+        'the ceramic wrap held. i\'ll mark the batch.',
+      ],
+      heavy: [
+        'your shoulders carry the week home. sit.',
+        'heavy pots ask heavy carries. \u2014 thank you.',
+        'you bore it well. eat something.',
+      ],
+      damaged: [
+        'it cracked. \u2014 i can salvage what\'s here.',
+        'damaged cargo. damaged porter? let me see.',
+        'the clay always forgives. rest a while.',
+      ],
+      lost: [
+        'lost, and returned. the river gives things back sometimes.',
+        'someone let this slip. you picked it up. good.',
+        'a lost thing, carried home. \u2014 that\'s worth tea.',
+      ],
+    },
+    '\u03b3': {
+      normal: [
+        'alright. we\'re even for now.',
+        'brought it. received. clean trade.',
+        'that\'s one on your ledger. thanks.',
+      ],
+      fragile: [
+        'fragile, whole. \u2014 you owe me less than i thought.',
+        'not a scratch. you\'re careful.',
+        'i\'d have asked for more damage. you overdelivered.',
+      ],
+      heavy: [
+        'you hauled the weight. i appreciate it. don\'t be dramatic about it.',
+        'heavy load carried clean. \u2014 noted.',
+        'that was a job. i\'ll remember.',
+      ],
+      damaged: [
+        'banged up. \u2014 relieved, honestly. means i don\'t owe you much.',
+        'damaged goods. we\'re closer to even now.',
+        'it took a hit. you didn\'t fail. you just made this simpler.',
+      ],
+      lost: [
+        'lost and brought in. \u2014 that\'s a favor i can\'t repay quickly.',
+        'someone dropped this. you picked it up. \u2014 i owe you on it.',
+        'a found thing. \u2014 now i owe you. i\'ll pay it back.',
+      ],
+    },
+    '\u03bb': {
+      normal: [
+        'you made it! \u2014 of course you did.',
+        'back in one piece. sit. drink.',
+        'welcome back. tell me about the weather.',
+      ],
+      fragile: [
+        'fragile, and whole? \u2014 on my slope? incredible.',
+        'you kept it pristine through my terrain. that\'s artistry.',
+        'not a crack. \u2014 most people chip the edge, at least.',
+      ],
+      heavy: [
+        'that weight up the hill? you\'ve got lungs on you.',
+        'heavy carry on mountain. \u2014 you\'re my kind of porter.',
+        'you hauled that the whole way up. \u2014 sit. honor guard.',
+      ],
+      damaged: [
+        'took a hit on the rocks. happens to everyone. \u2014 glad you\'re back.',
+        'the mountain took a bite. \u2014 it does that.',
+        'banged up? \u2014 so was i on my first summit. you\'re in good company.',
+      ],
+      lost: [
+        'someone dropped this on the slope? \u2014 and you found it? amazing.',
+        'lost and carried home. \u2014 that\'s a summit story.',
+        'the mountain gave something back for once. \u2014 through you.',
+      ],
+    },
+    '\u03c0': {
+      normal: [
+        'receipt confirmed. transaction logged.',
+        'package logged. parameters nominal.',
+        'delivery intact. efficient work.',
+      ],
+      fragile: [
+        'fragile class, delivered intact. outside expected failure rate.',
+        'not a single failure metric. precise work.',
+        'structural integrity preserved. anomalously precise.',
+      ],
+      heavy: [
+        'mass class: heavy. delivered without deviation.',
+        'heavy haul. consistent handling. logged.',
+        'you sustained the load. structural tolerance confirmed.',
+      ],
+      damaged: [
+        'partial damage assessed. salvageable.',
+        'integrity compromised. the data still reads.',
+        'damaged but present. workable parameters.',
+      ],
+      lost: [
+        'recovery noted. the previous record was marked as loss.',
+        'a lost item, returned. \u2014 interesting.',
+        'found cargo entered into the ledger. ledger correction processed.',
+      ],
+    },
+    '\u03b4': {
+      normal: [
+        'you came. \u2014 again. that means something.',
+        'delivery in. \u2014 you\'re becoming a regular. i don\'t mind.',
+        'welcome back. the work continues because you keep showing up.',
+      ],
+      fragile: [
+        'whole. careful. \u2014 that\'s the whole trick, isn\'t it.',
+        'nothing broken. \u2014 the dam wishes it could say the same.',
+        'you handled it like it mattered. it did.',
+      ],
+      heavy: [
+        'heavy haul on the approach. \u2014 rest before the next one.',
+        'you carried weight. \u2014 the dam appreciates heavy things. so do i.',
+        'that was a real load. \u2014 thank you.',
+      ],
+      damaged: [
+        'banged up. \u2014 i can work with banged up. everything here is.',
+        'it took damage. \u2014 it still arrived. everything counts.',
+        'not pristine. \u2014 pristine things don\'t last here anyway.',
+      ],
+      lost: [
+        'lost and returned. \u2014 the dam does that too, sometimes. gives things back.',
+        'someone dropped this. you picked it up. \u2014 i appreciate the habit.',
+        'a found thing, brought home. \u2014 it gives me hope, small amounts.',
+      ],
+    },
   },
 };

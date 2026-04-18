@@ -40,7 +40,7 @@ import {
 } from './data/packages.js';
 import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js';
 import { updatePorterStripBadges } from './recovery.js';
-import { addTrust, computeTrustGain, speakDelivery } from './trust.js';
+import { addTrust, computeTrustGain, speakDelivery, recordDelivery } from './trust.js';
 import { getNodeStage, setNodeStage } from './identification.js';
 import { sandalCap, renderBoots } from './boots.js';
 import { addLog } from './render/log.js';
@@ -648,6 +648,13 @@ export function tryDeliver(arrivedNodeId) {
       addTrust(arrivedNodeId, totalGain, reason);
     }
   });
+  // v0.0.9.5 (commit 2): per-batch state update for stateful trust
+  // profiles (tau homecoming km snapshot, iota wetland-tick reset,
+  // delta routine-counter accrue/reset). Fires once per batch so a
+  // multi-pkg delivery to a non-delta NPC counts as a single "visit"
+  // for delta's routine profile. Safe to call before addTrust reads
+  // — computeTrustGain already ran earlier in the loop.
+  if (NPC_DEFS[arrivedNodeId]) recordDelivery(arrivedNodeId);
   // v0.0.8.4: NPC reacts to the delivery — one line per batch, picking
   // the most interesting condition (lost > damaged > fragile > heavy > normal).
   speakDelivery(arrivedNodeId, toDeliver);
