@@ -463,33 +463,13 @@ export function drawRouteMap() {
   }
   svg.appendChild(gearG);
 
-  // v0.0.9.6 commit 5 — interior pkg glyphs on the map. Sits above
-  // gear so pickups read as clear affordances. Plateau pkgs marked
-  // with a larger '▲' (bigger-fish reward) vs '■' on mountain /
-  // rockyHills for generic salvage. "Visible from below" indicator
-  // deferred to .9.7 polish.
-  const pkgG = document.createElementNS(ns, 'g');
-  pkgG.setAttribute('id', 'routeInteriorPkgs');
-  const interiorTable = S.interiorPkgs || {};
-  for (const key of Object.keys(interiorTable)) {
-    const entry = interiorTable[key];
-    if (!entry || entry.picked) continue;
-    const pkgNode = document.createElementNS(ns, 'text');
-    pkgNode.setAttribute('x', entry.x);
-    pkgNode.setAttribute('y', entry.y + 2);
-    pkgNode.setAttribute('font-family', "'Source Code Pro',monospace");
-    pkgNode.setAttribute('font-size', entry.terrainOrigin === 'plateau' ? '10' : '8');
-    pkgNode.setAttribute('fill', '#d88e5a');
-    pkgNode.setAttribute('text-anchor', 'middle');
-    pkgNode.setAttribute('class', `route-interior-pkg pkg-${entry.terrainOrigin}`);
-    pkgNode.textContent = entry.terrainOrigin === 'plateau' ? '\u25B2' : '\u25A0';
-    const title = document.createElementNS(ns, 'title');
-    const label = entry.pkg && entry.pkg.label ? entry.pkg.label : 'cargo';
-    title.textContent = `${label} \u2014 ${entry.terrainOrigin}`;
-    pkgNode.appendChild(title);
-    pkgG.appendChild(pkgNode);
-  }
-  svg.appendChild(pkgG);
+  // v0.0.9.6.9.1 — interior pkg markers removed from the route map
+  // per user call: pkgs are meant to surface on the side-view
+  // playfield, not as free "loot map" markers on the route panel.
+  // Commit 5's '\u25B2' / '\u25A0' overlay was a placeholder that
+  // overpromised; genuine minimap waypoints (watchtowers, beacons)
+  // are structure-work queued for v0.0.9.7+. Rendering is intact
+  // in S.interiorPkgs data; only the visible marker is gone.
 
   // v0.0.9.3 — shortcut curve preview (faint dashed line showing the
   // remaining path when a shortcut is active).
