@@ -404,3 +404,38 @@ export const TERRAIN_LOCATION_NOUN = {
   plateau:    'mesa',
   river:      'bank',
 };
+
+// --- trample mechanics (v0.0.9.6 commit 6) -----------
+// Each tick the courier spends on an interior cell bumps that
+// cell's trample value by TRAMPLE_PER_STEP. Trample is a 0..1
+// float that reduces terrain penalties linearly (via
+// reduceMultWithTrample) so walked cells become progressively
+// less punishing. At TRAMPLE_PASS_THRESHOLD a mountain cell
+// becomes a "free pass" — severity rolls zeroed. Long-described
+// mountain-pass-carving mechanic, finally here.
+//
+// Rate tuned: ~17-34 crossings of a single cell to reach 0.85.
+// One traversal lasts 5-10 ticks at terrain speed, so
+// 0.005 × 5-10 = 2.5-5% trample per visit.
+//
+// Decay schedule stubbed in .6; revisit v0.0.9.9+ when trample
+// has been playable long enough to read feel (plan).
+//
+// Multiplayer trample sync is QUEUED FOR COMMIT 7 — per-tick
+// broadcasts would flood the activity feed; sync lands as
+// milestone broadcasts at threshold crossings (0.25 / 0.5 /
+// 0.85) once commit 7 is already touching the multiplayer
+// layer for storm work.
+export const TRAMPLE_PER_STEP       = 0.005;
+export const TRAMPLE_PASS_THRESHOLD = 0.85;
+
+// Pure reducer: applies trample as a continuous linear pull of
+// the multiplier toward 1.0 (flat). Composable with any other
+// modifier — caller applies gear mitigation first, then this.
+//   reducedMult = currentMult - (currentMult - 1) × trample
+// At trample 0: no change. At trample 1: flat. Clamps inputs.
+export function reduceMultWithTrample(mult, trample) {
+  const t = Math.max(0, Math.min(1, trample));
+  if (mult <= 1.0) return mult;  // no reduction below baseline
+  return mult - (mult - 1) * t;
+}

@@ -73,8 +73,10 @@ import {
   ROCKYHILLS_STALL_TICKS,
   GEAR_FOR_TERRAIN,
   GEAR_TRIP_MITIGATION,
+  reduceMultWithTrample,
 } from './data/terrain.js';
 import { placedGearAt } from './gear.js';
+import { trampleAt, isPassCarved } from './trail.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -139,14 +141,19 @@ export function tripChance() {
   const onInterior = seg && (seg.type === 'shortcut' || seg.type === 'river-drift');
   if (onInterior) {
     const terr = courierTerrain();
-    chance *= (TERRAIN_TRIP_MULT[terr] || 1.0);
-    // v0.0.9.6 commit 4 — placed gear on this cell mitigates trip risk.
-    // Severity chance scales with the post-mitigation trip mult, so this
-    // tames both regular trip frequency AND severe-fire rate.
-    if (GEAR_FOR_TERRAIN[terr]) {
-      const xy = seg.pathFn(S.dotT);
-      if (placedGearAt(xy.x, xy.y)) chance *= GEAR_TRIP_MITIGATION;
+    const xy   = seg.pathFn(S.dotT);
+    let terrMult = TERRAIN_TRIP_MULT[terr] || 1.0;
+    // v0.0.9.6 commit 4 — placed gear mitigation
+    if (GEAR_FOR_TERRAIN[terr] && placedGearAt(xy.x, xy.y)) {
+      terrMult *= GEAR_TRIP_MITIGATION;
     }
+    // v0.0.9.6 commit 6 — trample continuous reduction. Composes with
+    // gear mitigation: gear first narrows the penalty range, trample
+    // paves the remainder toward flat. A mountain with ladder (×1.3)
+    // AND trample 0.5 lands at ×1.15 trip risk; with carve (0.85)
+    // it's ×1.05. Severity still scales on the reduced mult below.
+    terrMult = reduceMultWithTrample(terrMult, trampleAt(xy.x, xy.y));
+    chance *= terrMult;
   } else {
     if (currentCellIsRisky()) chance *= 1.40;
     // v0.0.8 — weather multiplier (spatial intensity from weather.js)
@@ -424,22 +431,32 @@ export function maybeTrip() {
   // consequence. Non-severe trips fall through to the regular path.
   const terr = courierTerrain();
   if (TERRAIN_HAS_SEVERE[terr]) {
-    let tripMult = TERRAIN_TRIP_MULT[terr] || 1.0;
-    // v0.0.9.6 commit 4 — placed gear reduces severe chance via the
-    // same mitigation ratio used for trip chance. Mountain + ladder
-    // drops severity from 50% to 15%.
-    if (GEAR_FOR_TERRAIN[terr]) {
-      const seg = S._transient.currentSegment;
-      const xy = seg.pathFn(S.dotT);
-      if (placedGearAt(xy.x, xy.y)) tripMult *= GEAR_TRIP_MITIGATION;
-    }
-    const severityChance = Math.max(0, (tripMult - 1.0) * SEVERITY_SCALE);
-    if (Math.random() < severityChance) {
-      // Stumble animation still fires for visual consistency.
-      if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
-      S.bootDurability = Math.max(0, S.bootDurability - 5);
-      triggerSevereTrip(terr);
-      return;
+    const seg = S._transient.currentSegment;
+    const xy  = seg.pathFn(S.dotT);
+    // v0.0.9.6 commit 6 — pass-carved mountain cells zero severity
+    // outright. The mountain-pass-carving mechanic: grind the same
+    // slope enough (trample ≥ 0.85) and it stops throwing severes.
+    // Also loop-safe: even if user wants to retrofit mountain tumble
+    // in .9.7 polish, pass-carving self-caps the retry count.
+    if (terr === 'mountain' && isPassCarved(xy.x, xy.y)) {
+      // severity forced to 0; non-severe trip paths still run
+    } else {
+      let tripMult = TERRAIN_TRIP_MULT[terr] || 1.0;
+      // v0.0.9.6 commit 4 — placed gear reduces severe chance.
+      if (GEAR_FOR_TERRAIN[terr] && placedGearAt(xy.x, xy.y)) {
+        tripMult *= GEAR_TRIP_MITIGATION;
+      }
+      // v0.0.9.6 commit 6 — trample continuous reduction applies
+      // here too so severity tapers smoothly toward pass-carve.
+      tripMult = reduceMultWithTrample(tripMult, trampleAt(xy.x, xy.y));
+      const severityChance = Math.max(0, (tripMult - 1.0) * SEVERITY_SCALE);
+      if (Math.random() < severityChance) {
+        // Stumble animation still fires for visual consistency.
+        if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
+        S.bootDurability = Math.max(0, S.bootDurability - 5);
+        triggerSevereTrip(terr);
+        return;
+      }
     }
   }
 

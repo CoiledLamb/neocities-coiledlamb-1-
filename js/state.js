@@ -140,6 +140,15 @@ export const S = {
   //   }
   interiorPkgs: {},
 
+  // v0.0.9.6 commit 6 — per-cell trample state. Sparse table keyed
+  // by cellKey ("x,y") → trample float 0..1. Each tick the courier
+  // spends on an interior cell bumps the entry by TRAMPLE_PER_STEP.
+  // Trample reduces terrain penalties continuously (reducing trip +
+  // stamina mults linearly toward 1.0) and at TRAMPLE_PASS_THRESHOLD
+  // zeros out mountain severity (pass-carved). Persisted locally;
+  // multiplayer sync queued for commit 7.
+  interiorTrample: {},
+
   // v0.0.7.24 — kit-row battery (prototype stub). Shared charge pool
   // that powers scanner + future electronic gadgets (exoskeleton, etc).
   // v0.0.9.5: save-schema slot added (persists via v8 migration). Full
