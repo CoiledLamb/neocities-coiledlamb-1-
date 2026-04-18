@@ -57,6 +57,24 @@ export function postGearChannelMsg(shortPorterId, article, type, noun) {
   renderChannels();
 }
 
+// v0.0.9.6 commit 7 — peer paving channel line. Fires on inbound
+// trample_milestone events when the crossing hits the carved
+// threshold (0.85). Lower thresholds stay silent; only pass-carve
+// is narrative-worthy. Shares the 'peer' depotId sentinel.
+export function postTrampleChannelMsg(porterId) {
+  const shortId = (porterId || '').slice(0, 8) || 'PTR-????';
+  S.channels.unshift({
+    depotId: 'peer',
+    callsign: shortId,
+    text: 'paved a trail',
+    ts: S.ticks,
+  });
+  if (S.channels.length > C.CHANNELS_DISPLAY_CAP) {
+    S.channels.length = C.CHANNELS_DISPLAY_CAP;
+  }
+  renderChannels();
+}
+
 export function tickAmbientChatter() {
   if (S.ticks % 10 !== 0) return;
   Object.keys(NPC_DEFS).forEach(depotId => {

@@ -75,7 +75,17 @@ export const S = {
   // v0.0.8.7 — pre-rolled storm type for the next spawn. Set when
   // nextStormSpawnTick is scheduled so the weather radio can predict
   // storm type before it materializes.
+  //
+  // v0.0.9.6 commit 7 — nextStormType kept as a legacy mirror; full
+  // preroll lives on nextStormSpawn (below) with location + landmark
+  // for the radio's "forming over pi's summit" phrasing.
   nextStormType: null,
+
+  // v0.0.9.6 commit 7 — composite next-storm descriptor. Set by
+  // weather.js scheduleNextStorm at the same time as nextStormSpawnTick.
+  // Shape: { type, x, y, isInterior, nearestNpcId }.
+  // Weather radio L1 reads this for the landmark-relative warning.
+  nextStormSpawn: null,
 
   // v0.0.7.21 — terrain scanner state. unlocked flips when the upgrade is
   // purchased. level is forward-compat for T2/T3 in v0.0.7.23.

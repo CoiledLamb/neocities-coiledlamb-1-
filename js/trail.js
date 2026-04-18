@@ -46,9 +46,17 @@ export function trampleAt(x, y) {
   return (S.interiorTrample && S.interiorTrample[key]) || 0;
 }
 
+/** Milestone thresholds for multiplayer broadcast (v0.0.9.6 commit 7).
+ *  Each interior cell broadcasts at most 3 times over its lifetime —
+ *  once per threshold crossing — so the activity feed doesn't flood
+ *  with per-tick updates. Peers merge-by-max on receive. */
+const TRAMPLE_MILESTONES = [0.25, 0.50, 0.85];
+
 /** Bump trample at the snapped cell by `amount` (default =
  *  TRAMPLE_PER_STEP). Clamps to 1.0. Called from main.js every
- *  tick the courier occupies an interior cell. */
+ *  tick the courier occupies an interior cell. v0.0.9.6 commit 7 —
+ *  detects threshold crossings and fires milestone broadcasts so
+ *  peer paving becomes visible. */
 export function addTrampleAt(x, y, amount) {
   if (!S.interiorTrample) S.interiorTrample = {};
   const key = cellKeyFromCoords(x, y);
@@ -57,6 +65,43 @@ export function addTrampleAt(x, y, amount) {
   const next    = Math.min(1, current + delta);
   if (next !== current) {
     S.interiorTrample[key] = next;
+    // Milestone detection — at most one crossing per step given
+    // TRAMPLE_PER_STEP is small vs threshold gaps.
+    for (const th of TRAMPLE_MILESTONES) {
+      if (current < th && next >= th) {
+        import('./multiplayer.js').then(m => {
+          if (typeof m.broadcastTrampleMilestone === 'function') {
+            m.broadcastTrampleMilestone(key, next);
+          }
+        });
+        break;
+      }
+    }
+  }
+}
+
+/** Broadcast receiver — called from multiplayer.js on inbound peer
+ *  milestone events. Merges by max (takes the higher of local vs peer
+ *  value for that cell). When a peer crosses the carved threshold,
+ *  posts a channel line "PTR-XXXX paved the slope". */
+export function receiveTrampleMilestone(payload) {
+  if (!payload || !payload.cellKey) return;
+  const value = +payload.value || 0;
+  if (value <= 0) return;
+  if (!S.interiorTrample) S.interiorTrample = {};
+  const current = S.interiorTrample[payload.cellKey] || 0;
+  if (value > current) {
+    S.interiorTrample[payload.cellKey] = Math.min(1, value);
+    // Carved-threshold crossings fire a channel line (peer paved a
+    // cell to pass-carve level — meaningful shared event). Lower
+    // tiers stay silent to avoid channel spam.
+    if (value >= TRAMPLE_PASS_THRESHOLD && current < TRAMPLE_PASS_THRESHOLD) {
+      import('./channels.js').then(ch => {
+        if (typeof ch.postTrampleChannelMsg === 'function') {
+          ch.postTrampleChannelMsg(payload.placerId || '');
+        }
+      });
+    }
   }
 }
 

@@ -108,14 +108,27 @@ export function buildSavePayload() {
       buffRemaining: S.scanner.buffRemaining,
       buffMagnitude: S.scanner.buffMagnitude,
     },
-    // v0.0.8 (schema v7) — weather system
+    // v0.0.8 (schema v7) — weather system.
+    // v0.0.9.6 commit 7 — storms now (x, y, dx, dy) native; legacy
+    // fields dropped. Migration in apply step handles old-shape
+    // entries.
     storms: S.storms.map(s => ({
-      id: s.id, type: s.type, edgeIdx: s.edgeIdx, t: s.t,
-      primaryCell: s.primaryCell, secondaryCell: s.secondaryCell,
-      secondaryOffset: s.secondaryOffset, age: s.age, seed: s.seed,
+      id: s.id, type: s.type,
+      x: s.x, y: s.y, dx: s.dx, dy: s.dy,
+      secondaryOffsetX: s.secondaryOffsetX,
+      secondaryOffsetY: s.secondaryOffsetY,
+      age: s.age, seed: s.seed,
+      isInterior: !!s.isInterior,
     })),
     nextStormSpawnTick: S.nextStormSpawnTick,
     nextStormType: S.nextStormType,
+    // v0.0.9.6 commit 7 — composite preroll descriptor for weather
+    // radio landmark display.
+    nextStormSpawn: S.nextStormSpawn
+      ? { type: S.nextStormSpawn.type, x: S.nextStormSpawn.x, y: S.nextStormSpawn.y,
+          isInterior: !!S.nextStormSpawn.isInterior,
+          nearestNpcId: S.nextStormSpawn.nearestNpcId }
+      : null,
     // v0.0.9.5 (schema v8) — battery is now persisted. Full feature
     // (solar trickle + new consumers + delta's regen upgrades) lands
     // in commit 4a; this commit just reserves the persistence slot.
@@ -445,18 +458,29 @@ function _applyValidated(data) {
     // Old saves (v6 and earlier) have no storm data — start with empty
     // storms[] and let initWeather() schedule a spawn. isRaining was
     // never in the save payload so no migration needed for that.
+    // v0.0.9.6 commit 7 — storms migrated to (x, y, dx, dy). Old-
+    // shape entries (with primaryCell / edgeIdx / t but no x/y) are
+    // DROPPED on load. Storms are transient in-session state; losing
+    // a couple of active storms at upgrade time is acceptable —
+    // initWeather schedules fresh spawns immediately.
     if (Array.isArray(data.storms)) {
-      S.storms = data.storms.filter(s => s && typeof s.type === 'string' && C.STORM_TYPES[s.type]).map(s => ({
-        id:              typeof s.id === 'number' ? s.id : 0,
-        type:            s.type,
-        edgeIdx:         typeof s.edgeIdx === 'number' ? s.edgeIdx % 6 : 0,
-        t:               typeof s.t === 'number' ? Math.max(0, Math.min(1, s.t)) : 0,
-        primaryCell:     typeof s.primaryCell === 'number' ? s.primaryCell : 0,
-        secondaryCell:   typeof s.secondaryCell === 'number' ? s.secondaryCell : 0,
-        secondaryOffset: typeof s.secondaryOffset === 'number' ? s.secondaryOffset : 50,
-        age:             typeof s.age === 'number' ? Math.max(0, s.age) : 0,
-        seed:            typeof s.seed === 'number' ? s.seed : Math.floor(Math.random() * 100000),
-      }));
+      S.storms = data.storms
+        .filter(s => s && typeof s.type === 'string' && C.STORM_TYPES[s.type]
+                     && typeof s.x === 'number' && typeof s.y === 'number')
+        .map(s => ({
+          id:               typeof s.id === 'number' ? s.id : 0,
+          type:             s.type,
+          x:                +s.x,
+          y:                +s.y,
+          dx:               typeof s.dx === 'number' ? s.dx : 0,
+          dy:               typeof s.dy === 'number' ? s.dy : 0,
+          secondaryOffsetX: typeof s.secondaryOffsetX === 'number' ? s.secondaryOffsetX : 20,
+          secondaryOffsetY: typeof s.secondaryOffsetY === 'number' ? s.secondaryOffsetY : 0,
+          age:              typeof s.age === 'number' ? Math.max(0, s.age) : 0,
+          seed:             typeof s.seed === 'number' ? s.seed : Math.floor(Math.random() * 100000),
+          isInterior:       !!s.isInterior,
+          intersects:       [],
+        }));
     } else {
       S.storms = [];
     }
@@ -465,6 +489,21 @@ function _applyValidated(data) {
     }
     if (typeof data.nextStormType === 'string' && C.STORM_TYPES[data.nextStormType]) {
       S.nextStormType = data.nextStormType;
+    }
+    // v0.0.9.6 commit 7 — composite next-storm preroll restore.
+    if (data.nextStormSpawn && typeof data.nextStormSpawn === 'object'
+        && C.STORM_TYPES[data.nextStormSpawn.type]
+        && typeof data.nextStormSpawn.x === 'number'
+        && typeof data.nextStormSpawn.y === 'number') {
+      S.nextStormSpawn = {
+        type:         data.nextStormSpawn.type,
+        x:            +data.nextStormSpawn.x,
+        y:            +data.nextStormSpawn.y,
+        isInterior:   !!data.nextStormSpawn.isInterior,
+        nearestNpcId: data.nextStormSpawn.nearestNpcId || null,
+      };
+    } else {
+      S.nextStormSpawn = null;
     }
     // v0.0.8.7 — weather radio level migration. Old saves (v0.0.8.6)
     // have weatherRadio = { unlocked: true } without a level field.

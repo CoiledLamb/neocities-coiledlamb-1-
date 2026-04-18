@@ -456,17 +456,30 @@ function tick() {
   tickWeather();
 
   // v0.0.8.7: weather radio L1 — passive storm warning with type prediction.
-  // Fires once per incoming storm when the warn window is entered.
-  // L2 (weatherRadioT2) unlocks the minimap isobar rendering.
-  if (S.weatherRadio && weatherAtCourier().intensity === 'none' && S.storms.length === 0) {
+  // v0.0.9.6 commit 7 — warn fires whenever any new storm is scheduled
+  // (multi-concurrent means storms no longer require empty sky to
+  // spawn), and the message now includes the landmark nearest the
+  // preroll spawn point.
+  if (S.weatherRadio) {
     const ticksUntilSpawn = S.nextStormSpawnTick - S.ticks;
     if (ticksUntilSpawn > 0 && ticksUntilSpawn <= C.STORM_INCOMING_WARN_TICKS
         && S._transient.lastWeatherRadioWarnTick < S.nextStormSpawnTick) {
       S._transient.lastWeatherRadioWarnTick = S.nextStormSpawnTick;
       const secs = Math.round(ticksUntilSpawn * C.TICK_MS / 1000);
       const typeNames = { squall: 'brief squall', front: 'weather front', deluge: 'heavy weather' };
-      const typeName = typeNames[S.nextStormType] || 'storm';
-      addLog(`<span class="log-wn">weather radio:</span> ${typeName} incoming \u2014 ~${secs}s`);
+      const preroll = S.nextStormSpawn;
+      const typeName = typeNames[(preroll && preroll.type) || S.nextStormType] || 'storm';
+      // Build the landmark-relative location phrase. Falls through to
+      // "on the horizon" if we can't map to a known NPC.
+      let where = 'on the horizon';
+      if (preroll && preroll.nearestNpcId) {
+        const npc = NPC_DEFS[preroll.nearestNpcId];
+        if (npc) {
+          const landmark = npc.name || npc.label || npc.callsign || 'the ring';
+          where = preroll.isInterior ? `in the interior near ${landmark}` : `near ${landmark}`;
+        }
+      }
+      addLog(`<span class="log-wn">weather radio:</span> ${typeName} forming ${where} \u2014 ~${secs}s`);
     }
   }
 
@@ -592,13 +605,17 @@ function init() {
   // scheduleNextRainTransition(). Seeds the spawn scheduler and sets
   // up the overlay based on whether any storms are already active.
   buildWeatherOverlay();
-  initWeather();
 
   // v0.0.9.1 — sky layer init (day/night cycle on the play-area strip).
   // Creates sun/moon/star SVG children inside #skySvg. Phase derives
   // from S.ticks so no separate schema hook is needed.
   initSky();
+  // v0.0.9.6 commit 7 — layoutRouteNodes() MUST run before initWeather
+  // so the storm preroll can pick real (x, y) locations via
+  // pointInRing (which reads node coords). Prior order left the first
+  // storm stuck at the (200, 200) rejection-sample fallback.
   layoutRouteNodes();
+  initWeather();
   // v0.0.9.3 — segment abstraction init. Seed currentSegment from the
   // restored edgeIdx, and attach the route-map click/hover handlers once.
   initSegment();

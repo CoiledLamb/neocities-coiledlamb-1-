@@ -59,9 +59,20 @@ export const WETLAND_CANTEEN_REFILL = 0.05;
 // Intensity is spatial (distance from center), not a whole-storm
 // property: outer edge = drizzle, mid = rain, core = downpour.
 
-// Storm spawn scheduling (dry period between storms)
-export const STORM_DRY_MIN_TICKS       = 200;
-export const STORM_DRY_MAX_TICKS       = 800;
+// Storm spawn scheduling (dry period between storms).
+// v0.0.9.6 commit 7 — halved from 200/800 per user direction
+// (canteen balance depends on storm prevalence).
+export const STORM_DRY_MIN_TICKS       = 100;
+export const STORM_DRY_MAX_TICKS       = 400;
+
+// v0.0.9.6 commit 7 — cap on concurrent active storms. Prevents
+// visual clutter + keeps overlap math tractable.
+export const MAX_CONCURRENT_STORMS     = 4;
+
+// v0.0.9.6 commit 7 — 50/50 ring/interior spawn mix. When rolling
+// a storm location, this fraction spawns on the ring (with its
+// wetland bias applied); the rest land in the interior polygon.
+export const STORM_INTERIOR_SPAWN_PCT  = 0.50;
 
 // Intensity zone radii (cells from storm center).
 // weatherAtCourier() returns intensity based on which zone the
@@ -77,13 +88,23 @@ export const STORM_ZONE_DRIZZLE        = 200;  // within this = drizzle
 export const STORM_DISSIPATE_CHANCE    = 0.003; // per-tick chance storm dies
 export const STORM_MIN_AGE_TICKS      = 60;    // no dissipation before this (~21s)
 
-// Storm types — speed is edgeT per tick (courier base is 0.006).
-// weight = relative spawn probability. radius is the STORM_ZONE_DRIZZLE
-// value used for this type (overrides the default above).
+// Storm types.
+// weight      = relative spawn probability
+// sigma1/2    = cell-space gaussian widths (legacy; used for ring-
+//               potential fallback math)
+// w2          = secondary center weight in dual-gaussian
+// speedSvg    = v0.0.9.6 commit 7 — SVG-units per tick for the new
+//               unified (x,y,dx,dy) storm motion model. Derived from
+//               ~110-unit avg ring edge × old speed value.
+// sigmaSvg1/2 = v0.0.9.6 commit 7 — gaussian widths in SVG-space for
+//               the new spatial potential field (stormPotentialAt).
+// radiusSvg   = v0.0.9.6 commit 7 — effective outer radius (where
+//               gear wear accelerator + combine-intersect detection
+//               consider a point to be "inside the storm").
 export const STORM_TYPES = {
-  squall: { speed: 0.008, radius: 150,  sigma1: 22, sigma2: 14, w2: 0.5, weight: 40 },
-  front:  { speed: 0.004, radius: 220,  sigma1: 32, sigma2: 20, w2: 0.6, weight: 45 },
-  deluge: { speed: 0.002, radius: 180,  sigma1: 28, sigma2: 16, w2: 0.7, weight: 15 },
+  squall: { weight: 40, sigma1: 22, sigma2: 14, w2: 0.5, speedSvg: 0.90, sigmaSvg1: 13, sigmaSvg2:  8, radiusSvg: 36 },
+  front:  { weight: 45, sigma1: 32, sigma2: 20, w2: 0.6, speedSvg: 0.45, sigmaSvg1: 19, sigmaSvg2: 12, radiusSvg: 52 },
+  deluge: { weight: 15, sigma1: 28, sigma2: 16, w2: 0.7, speedSvg: 0.22, sigmaSvg1: 17, sigmaSvg2: 10, radiusSvg: 44 },
 };
 
 // Wetland spawn bias: probability of forcing storm onto a wetland edge
