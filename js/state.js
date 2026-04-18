@@ -367,5 +367,16 @@ export const S = {
     // this for persistence. DOM renders the full buffer; panel scrolls
     // to reveal older. No virtualization — 500 <span>s is cheap.
     logHistory: [],
+
+    // v0.0.9.6 commit 3 — severe-trip stall state. Set by trip.js
+    // when a mountain/rockyHills severe trip fires (river severe
+    // uses a dedicated river-drift segment instead). While set,
+    // main.js tick skips dotT advancement so the courier "catches
+    // themselves" for the ticksRemaining count before resuming. A
+    // null value means normal travel; no allocation cost on the
+    // common path.
+    //
+    // Shape: { type: 'mountain' | 'rockyHills', ticksRemaining: number }
+    severeTripState: null,
   },
 };

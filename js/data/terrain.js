@@ -189,3 +189,112 @@ export const TERRAIN_OPACITY = {
   plateau:    0.75,
   desert:     0.70,
 };
+
+// --- mechanical tables (v0.0.9.6 commit 3) -----------
+// Per-cell trip / stamina multipliers consumed during
+// interior shortcut travel. Retire the flat-interior
+// SHORTCUT_STAMINA_MULT (1.20) and SHORTCUT_TRIP_MULT
+// (1.50) from v0.0.9.3 — terrain does the talking now.
+//
+// Idle-first invariant: every cell traversable gear-less;
+// mountain/rockyHills penalties feel severe but the
+// courier always passes through.
+//
+// Desert stamina uses day/night branch applied at
+// call-site (multiplier ramps with daylightOf()).
+export const TERRAIN_TRIP_MULT = {
+  flat:       1.00,
+  clayBed:    1.00,  // slightly sloggier, but same trip risk as flat
+  river:      1.20,  // wading
+  rockyHills: 1.50,  // intermediate
+  mountain:   2.00,  // severe before gear (commit 4 adds ladder/anchor mitigation)
+  plateau:    1.00,  // path cells between plateaus; top cells gated in commit 4
+  desert:     1.00,
+};
+
+export const TERRAIN_STAMINA_MULT = {
+  flat:       1.00,
+  clayBed:    1.10,
+  river:      1.30,  // wading is tiring
+  rockyHills: 1.15,
+  mountain:   1.50,
+  plateau:    1.00,
+  desert:     1.00,  // base; see desertStaminaMult() for day/night ramp
+};
+
+// Per-tick canteen delta while standing on the terrain
+// (only applied during shortcut — ring canteen rules
+// stay unchanged). River water refills like a wetland.
+export const TERRAIN_CANTEEN_DELTA = {
+  flat:       0,
+  clayBed:    0,
+  river:      0.3,   // +0.3/tick wading a water cell
+  rockyHills: 0,
+  mountain:   0,
+  plateau:    0,
+  desert:     0,
+};
+
+// Severity chance per trip follows severityChance =
+// max(0, (tripMult - 1.0) * SEVERITY_SCALE). Default
+// scale 0.5 gives:
+//   river ×1.2  -> 10% severity
+//   rockyHills ×1.5 -> 25% severity
+//   mountain ×2.0 -> 50% severity
+export const SEVERITY_SCALE = 0.5;
+
+// Which terrains have *any* severe consequence. Other
+// terrains (flat, clayBed, plateau, desert) never roll
+// severe — trip fires normally.
+export const TERRAIN_HAS_SEVERE = {
+  river:      true,
+  rockyHills: true,
+  mountain:   true,
+};
+
+// Stall duration for mountain/hills "catch-self" severe
+// trips. River uses a separate segment-based sweep
+// mechanic (see riverSweepTargets / createRiverDriftSegment).
+export const MOUNTAIN_STALL_TICKS = [5, 6, 7, 8];  // picked uniformly
+export const ROCKYHILLS_STALL_TICKS = [2, 3];
+
+// Desert day/night stamina ramp. Full sun = ×1.4, no
+// sun = ×1.0. Caller reads sky.js daylightOf() and
+// passes the 0..1 fraction.
+export function desertStaminaMult(dayFrac) {
+  return 1.0 + 0.4 * Math.max(0, Math.min(1, dayFrac));
+}
+
+// Project (x, y) onto the main theta→delta river path.
+// Returns { t, x, y } where t=0 at theta, t=1 at delta.
+// Used by the river-sweep mechanic to place the courier
+// onto the river and step them downstream.
+const RIVER_AX = 308, RIVER_AY =  92;
+const RIVER_BX = 237, RIVER_BY = 315;
+export function projectOntoRiver(x, y) {
+  const dx = RIVER_BX - RIVER_AX, dy = RIVER_BY - RIVER_AY;
+  const lenSq = dx * dx + dy * dy;
+  let t = ((x - RIVER_AX) * dx + (y - RIVER_AY) * dy) / lenSq;
+  if (t < 0) t = 0; else if (t > 1) t = 1;
+  return { t, x: RIVER_AX + t * dx, y: RIVER_AY + t * dy };
+}
+
+// Total river path length in SVG units (theta → delta).
+export function riverPathLength() {
+  const dx = RIVER_BX - RIVER_AX, dy = RIVER_BY - RIVER_AY;
+  return Math.hypot(dx, dy);
+}
+
+// Given a starting river-t and a downstream distance in
+// SVG units, return the ending river-t (clamped 0..1).
+// Used to place the "catch-self" target of a river drift.
+export function riverDownstreamT(startT, distSvg) {
+  const len = riverPathLength();
+  return Math.max(0, Math.min(1, startT + distSvg / len));
+}
+
+// Sample the main river path at parameter t in [0..1].
+export function riverPointAt(t) {
+  const dx = RIVER_BX - RIVER_AX, dy = RIVER_BY - RIVER_AY;
+  return { x: RIVER_AX + t * dx, y: RIVER_AY + t * dy };
+}

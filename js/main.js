@@ -117,8 +117,11 @@ import { bindDragGlobals } from './render/drag.js';
 import {
   drawRouteMap, updateRouteDot, updateRouteHud, layoutRouteNodes, currentEdge,
   initSegment, advanceSegmentAfterArrival, bindRouteInteractions,
-  tickRouteInteractions, isOnShortcut,
+  tickRouteInteractions, isOnShortcut, courierTerrain,
 } from './render/route-map.js';
+import {
+  TERRAIN_STAMINA_MULT, TERRAIN_CANTEEN_DELTA, desertStaminaMult,
+} from './data/terrain.js';
 import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js';
 import { renderNetwork } from './render/network.js';
 import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js';
@@ -249,10 +252,22 @@ function tick() {
   }
 
   if (S.status==='walking' || S.status==='carrying') {
-    // v0.0.9.3 — stamina drain gets a small tax while on interior shortcut
-    // segments (virgin-terrain cost; primes the v0.0.9.6 trample decay
-    // model where this same multiplier scales down with trample).
-    const staminaDrain = isOnShortcut() ? C.STAMINA_DRAIN * C.SHORTCUT_STAMINA_MULT : C.STAMINA_DRAIN;
+    // v0.0.9.6 commit 3 — per-cell terrain stamina mult replaces the
+    // v0.0.9.3 flat SHORTCUT_STAMINA_MULT. Flat interior = 1.0x (no
+    // blanket tax); river/mountain/rockyHills carry real load. Desert
+    // ramps with daylight (×1.0 at night → ×1.4 midday).
+    let staminaMult = 1.0;
+    const seg = S._transient.currentSegment;
+    const onInterior = seg && (seg.type === 'shortcut' || seg.type === 'river-drift');
+    let currentTerrain = null;
+    if (onInterior) {
+      currentTerrain = courierTerrain();
+      staminaMult = TERRAIN_STAMINA_MULT[currentTerrain] || 1.0;
+      if (currentTerrain === 'desert') {
+        staminaMult = desertStaminaMult(daylightOf(S.ticks));
+      }
+    }
+    const staminaDrain = C.STAMINA_DRAIN * staminaMult;
     S.stamina = Math.max(0, S.stamina - staminaDrain);
     if (S.staminaOverboost && S.stamina<=S.staminaMax) S.staminaOverboost=false;
 
@@ -262,33 +277,34 @@ function tick() {
     if (S.usingMakeshift)   bd*=1.30;
     S.bootDurability=Math.max(0,S.bootDurability-bd);
 
-    // v0.0.9.3 — weather / wetland / river / pickup are all cell-indexed
-    // and therefore off-grid while on a shortcut (interior is genuinely
-    // empty of game content until terrain bones in v0.0.9.5).
-    if (!isOnShortcut()) {
-      // v0.0.8 — weather-driven canteen refill. Intensity is spatial (from weather.js).
-      const _w = weatherAtCourier();
-      if (_w.intensity === 'downpour')      S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DOWNPOUR);
-      else if (_w.intensity === 'rain')     S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
-      else if (_w.intensity === 'drizzle')  S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DRIZZLE);
-      else if (S.inRiver)                   S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
-      else if (currentCellIsWetland())      S.canteen = Math.min(S.canteenMax, S.canteen + C.WETLAND_CANTEEN_REFILL);
+    // v0.0.9.6 commit 3 — weather lookup + canteen refills are now
+    // active on interior too. River-water cells refill canteen at the
+    // terrain's per-tick delta (+0.3). Wetland rim biome still works
+    // the old way. Weather can affect interior too — storm system
+    // still ring-only until commit 7 spawns storms in the interior.
+    const _w = weatherAtCourier();
+    if (_w.intensity === 'downpour')      S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DOWNPOUR);
+    else if (_w.intensity === 'rain')     S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
+    else if (_w.intensity === 'drizzle')  S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_DRIZZLE);
+    else if (onInterior && TERRAIN_CANTEEN_DELTA[currentTerrain]) {
+      S.canteen = Math.min(S.canteenMax, S.canteen + TERRAIN_CANTEEN_DELTA[currentTerrain]);
+    }
+    else if (!onInterior && S.inRiver)           S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
+    else if (!onInterior && currentCellIsWetland()) S.canteen = Math.min(S.canteenMax, S.canteen + C.WETLAND_CANTEEN_REFILL);
 
-      // v0.0.9.5 (commit 2): iota's 'wetland-path' trust profile rewards
-      // iota deliveries where the courier has spent time in wetland cells
-      // since their last iota visit. Tick the counter whenever courier is
-      // in a wetland cell (canteen-refill trigger is a clean proxy).
-      if (currentCellIsWetland() && S.npcs && S.npcs['B']) {
-        S.npcs['B'].wetlandTicksSinceLastVisit = (S.npcs['B'].wetlandTicksSinceLastVisit || 0) + 1;
-      }
+    // Wetland tick counter stays ring-only (river interior cells feed
+    // the canteen but aren't "wetlands" narratively, so iota's trust
+    // profile rightly doesn't accrue from them).
+    if (!onInterior && currentCellIsWetland() && S.npcs && S.npcs['B']) {
+      S.npcs['B'].wetlandTicksSinceLastVisit = (S.npcs['B'].wetlandTicksSinceLastVisit || 0) + 1;
+    }
 
-      // v0.0.9.5 commit 4: reservoirTank (nu t40) adds a slow passive fill
-      // on top of whatever environmental refill (rain/wetland/river) is
-      // firing. Small enough to not trivialize drinking/stamina management,
-      // consistent enough to keep the courier topped up on long routes.
-      if (S.upgrades.reservoirTank && S.canteen < S.canteenMax) {
-        S.canteen = Math.min(S.canteenMax, S.canteen + C.RESERVOIR_TANK_PASSIVE_FILL);
-      }
+    // v0.0.9.5 commit 4: reservoirTank (nu t40) adds a slow passive fill
+    // on top of whatever environmental refill is firing. Works on
+    // interior too — it's a pack-carried cistern, not a location
+    // mechanic.
+    if (S.upgrades.reservoirTank && S.canteen < S.canteenMax) {
+      S.canteen = Math.min(S.canteenMax, S.canteen + C.RESERVOIR_TANK_PASSIVE_FILL);
     }
 
     Trip.accumulateDist();
@@ -298,12 +314,13 @@ function tick() {
 
     Trip.maybeTrip();
     Boots.checkAutobuy();
-    // Off-grid during shortcut — no cell-based pickup / scanner hit.
-    if (!isOnShortcut()) {
-      Pkg.scanForPickup();
-      // v0.0.7.21 — scanner tick. No-op unless unlocked.
-      tickScanner();
-    }
+    // v0.0.9.6 commit 3 — pickup scanning + scanner tick are now
+    // active on interior too. Interior pkg spawning lands in commit 5;
+    // until then scanForPickup returns no-op on interior (no pkgs to
+    // find). Scanner buffs still apply.
+    Pkg.scanForPickup();
+    // v0.0.7.21 — scanner tick. No-op unless unlocked.
+    tickScanner();
 
     if (S.stamina<50 && S.status==='walking' && Math.random()<0.03) {
       S.status='resting'; S.restTimer=C.REST_TICKS_MIN+Math.floor(Math.random()*(C.REST_TICKS_MAX-C.REST_TICKS_MIN));
@@ -315,11 +332,34 @@ function tick() {
   tickAmbientChatter();
   tickRecoveryAttempt();
 
-  // v0.0.9.3 — advancement is segment-based. Ring + shortcut both
-  // run through S._transient.currentSegment; S.dotT advances 0..1
-  // within the active segment. On arrival, advanceSegmentAfterArrival
-  // updates S.edgeIdx (for ring resumption) and replaces the segment.
-  S.dotT += 0.006 * Stamina.speedMultiplier();
+  // v0.0.9.6 commit 3 — severe-trip stall. Mountain/rockyHills severe
+  // trips set S._transient.severeTripState with a ticksRemaining; we
+  // pause dotT advancement for that many ticks before resuming. River
+  // severe uses its own river-drift segment (moves independently) so
+  // it doesn't set this state.
+  if (S._transient.severeTripState) {
+    S._transient.severeTripState.ticksRemaining--;
+    if (S._transient.severeTripState.ticksRemaining <= 0) {
+      const type = S._transient.severeTripState.type;
+      const msg = type === 'rockyHills'
+        ? 'found footing \u2014 <span class="log-ok">moving again</span>'
+        : 'steadied on a handhold \u2014 <span class="log-ok">back on the route</span>';
+      addLog(msg);
+      S._transient.severeTripState = null;
+    }
+    // Advance other systems (render, stamina, etc.) but skip position.
+    // Fall through to render/HUD pass below without bumping dotT.
+  } else {
+    // v0.0.9.3 — advancement is segment-based. Ring + shortcut + river-
+    // drift all run through S._transient.currentSegment; S.dotT advances
+    // 0..1 within the active segment. On arrival,
+    // advanceSegmentAfterArrival updates S.edgeIdx (for ring resumption)
+    // and replaces the segment.
+    const seg = S._transient.currentSegment;
+    // River drift moves at the speed of the water — slower than a walk.
+    const speedScale = (seg && seg.type === 'river-drift') ? 0.4 : 1.0;
+    S.dotT += 0.006 * Stamina.speedMultiplier() * speedScale;
+  }
 
   if (S.dotT >= 1) {
     const arrivingSeg = S._transient.currentSegment;
