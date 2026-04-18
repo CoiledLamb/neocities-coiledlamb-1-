@@ -120,6 +120,11 @@ export function buildSavePayload() {
     // (solar trickle + new consumers + delta's regen upgrades) lands
     // in commit 4a; this commit just reserves the persistence slot.
     battery: { charge: S.battery.charge, max: S.battery.max },
+    // v0.0.9.6 commit 4 — placeable-gear kit inventory. Piggybacks
+    // on v8 schema (no bump). Placed-gear structures themselves stay
+    // session-local in commit 4; commit 5 lifts them into world-
+    // overlay persistence.
+    kit: S.kit ? { ladders: S.kit.ladders, anchors: S.kit.anchors, autoGear: !!S.kit.autoGear } : undefined,
     // v0.0.9.5.1 — dispatch log tail persisted (last ~100 rendered
     // lines). HTML includes timestamps baked in. Restored into the
     // in-session logHistory + DOM via restoreLogFromSave on load.
@@ -330,6 +335,18 @@ function _applyValidated(data) {
     // but the object wasn't persisted (pre-.6 save migration path).
     if (S.upgrades.weatherRadio && !S.weatherRadio) {
       S.weatherRadio = { unlocked: true };
+    }
+
+    // v0.0.9.6 commit 4 — kit inventory for placeable gear. Saves
+    // from before this commit won't have a kit field; seed defaults.
+    // No schema bump (persistence piggybacks on v8); world-overlay
+    // persistence for placed structures lands in commit 5.
+    if (data.kit && typeof data.kit === 'object') {
+      S.kit = {
+        ladders:  typeof data.kit.ladders  === 'number' ? Math.max(0, Math.floor(data.kit.ladders))  : 0,
+        anchors:  typeof data.kit.anchors  === 'number' ? Math.max(0, Math.floor(data.kit.anchors))  : 0,
+        autoGear: data.kit.autoGear !== false,  // default ON
+      };
     }
 
     // v0.0.7.21 (schema v6) — sticky gun + scanner.

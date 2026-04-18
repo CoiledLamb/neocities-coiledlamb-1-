@@ -1039,6 +1039,62 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   50%      { opacity: 0.55; }
 }
 
+/* v0.0.9.6 commit 4 — ladder + anchor kit-bar capsules + auto-gear
+   toggle. Capsule shape mirrors the gun capsule: glyph label + count
+   value + inline buy button. Empty (count=0) capsules dim the glyph
+   so the buy button is the visible affordance. */
+.kit-cap.gear-cap {
+  color: #7fa39c;
+}
+.kit-cap.gear-cap .gear-glyph {
+  color: #7fa39c;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.kit-cap.gear-cap.empty .gear-glyph { color: #2a5c5a; }
+.kit-cap.gear-cap.empty .kit-cap-val { color: #3a6a68; }
+.kit-buy-btn {
+  background: transparent;
+  color: #3a6a68;
+  border: 1px solid #1e5554;
+  font: 600 9px/1 'Source Code Pro', monospace;
+  padding: 2px 5px;
+  cursor: pointer;
+  border-radius: 2px;
+  margin-left: 2px;
+}
+.kit-buy-btn:hover { color: #7fa39c; border-color: #2a5c5a; }
+.kit-buy-btn:active { color: #b1c9c3; }
+.kit-auto-btn {
+  background: transparent;
+  color: #3a6a68;
+  border: 1px dashed #1e5554;
+  font: 600 9px/1 'Source Code Pro', monospace;
+  padding: 3px 6px;
+  cursor: pointer;
+  border-radius: 2px;
+  margin-left: auto;  /* push to far right of the caps row */
+}
+.kit-auto-btn.on { color: #7fa39c; border-color: #2a5c5a; border-style: solid; }
+.kit-auto-btn:hover { color: #b1c9c3; }
+.kit-auto-btn #kitAutoGearVal { color: inherit; }
+
+/* v0.0.9.6 commit 4 — placed gear glyphs on the route map. Wear
+   color comes from the inline fill in route-map.js; this just
+   applies the drop-shadow pulse so infrastructure reads as placed,
+   not painted. */
+.route-gear {
+  font-weight: 700;
+  filter: drop-shadow(0 0 1.5px currentColor);
+}
+.route-gear.gear-rotting {
+  animation: gear-rot-pulse 2.4s ease-in-out infinite;
+}
+@keyframes gear-rot-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
 /* scan button — thematic rework (v0.0.7.25):
    dot is always visible beside the label; during a buff, two
    cyan rings pulse outward from the dot in a sonar pattern.

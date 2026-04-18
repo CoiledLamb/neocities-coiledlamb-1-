@@ -71,7 +71,10 @@ import {
   SEVERITY_SCALE,
   MOUNTAIN_STALL_TICKS,
   ROCKYHILLS_STALL_TICKS,
+  GEAR_FOR_TERRAIN,
+  GEAR_TRIP_MITIGATION,
 } from './data/terrain.js';
+import { placedGearAt } from './gear.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -137,6 +140,13 @@ export function tripChance() {
   if (onInterior) {
     const terr = courierTerrain();
     chance *= (TERRAIN_TRIP_MULT[terr] || 1.0);
+    // v0.0.9.6 commit 4 — placed gear on this cell mitigates trip risk.
+    // Severity chance scales with the post-mitigation trip mult, so this
+    // tames both regular trip frequency AND severe-fire rate.
+    if (GEAR_FOR_TERRAIN[terr]) {
+      const xy = seg.pathFn(S.dotT);
+      if (placedGearAt(xy.x, xy.y)) chance *= GEAR_TRIP_MITIGATION;
+    }
   } else {
     if (currentCellIsRisky()) chance *= 1.40;
     // v0.0.8 — weather multiplier (spatial intensity from weather.js)
@@ -414,7 +424,15 @@ export function maybeTrip() {
   // consequence. Non-severe trips fall through to the regular path.
   const terr = courierTerrain();
   if (TERRAIN_HAS_SEVERE[terr]) {
-    const tripMult = TERRAIN_TRIP_MULT[terr] || 1.0;
+    let tripMult = TERRAIN_TRIP_MULT[terr] || 1.0;
+    // v0.0.9.6 commit 4 — placed gear reduces severe chance via the
+    // same mitigation ratio used for trip chance. Mountain + ladder
+    // drops severity from 50% to 15%.
+    if (GEAR_FOR_TERRAIN[terr]) {
+      const seg = S._transient.currentSegment;
+      const xy = seg.pathFn(S.dotT);
+      if (placedGearAt(xy.x, xy.y)) tripMult *= GEAR_TRIP_MITIGATION;
+    }
     const severityChance = Math.max(0, (tripMult - 1.0) * SEVERITY_SCALE);
     if (Math.random() < severityChance) {
       // Stumble animation still fires for visual consistency.

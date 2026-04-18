@@ -20,7 +20,11 @@ import * as C from '../constants.js';
 import { getNodeStage, getDisplayLabel } from '../identification.js';
 import { TICKS_PER_DAY } from './sky.js';
 import { NPC_DEFS } from '../data/npc-defs.js';
-import { terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY, projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength } from '../data/terrain.js';
+import {
+  terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY,
+  projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength,
+  GEAR_GLYPH, gearWear, gearWearTier,
+} from '../data/terrain.js';
 
 const els = S._transient.els;
 
@@ -407,6 +411,32 @@ export function drawRouteMap() {
   const trailG = document.createElementNS(ns, 'g');
   trailG.setAttribute('id', 'routeTrail');
   svg.appendChild(trailG);
+
+  // v0.0.9.6 commit 4 — placed ladder/anchor glyphs on the map.
+  // Renders between trail and ring so infrastructure is visible but
+  // doesn't obscure the route lines. Color/tier shifts with wear.
+  const gearG = document.createElementNS(ns, 'g');
+  gearG.setAttribute('id', 'routeGear');
+  const placed = S._transient.placedGear;
+  for (let i = 0; i < placed.length; i++) {
+    const entry = placed[i];
+    const wear  = gearWear(entry);
+    const tier  = gearWearTier(wear);
+    const t = document.createElementNS(ns, 'text');
+    t.setAttribute('x', entry.x);
+    t.setAttribute('y', entry.y + 2);
+    t.setAttribute('font-family', "'Source Code Pro',monospace");
+    t.setAttribute('font-size', '9');
+    t.setAttribute('fill', tier.color);
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('class', `route-gear gear-${entry.type} gear-${tier.name}`);
+    t.textContent = GEAR_GLYPH[entry.type];
+    const title = document.createElementNS(ns, 'title');
+    title.textContent = `${entry.type} \u2014 ${tier.name}`;
+    t.appendChild(title);
+    gearG.appendChild(t);
+  }
+  svg.appendChild(gearG);
 
   // v0.0.9.3 — shortcut curve preview (faint dashed line showing the
   // remaining path when a shortcut is active).
