@@ -65,17 +65,14 @@ export function renderKit() {
 
   const hasScanner = !!S.scanner.unlocked;
   const hasGun     = !!S.stickyGun;
-  // v0.0.9.6 commit 4 — gear capsules always available once the kit
-  // row is visible. New player without scanner/gun still sees no
-  // kit row (ladder/anchor alone don't unlock it); once any gadget
-  // brings the row online, the gear capsules appear alongside.
-  const anyGadget  = hasScanner || hasGun;
-
-  if (!anyGadget) {
-    if (row.style.display !== 'none') row.style.display = 'none';
-    lastStructure = null;
-    return;
-  }
+  // v0.0.9.6.5.1 — kit row is always visible. Previously gated on
+  // scanner || gun ownership, which created a chicken-and-egg bug for
+  // new players: they could shortcut across mountain terrain but
+  // couldn't see the ladder/anchor capsules needed to buy gear.
+  // Battery is a real feature now (solar regen + upgrades) and
+  // ladder/anchor are commodity infrastructure — neither needs an
+  // unlock gate. Early players see the row with just battery +
+  // gear capsules until scanner/gun join later.
   if (row.style.display === 'none') row.style.display = '';
 
   // battery (stub) — 10 discrete segs. Each seg represents 10% of
