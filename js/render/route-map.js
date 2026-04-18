@@ -341,8 +341,10 @@ const RING_CX = 200;
 const RING_CY = 200;
 
 // Point-in-polygon test using the current ring nodes as vertices.
-// Used by drawInterior to mask the texture to the crossable area.
-function pointInRing(px, py) {
+// Used by drawInterior to mask the texture to the crossable area
+// and by packages.js seedInteriorPkgs to skip cells that would
+// spawn outside the ring polygon (and therefore be unreachable).
+export function pointInRing(px, py) {
   const pts = S.routeNodes.map(n => [n.x, n.y]);
   let inside = false;
   for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
@@ -413,11 +415,12 @@ export function drawRouteMap() {
   svg.appendChild(trailG);
 
   // v0.0.9.6 commit 4 — placed ladder/anchor glyphs on the map.
-  // Renders between trail and ring so infrastructure is visible but
-  // doesn't obscure the route lines. Color/tier shifts with wear.
+  // v0.0.9.6 commit 5 — source promoted from transient to persistent
+  // S.placedGear so shared infrastructure survives reloads and peer
+  // placements render alongside our own.
   const gearG = document.createElementNS(ns, 'g');
   gearG.setAttribute('id', 'routeGear');
-  const placed = S._transient.placedGear;
+  const placed = S.placedGear;
   for (let i = 0; i < placed.length; i++) {
     const entry = placed[i];
     const wear  = gearWear(entry);
@@ -437,6 +440,34 @@ export function drawRouteMap() {
     gearG.appendChild(t);
   }
   svg.appendChild(gearG);
+
+  // v0.0.9.6 commit 5 — interior pkg glyphs on the map. Sits above
+  // gear so pickups read as clear affordances. Plateau pkgs marked
+  // with a larger '▲' (bigger-fish reward) vs '■' on mountain /
+  // rockyHills for generic salvage. "Visible from below" indicator
+  // deferred to .9.7 polish.
+  const pkgG = document.createElementNS(ns, 'g');
+  pkgG.setAttribute('id', 'routeInteriorPkgs');
+  const interiorTable = S.interiorPkgs || {};
+  for (const key of Object.keys(interiorTable)) {
+    const entry = interiorTable[key];
+    if (!entry || entry.picked) continue;
+    const pkgNode = document.createElementNS(ns, 'text');
+    pkgNode.setAttribute('x', entry.x);
+    pkgNode.setAttribute('y', entry.y + 2);
+    pkgNode.setAttribute('font-family', "'Source Code Pro',monospace");
+    pkgNode.setAttribute('font-size', entry.terrainOrigin === 'plateau' ? '10' : '8');
+    pkgNode.setAttribute('fill', '#d88e5a');
+    pkgNode.setAttribute('text-anchor', 'middle');
+    pkgNode.setAttribute('class', `route-interior-pkg pkg-${entry.terrainOrigin}`);
+    pkgNode.textContent = entry.terrainOrigin === 'plateau' ? '\u25B2' : '\u25A0';
+    const title = document.createElementNS(ns, 'title');
+    const label = entry.pkg && entry.pkg.label ? entry.pkg.label : 'cargo';
+    title.textContent = `${label} \u2014 ${entry.terrainOrigin}`;
+    pkgNode.appendChild(title);
+    pkgG.appendChild(pkgNode);
+  }
+  svg.appendChild(pkgG);
 
   // v0.0.9.3 — shortcut curve preview (faint dashed line showing the
   // remaining path when a shortcut is active).

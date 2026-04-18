@@ -32,25 +32,22 @@ import {
   GEAR_FOR_TERRAIN,
   GEAR_LIFETIME_BASE_MS, GEAR_LIFETIME_EXTENDED_MS,
   GEAR_PRICE, gearWear,
+  cellKeyFromCoords, snapInteriorCell,
+  TERRAIN_LOCATION_NOUN,
 } from './data/terrain.js';
 import { addLog } from './render/log.js';
+import { getCachedPorterId, broadcastGearPlacement } from './multiplayer.js';
 
 // Cell-snap grid for placement lookup. Matches the 12-
 // unit step used by drawInterior / terrain classifier.
-const CELL_STEP = 12;
-function snapCell(x, y) {
-  return {
-    x: Math.round(x / CELL_STEP) * CELL_STEP,
-    y: Math.round(y / CELL_STEP) * CELL_STEP,
-  };
-}
+function snapCell(x, y) { return snapInteriorCell(x, y); }
 
 /** Returns the placed-gear entry at (x, y) if any, else null.
  *  Snaps the lookup to the cell grid so different courier
  *  dotT samples on the same cell see the same placement. */
 export function placedGearAt(x, y) {
   const s = snapCell(x, y);
-  const arr = S._transient.placedGear;
+  const arr = S.placedGear;
   for (let i = 0; i < arr.length; i++) {
     const g = arr[i];
     if (g.x === s.x && g.y === s.y) return g;
@@ -58,24 +55,59 @@ export function placedGearAt(x, y) {
   return null;
 }
 
+/** Canonical ID: ${porterId}-${placedWallClock}-${cellKey}.
+ *  Dedup key for broadcast receive. Identical across all viewers
+ *  who receive the same placement. */
+function canonicalGearId(placerId, placedWallClock, x, y) {
+  return `${placerId}-${placedWallClock}-${cellKeyFromCoords(x, y)}`;
+}
+
+/** Idempotent add — returns existing entry if one with the same
+ *  canonical ID already exists, otherwise pushes + returns the
+ *  new entry. Used by both local placement and broadcast receive
+ *  so the two paths converge safely. */
+export function upsertPlacedGear(entry) {
+  const arr = S.placedGear;
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i].id === entry.id) return arr[i];
+  }
+  arr.push(entry);
+  return entry;
+}
+
 /** Makes a new placed entry at (x, y). Lifetime baked from
  *  lambda's mountainGear upgrade flag — once placed, all
  *  viewers honor the extended lifetime regardless of their
- *  own upgrades. */
-function placeEntry(type, x, y) {
+ *  own upgrades. Broadcasts to peers so everyone sees it. */
+function placeEntry(type, x, y, terrain) {
   const s = snapCell(x, y);
   const lifetimeMs = S.upgrades.mountainGear
     ? GEAR_LIFETIME_EXTENDED_MS
     : GEAR_LIFETIME_BASE_MS;
+  const placedWallClock = Date.now();
+  const placerId = getCachedPorterId();
   const entry = {
-    id: `g-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: canonicalGearId(placerId, placedWallClock, s.x, s.y),
+    placerId,
     type,
     x: s.x, y: s.y,
-    placedWallClock: Date.now(),
+    placedWallClock,
     lifetimeMs,
     stormDecayExtra: 0,
   };
-  S._transient.placedGear.push(entry);
+  upsertPlacedGear(entry);
+  // Broadcast so peers see our placement. Terrain included for the
+  // narrative flavor on the channel line ("placed a ladder on the
+  // slope"). Receivers dedup on entry.id.
+  broadcastGearPlacement({
+    id: entry.id,
+    placerId,
+    type,
+    x: entry.x, y: entry.y,
+    placedWallClock,
+    lifetimeMs,
+    terrain,
+  });
   return entry;
 }
 
@@ -101,7 +133,7 @@ export function autoPlaceForCell(terrain, xy) {
   const stackKey = gearType === 'ladder' ? 'ladders' : 'anchors';
   if (kit[stackKey] > 0) {
     kit[stackKey]--;
-    const entry = placeEntry(gearType, xy.x, xy.y);
+    const entry = placeEntry(gearType, xy.x, xy.y, terrain);
     maybeLogPlacement(gearType, terrain);
     return entry;
   }
@@ -109,7 +141,7 @@ export function autoPlaceForCell(terrain, xy) {
   // 3. Auto-buy + place
   if (kit.autoGear && S.scrip >= GEAR_PRICE) {
     S.scrip -= GEAR_PRICE;
-    const entry = placeEntry(gearType, xy.x, xy.y);
+    const entry = placeEntry(gearType, xy.x, xy.y, terrain);
     logAutoBuy(gearType, terrain);
     return entry;
   }
@@ -171,11 +203,52 @@ const MISSING_GEAR_MSG = {
 
 /** Remove expired placed gear. Called from main.js tick. */
 export function tickGearDecay() {
-  const arr = S._transient.placedGear;
-  if (arr.length === 0) return;
+  const arr = S.placedGear;
+  if (!arr || arr.length === 0) return;
   for (let i = arr.length - 1; i >= 0; i--) {
     if (gearWear(arr[i]) >= 1) arr.splice(i, 1);
   }
+}
+
+/** Broadcast receiver — called by multiplayer.js on incoming
+ *  gear-placement events from peers. Dedup via canonical ID. */
+export function receiveGearPlacement(payload) {
+  if (!payload || !payload.id || !payload.type) return;
+  const entry = {
+    id:              payload.id,
+    placerId:        payload.placerId,
+    type:            payload.type,
+    x:               payload.x,
+    y:               payload.y,
+    placedWallClock: payload.placedWallClock,
+    lifetimeMs:      payload.lifetimeMs,
+    stormDecayExtra: payload.stormDecayExtra || 0,
+  };
+  const before = S.placedGear.length;
+  upsertPlacedGear(entry);
+  // Only log a channel line if this was a fresh receive (dedup miss)
+  // and it's from a peer (not our own echo).
+  if (S.placedGear.length > before && payload.placerId !== getCachedPorterId()) {
+    logPeerPlacement(payload);
+  }
+}
+
+function logPeerPlacement(payload) {
+  // Build the "PTR-XXXX placed a ladder on the slope" line. Terrain
+  // noun pulled from TERRAIN_LOCATION_NOUN; falls back to generic
+  // "slope" if an unknown terrain slipped through.
+  const shortId = (payload.placerId || '').slice(0, 8);
+  const noun    = TERRAIN_LOCATION_NOUN[payload.terrain] || 'slope';
+  const a       = /^[aeiou]/i.test(payload.type) ? 'an' : 'a';
+  // Route through channels.js speak() — posted via import to avoid a
+  // circular dependency. Passing through the network feed keeps
+  // peer-built infrastructure visible in the channels panel where
+  // other porter activity already lives.
+  import('./channels.js').then((mod) => {
+    if (typeof mod.postGearChannelMsg === 'function') {
+      mod.postGearChannelMsg(shortId, a, payload.type, noun);
+    }
+  });
 }
 
 /** Explicit kit-bar buy button entry point. Returns true on
@@ -195,8 +268,12 @@ export function buyGear(type) {
 
 /** Segment-change hook — reset throttled-log flags so each
  *  new shortcut gets its own "first placement" + "no gear"
- *  warnings. */
+ *  warnings. v0.0.9.6 commit 5 — also resets the plateau-gate
+ *  throttle used by packages.js acceptInteriorPickup so the
+ *  message fires once per shortcut rather than ping-ponging
+ *  with cargo-full. */
 export function resetGearLogThrottles() {
   S._transient.placementLogged = false;
   S._transient.unpladderedTerrains = null;
+  S._transient.plateauGateLogged = false;
 }

@@ -37,7 +37,10 @@ import { NPC_DEFS } from './data/npc-defs.js';
 import {
   PKG_BASES, PKG_SIZE_WEIGHTS, PKG_SIZE_WEIGHTS_RISKY,
   PKG_MODIFIERS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
+  PKG_LABELS_BY_TERRAIN_ORIGIN,
 } from './data/packages.js';
+import { cellKeyFromCoords, snapInteriorCell } from './data/terrain.js';
+import { placedGearAt } from './gear.js';
 import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js';
 import { updatePorterStripBadges } from './recovery.js';
 import { addTrust, computeTrustGain, speakDelivery, recordDelivery } from './trust.js';
@@ -45,7 +48,7 @@ import { getNodeStage, setNodeStage } from './identification.js';
 import { sandalCap, renderBoots } from './boots.js';
 import { addLog } from './render/log.js';
 import { renderCourierStack, renderCargoSlots } from './render/hud.js';
-import { drawRouteMap } from './render/route-map.js';
+import { drawRouteMap, courierXY, pointInRing } from './render/route-map.js';
 import { renderSettlements } from './render/settlements.js';
 import { weatherAtCourier } from './weather.js';
 import { getDisplayLabel } from './identification.js';
@@ -206,6 +209,133 @@ export function rollPkg(destId, cellRisky, forceLost) {
     picked: false,
     respawnIn: 0,
   };
+}
+
+// v0.0.9.6 commit 5 — interior pkg roller. Cell-native variant of
+// rollPkg that pulls labels from PKG_LABELS_BY_TERRAIN_ORIGIN and
+// applies per-terrain reward biases:
+//   plateau    — normal roll, labels tagged mesa-salvage
+//   mountain   — xl bias 4x + scrip x1.3 (reward for harsh terrain)
+//   rockyHills — modifier-rate bump (fragile/heavy more common)
+// destId still uses the standard DEST_DIV_WEIGHTS curve seeded on a
+// "virtual edge" derived from the cell's position (nearest ring
+// node's edge). Result: plateau pkgs near xi naturally route to near-
+// start NPCs via forward-bias; mountain pkgs near pi similarly route
+// SW-locals.
+export function rollInteriorPkg(terrainOrigin, cellX, cellY) {
+  // 1. Size roll with per-terrain bias.
+  let sizeWeights = { ...PKG_SIZE_WEIGHTS };
+  if (terrainOrigin === 'mountain') {
+    sizeWeights.xl = (sizeWeights.xl || 1) * C.INTERIOR_MOUNTAIN_XL_BIAS;
+  }
+  const size = weightedKey(sizeWeights);
+  const base = PKG_BASES[size];
+
+  // 2. Modifier roll (with rockyHills bump).
+  let mods = PKG_MODIFIERS.filter(m => !m.incompat || !m.incompat.includes(size));
+  if (terrainOrigin === 'rockyHills') {
+    // Bump non-null modifier weights by INTERIOR_ROCKYHILLS_MOD_BIAS
+    mods = mods.map(m => m.id
+      ? { ...m, weight: m.weight * C.INTERIOR_ROCKYHILLS_MOD_BIAS }
+      : m);
+  }
+  const mod = weightedArr(mods, m => m.weight);
+
+  // 3. Apply modifier deltas to the base.
+  let kg    = base.kg;
+  let slots = base.slots;
+  let scrip = base.scrip;
+  if (mod.id) {
+    if (mod.kgDelta === 'halve')   kg = Math.max(1, Math.floor(kg / 2));
+    if (mod.kgDelta === 'add1to3') kg = kg + 1 + Math.floor(Math.random() * 3);
+    if (mod.slotDelta)             slots = slots + mod.slotDelta;
+    if (mod.scripMult)             scrip = Math.floor(scrip * mod.scripMult);
+  }
+
+  // 4. Mountain scrip reward bump (reward for traversal cost).
+  if (terrainOrigin === 'mountain') {
+    scrip = Math.floor(scrip * C.INTERIOR_MOUNTAIN_SCRIP_MULT);
+  }
+
+  // 5. Destination — use cell's nearest-edge as the virtual origin
+  // so DEST_DIV_WEIGHTS forward-bias routes cashable near-cell dests.
+  const nearestEdgeIdx = nearestEdgeToPoint(cellX, cellY);
+  const destId = rollDestForSpawn(nearestEdgeIdx);
+
+  // 6. Label — terrain-origin pool, size-tier bucket. Filter by dest.
+  const pool = (PKG_LABELS_BY_TERRAIN_ORIGIN[terrainOrigin] || {})[size] || [];
+  const candidates = pool.filter(l => l.dests.includes(destId));
+  const label = candidates.length > 0
+    ? candidates[Math.floor(Math.random() * candidates.length)].label
+    : 'salvaged cargo';
+
+  return {
+    size, label, kg, slots, scrip,
+    modifier: mod.id || null,
+    isLost: false,
+    destId,
+    terrainOrigin,  // v0.0.9.6 commit 5 — propagates through pickup/delivery
+    picked: false,
+    respawnIn: 0,
+  };
+}
+
+// Find the ring edge index whose endpoint is geometrically closest
+// to a given interior point. Used by rollInteriorPkg so the dest-
+// weight curve has a sensible "from" to walk forward from.
+function nearestEdgeToPoint(x, y) {
+  let bestIdx = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < S.edges.length; i++) {
+    const [, toId] = S.edges[i];
+    const node = S.routeNodes.find(n => n.id === toId);
+    if (!node) continue;
+    const d = (node.x - x) * (node.x - x) + (node.y - y) * (node.y - y);
+    if (d < bestD) { bestD = d; bestIdx = i; }
+  }
+  return bestIdx;
+}
+
+// v0.0.9.6 commit 5 — seed interior pkgs at world-init. Iterates the
+// drawInterior cell grid (12-unit step) inside the ring polygon,
+// classifies each cell, rolls per-terrain spawn chance, and populates
+// S.interiorPkgs keyed by cell position. Idempotent — re-running on
+// a populated table is a no-op unless cell has no entry.
+export function seedInteriorPkgs() {
+  // Lazy-imported to avoid cycle — terrain.js doesn't need packages.js.
+  // Late dynamic import is fine at seed time (runs once, not hot path).
+  return import('./data/terrain.js').then(({ terrainAt }) => {
+    const SPAWN_RATES = {
+      plateau:    C.INTERIOR_SPAWN_PLATEAU,
+      mountain:   C.INTERIOR_SPAWN_MOUNTAIN,
+      rockyHills: C.INTERIOR_SPAWN_ROCKYHILLS,
+    };
+    if (!S.interiorPkgs) S.interiorPkgs = {};
+    for (let yy = 50; yy <= 350; yy += 12) {
+      for (let xx = 50; xx <= 350; xx += 12) {
+        // Only seed cells that are actually inside the ring polygon;
+        // terrainAt() classifies by distance from NPC anchors which
+        // can leak slightly outside the crossable area (e.g. plateau
+        // circle extending past xi's corner).
+        if (!pointInRing(xx, yy)) continue;
+        const key = cellKeyFromCoords(xx, yy);
+        if (S.interiorPkgs[key]) continue;  // already seeded
+        const terr = terrainAt(xx, yy);
+        const rate = SPAWN_RATES[terr];
+        if (!rate) continue;
+        if (Math.random() >= rate) continue;
+        const snapped = snapInteriorCell(xx, yy);
+        const pkg = rollInteriorPkg(terr, snapped.x, snapped.y);
+        S.interiorPkgs[key] = {
+          x: snapped.x, y: snapped.y,
+          terrainOrigin: terr,
+          pkg,
+          respawnIn: 0,
+          picked: false,
+        };
+      }
+    }
+  });
 }
 
 // v0.0.9.4 — NPC outbound dispatch. On arrival at an NPC node, that NPC
@@ -394,8 +524,84 @@ function acceptPickup(ci, offset) {
   return true;
 }
 
+// v0.0.9.6 commit 5 — interior pkg pickup. Plateau pkgs gate on a
+// placed ladder at the same cell (tutorial: gear unlocks elevated
+// rewards); mountain + rocky-hills pkgs pick up freely per idle-
+// first. Propagates terrainOrigin into the inventory entry so
+// delivery logic can flavor accordingly.
+function acceptInteriorPickup(entry) {
+  if (!entry || entry.picked) return false;
+  const pkg = entry.pkg;
+  if (!pkg) return false;
+  // Plateau gate — require a placed ladder at the same snapped cell.
+  // Throttle uses a segment-scoped flag so the gate message fires
+  // once per shortcut, not on every tick. Resets on segment change
+  // via resetGearLogThrottles() in gear.js.
+  if (entry.terrainOrigin === 'plateau' && !placedGearAt(entry.x, entry.y)) {
+    if (!S._transient.plateauGateLogged) {
+      S._transient.plateauGateLogged = true;
+      addLog('<span class="log-wn">plateau top out of reach</span> \u2014 a ladder would do it');
+    }
+    return false;
+  }
+  const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
+  const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
+  if (slotsShort || weightShort) {
+    const key = `${S.usedSlots}:${S.usedWeight}`;
+    if (S._transient.lastPickupFailKey !== key) {
+      S._transient.lastPickupFailKey = key;
+      const reason = slotsShort ? 'no cargo slots' : 'too heavy';
+      addLog(`<span class="log-wn">can't lift</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
+    }
+    return false;
+  }
+  entry.picked = true;
+  const carried = {
+    size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
+    scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
+    modifier: pkg.modifier || null,
+    terrainOrigin: entry.terrainOrigin,
+    _interiorKey: cellKeyFromCoords(entry.x, entry.y),
+  };
+  S.inventory.push(carried);
+  S.usedSlots  += carried.slots;
+  S.usedWeight += carried.kg;
+  S.status = 'carrying';
+  renderCourierStack();
+  renderCargoSlots(true);
+  if (els.courierAt) els.courierAt.className = 'tlh-at bounce carry';
+  addLog(`picked up <span class="log-hi">[${carried.size}] ${carried.label}</span> <span class="log-dim">[${entry.terrainOrigin}]</span>`);
+  return true;
+}
+
+// v0.0.9.6 commit 5 — interior pickup scan. Iterates S.interiorPkgs
+// for any entry within PKG_PICKUP_RANGE cells (viewBox-unit distance)
+// of the courier's current position. Fires before ring scan so
+// interior pickups don't get blocked by ring-cell iteration.
+function scanInteriorPickups() {
+  const seg = S._transient.currentSegment;
+  if (!seg || (seg.type !== 'shortcut' && seg.type !== 'river-drift')) return false;
+  const here = courierXY();
+  if (!here) return false;
+  if (!S.autoGrab) return false;  // auto-grab toggle respects commit 4 parity
+  // Pickup radius in SVG units: PKG_PICKUP_RANGE cells * 12 u/cell.
+  const rangeSvg = C.PKG_PICKUP_RANGE * 12;
+  const table = S.interiorPkgs || {};
+  for (const key of Object.keys(table)) {
+    const entry = table[key];
+    if (!entry || entry.picked) continue;
+    const d = Math.hypot(entry.x - here.x, entry.y - here.y);
+    if (d > rangeSvg) continue;
+    if (acceptInteriorPickup(entry)) return true;
+  }
+  return false;
+}
+
 export function scanForPickup() {
   if (S.status !== 'walking' && S.status !== 'carrying') return;
+  // v0.0.9.6 commit 5 — interior pickup first (takes priority when on
+  // shortcut / river-drift segment; no-op on ring).
+  if (scanInteriorPickups()) return;
   const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
   const range = pickupRange();
   for (let offset = 0; offset <= range; offset++) {
@@ -586,6 +792,14 @@ export function tryDeliver(arrivedNodeId) {
           : C.PKG_RESPAWN_TICKS;
       }
     }
+    // v0.0.9.6 commit 5 — interior pkg respawn on delivery. Mirrors
+    // the ring pattern; scavengerEye applies the same 20% reduction.
+    if (pkg._interiorKey && S.interiorPkgs && S.interiorPkgs[pkg._interiorKey]) {
+      const entry = S.interiorPkgs[pkg._interiorKey];
+      entry.respawnIn = S.upgrades.scavengerEye
+        ? Math.floor(C.INTERIOR_RESPAWN_TICKS * 0.8)
+        : C.INTERIOR_RESPAWN_TICKS;
+    }
     if (settle) { settle.supply = Math.min(100, settle.supply + 3); settle.rebuild = Math.min(100, settle.rebuild + 1); }
     const node = S.routeNodes.find(n => n.id === arrivedNodeId);
     if (node && getNodeStage(arrivedNodeId) < 3) {
@@ -670,6 +884,20 @@ export function tickPkgRespawns() {
       } else {
         cell.pkg.respawnIn = C.PKG_RESPAWN_TICKS;
       }
+    }
+  }
+  // v0.0.9.6 commit 5 — interior pkg respawn. Mirrors the ring
+  // pattern: picked entries tick down respawnIn; at 0 the cell re-
+  // rolls a fresh pkg (with current terrainOrigin) so interior
+  // doesn't become a picked-clean wasteland.
+  const table = S.interiorPkgs || {};
+  for (const key of Object.keys(table)) {
+    const entry = table[key];
+    if (!entry || !entry.picked || entry.respawnIn <= 0) continue;
+    entry.respawnIn--;
+    if (entry.respawnIn === 0) {
+      entry.pkg = rollInteriorPkg(entry.terrainOrigin, entry.x, entry.y);
+      entry.picked = false;
     }
   }
 }

@@ -371,3 +371,36 @@ export function gearWear(entry) {
   const elapsed = Math.max(0, now - entry.placedWallClock) + (entry.stormDecayExtra || 0);
   return Math.min(1, elapsed / entry.lifetimeMs);
 }
+
+// --- cell-key helpers (v0.0.9.6 commit 5) ------------
+// Interior doesn't share the ring's ci index (ring uses edgeIdx *
+// CELLS_PER_EDGE + offset). Interior cells key off their snapped
+// (x, y) position on the 12-unit drawInterior grid. String format
+// chosen for readability in save payloads + channel logs; trivial
+// to parse back.
+export const INTERIOR_CELL_STEP = 12;
+export function snapInteriorCell(x, y) {
+  return {
+    x: Math.round(x / INTERIOR_CELL_STEP) * INTERIOR_CELL_STEP,
+    y: Math.round(y / INTERIOR_CELL_STEP) * INTERIOR_CELL_STEP,
+  };
+}
+export function cellKeyFromCoords(x, y) {
+  const s = snapInteriorCell(x, y);
+  return `${s.x},${s.y}`;
+}
+export function coordsFromCellKey(key) {
+  const [xs, ys] = key.split(',');
+  return { x: +xs, y: +ys };
+}
+
+// Short-form noun for each terrain, used in placement logs + peer
+// channel messages ("placed a ladder on the slope"). Mirrors the
+// LOCATION_NOUN in gear.js; consolidated here so it's importable
+// everywhere it's needed.
+export const TERRAIN_LOCATION_NOUN = {
+  mountain:   'slope',
+  rockyHills: 'hillside',
+  plateau:    'mesa',
+  river:      'bank',
+};

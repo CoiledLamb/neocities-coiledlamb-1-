@@ -245,6 +245,29 @@ export function postLostDrop(pkg) {
   postActivity('lost_drop', { label: pkg.label, size: pkg.size });
 }
 
+// v0.0.9.6 commit 5 — placed-gear broadcast. Fires when a courier
+// places a ladder or anchor so peers see each other's infrastructure
+// in the shared world. Receivers dedup on canonical id in
+// receiveGearPlacement. Queued via the same postActivity pipeline as
+// milestones / tosses so throttling + rate limits come for free.
+export function broadcastGearPlacement(payload) {
+  if (isSilent()) return;
+  if (!payload || !payload.id) return;
+  // Slim payload — the activity feed is seen by every peer; no need
+  // to ship stormDecayExtra (viewers compute their own wear from
+  // placedWallClock + lifetimeMs).
+  postActivity('gear_placement', {
+    id:              payload.id,
+    placerId:        payload.placerId,
+    type:            payload.type,
+    x:               payload.x,
+    y:               payload.y,
+    placedWallClock: payload.placedWallClock,
+    lifetimeMs:      payload.lifetimeMs,
+    terrain:         payload.terrain,
+  });
+}
+
 export async function fetchLostFromPeer(peerPorterId) {
   try {
     const res = await fetch(C.FEED_URL + '/lost/' + encodeURIComponent(peerPorterId));
@@ -270,6 +293,7 @@ export async function pollFeed() {
 
     const myId = getCachedPorterId();
     const seen = new Set(S.networkFeed.map(e => `${e.timestamp}|${e.porterId}|${e.type}`));
+    const freshGearEvents = [];
     data.events.forEach(e => {
       const key = `${e.timestamp}|${e.porterId}|${e.type}`;
       if (!seen.has(key)) {
@@ -282,8 +306,20 @@ export async function pollFeed() {
             if (S.knownPeers.length > C.KNOWN_PEERS_CAP) S.knownPeers.shift();
           }
         }
+        // v0.0.9.6 commit 5 — dispatch gear_placement events into
+        // gear.js receiver so peer placements land in the local
+        // S.placedGear table for visibility + amortization. Dynamic
+        // import keeps this cycle-safe (gear.js imports multiplayer).
+        if (e.type === 'gear_placement' && e.data) {
+          freshGearEvents.push(e.data);
+        }
       }
     });
+    if (freshGearEvents.length) {
+      import('./gear.js').then((gearMod) => {
+        freshGearEvents.forEach(data => gearMod.receiveGearPlacement(data));
+      });
+    }
 
     S.networkFeed.sort((a, b) => a.timestamp - b.timestamp);
     if (S.networkFeed.length > C.FEED_DISPLAY_CAP) {

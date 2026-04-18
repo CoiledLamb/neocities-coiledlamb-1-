@@ -268,8 +268,26 @@ export const SAVE_KEY_V5  = 'tlh-save-v5';
 export const SAVE_KEY_V6  = 'tlh-save-v6';
 export const SAVE_KEY_V7  = 'tlh-save-v7';
 export const SAVE_KEY_V8  = 'tlh-save-v8';
-export const SAVE_VERSION = 8;
+export const SAVE_KEY_V9  = 'tlh-save-v9';
+export const SAVE_VERSION = 9;
 export const AUTOSAVE_MS  = 30000;
+
+// ----- v0.0.9.6 commit 5 interior pkg spawn rates -----
+// Per-cell spawn probability when buildWorld / respawn fires on an
+// interior terrain cell. Plateau cells lead because plateau pkgs are
+// the gear-teaching payoff (see plateau-top gating). Mountain is
+// deliberately rare but bumps xl-bias + scrip multiplier. Rocky
+// hills sits between with a size + modifier rate bump.
+export const INTERIOR_SPAWN_PLATEAU    = 0.10;
+export const INTERIOR_SPAWN_MOUNTAIN   = 0.03;
+export const INTERIOR_SPAWN_ROCKYHILLS = 0.05;
+// Reward biases per terrain (multipliers applied at pkg roll)
+export const INTERIOR_MOUNTAIN_SCRIP_MULT = 1.3;   // xl + higher scrip
+export const INTERIOR_MOUNTAIN_XL_BIAS    = 4.0;   // xl weight multiplier
+export const INTERIOR_ROCKYHILLS_MOD_BIAS = 1.5;   // modifier-rate bump
+// Interior-pkg respawn cadence (ticks). Match the ring baseline so
+// interior doesn't go picked-clean after first sweep.
+export const INTERIOR_RESPAWN_TICKS = 800;
 
 // ----- edges with elevated trip risk -----
 // v0.0.9.5: 'C' (xi ruins, now SE corner) retained; '?' (phi weather
