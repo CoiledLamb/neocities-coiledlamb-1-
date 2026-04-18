@@ -461,15 +461,23 @@ function tick() {
 // ============================================================
 
 // v0.0.9.5.1 — watch a scroll container and toggle `.has-overflow`
-// based on whether its content exceeds its visible height. Gates
-// the tier-A mask-fade so panels without overflow don't dim their
-// top row for no reason. MutationObserver covers content churn,
-// window resize covers layout churn. Cheap — three observers max.
+// based on whether its content exceeds its visible height. Also
+// toggles `.at-top` / `.at-bottom` per scroll position so the
+// tier-A mask-fade only dims the edge where content is actually
+// clipped (don't fade the top when scrolled to top — nothing above
+// to hint at). MutationObserver covers content churn, resize covers
+// layout churn, scroll covers scroll-position churn. Cheap — three
+// observers max across the three tier-A panels.
 function bindOverflowFade(el) {
   if (!el) return;
   const update = () => {
     const over = el.scrollHeight > el.clientHeight + 1;
     el.classList.toggle('has-overflow', over);
+    // 1px slack on both ends: inertia scroll on some platforms
+    // lands at scrollTop = 0.5 or scrollHeight - clientHeight - 0.5
+    // and shouldn't drop the edge-class back off.
+    el.classList.toggle('at-top',    el.scrollTop <= 1);
+    el.classList.toggle('at-bottom', el.scrollTop + el.clientHeight >= el.scrollHeight - 1);
   };
   update();
   try {
@@ -477,6 +485,7 @@ function bindOverflowFade(el) {
       childList: true, subtree: true, characterData: true,
     });
   } catch (e) {}
+  el.addEventListener('scroll', update, { passive: true });
   window.addEventListener('resize', update);
 }
 
