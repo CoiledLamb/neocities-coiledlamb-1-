@@ -24,6 +24,7 @@
 import { S } from './../state.js';
 import * as C from './../constants.js';
 import { manualPing } from './../scanner.js';
+import { GUN_WEB_SVG, gunAmmoClass } from './hud.js';
 
 const els = S._transient.els;
 
@@ -136,8 +137,12 @@ export function renderKit() {
               `</button>`;
     }
     if (hasGun) {
-      html += `<span class="kit-cap">` +
-                `<span class="kit-cap-lbl">gun:</span>` +
+      // v0.0.9.5.5 — web glyph replaces the "gun:" text label.
+      // Wrapper `.kit-cap.gun-cap` receives the ammo-state class
+      // (ammo-warn / ammo-crit) in the in-place update block below
+      // so color flips without rebuilding DOM.
+      html += `<span class="kit-cap gun-cap" id="gunCap">` +
+                `<span class="kit-cap-lbl gun-web-lbl">${GUN_WEB_SVG}</span>` +
                 `<span class="kit-cap-val" id="gunAmmoVal"></span>` +
               `</span>`;
     }
@@ -148,6 +153,7 @@ export function renderKit() {
     els.scannerBtn = newScan;
     els.scanTimer  = document.getElementById('scanTimer');
     els.gunAmmoVal = document.getElementById('gunAmmoVal');
+    els.gunCap     = document.getElementById('gunCap');
   }
 
   // In-place text updates — no DOM swap, no animation restart.
@@ -158,5 +164,11 @@ export function renderKit() {
   if (hasGun && els.gunAmmoVal) {
     const txt = `${S.stickyGun.ammo}/${S.stickyGun.ammoMax}`;
     if (els.gunAmmoVal.textContent !== txt) els.gunAmmoVal.textContent = txt;
+    // v0.0.9.5.5 — tick ammo-state class onto the cap wrapper so the
+    // color flips across the warn / crit thresholds without a rebuild.
+    if (els.gunCap) {
+      const want = ('kit-cap gun-cap ' + gunAmmoClass(S.stickyGun)).trim();
+      if (els.gunCap.className !== want) els.gunCap.className = want;
+    }
   }
 }

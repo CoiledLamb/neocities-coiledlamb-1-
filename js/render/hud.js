@@ -27,6 +27,39 @@ import * as Upg from '../upgrades.js';
 
 const els = S._transient.els;
 
+// v0.0.9.6.1 — shared sticky-gun web glyph + ammo-state classifier.
+// 8 radial spokes + 2 concentric octagonal rings rendered inline via
+// currentColor, so parent .cslot.gun / .kit-cap.gun-cap CSS controls
+// the tint. 3-band color progression: full (5–8) = white, warn (3–4)
+// = purple, crit (0–2) = pink + pulse. Exports let kit.js reuse
+// without duplicating markup.
+export const GUN_WEB_SVG =
+  '<svg class="gun-web" viewBox="0 0 10 10" aria-hidden="true">' +
+    '<g fill="none" stroke="currentColor" stroke-linecap="round">' +
+      '<line x1="5" y1="1"   x2="5" y2="9"   stroke-width="0.4"/>' +
+      '<line x1="1" y1="5"   x2="9" y2="5"   stroke-width="0.4"/>' +
+      '<line x1="2.2" y1="2.2" x2="7.8" y2="7.8" stroke-width="0.4"/>' +
+      '<line x1="2.2" y1="7.8" x2="7.8" y2="2.2" stroke-width="0.4"/>' +
+      '<polygon points="5,3.2 6.3,3.7 6.8,5 6.3,6.3 5,6.8 3.7,6.3 3.2,5 3.7,3.7" stroke-width="0.3"/>' +
+      '<polygon points="5,4.2 5.6,4.4 5.8,5 5.6,5.6 5,5.8 4.4,5.6 4.2,5 4.4,4.4" stroke-width="0.25"/>' +
+    '</g>' +
+  '</svg>';
+
+export function gunAmmoClass(gun) {
+  if (!gun) return '';
+  // 4-band threshold on the 8-shot max:
+  //   full  (5–8): white       — fresh load, no concern
+  //   warn  (3–4): purple      — half-spent, start thinking about H
+  //   crit  (1–2): pink + pulse — resupply before next trip
+  //   empty (  0): muted grey  — gun unusable; greyed out, no pulse
+  //                              (empty can't fire, no need to flag)
+  const a = gun.ammo;
+  if (a === 0) return 'ammo-empty';
+  if (a <= 2)  return 'ammo-crit';
+  if (a <= 4)  return 'ammo-warn';
+  return 'ammo-full';
+}
+
 export function updateHUD() {
   els.delivered.textContent = S.delivered;
   els.scrip.textContent     = S.scrip + '\u00a2';
@@ -203,10 +236,12 @@ export function renderCargoSlots(force) {
   // Render gun slot.
   if (gunCell) {
     const d = document.createElement('div');
-    d.className = 'cslot gun has-tooltip';
+    // v0.0.9.5.5 — inline web SVG + ammo-state color class. See GUN_WEB_SVG
+    // + gunAmmoClass for the shared definitions (used by kit bar too).
+    d.className = 'cslot gun has-tooltip ' + gunAmmoClass(S.stickyGun);
     d.style.gridColumn = `${gunCell.x + 1}`;
     d.style.gridRow    = `${gunCell.y + 1}`;
-    d.textContent = '\u2020';
+    d.innerHTML = GUN_WEB_SVG;
     const gunTip = `sticky gun\nammo ${S.stickyGun.ammo}/${S.stickyGun.ammoMax}\nrefill at H`;
     d.setAttribute('data-tooltip', gunTip);
     d.setAttribute('aria-label', gunTip);
