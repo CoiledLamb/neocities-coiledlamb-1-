@@ -120,6 +120,10 @@ export function buildSavePayload() {
     // (solar trickle + new consumers + delta's regen upgrades) lands
     // in commit 4a; this commit just reserves the persistence slot.
     battery: { charge: S.battery.charge, max: S.battery.max },
+    // v0.0.9.5.1 — dispatch log tail persisted (last ~100 rendered
+    // lines). HTML includes timestamps baked in. Restored into the
+    // in-session logHistory + DOM via restoreLogFromSave on load.
+    log: Array.isArray(S.log) ? [...S.log] : [],
   };
 }
 
@@ -391,6 +395,16 @@ function _applyValidated(data) {
     // have weatherRadio = { unlocked: true } without a level field.
     if (S.weatherRadio && typeof S.weatherRadio.level !== 'number') {
       S.weatherRadio.level = 1;
+    }
+
+    // v0.0.9.5.1 — dispatch log restore. Accept any string array; cap
+    // on read in case the saved slice somehow grew past LOG_PERSIST_CAP
+    // (e.g. changed cap between versions). DOM re-render happens from
+    // main.init after all state is in place.
+    if (Array.isArray(data.log)) {
+      S.log = data.log.filter(x => typeof x === 'string').slice(-100);
+    } else {
+      S.log = [];
     }
 
     S._transient.lastSaveAt = data.savedAt || 0;

@@ -149,10 +149,137 @@ export function catchChance() {
   return Math.min(0.85, c);
 }
 
+// v0.0.9.5.1 — trip-message terrain flavor. Available context at trip
+// time: weather intensity (none/drizzle/rain/downpour), whether the
+// courier is on an interior shortcut, and whether the current cell is
+// marked risky. Priority order when multiple apply: shortcut > downpour
+// > rain > risky > default. Real terrain-keyed flavor (desert /
+// plateau / mountain / river) lands with v0.0.9.6 when those cell
+// tags exist.
+function tripFlavor() {
+  const seg = S._transient.currentSegment;
+  if (seg && seg.type === 'shortcut') return 'shortcut';
+  const w = weatherAtCourier();
+  if (w.intensity === 'downpour') return 'downpour';
+  if (w.intensity === 'rain' || w.intensity === 'drizzle') return 'rain';
+  if (currentCellIsRisky()) return 'risky';
+  return 'default';
+}
+
+// Message pools, keyed by flavor. {label} and {lost} are substituted.
+const TRIP_MSGS = {
+  catch: {
+    default:  'stumbled on debris \u2014 <span class="log-ok">caught yourself</span>',
+    shortcut: 'pitched into untrodden ground \u2014 <span class="log-ok">caught yourself</span>',
+    downpour: 'slipped in the deluge \u2014 <span class="log-ok">caught yourself</span>',
+    rain:     'slipped on a wet patch \u2014 <span class="log-ok">caught yourself</span>',
+    risky:    'footing gave on the loose stone \u2014 <span class="log-ok">caught yourself</span>',
+  },
+  empty: {
+    default:  '<span class="log-wn">tripped on loose rubble!</span>',
+    shortcut: '<span class="log-wn">lost footing in the brush!</span>',
+    downpour: '<span class="log-wn">took a soaking fall!</span>',
+    rain:     '<span class="log-wn">slipped in the mud!</span>',
+    risky:    '<span class="log-wn">pitched off the edge!</span>',
+  },
+  dropLost: {
+    default:  '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> fell into the world \u2014 someone may find it',
+    shortcut: '<span class="log-wn">tripped off-trail!</span> <span class="log-hi">{label}</span> tumbled into the brush \u2014 someone may find it',
+    downpour: '<span class="log-wn">washed out!</span> <span class="log-hi">{label}</span> swept away in the deluge \u2014 someone may find it',
+    rain:     '<span class="log-wn">slipped in the wet!</span> <span class="log-hi">{label}</span> slid into the rough \u2014 someone may find it',
+    risky:    '<span class="log-wn">stone rolled!</span> <span class="log-hi">{label}</span> spilled out of reach \u2014 someone may find it',
+  },
+  dropNormal: {
+    default:  '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> was lost in the scramble',
+    shortcut: '<span class="log-wn">tripped off-trail!</span> <span class="log-hi">{label}</span> is gone in the undergrowth',
+    downpour: '<span class="log-wn">slipped in the downpour!</span> <span class="log-hi">{label}</span> washed into the ditch',
+    rain:     '<span class="log-wn">slipped!</span> <span class="log-hi">{label}</span> slid into the ditch',
+    risky:    '<span class="log-wn">tripped on a loose stone!</span> <span class="log-hi">{label}</span> tumbled out of reach',
+  },
+  damage: {
+    default:  '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> damaged \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    shortcut: '<span class="log-wn">caught a root!</span> <span class="log-hi">{label}</span> took a hit \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    downpour: '<span class="log-wn">hit wet ground hard!</span> <span class="log-hi">{label}</span> soaked through \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    rain:     '<span class="log-wn">slipped in the wet!</span> <span class="log-hi">{label}</span> damp and dented \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+    risky:    '<span class="log-wn">stone rolled underfoot!</span> <span class="log-hi">{label}</span> battered \u2014 payout <span class="log-wn">-{lost}\u00a2</span>',
+  },
+  // v0.0.9.5.1 — A1 "no-value damage" path. Fires when the damage
+  // branch would produce a 0-scrip delta (pkg already at its floor).
+  // Package is destroyed instead of taking a no-op hit.
+  writeOff: {
+    default:  '<span class="log-wn">tripped!</span> <span class="log-hi">{label}</span> fell out of reach \u2014 written off',
+    shortcut: '<span class="log-wn">stumbled!</span> <span class="log-hi">{label}</span> disappeared into the wild',
+    downpour: '<span class="log-wn">washed out!</span> <span class="log-hi">{label}</span> carried off in the flood',
+    rain:     '<span class="log-wn">slipped!</span> <span class="log-hi">{label}</span> slid down a wet slope, gone',
+    risky:    '<span class="log-wn">rocks gave way!</span> <span class="log-hi">{label}</span> tumbled out of sight',
+  },
+};
+
+function tripMsg(kind, flavor, label, lost) {
+  const pool = TRIP_MSGS[kind] || TRIP_MSGS.empty;
+  const tmpl = pool[flavor] || pool.default;
+  return tmpl.replace('{label}', label || '').replace('{lost}', String(lost || 0));
+}
+
+// v0.0.9.5.1 — A1 helper. Removes pkg from inventory and either posts
+// to the multiplayer recovery pipeline (isLost) or drops it at the
+// courier's current cell (±3 search window, escalate-to-lost if full).
+// Mirrors ejectFromCargo's drop-with-escalation shape so world pkgs
+// from trips are recoverable by normal pickup.
+function dropTrippedPkg(target, invIdx) {
+  S.usedSlots  = Math.max(0, S.usedSlots - target.slots);
+  S.usedWeight = Math.max(0, S.usedWeight - target.kg);
+  S.inventory.splice(invIdx, 1);
+
+  if (target.isLost) {
+    postLostDrop(target);
+    return { lost: true };
+  }
+  // During shortcut the courier is off-grid; worldCells index may not
+  // map cleanly — escalate to lost for shortcut trips.
+  const seg = S._transient.currentSegment;
+  if (seg && seg.type === 'shortcut') {
+    const asLost = { ...target, isLost: true };
+    postLostDrop(asLost);
+    return { lost: true };
+  }
+  const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
+  let dropCi = -1;
+  const offsets = [0, 1, -1, 2, -2, 3, -3];
+  for (const off of offsets) {
+    const ci   = (courierCell + off + C.TOTAL_CELLS) % C.TOTAL_CELLS;
+    const cell = worldCells[ci];
+    if (cell && !cell.pkg && !cell.sandal) { dropCi = ci; break; }
+  }
+  if (dropCi < 0) {
+    const asLost = { ...target, isLost: true };
+    postLostDrop(asLost);
+    return { lost: true };
+  }
+  worldCells[dropCi].pkg = {
+    size: target.size, label: target.label, kg: target.kg, slots: target.slots,
+    scrip: target.scrip,
+    modifier: target.modifier || null,
+    isLost: false,
+    destId: target.destId,
+    isRecovery: !!target.isRecovery,
+    recoveryFromPorter: target.recoveryFromPorter || null,
+    outboundFrom: target.outboundFrom,
+    picked: false,
+    respawnIn: 0,
+    tossedUntilTick: S.ticks + C.TOSS_COOLDOWN_TICKS,
+  };
+  return { lost: false };
+}
+
 export function maybeTrip() {
   if (S.status!=='walking' && S.status!=='carrying') return;
   if (Math.random() >= tripChance()) return;
-  if (Math.random() < catchChance()) { addLog('stumbled on debris \u2014 <span class="log-ok">caught yourself</span>'); return; }
+  const flavor = tripFlavor();
+  if (Math.random() < catchChance()) {
+    addLog(TRIP_MSGS.catch[flavor] || TRIP_MSGS.catch.default);
+    return;
+  }
 
   // v0.0.7.19 commit 2b — tie-down option B.
   // Tie-down now absorbs drops AND damage. If armed with cargo, the
@@ -170,37 +297,46 @@ export function maybeTrip() {
 
   let dropped = false;
   if (S.inventory.length > 0) {
-    const target = S.inventory[0];
+    // v0.0.9.5.1 — A2: roll against a RANDOM pkg from inventory, not
+    // the [0]-slot default. Uniform pick so a full cargo shares trip
+    // risk evenly instead of pounding whichever pkg was loaded first.
+    const targetIdx = Math.floor(Math.random() * S.inventory.length);
+    const target = S.inventory[targetIdx];
     const chance = target.isLost ? C.TRIP_DROP_CHANCE_LOST : C.TRIP_DROP_CHANCE_NORMAL;
     if (Math.random() < chance) {
-      S.usedSlots  -= target.slots;
-      S.usedWeight -= target.kg;
-      S.inventory.splice(0, 1);
-      if (target.isLost) {
-        postLostDrop(target);
-        addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> fell into the world \u2014 someone may find it`);
-      } else {
-        addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> was lost in the scramble`);
-      }
+      const { lost } = dropTrippedPkg(target, targetIdx);
+      addLog(tripMsg(lost ? 'dropLost' : 'dropNormal', flavor, target.label));
       renderCourierStack();
       renderCargoSlots(true);
       dropped = true;
+    } else {
+      // v0.0.9.5.1 — A1: if damage would produce a 0-scrip delta (pkg
+      // already at its floor of 1), destroy the pkg instead of logging
+      // "damaged — payout -0\u00a2" on repeat. Routes through the same
+      // drop helper so the pkg lands on the ground (or in the recovery
+      // pipeline if shortcut / no free cell / already isLost).
+      const oldScrip = target.scrip;
+      const newScrip = Math.max(1, Math.floor(oldScrip * 0.75));
+      const scripLost = oldScrip - newScrip;
+      if (scripLost === 0) {
+        dropTrippedPkg(target, targetIdx);
+        addLog(tripMsg('writeOff', flavor, target.label));
+        renderCourierStack();
+        renderCargoSlots(true);
+        dropped = true;
+      } else {
+        target.scrip = newScrip;
+        target.damaged = true; // v0.0.8.4: flag for delivery dialogue condition
+        addLog(tripMsg('damage', flavor, target.label, scripLost));
+      }
     }
   }
 
   S.status='tripped'; S.tripTimer=6;
   S.bootDurability=Math.max(0,S.bootDurability-5);
 
-  if (!dropped) {
-    if (S.inventory.length>0) {
-      const target = S.inventory[0];
-      const oldScrip = target.scrip;
-      target.scrip = Math.max(1, Math.floor(oldScrip * 0.75));
-      target.damaged = true; // v0.0.8.4: flag for delivery dialogue condition
-      const lost = oldScrip - target.scrip;
-      addLog(`<span class="log-wn">tripped!</span> <span class="log-hi">${target.label}</span> damaged \u2014 payout <span class="log-wn">-${lost}\u00a2</span>`);
-    }
-    else addLog('<span class="log-wn">tripped on loose rubble!</span>');
+  if (!dropped && S.inventory.length === 0) {
+    addLog(tripMsg('empty', flavor));
   }
   if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
 }

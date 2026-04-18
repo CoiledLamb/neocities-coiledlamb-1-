@@ -54,6 +54,14 @@ import { getDisplayLabel } from './identification.js';
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
 
+// v0.0.9.5.1 — delivery-broadcast throttle. Every porter delivers
+// constantly and the feed was drowning in delivery events; gate to
+// one broadcast per DELIVERY_BROADCAST_GATE_MS (10 minutes real-time).
+// Session-local (no persistence) — first delivery after reload always
+// fires, matching the "is anyone out there" signal on cold start.
+const DELIVERY_BROADCAST_GATE_MS = 10 * 60 * 1000;
+let lastDeliveryBroadcastTs = 0;
+
 // v0.0.7.21 — sticky gun occupies one cargo slot unless holstered.
 // Every pkg slot accounting goes through this helper so cargo
 // cap math stays in one place. renderCargoSlots also reads this
@@ -343,7 +351,7 @@ function confirmOutboundAccept() {
   addTrust(originNodeId, originGain, 'outbound-accept');
   addLog(
     `accepted parcel from <span class="log-hi">${callsign}</span> ` +
-    `\u2014 <span class="log-ok">+${Math.round(originGain * 10) / 10} trust</span>`
+    `\u2014 <span class="log-ok">+${Math.round(originGain)} trust</span>`
   );
 
   // Remove the button's log-line so the prompt doesn't linger.
@@ -370,11 +378,13 @@ function acceptPickup(ci, offset) {
   const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
   const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
   if (slotsShort || weightShort) {
-    // v0.0.7.19 commit 2b — pickup-fail log lines. Dedupe by
-    // (ci:usedSlots:usedWeight) so we don't spam the log each tick
-    // while walking past a too-heavy pkg, but DO re-fire after the
-    // player drops or delivers cargo and walks past again.
-    const key = `${ci}:${S.usedSlots}:${S.usedWeight}`;
+    // v0.0.9.5.1 — pickup-fail dedupe keyed by cargo state ONLY (was
+    // ci:usedSlots:usedWeight). Old key alternated between two heavy
+    // pkgs in range every tick because the scan loop hits them in
+    // order and each updates lastPickupFailKey, so neither hit its
+    // own key on the next pass. New key fires once per cargo state,
+    // re-fires after drop/deliver. Callsite unchanged.
+    const key = `${S.usedSlots}:${S.usedWeight}`;
     if (S._transient.lastPickupFailKey !== key) {
       S._transient.lastPickupFailKey = key;
       const reason = slotsShort ? 'no cargo slots' : 'too heavy';
@@ -625,12 +635,21 @@ export function tryDeliver(arrivedNodeId) {
     const gain  = NPC_DEFS[arrivedNodeId] ? computeTrustGain(pkg, arrivedNodeId) : 0;
     const bonus = pkg.outboundFrom && NPC_DEFS[arrivedNodeId] ? C.OUTBOUND_BONUS_TRUST : 0;
     const totalGain = gain + bonus;
-    const trustSuffix = totalGain > 0 ? ` +${Math.round(totalGain * 10) / 10} trust` : '';
+    const trustSuffix = totalGain > 0 ? ` +${Math.round(totalGain)} trust` : '';
     const outboundTag = pkg.outboundFrom
       ? ` <span class="log-hi">[from ${NPC_DEFS[pkg.outboundFrom] ? NPC_DEFS[pkg.outboundFrom].callsign : pkg.outboundFrom}]</span>`
       : '';
     addLog(`delivered <span class="log-hi">[${pkg.size}] ${pkg.label}</span>${outboundTag} to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2${trustSuffix}</span>`);
-    postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
+    // v0.0.9.5.1 — delivery broadcasts were the single largest feed
+    // contributor (every porter delivers constantly). Throttled to
+    // one broadcast per porter per DELIVERY_BROADCAST_GATE_MS so the
+    // signal survives but the volume drops ~10-20x. Wall-clock gate
+    // (session-local; first delivery after reload always fires).
+    const nowTs = Date.now();
+    if (nowTs - lastDeliveryBroadcastTs >= DELIVERY_BROADCAST_GATE_MS) {
+      lastDeliveryBroadcastTs = nowTs;
+      postActivity('delivery', { destId: arrivedNodeId, destLabel, scrip: pkg.scrip, size: pkg.size });
+    }
 
     if (pkg.isRecovery && pkg.recoveryFromPorter) {
       postActivity('lost_recovered', {

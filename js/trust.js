@@ -240,7 +240,9 @@ export function addTrust(depotId, amount, reason) {
   }
   const npc = S.npcs[depotId];
   const before = npc.trust;
-  npc.trust = Math.max(0, Math.min(100, npc.trust + amount));
+  // v0.0.9.5.1 — round to integer at storage so display/log never surface
+  // the fractional multipliers from computeTrustGain's profile table.
+  npc.trust = Math.max(0, Math.min(100, Math.round(npc.trust + amount)));
   if (npc.trust === before) return;
   for (let i = 0; i < C.TRUST_THRESHOLDS.length; i++) {
     const t = C.TRUST_THRESHOLDS[i];

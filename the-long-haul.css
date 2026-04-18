@@ -577,7 +577,10 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 }
 .inline-gear-wrap .gear-val { color: #77bfcf; font-weight: 700; }
 
-/* v0.0.8.7 — weather gear (route panel bottom) */
+/* v0.0.8.7 — weather gear (route panel bottom)
+   v0.0.9.5.1 — canvas expanded to fill the row; labels run along the
+   bar (left=low / right=high) with hPa inline next to 1020. Color ramp
+   inverted in paintLegendBar: green = low pressure, pink = high. */
 .weather-gear-row {
   display: flex;
   align-items: center;
@@ -594,6 +597,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .weather-gear-btn.intensity-rain     { color: #7a5a98; border-color: #7a5a98; }
 .weather-gear-btn.intensity-downpour { color: #da8bda; border-color: #da8bda; }
 .weather-legend-wrap {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -603,28 +607,63 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .weather-legend-bar {
   border-radius: 1px;
   height: 5px;
+  width: 100%;
   image-rendering: pixelated;
 }
 .weather-legend-labels {
   display: flex;
   justify-content: space-between;
-  width: 80px;
+  width: 100%;
   font-size: 7px;
   font-family: 'Source Code Pro', monospace;
   line-height: 1;
+  padding: 0 1px;
 }
-.weather-legend-lbl { opacity: 0.6; }
-.wl-hi  { color: #3a6a68; }
-.wl-mid { color: #5a6a88; }
-.wl-lo  { color: #9d78d4; }
+.weather-legend-lbl { opacity: 0.7; }
+/* Inverted: green=low (984), pink=high (1020) */
+.wl-lo  { color: #3a6a68; }
+.wl-mid { color: #7a5a98; }
+.wl-hi  { color: #da5bd6; }
 .weather-legend-unit {
   font-size: 7px;
   font-family: 'Source Code Pro', monospace;
-  color: #3a6a68;
-  opacity: 0.4;
-  align-self: flex-end;
-  margin-top: -2px;
+  color: #5a6a88;
+  opacity: 0.6;
+  margin-left: 3px;
 }
+
+/* v0.0.9.5.1 — route panel title row carries the clock; footer strip
+   carries coord (left) + next-dest (right). Both borderless so they
+   blend with the panel bg instead of popping as chips. */
+.tlh-ptitle.route-ptitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.route-clock {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  color: #77bfcf;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+.route-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 3px 2px 1px;
+  font-size: 9px;
+  font-family: 'Source Code Pro', monospace;
+  color: #7aa8a6;
+  letter-spacing: 0.03em;
+  opacity: 0.85;
+}
+.route-coord .lbl,
+.route-next  .lbl { opacity: 0.5; font-weight: 400; margin-right: 3px; }
+.route-coord .val,
+.route-next  .val { color: #77bfcf; font-weight: 700; }
+.route-next:empty { display: none; }
 
 .boots-auto {
   background: transparent;
@@ -1051,32 +1090,61 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   overflow-y: auto;
 }
 
+/* v0.0.9.5.1 — shared max-height across the three main list panels so
+   they stay visually aligned and the fade-mask / scrollbar treatments
+   have something to bind against. Without this, #logEl (which now
+   renders up to 500 history entries) would stretch unbounded instead
+   of scrolling internally. Bump if the window feels too cramped. */
 .tlh-panel > #logEl,
 .tlh-panel > #upgradesEl,
-.tlh-panel > #settlementsEl {
+.tlh-panel > #settlementsEl { max-height: 320px; }
+
+/* v0.0.9.5.1 — two-tier scroll treatment across the game.
+   Tier A (mask-fade, hidden scrollbar): upgrades, settlements, channels.
+     - Scrollbar hidden via scrollbar-width: none + ::-webkit-scrollbar hide
+     - 14px linear-gradient mask at top/bottom hints overflow visually
+     - Applied wherever content fills-but-doesn't-exceed often
+   Tier B (visible teal scrollbar): dispatch log (#logEl) only.
+     - Log aids searchability; the scrollbar thumb is a position indicator
+     - Keep the existing teal thumb styling. */
+.tlh-panel > #logEl {
   scrollbar-width: thin;
   scrollbar-color: #2a5c5a #0b2e2d;
 }
-.tlh-panel > #logEl::-webkit-scrollbar,
-.tlh-panel > #upgradesEl::-webkit-scrollbar,
-.tlh-panel > #settlementsEl::-webkit-scrollbar { width: 6px; }
-.tlh-panel > #logEl::-webkit-scrollbar-track,
-.tlh-panel > #upgradesEl::-webkit-scrollbar-track,
-.tlh-panel > #settlementsEl::-webkit-scrollbar-track { background: #0b2e2d; }
-.tlh-panel > #logEl::-webkit-scrollbar-thumb,
-.tlh-panel > #upgradesEl::-webkit-scrollbar-thumb,
-.tlh-panel > #settlementsEl::-webkit-scrollbar-thumb {
-  background: #2a5c5a;
-  border-radius: 3px;
+.tlh-panel > #logEl::-webkit-scrollbar { width: 6px; }
+.tlh-panel > #logEl::-webkit-scrollbar-track { background: #0b2e2d; }
+.tlh-panel > #logEl::-webkit-scrollbar-thumb { background: #2a5c5a; border-radius: 3px; }
+.tlh-panel > #logEl::-webkit-scrollbar-thumb:hover { background: #3a6a68; }
+
+/* Tier A — mask-fade + hidden scrollbar. Shared by the three list
+   panels that refresh often. The mask is gated on a `.has-overflow`
+   class toggled from JS (bindOverflowFade in main.js) so panels
+   that fit their content don't fade the top row for no reason. */
+.tlh-panel > #upgradesEl,
+.tlh-panel > #settlementsEl,
+#channelsEl {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-.tlh-panel > #logEl::-webkit-scrollbar-thumb:hover,
-.tlh-panel > #upgradesEl::-webkit-scrollbar-thumb:hover,
-.tlh-panel > #settlementsEl::-webkit-scrollbar-thumb:hover {
-  background: #3a6a68;
+.tlh-panel > #upgradesEl::-webkit-scrollbar,
+.tlh-panel > #settlementsEl::-webkit-scrollbar,
+#channelsEl::-webkit-scrollbar { display: none; }
+.tlh-panel > #upgradesEl.has-overflow,
+.tlh-panel > #settlementsEl.has-overflow,
+#channelsEl.has-overflow {
+  mask-image: linear-gradient(to bottom,
+    transparent 0, #000 14px,
+    #000 calc(100% - 14px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom,
+    transparent 0, #000 14px,
+    #000 calc(100% - 14px), transparent 100%);
 }
 
 .log-line { display: block; font-size: 10px; line-height: 1.7; color: #7aa8a6; font-family: 'Source Code Pro', monospace; }
 .log-ts { color: #2a5c5a; }
+/* v0.0.9.5.1 — stacked-repeat counter badge appended to log lines
+   when addLog coalesces consecutive duplicates. Dim teal, compact. */
+.log-mult { color: #3a6a68; font-weight: 700; font-size: 9px; margin-left: 2px; letter-spacing: 0.03em; }
 .log-hi { color: #77bfcf; }
 .log-wn { color: #da8bda; }
 .log-ok { color: #4a7a78; }
@@ -1240,6 +1308,21 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   padding: 8px;
 }
 
+/* v0.0.9.5.1 — channels panel caps its own height + scrolls internally.
+   Without this, unbounded chatter (now that .chan-text has no line
+   clamp) would balloon the whole info-row. Match the network panel
+   sibling's natural height so the two read as an equal pair. */
+.tlh-channels-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+}
+.tlh-channels-panel > #channelsEl {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .net-item { font-size: 9px; color: #7aa8a6; line-height: 1.65; border-bottom: 1px solid #132e2d; padding: 2px 0; font-family: 'Source Code Pro', monospace; }
 .net-item:last-child { border-bottom: none; }
 .net-hi { color: #da8bda; }
@@ -1281,13 +1364,8 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   color: #b1c9c3;
   font-style: italic;
   font-weight: 400;
-  /* v0.0.9.2 — cap NPC chatter at 3 lines so long lines don't
-     balloon the panel height in the side-by-side layout. */
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* v0.0.9.5.1 — clamp removed. Long chatter wraps freely; the
+     channels panel caps its own height and scrolls via mask-fade. */
 }
 .chan-item[data-depot="A"] .chan-cs { color: #77bfcf; }
 .chan-item[data-depot="B"] .chan-cs { color: #da8bda; }

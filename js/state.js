@@ -117,10 +117,10 @@ export const S = {
     'H':        { label:'home',                tier:'shelter',  supply:80, rebuild:70, quote:'"hot food. safe walls."'         },
     '\u00b7':   { label:'oasis',               tier:'waypoint', supply:40, rebuild:30, quote:'"a painted stone, tended"'      },
     // v0.0.9.5 new settlements (stub; NPCs fill in commits 2-3)
-    '\u03bd':   { label:'purification plant',  tier:'station',  supply:20, rebuild:20, quote:'"pipes hiss in the dry heat"'   },
+    '\u03bd':   { label:'treatment plant',     tier:'station',  supply:20, rebuild:20, quote:'"pipes hiss in the dry heat"'   },
     '\u03b8':   { label:'kiln',                tier:'outpost',  supply:30, rebuild:30, quote:'"clay dries slow in the sun"'   },
     '\u03b3':   { label:'workshop',            tier:'outpost',  supply:30, rebuild:30, quote:'"sparks from a forge"'          },
-    '\u03bb':   { label:'climbing lodge',      tier:'outpost',  supply:30, rebuild:30, quote:'"rope looped on a hook"'        },
+    '\u03bb':   { label:'lodge',               tier:'outpost',  supply:30, rebuild:30, quote:'"rope looped on a hook"'        },
     '\u03c0':   { label:'radio tower',         tier:'station',  supply:15, rebuild:15, quote:'"antenna wind, no signal"'      },
     '\u03b4':   { label:'reservoir',           tier:'station',  supply:20, rebuild:20, quote:'"water hammers the gate"'       },
   },
@@ -136,7 +136,7 @@ export const S = {
   //   nu → psi → iota → theta → phi → gamma → xi → delta → lambda → pi → tau → rho → nu
   // Coords populated by layoutRouteNodes() in render/route-map.js.
   routeNodes: [
-    { id:'\u03bd',  label:'purification plant',  x:0, y:0 }, // nu     — NW corner [new]
+    { id:'\u03bd',  label:'treatment plant',     x:0, y:0 }, // nu     — NW corner [new]
     { id:'\u00b7',  label:'oasis',               x:0, y:0 }, // psi    — top-rim-L
     { id:'B',       label:'greenhouse',          x:0, y:0 }, // iota   — top-rim-R
     { id:'\u03b8',  label:'kiln',                x:0, y:0 }, // theta  — NE corner [new]
@@ -144,7 +144,7 @@ export const S = {
     { id:'\u03b3',  label:'workshop',            x:0, y:0 }, // gamma  — right-rim-B [new]
     { id:'C',       label:'city ruins',          x:0, y:0 }, // xi     — SE corner (promoted)
     { id:'\u03b4',  label:'reservoir',           x:0, y:0 }, // delta  — bottom-rim-R [new]
-    { id:'\u03bb',  label:'climbing lodge',      x:0, y:0 }, // lambda — bottom-rim-L [new]
+    { id:'\u03bb',  label:'lodge',               x:0, y:0 }, // lambda — bottom-rim-L [new]
     { id:'\u03c0',  label:'radio tower',         x:0, y:0 }, // pi     — SW corner [new]
     { id:'H',       label:'home',                x:0, y:0 }, // tau    — left-rim-B (player start)
     { id:'A',       label:'depot',               x:0, y:0 }, // rho    — left-rim-T
@@ -210,6 +210,13 @@ export const S = {
   },
 
   channels: [],
+
+  // v0.0.9.5.1 — dispatch log persistence. Ring buffer of the last
+  // LOG_PERSIST_CAP rendered HTML lines (timestamp baked in). Restored
+  // into _transient.logHistory + DOM on save load so the player's
+  // recent history survives across sessions. Compact-enough at ~100
+  // entries × ~150 bytes ≈ 15KB of the ~50KB typical save payload.
+  log: [],
 
   // v0.0.7 commit 5: lost cargo recovery loop. Transient — not persisted.
   // These live on S root rather than _transient because they have semantic
@@ -353,5 +360,12 @@ export const S = {
     // v0.0.7.2 for consistency with other transient plumbing.
     lastDistEdgeIdx: null,
     lastDistDotT: null,
+
+    // v0.0.9.5.1 — in-session dispatch log ring buffer. Holds up to
+    // LOG_HISTORY_CAP (~500) rendered HTML lines so the player can
+    // scroll back through the whole session. S.log is a tail slice of
+    // this for persistence. DOM renders the full buffer; panel scrolls
+    // to reveal older. No virtualization — 500 <span>s is cheap.
+    logHistory: [],
   },
 };
