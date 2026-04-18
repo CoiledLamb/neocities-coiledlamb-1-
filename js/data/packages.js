@@ -133,6 +133,67 @@ export const PKG_LABELS_BY_SIZE = {
     // xi (C) \u2014 research + ruin salvage
     { label: 'specimen jar',      dests: ['C']                 },
     { label: 'copper coil',       dests: ['C']                 },
+    // v0.0.9.5 commit 5: fresh pools for the 6 new NPCs + boost for
+    // sparse existing pools (iota B, phi ?) + plateau-top subset
+    // (dests restricted to near-start NPCs: rho A, iota B, tau H,
+    // psi \u00b7, nu \u03bd, theta \u03b8). v0.0.9.6 plateau-top spawn
+    // rule filters against the near-start dest set.
+    // -- nu (\u03bd) desert / water-survival --
+    { label: 'salt tabs',             dests: ['\u03bd']                       },
+    { label: 'sand goggles',          dests: ['\u03bd']                       },
+    { label: 'dust mask',             dests: ['\u03bd']                       },
+    { label: 'waterskin',             dests: ['\u03bd','H']                   },
+    { label: 'sun cream vial',        dests: ['\u03bd']                       },
+    // -- theta (\u03b8) riverbed / pottery --
+    { label: 'pot shard',             dests: ['\u03b8']                       },
+    { label: 'glaze sample',          dests: ['\u03b8']                       },
+    { label: 'tea leaves',            dests: ['\u03b8','H']                   },
+    { label: 'kiln ash',              dests: ['\u03b8']                       },
+    { label: 'clay scrap',            dests: ['\u03b8']                       },
+    // -- gamma (\u03b3) rocky hillside / workshop --
+    { label: 'carabiner',             dests: ['\u03b3','\u03bb']              },
+    { label: 'sparkplug',             dests: ['\u03b3','\u03b4']              },
+    { label: 'wire nut',              dests: ['\u03b3','\u03b4']              },
+    { label: 'grease jar',            dests: ['\u03b3']                       },
+    { label: 'stove cartridge',       dests: ['\u03b3']                       },
+    // -- lambda (\u03bb) mountain / climbing --
+    { label: 'piton',                 dests: ['\u03bb']                       },
+    { label: 'ice screw',             dests: ['\u03bb']                       },
+    { label: 'climbing chalk',        dests: ['\u03bb']                       },
+    { label: 'summit log',            dests: ['\u03bb']                       },
+    { label: 'route card',            dests: ['\u03bb','A']                   },
+    // -- pi (\u03c0) summit research / electronics --
+    { label: 'capacitor bag',         dests: ['\u03c0']                       },
+    { label: 'solder spool',          dests: ['\u03c0','\u03b4']              },
+    { label: 'lab notes',             dests: ['\u03c0','C']                   },
+    { label: 'sensor chip',           dests: ['\u03c0']                       },
+    { label: 'calibration disc',      dests: ['\u03c0','?']                   },
+    // -- delta (\u03b4) dam / electrical --
+    { label: 'fuse pack',             dests: ['\u03b4','C']                   },
+    { label: 'seal ring',             dests: ['\u03b4']                       },
+    { label: 'gasket',                dests: ['\u03b4','\u03b3']              },
+    { label: 'pressure dial',         dests: ['\u03b4','?']                   },
+    { label: 'coupling pin',          dests: ['\u03b4','\u03b3']              },
+    // -- iota (B) boost --
+    { label: 'growing medium',        dests: ['B']                            },
+    { label: 'pollen sample',         dests: ['B']                            },
+    { label: 'cutting tray',          dests: ['B','H']                        },
+    { label: 'sapling wrap',          dests: ['B']                            },
+    // -- phi (?) boost --
+    { label: 'humidity sensor',       dests: ['?']                            },
+    { label: 'gauge dial',            dests: ['?']                            },
+    // -- plateau-top subset (near-start NPCs only) --
+    { label: 'weathered manifest',    dests: ['A']                            },
+    { label: 'wind-blown dispatch',   dests: ['A','\u00b7']                   },
+    { label: 'sun-bleached relic',    dests: ['\u03bd','A','\u00b7']          },
+    { label: 'weathered signal flag', dests: ['\u03bd','A']                   },
+    { label: 'trailhead scrap',       dests: ['\u00b7']                       },
+    { label: 'wind-whipped charm',    dests: ['\u00b7']                       },
+    { label: 'plateau-top trinket',   dests: ['\u00b7','B']                   },
+    { label: 'weathered seed envelope', dests: ['B']                          },
+    { label: 'plateau pollen sample', dests: ['B','\u03b8']                   },
+    { label: 'sun-baked pot shard',   dests: ['\u03b8']                       },
+    { label: 'glaze mineral sample',  dests: ['\u03b8']                       },
   ],
   m: [
     { label: 'tool roll',          dests: ['A','B','C','H']    },
@@ -169,6 +230,58 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'sealed reports',     dests: ['C','H']            },
     { label: 'map fragments',      dests: ['C']                },
     { label: 'cracked tile set',   dests: ['C']                },
+    // v0.0.9.5 commit 5 — new-NPC pools + iota/phi boost + plateau-top.
+    // -- nu (\u03bd) --
+    { label: 'rationed gourd',        dests: ['\u03bd']                       },
+    { label: 'filter cartridge',      dests: ['\u03bd']                       },
+    { label: 'sun tarp',              dests: ['\u03bd']                       },
+    { label: 'wet cloth roll',        dests: ['\u03bd','H']                   },
+    // -- theta (\u03b8) --
+    { label: 'clay bundle',           dests: ['\u03b8']                       },
+    { label: 'kiln fuel',             dests: ['\u03b8']                       },
+    { label: 'reed mat',              dests: ['\u03b8','B']                   },
+    { label: 'glaze jar',             dests: ['\u03b8']                       },
+    { label: 'fired pot',             dests: ['\u03b8','H']                   },
+    // -- gamma (\u03b3) --
+    { label: 'coil of wire',          dests: ['\u03b3','\u03b4']              },
+    { label: 'climbing holds',        dests: ['\u03b3','\u03bb']              },
+    { label: 'forge kit',             dests: ['\u03b3']                       },
+    { label: 'bellows patch',         dests: ['\u03b3']                       },
+    // -- lambda (\u03bb) --
+    { label: 'crampons',              dests: ['\u03bb']                       },
+    { label: 'helmet kit',            dests: ['\u03bb']                       },
+    { label: 'signal flare box',      dests: ['\u03bb','?']                   },
+    { label: 'summit journal',        dests: ['\u03bb']                       },
+    // -- pi (\u03c0) --
+    { label: 'oscilloscope probe',    dests: ['\u03c0']                       },
+    { label: 'antenna kit',           dests: ['\u03c0','?']                   },
+    { label: 'sensor array',          dests: ['\u03c0']                       },
+    { label: 'solder kit',            dests: ['\u03c0']                       },
+    // -- delta (\u03b4) --
+    { label: 'sluice valve',          dests: ['\u03b4']                       },
+    { label: 'turbine bearing',       dests: ['\u03b4']                       },
+    { label: 'generator brush',       dests: ['\u03b4']                       },
+    { label: 'pressure gauge',        dests: ['\u03b4','?']                   },
+    { label: 'penstock bolt',         dests: ['\u03b4','\u03b3']              },
+    // -- iota (B) boost --
+    { label: 'nursery kit',           dests: ['B']                            },
+    { label: 'compost sacks',         dests: ['B']                            },
+    { label: 'seedling trays',        dests: ['B']                            },
+    { label: 'field soil kit',        dests: ['B','C']                        },
+    // -- phi (?) boost --
+    { label: 'barograph',             dests: ['?']                            },
+    { label: 'lightning rod kit',     dests: ['?']                            },
+    { label: 'cloud log',             dests: ['?']                            },
+    // -- plateau-top subset (near-start NPCs) --
+    { label: 'abandoned ledger',      dests: ['A']                            },
+    { label: 'old route marker',      dests: ['A','\u00b7']                   },
+    { label: 'dust-buried cache',     dests: ['\u03bd','\u00b7']              },
+    { label: 'sand-scoured satchel',  dests: ['\u03bd','A','\u00b7']          },
+    { label: 'mesa-edge cache',       dests: ['\u00b7','B']                   },
+    { label: 'sun-faded field notes', dests: ['B']                            },
+    { label: 'wind-blown sapling wrap', dests: ['B','\u03b8']                 },
+    { label: 'wind-dried reed bundle', dests: ['\u03b8','B']                  },
+    { label: 'kiln-bound clay slab',  dests: ['\u03b8']                       },
   ],
   l: [
     { label: 'parts crate',        dests: ['A','C']            },
@@ -199,6 +312,39 @@ export const PKG_LABELS_BY_SIZE = {
     { label: "forager's bag",      dests: ['\u00b7']                },
     // xi (C) \u2014 ruin salvage
     { label: 'salvaged mechanism', dests: ['C']                },
+    // v0.0.9.5 commit 5 — new-NPC pools + iota/phi boost.
+    // -- nu (\u03bd) --
+    { label: 'shade awning',          dests: ['\u03bd']                       },
+    { label: 'purifier coil',         dests: ['\u03bd','C']                   },
+    { label: 'sand ladder',           dests: ['\u03bd','\u03bb']              },
+    { label: 'salt block',            dests: ['\u03bd']                       },
+    // -- theta (\u03b8) --
+    { label: 'clay brick stack',      dests: ['\u03b8']                       },
+    { label: 'glaze barrel',          dests: ['\u03b8']                       },
+    { label: 'kiln tile set',         dests: ['\u03b8']                       },
+    { label: 'tea crate',             dests: ['\u03b8','H']                   },
+    // -- gamma (\u03b3) --
+    { label: 'anvil stand',           dests: ['\u03b3']                       },
+    { label: 'gear cache',            dests: ['\u03b3','C']                   },
+    { label: 'forge bellows',         dests: ['\u03b3']                       },
+    // -- lambda (\u03bb) --
+    { label: 'cache pack',            dests: ['\u03bb']                       },
+    { label: 'tent kit',              dests: ['\u03bb']                       },
+    { label: 'expedition rope',       dests: ['\u03bb','\u03b3']              },
+    // -- pi (\u03c0) --
+    { label: 'antenna segment',       dests: ['\u03c0','?']                   },
+    { label: 'rack assembly',         dests: ['\u03c0']                       },
+    { label: 'power coupling',        dests: ['\u03c0','\u03b4']              },
+    // -- delta (\u03b4) --
+    { label: 'sluice gate',           dests: ['\u03b4']                       },
+    { label: 'turbine housing',       dests: ['\u03b4']                       },
+    { label: 'penstock pipe',         dests: ['\u03b4']                       },
+    // -- iota (B) boost --
+    { label: 'greenhouse panel',      dests: ['B']                            },
+    { label: 'irrigation pipe',       dests: ['B']                            },
+    // -- phi (?) boost --
+    { label: 'sounder rocket',        dests: ['?']                            },
+    { label: 'anemometer tripod',     dests: ['?']                            },
   ],
   xl: [
     { label: 'reinforced crate',   dests: ['A']                },
@@ -224,6 +370,28 @@ export const PKG_LABELS_BY_SIZE = {
     // xi (C) \u2014 research archives + oddments
     { label: 'crate of oddments',  dests: ['C']                },
     { label: 'archive crate',      dests: ['C','H']            },
+    // v0.0.9.5 commit 5 — new-NPC xl pools.
+    // -- nu (\u03bd) --
+    { label: 'reservoir panel',       dests: ['\u03bd','\u03b4']              },
+    { label: 'water still',           dests: ['\u03bd']                       },
+    { label: 'large tarp',            dests: ['\u03bd','?']                   },
+    // -- theta (\u03b8) --
+    { label: 'kiln brick pallet',     dests: ['\u03b8']                       },
+    { label: 'glaze crate',           dests: ['\u03b8']                       },
+    // -- gamma (\u03b3) --
+    { label: 'forge frame',           dests: ['\u03b3']                       },
+    { label: 'lathe bed',             dests: ['\u03b3']                       },
+    // -- lambda (\u03bb) --
+    { label: 'crampon rack',          dests: ['\u03bb']                       },
+    { label: 'winter bivvy',          dests: ['\u03bb']                       },
+    // -- pi (\u03c0) --
+    { label: 'server rack frame',     dests: ['\u03c0']                       },
+    { label: 'dish reflector',        dests: ['\u03c0','?']                   },
+    { label: 'battery bank frame',    dests: ['\u03c0','\u03b4']              },
+    // -- delta (\u03b4) --
+    { label: 'turbine rotor',         dests: ['\u03b4']                       },
+    { label: 'dam gate section',      dests: ['\u03b4']                       },
+    { label: 'transformer core',      dests: ['\u03b4']                       },
   ],
 };
 
