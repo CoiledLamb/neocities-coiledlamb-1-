@@ -54,9 +54,9 @@ const els = S._transient.els;
 // 1500 ticks × 350 ms ≈ 8.75 min per in-game day. Sun/moon glide
 // by faster per-tick than 3000 — less "watching the moon move" in
 // a single session.
-const TICKS_PER_DAY   = 1500;
-const HALF_DAY        = TICKS_PER_DAY / 2;
-const MOON_CYCLE_DAYS = 7;
+export const TICKS_PER_DAY = 1500;
+const HALF_DAY             = TICKS_PER_DAY / 2;
+const MOON_CYCLE_DAYS      = 7;
 
 // ============================================================
 // GEOMETRY
@@ -168,7 +168,11 @@ function bellCurve(x, center, width) {
 }
 
 // 0 at night, 1 at midday, smooth through dawn/dusk.
-function daylightOf(t) {
+// v0.0.9.5 commit 3: exported so battery solar-trickle regen (and
+// future daylight-driven systems — desert stamina drain, solar-panel
+// upgrade bonuses, etc.) can import a shared source of truth instead
+// of each module reimplementing the day-phase curve.
+export function daylightOf(t) {
   const f = t / TICKS_PER_DAY;
   if (f < 0.02 || f > 0.52) return 0;
   const s = (f - 0.02) / 0.5;

@@ -12,10 +12,12 @@
      - Sticky gun: read-only ammo count (gun fires
        automatically in range; no manual trigger).
 
-   Battery is stubbed at S.battery.charge and NOT persisted
-   this patch. Drain/regen + schema bump follow in a later
-   sub-version. Keep the render surface ready so promoting
-   the mechanic is a one-file mechanics drop.
+   Battery promoted from stub to persistent baseline feature
+   in v0.0.9.5 (commit 1 added the schema slot, commit 3 wired
+   innate solar-trickle regen + unhooked stickyGun from drain).
+   Remaining v0.0.9.5 battery work (delta's solar/turbine
+   upgrades, pi's exoskeleton + gamma's mobile carrier as new
+   consumers) rides commit 4.
    ============================================== */
 'use strict';
 

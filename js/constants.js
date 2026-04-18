@@ -218,6 +218,18 @@ export const SCANNER_BUFF_MAGNITUDE       = 0.5;  // trip chance ×0.5 while buf
 // schema v6→v7 bump in a later patch.
 export const BATTERY_DRAIN_PER_TICK = 0.03;
 
+// ----- v0.0.9.5 commit 3: battery baseline solar trickle -----
+// Peak (midday) regen per tick when no gadgets are draining. Sized so a
+// full idle day (zero drain) charges 0 → ~100 across one in-game day
+// (TICKS_PER_DAY = 1500, half of which is daylight with a sin curve).
+// Integral of sin(s*π) over [0,1] ≈ 0.6366, so effective "full-sun
+// tick equivalents" per day = 750 × 0.6366 ≈ 477. For 100 charge in
+// one day at peak 0.21: 477 × 0.21 ≈ 100. Using 0.20 gives ~95/day —
+// ever-so-slightly under "full by sunset" to match user's "would charge
+// from zero if nothing is using it" intent without overshooting.
+// Delta's advanced solar panel upgrade (commit 4) multiplies this.
+export const BATTERY_SOLAR_PEAK_PER_TICK = 0.20;
+
 // ----- admin (v0.0.7.21) -----
 // SHA-256 (hex) of the admin token. Admin is OFF when null. To enable:
 //   1. Open devtools console on the live site.

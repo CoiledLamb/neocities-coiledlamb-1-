@@ -121,7 +121,7 @@ import {
 } from './render/route-map.js';
 import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js';
 import { renderNetwork } from './render/network.js';
-import { initSky, renderSky } from './render/sky.js';
+import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -391,12 +391,26 @@ function tick() {
   if (S.ticks % 9 === 0) updateSaveStrip();
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
 
-  // v0.0.7.28 — battery prototype drain (time-only, no gating). Only
-  // drains when at least one gadget is owned; otherwise the row is
-  // hidden and the charge value is inert. Full mechanic (per-device
-  // use + regen + upgrade) lands with schema v6→v7 in a later patch.
-  if ((S.scanner.unlocked || S.stickyGun) && S.battery.charge > 0) {
+  // v0.0.7.28 — battery prototype drain. Originally time-only whenever
+  // scanner or stickyGun was owned. v0.0.9.5 commit 3 decouples stickyGun
+  // (pure mechanical — rangefinder + sticky shot, no electronics) so only
+  // the scanner drains the battery from this pipeline. Additional
+  // consumers (pi's exoskeleton, gamma's mobile carrier) register through
+  // their own upgrade hooks in commit 4.
+  if (S.scanner.unlocked && S.battery.charge > 0) {
     S.battery.charge = Math.max(0, S.battery.charge - C.BATTERY_DRAIN_PER_TICK);
+  }
+
+  // v0.0.9.5 commit 3: innate solar trickle regen. The baseline feature
+  // (no upgrade required). daylightOf() peaks at 1.0 at midday, 0 at
+  // night, smooth through dawn/dusk. A full idle day charges 0 → ~95.
+  // Delta's t20 'advanced solar panel' upgrade (commit 4) multiplies
+  // the peak regen + adds a desert-cell bonus.
+  if (S.battery.charge < S.battery.max) {
+    const sun = daylightOf(S.ticks % TICKS_PER_DAY);
+    if (sun > 0) {
+      S.battery.charge = Math.min(S.battery.max, S.battery.charge + sun * C.BATTERY_SOLAR_PEAK_PER_TICK);
+    }
   }
 
   Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
