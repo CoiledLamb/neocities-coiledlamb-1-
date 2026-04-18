@@ -47,13 +47,16 @@ export const GUN_WEB_SVG =
 
 export function gunAmmoClass(gun) {
   if (!gun) return '';
-  // 3-band threshold on the 8-shot max:
-  //   full (5–8): white      — fresh load, no concern
-  //   warn (3–4): purple     — half-spent, start thinking about H
-  //   crit (0–2): pink pulse — resupply before next trip
+  // 4-band threshold on the 8-shot max:
+  //   full  (5–8): white       — fresh load, no concern
+  //   warn  (3–4): purple      — half-spent, start thinking about H
+  //   crit  (1–2): pink + pulse — resupply before next trip
+  //   empty (  0): muted grey  — gun unusable; greyed out, no pulse
+  //                              (empty can't fire, no need to flag)
   const a = gun.ammo;
-  if (a <= 2) return 'ammo-crit';
-  if (a <= 4) return 'ammo-warn';
+  if (a === 0) return 'ammo-empty';
+  if (a <= 2)  return 'ammo-crit';
+  if (a <= 4)  return 'ammo-warn';
   return 'ammo-full';
 }
 

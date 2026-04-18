@@ -1020,12 +1020,14 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   height: 100%;
   filter: drop-shadow(0 0 1px currentColor);
 }
-.kit-cap.gun-cap.ammo-full { color: #e6f0ee; }
+.kit-cap.gun-cap.ammo-full { color: #e0eeec; }
 .kit-cap.gun-cap.ammo-warn { color: #b58df5; }
 .kit-cap.gun-cap.ammo-crit {
   color: #da5bd6;
   animation: ammo-crit-pulse 1.4s ease-in-out infinite;
 }
+.kit-cap.gun-cap.ammo-empty { color: #3a6a68; }
+.kit-cap.gun-cap.ammo-empty .gun-web-lbl .gun-web { filter: none; }
 @keyframes ammo-crit-pulse {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.55; }
@@ -1503,8 +1505,8 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   filter: drop-shadow(0 0 1px currentColor);
 }
 .cslot.gun.ammo-full {
-  color: #e6f0ee;
-  border-color: #c9d9d6;
+  color: #e0eeec;
+  border-color: #b1c9c3;
 }
 .cslot.gun.ammo-warn {
   color: #b58df5;
@@ -1512,8 +1514,13 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 }
 .cslot.gun.ammo-crit {
   color: #da5bd6;
-  border-color: #da5bd6;
+  border-color: #a4589a;
   animation: ammo-crit-pulse 1.4s ease-in-out infinite;
+}
+.cslot.gun.ammo-empty {
+  color: #3a6a68;
+  border-color: #2a5c5a;
+  text-shadow: none;
 }
 
 /* scanner buff indicator (reuses .boots-auto button class; only a tiny
