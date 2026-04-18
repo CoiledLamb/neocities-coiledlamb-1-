@@ -1,9 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "mcp__Claude_Preview__preview_start",
-      "Bash(curl -s \"http://localhost:8751/js/packages.js\")",
-      "Bash(curl -sI http://localhost:8751/js/packages.js)"
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }
