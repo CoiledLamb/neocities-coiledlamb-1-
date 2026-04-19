@@ -21,8 +21,9 @@
 
 import { S } from '../state.js';
 import { STATUS_COLORS } from '../data/glyphs.js';
-import { formatPkgTooltip } from '../packages.js';
+import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js';
 import { bindCargoDragSource } from './drag.js';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js';
 import * as Upg from '../upgrades.js';
 
 const els = S._transient.els;
@@ -42,6 +43,21 @@ export const GUN_WEB_SVG =
       '<line x1="2.2" y1="7.8" x2="7.8" y2="2.2" stroke-width="0.4"/>' +
       '<polygon points="5,3.2 6.3,3.7 6.8,5 6.3,6.3 5,6.8 3.7,6.3 3.2,5 3.7,3.7" stroke-width="0.3"/>' +
       '<polygon points="5,4.2 5.6,4.4 5.8,5 5.6,5.6 5,5.8 4.4,5.6 4.2,5 4.4,4.4" stroke-width="0.25"/>' +
+    '</g>' +
+  '</svg>';
+
+// v0.0.9.6.9.25 — ladder kit-cap glyph as inline SVG (two rails +
+// three rungs). Replaces the previous `──` (two hyphens) which read
+// as a dash, not a ladder. Same currentColor pattern as gun-web so
+// the parent .gear-cap palette tints it.
+export const LADDER_SVG =
+  '<svg class="ladder-glyph" viewBox="0 0 10 10" aria-hidden="true">' +
+    '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1">' +
+      '<line x1="3.2" y1="0.6" x2="3.2" y2="9.4"/>' +
+      '<line x1="6.8" y1="0.6" x2="6.8" y2="9.4"/>' +
+      '<line x1="3.2" y1="2.6" x2="6.8" y2="2.6"/>' +
+      '<line x1="3.2" y1="5.0" x2="6.8" y2="5.0"/>' +
+      '<line x1="3.2" y1="7.4" x2="6.8" y2="7.4"/>' +
     '</g>' +
   '</svg>';
 
@@ -190,6 +206,11 @@ export function renderCargoSlots(force) {
     }
   }
 
+  // v0.0.9.6.9.26 — dismiss the cargo rich-tooltip if one was open;
+  // its target element is about to be destroyed by the rebuild below.
+  // Strain / other-id tooltips are left alone.
+  if (activeRichTooltipId() === 'cargo') hideRichTooltip();
+
   // Pack packages into the remaining cells.
   const { placements, grid } = binPack(S.inventory, cols, rows, blocked);
 
@@ -202,7 +223,12 @@ export function renderCargoSlots(force) {
     // v0.0.9.4.1 commit 1: use shared formatPkgTooltip so ground pkgs
     // and cargo show the same tooltip content. Includes porter id on
     // recovery pkgs (surfaces which peer the recovery came from).
+    // v0.0.9.6.9.26 — cargo cslots also stash an HTML version on the
+    // element so the rich-tooltip can render damaged-pkg payouts in
+    // pink. aria-label / data-tooltip stay as plain text for a11y +
+    // any non-rich consumer.
     const tip = formatPkgTooltip(p.pkg);
+    const tipHTML = formatPkgTooltipHTML(p.pkg);
     const modClass = p.pkg.modifier ? ` mod-${p.pkg.modifier}` : '';
     // v0.0.9.4.1 commit 2: pkg's index in S.inventory — needed by the
     // drag layer to know which item to eject. Computed now (before
@@ -210,24 +236,26 @@ export function renderCargoSlots(force) {
     const invIdx = S.inventory.indexOf(p.pkg);
 
     const main = document.createElement('div');
-    main.className = `cslot ${p.pkg.size}${modClass} has-tooltip`;
+    main.className = `cslot ${p.pkg.size}${modClass} has-tooltip cargo-cslot`;
     main.style.gridColumn = `${p.x + 1} / span ${p.base.w}`;
     main.style.gridRow    = `${p.y + 1} / span ${p.base.h}`;
     main.textContent = p.pkg.size;
     main.setAttribute('data-tooltip', tip);
     main.setAttribute('aria-label', tip);
     main.setAttribute('data-inv-idx', String(invIdx));
+    main._tipHTML = tipHTML;
     bindCargoDragSource(main, invIdx, p.pkg);
     els.cargoSlots.appendChild(main);
 
     if (p.hasTrail) {
       const trail = document.createElement('div');
-      trail.className = `cslot ${p.pkg.size}${modClass} has-tooltip`;
+      trail.className = `cslot ${p.pkg.size}${modClass} has-tooltip cargo-cslot`;
       trail.style.gridColumn = `${p.x + p.base.w + 1}`;
       trail.style.gridRow    = `${p.y + p.base.h}`;
       trail.setAttribute('data-tooltip', tip);
       trail.setAttribute('aria-label', tip);
       trail.setAttribute('data-inv-idx', String(invIdx));
+      trail._tipHTML = tipHTML;
       bindCargoDragSource(trail, invIdx, p.pkg);
       els.cargoSlots.appendChild(trail);
     }
@@ -238,14 +266,37 @@ export function renderCargoSlots(force) {
     const d = document.createElement('div');
     // v0.0.9.5.5 — inline web SVG + ammo-state color class. See GUN_WEB_SVG
     // + gunAmmoClass for the shared definitions (used by kit bar too).
-    d.className = 'cslot gun has-tooltip ' + gunAmmoClass(S.stickyGun);
+    d.className = 'cslot gun has-tooltip cargo-cslot ' + gunAmmoClass(S.stickyGun);
     d.style.gridColumn = `${gunCell.x + 1}`;
     d.style.gridRow    = `${gunCell.y + 1}`;
     d.innerHTML = GUN_WEB_SVG;
     const gunTip = `sticky gun\nammo ${S.stickyGun.ammo}/${S.stickyGun.ammoMax}\nrefill at H`;
     d.setAttribute('data-tooltip', gunTip);
     d.setAttribute('aria-label', gunTip);
+    d._tipHTML = `<div>sticky gun</div><div>ammo ${S.stickyGun.ammo}/${S.stickyGun.ammoMax}</div><div>refill at H</div>`;
     els.cargoSlots.appendChild(d);
+  }
+
+  // v0.0.9.6.9.26 — bind hover delegation once. Uses _tipHTML stashed
+  // on each cslot above. Identity tag 'cargo' lets the re-render path
+  // dismiss only the cargo tooltip and leave others open.
+  if (!els.cargoSlots.__cargoTipBound) {
+    els.cargoSlots.__cargoTipBound = true;
+    els.cargoSlots.addEventListener('mouseover', (ev) => {
+      const t = ev.target.closest('.cargo-cslot');
+      if (!t || !t._tipHTML) return;
+      showRichTooltip(t, t._tipHTML, { id: 'cargo', placement: 'above' });
+    });
+    els.cargoSlots.addEventListener('mouseout', (ev) => {
+      const t = ev.target.closest('.cargo-cslot');
+      if (!t) return;
+      const to = ev.relatedTarget;
+      if (to && t.contains(to)) return;
+      hideRichTooltip();
+    });
+    els.cargoSlots.addEventListener('mouseleave', () => {
+      if (activeRichTooltipId() === 'cargo') hideRichTooltip();
+    });
   }
 
   // Render phantom cells (unavailable due to maxSlots ceiling).

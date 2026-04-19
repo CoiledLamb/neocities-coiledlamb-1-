@@ -188,14 +188,17 @@ export function tripChanceBreakdown() {
     terrMult = reduceMultWithTrample(terrMult, trampleAt(xy.x, xy.y));
   }
   chance *= terrMult;
-  if (!onInterior) {
-    if (currentCellIsRisky()) { riskyMult = 1.40; chance *= 1.40; }
-    const w = weatherAtCourier();
-    weather = w.intensity;
-    if (w.intensity === 'drizzle')       { weatherMult = C.TRIP_MULT_DRIZZLE;  chance *= weatherMult; }
-    else if (w.intensity === 'rain')     { weatherMult = C.TRIP_MULT_RAIN;     chance *= weatherMult; }
-    else if (w.intensity === 'downpour') { weatherMult = C.TRIP_MULT_DOWNPOUR; chance *= weatherMult; }
-  }
+  // v0.0.9.6.9.28 — weather now applies on BOTH ring and interior.
+  // Previously gated on !onInterior, which made shortcut/river-drift
+  // segments weather-immune even when the storm was spatially present.
+  // Rain falls on shortcuts too. Risky-cell flag is hand-placed on ring
+  // cells only, so that sub-branch stays ring-gated.
+  const w = weatherAtCourier();
+  weather = w.intensity;
+  if (w.intensity === 'drizzle')       { weatherMult = C.TRIP_MULT_DRIZZLE;  chance *= weatherMult; }
+  else if (w.intensity === 'rain')     { weatherMult = C.TRIP_MULT_RAIN;     chance *= weatherMult; }
+  else if (w.intensity === 'downpour') { weatherMult = C.TRIP_MULT_DOWNPOUR; chance *= weatherMult; }
+  if (!onInterior && currentCellIsRisky()) { riskyMult = 1.40; chance *= 1.40; }
 
   let encumbranceMult = 1.0;
   if (S.maxWeight > 0 && S.usedWeight > 0) {

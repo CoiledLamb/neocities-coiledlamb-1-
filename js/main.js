@@ -566,6 +566,12 @@ export function tick() {
     if (gain > 0) S.battery.charge = Math.min(S.battery.max, S.battery.charge + gain);
   }
 
+  // v0.0.9.6.9.28 — autodrink trigger fires every tick unconditionally
+  // (was previously coupled to renderStamina, which is rendered-gated
+  // and never ran in sim mode). Restores canteen-driven stamina loop
+  // during headless runs.
+  Stamina.tickAutodrink();
+
   if (!simMode) {
     Boots.renderBoots(); Stamina.renderStamina(); renderCargoSlots(); updateHUD();
     renderKit();

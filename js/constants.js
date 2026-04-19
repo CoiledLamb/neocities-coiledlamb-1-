@@ -85,8 +85,12 @@ export const STORM_ZONE_DRIZZLE        = 200;  // within this = drizzle
 // Storm lifecycle — per-tick probabilities for the storm as a whole.
 // The storm spawns, lives, and eventually dissipates. While alive its
 // spatial zones are always present — no temporal intensity state.
-export const STORM_DISSIPATE_CHANCE    = 0.003; // per-tick chance storm dies
-export const STORM_MIN_AGE_TICKS      = 60;    // no dissipation before this (~21s)
+// v0.0.9.6.9.28 — lifespan bumped so storms live long enough to actually
+// encounter the courier given ring travel speeds. Old values produced
+// ~137s expected life; new values produce ~230s so a storm reliably
+// covers more than one ring edge over its life.
+export const STORM_DISSIPATE_CHANCE    = 0.0018; // per-tick chance storm dies (was 0.003)
+export const STORM_MIN_AGE_TICKS      = 120;    // no dissipation before this (was 60)
 
 // Storm types.
 // weight      = relative spawn probability
@@ -101,14 +105,64 @@ export const STORM_MIN_AGE_TICKS      = 60;    // no dissipation before this (~2
 // radiusSvg   = v0.0.9.6 commit 7 — effective outer radius (where
 //               gear wear accelerator + combine-intersect detection
 //               consider a point to be "inside the storm").
+// v0.0.9.6.9.28 — radii + sigmas bumped ~30% so storms cover a more
+// meaningful slice of the map at any instant.
+// v0.0.9.6.9.29 — further +25% bump so the 4-storm cap reliably
+// produces meaningful map coverage. Pairs with the climate-pole
+// system (below) so the extra coverage lands in the right places
+// instead of uniformly enlarging every storm across the map.
 export const STORM_TYPES = {
-  squall: { weight: 40, sigma1: 22, sigma2: 14, w2: 0.5, speedSvg: 0.90, sigmaSvg1: 13, sigmaSvg2:  8, radiusSvg: 36 },
-  front:  { weight: 45, sigma1: 32, sigma2: 20, w2: 0.6, speedSvg: 0.45, sigmaSvg1: 19, sigmaSvg2: 12, radiusSvg: 52 },
-  deluge: { weight: 15, sigma1: 28, sigma2: 16, w2: 0.7, speedSvg: 0.22, sigmaSvg1: 17, sigmaSvg2: 10, radiusSvg: 44 },
+  squall: { weight: 40, sigma1: 36, sigma2: 22, w2: 0.5, speedSvg: 0.90, sigmaSvg1: 21, sigmaSvg2: 13, radiusSvg: 60 },
+  front:  { weight: 45, sigma1: 52, sigma2: 32, w2: 0.6, speedSvg: 0.45, sigmaSvg1: 31, sigmaSvg2: 20, radiusSvg: 82 },
+  deluge: { weight: 15, sigma1: 45, sigma2: 26, w2: 0.7, speedSvg: 0.22, sigmaSvg1: 27, sigmaSvg2: 16, radiusSvg: 72 },
 };
 
 // Wetland spawn bias: probability of forcing storm onto a wetland edge
 export const STORM_WETLAND_BIAS        = 0.40;
+
+// v0.0.9.6.9.28 — soft-merge tunables. Two storms entering
+// STORM_MERGE_THRESHOLD overlapPct get tagged `mergingWith` each
+// other and drift toward their weighted midpoint at
+// STORM_MERGE_ATTRACT svg/tick (Fujiwhara-style attraction). When
+// center-to-center distance drops below STORM_MERGE_FINALIZE × the
+// smaller radius, the pair collapses into a single promoted storm
+// whose dissipate chance is permanently multiplied by
+// STORM_MERGED_BONUS (slower fade — weather systems stick around).
+export const STORM_MERGE_THRESHOLD     = 0.40;
+export const STORM_MERGE_ATTRACT       = 0.08;
+export const STORM_MERGE_FINALIZE      = 0.40;
+export const STORM_MERGED_BONUS        = 0.70;
+
+// v0.0.9.6.9.28 — succession: when a storm dissipates naturally, a
+// small chance of spawning a fresh storm nearby after a short delay.
+// Turns a single storm.ended into a regional front rather than a
+// blink-out. Never fires on interior-immune boundaries; never forces
+// the seed onto the ring or the courier.
+export const STORM_SUCCESSION_CHANCE   = 0.25;
+export const STORM_SUCCESSION_RADIUS   = 150;   // SVG units from dead storm's last pos
+export const STORM_SUCCESSION_DELAY    = 40;    // ticks before the seed spawns
+
+// v0.0.9.6.9.29 — climate poles. Each entry exerts an attractive
+// (pull > 0) or repulsive (pull < 0) gaussian influence on storms,
+// affecting spawn probability, per-tick drift, and dissipation.
+// Range is the SVG-units scale at which the influence falls off.
+// The set below mirrors biome geography: ruined corner + wetland +
+// mountains pull storms in; desert pushes them out.
+//   ruins (xi)          SE corner plateau
+//   wetland (iota B)    top-right greenhouse biome
+//   pi + lambda         mountain peaks along the bottom rim
+//   desert (nu)         NW corner purification plant / dry biome
+export const CLIMATE_POLES = [
+  { x: 308, y: 308, pull:  1.20, range: 85, label: 'ruins'   },
+  { x: 237, y:  85, pull:  1.00, range: 80, label: 'wetland' },
+  { x:  92, y: 308, pull:  0.80, range: 65, label: 'pi-mtn'  },
+  { x: 163, y: 315, pull:  0.80, range: 65, label: 'lam-mtn' },
+  { x:  92, y:  92, pull: -1.20, range: 95, label: 'desert'  },
+];
+export const CLIMATE_DRIFT_SCALE      = 0.02;   // SVG/tick per unit of pole pull
+export const CLIMATE_SPAWN_BIAS_K     = 0.60;   // larger = stronger spawn bias
+export const CLIMATE_DISSIPATE_BOOST  = 1.40;   // dissipate-chance multiplier in net-repeller zones
+export const CLIMATE_REPELLER_THRESH  = -0.30;  // net effect below this = "in repeller zone"
 
 // Canteen refill rates per tick by intensity zone
 export const CANTEEN_DRIZZLE           = 0.20;

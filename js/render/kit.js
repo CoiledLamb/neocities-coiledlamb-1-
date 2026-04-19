@@ -24,7 +24,7 @@
 import { S } from './../state.js';
 import * as C from './../constants.js';
 import { manualPing } from './../scanner.js';
-import { GUN_WEB_SVG, gunAmmoClass } from './hud.js';
+import { GUN_WEB_SVG, LADDER_SVG, gunAmmoClass } from './hud.js';
 import { GEAR_PRICE } from './../data/terrain.js';
 import { buyGear } from './../gear.js';
 
@@ -155,8 +155,9 @@ export function renderKit() {
               `</span>`;
     }
     // Gear capsules — ladder + anchor with glyph + count + buy button.
+    // v0.0.9.6.9.25 — ladder glyph swapped from `──` to inline SVG.
     html += `<span class="kit-cap gear-cap" id="gearLadderCap">` +
-              `<span class="kit-cap-lbl gear-glyph">\u2010\u2010</span>` +
+              `<span class="kit-cap-lbl gear-glyph ladder-lbl">${LADDER_SVG}</span>` +
               `<span class="kit-cap-val" id="kitLadderVal"></span>` +
               `<button class="kit-buy-btn" id="kitLadderBuy" type="button" aria-label="buy ladder">+${GEAR_PRICE}\u00a2</button>` +
             `</span>`;

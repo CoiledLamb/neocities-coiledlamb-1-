@@ -27,6 +27,7 @@ import {
   cellKeyFromCoords, mesaOutcropAt,
 } from '../data/terrain.js';
 import { trampleTier } from '../trail.js';
+import { speedMultiplier } from '../stamina.js';
 
 const els = S._transient.els;
 
@@ -291,6 +292,38 @@ function liveShortcutDistance(targetId) {
 // matching the live game's per-edge ~4 km feel.
 const UNITS_PER_KM = 30;
 const toKm = u => (u / UNITS_PER_KM).toFixed(1) + ' km';
+// v0.0.9.6.9.27 — adaptive distance + ETA helpers for the route
+// footer / tooltips. Footer reads in meters under 1km for resolution
+// at close range, and switches back to X.Xkm above that. ETAs lean
+// on the live segment + courier speed-mult; if the courier isn't on
+// a segment (resting, just-arrived) ETAs degrade to '\u2014'.
+function toNearDist(u) {
+  const km = u / UNITS_PER_KM;
+  if (km < 1) return Math.round(km * 1000) + 'm';
+  return km.toFixed(1) + 'km';
+}
+function unitsPerTick() {
+  const seg = S._transient.currentSegment;
+  if (!seg || !seg.length) return 0;
+  const sM = speedMultiplier();
+  if (sM <= 0) return 0;
+  // Same dotT advancement constant as main.js's tick path (0.006).
+  // River-drift's 0.4 speedScale isn't applied here — ETAs are walking
+  // estimates, not "if you keep getting swept" estimates.
+  return seg.length * 0.006 * sM;
+}
+function etaSecs(units) {
+  const upt = unitsPerTick();
+  if (upt <= 0) return Infinity;
+  return (units / upt) * (C.TICK_MS / 1000);
+}
+function fmtEta(s) {
+  if (!isFinite(s) || s < 0) return '\u2014';
+  if (s < 60) return '~' + Math.max(1, Math.round(s)) + 's';
+  const m = Math.floor(s / 60);
+  const r = Math.round(s - m * 60);
+  return '~' + (r === 0 ? m + 'm' : m + 'm ' + r + 's');
+}
 
 // Display mapping: route node IDs → Greek letter equivalents.
 // v0.0.9.2 — ? and · now show as φ/ψ post-stage-1 (matches the
@@ -641,9 +674,11 @@ export function updateRouteHud() {
     }
   }
 
-  // Next-dest — callsign + remaining km in the current segment.
+  // Next-dest — callsign + remaining distance in the current segment.
   // Uses the NPC callsign when the dest is an NPC node, otherwise the
   // single-letter nodeId (matches tooltip's dim-fallback behavior).
+  // v0.0.9.6.9.27 — distance now displayed in meters (was X.Xkm) so
+  // small remaining distances read with more resolution at a glance.
   const nextEl = document.getElementById('routeNext');
   if (nextEl) {
     if (seg) {
@@ -651,10 +686,9 @@ export function updateRouteHud() {
       const npcDef   = NPC_DEFS[destId];
       const destName = npcDef ? npcDef.callsign : destId;
       const remaining = (1 - S.dotT) * seg.length;
-      const km = (remaining / UNITS_PER_KM).toFixed(1);
       nextEl.innerHTML =
         `<span class="lbl">&rarr;</span><span class="val">${destName}</span> ` +
-        `<span class="val">${km}km</span>`;
+        `<span class="val">${toNearDist(remaining)}</span>`;
     } else {
       nextEl.textContent = '';
     }
@@ -734,6 +768,37 @@ function traceContour(potFn, centX, centY, threshold, wobblePhase1, wobblePhase2
   return d + 'Z';
 }
 
+/** v0.0.9.6.9.28 — connected-component builder for unified storm
+ *  rendering. Two storms with any non-zero overlap (storm.intersects
+ *  entry exists) are in the same component. Returns a Map from
+ *  stormId → array-of-members-in-its-component. Each component is
+ *  rendered with a combined potential field so overlapping isobars
+ *  read as one deforming system rather than two kissing circles. */
+function buildStormComponents(storms) {
+  const idToStorm = new Map(storms.map(s => [s.id, s]));
+  const compOf = new Map();  // stormId -> component array
+  const visited = new Set();
+  for (const root of storms) {
+    if (visited.has(root.id)) continue;
+    const comp = [];
+    const queue = [root];
+    visited.add(root.id);
+    while (queue.length) {
+      const s = queue.shift();
+      comp.push(s);
+      for (const inter of s.intersects || []) {
+        if (visited.has(inter.otherId)) continue;
+        const peer = idToStorm.get(inter.otherId);
+        if (!peer) continue;
+        visited.add(peer.id);
+        queue.push(peer);
+      }
+    }
+    for (const s of comp) compOf.set(s.id, comp);
+  }
+  return compOf;
+}
+
 function renderStorms(svg, ns) {
   // Gated behind weather radio L2 — the map visualization is the L2 unlock.
   if (!S.weatherRadio || S.weatherRadio.level < 2) return;
@@ -754,6 +819,10 @@ function renderStorms(svg, ns) {
     bf.appendChild(feb);
     defs.appendChild(bf);
   }
+
+  // v0.0.9.6.9.28 — precompute component membership so each storm's
+  // contour tracer samples the combined field of its peers.
+  const compOf = buildStormComponents(S.storms);
 
   for (const storm of S.storms) {
     const rand = makeRand(storm.seed);
@@ -795,8 +864,38 @@ function renderStorms(svg, ns) {
     const mCentX = (m1.x + m2.x * w2) / (1 + w2);
     const mCentY = (m1.y + m2.y * w2) / (1 + w2);
 
-    const pPot = (x, y) => svgPotential(x, y, primary, pSig1, secondary, pSig2, w2);
-    const mPot = (x, y) => svgPotential(x, y, m1, mSig1, m2, mSig2, w2);
+    // v0.0.9.6.9.28 — potential field sums across all members of this
+    // storm's connected component. Single-storm components collapse to
+    // the old behavior (one peer = self). Overlapping storms produce a
+    // unified envelope at outer thresholds and resolve to individual
+    // cores at inner thresholds — exactly the isobar-merging look.
+    const members = compOf.get(storm.id) || [storm];
+    const pPot = (members.length === 1)
+      ? (x, y) => svgPotential(x, y, primary, pSig1, secondary, pSig2, w2)
+      : (x, y) => {
+          let sum = 0;
+          for (const m of members) {
+            const mCfg = C.STORM_TYPES[m.type];
+            const mP = { x: m.x, y: m.y };
+            const mS = { x: m.x + (m.secondaryOffsetX || 0), y: m.y + (m.secondaryOffsetY || 0) };
+            sum += svgPotential(x, y, mP, mCfg.sigma1 * 0.60, mS, mCfg.sigma2 * 0.60, mCfg.w2);
+          }
+          return sum;
+        };
+    const mPot = (members.length === 1)
+      ? (x, y) => svgPotential(x, y, m1, mSig1, m2, mSig2, w2)
+      : (x, y) => {
+          let sum = 0;
+          for (const m of members) {
+            const mCfg = C.STORM_TYPES[m.type];
+            // Reuse this storm's mass-offset for all peers — keeps the
+            // deterministic-wobble look coherent across a component.
+            const mP1 = { x: m.x + mOff.x, y: m.y + mOff.y };
+            const mP2 = { x: m.x + (m.secondaryOffsetX || 0) + mOff.x * 0.5, y: m.y + (m.secondaryOffsetY || 0) + mOff.y * 0.5 };
+            sum += svgPotential(x, y, mP1, mCfg.sigma1 * 0.68, mP2, mCfg.sigma2 * 0.68, mCfg.w2);
+          }
+          return sum;
+        };
 
     const g = document.createElementNS(ns, 'g');
     g.setAttribute('class', 'route-storm');
@@ -943,24 +1042,28 @@ function renderRouteTooltip() {
     ? getDisplayLabel(id)
     : (getNodeStage(id) >= 2) ? 'unconfirmed' : 'unscanned';
 
+  // v0.0.9.6.9.27 — each distance line now appends an ETA at the
+  // courier's current speed-mult. Estimate, not promise — terrain /
+  // weather changes mid-route invalidate it. Falls back to '\u2014'
+  // when the courier isn't actually moving (no segment, sM = 0).
   const adj = adjacencyFromCurrent(id);
   let body;
   if (adj === 'target') {
     const r = liveRingDistance(id);
-    body = `<span class="tip-dim">current target · ${toKm(r)} to arrive</span>`;
+    body = `<span class="tip-dim">current target · ${toKm(r)} · ${fmtEta(etaSecs(r))} to arrive</span>`;
   } else if (adj === 'adjacent') {
     const r = liveRingDistance(id);
-    body = `<span class="tip-dim">adjacent on ring · ${toKm(r)}</span>`;
+    body = `<span class="tip-dim">adjacent on ring · ${toKm(r)} · ${fmtEta(etaSecs(r))}</span>`;
   } else {
     const r  = liveRingDistance(id);
     const sc = liveShortcutDistance(id);
     const saves = r - sc;
     const savesLine = saves > 0
-      ? `<span class="tip-cta">shortcut saves ${toKm(saves)} · click to cut across</span>`
+      ? `<span class="tip-cta">shortcut saves ${toKm(saves)} (${fmtEta(etaSecs(saves))}) · click to cut across</span>`
       : `<span class="tip-dim">shortcut wouldn't save distance</span>`;
     body = `
-      <span class="tip-row">via ring: ${toKm(r)}</span>
-      <span class="tip-row">via shortcut: ${toKm(sc)}</span>
+      <span class="tip-row">via ring: ${toKm(r)} · ${fmtEta(etaSecs(r))}</span>
+      <span class="tip-row">via shortcut: ${toKm(sc)} · ${fmtEta(etaSecs(sc))}</span>
       ${savesLine}
     `;
   }

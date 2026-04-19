@@ -143,6 +143,34 @@ export function formatPkgTooltip(pkg) {
   return lines.join('\n');
 }
 
+// v0.0.9.6.9.26 — HTML tooltip formatter for the cargo grid. Same
+// content as formatPkgTooltip but emits styled HTML so damaged pkgs
+// can show "13¢ (was 22¢)" with the current value in pink and the
+// original dimmed. Used by the rich-tooltip path in render/hud.js;
+// fieldstrip stays on the plain-text formatter (its pkgs are pristine).
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+export function formatPkgTooltipHTML(pkg) {
+  const modTag = pkg.modifier ? ` (${esc(pkg.modifier)})` : '';
+  const lines = [`<div>[${esc(pkg.size)}] ${esc(pkg.label)}${modTag}</div>`];
+  if (pkg.isRecovery && pkg.recoveryFromPorter) {
+    lines.push(`<div>[recovery from ${esc(shortPorterId(pkg.recoveryFromPorter))}]</div>`);
+  } else if (pkg.isLost) {
+    lines.push(`<div>[lost]</div>`);
+  }
+  lines.push(`<div>\u2192 ${esc(getDisplayLabel(pkg.destId))}</div>`);
+  // Damaged: current scrip in pink, "(was X¢)" dimmed. Undamaged or
+  // missing scripBase: just show current value.
+  const damaged = pkg.damaged && typeof pkg.scripBase === 'number' && pkg.scripBase > pkg.scrip;
+  if (damaged) {
+    lines.push(`<div><span class="rich-tip-hot">${pkg.scrip}\u00a2</span> <span class="rich-tip-dim">(was ${pkg.scripBase}\u00a2)</span></div>`);
+  } else {
+    lines.push(`<div>${pkg.scrip}\u00a2</div>`);
+  }
+  return lines.join('');
+}
+
 // v0.0.9.4.1 — exported for the cursor-pickup path in world.js's
 // fieldstrip click handler so both auto and manual pickup compute
 // the same reach.
@@ -251,6 +279,7 @@ export function rollPkg(destId, cellRisky, forceLost) {
 
   return {
     size, label, kg, slots, scrip,
+    scripBase: scrip,  // v0.0.9.6.9.26 — original payout, preserved through damage so cargo tooltip can show "(was X¢)"
     modifier: mod.id || null,
     isLost: !!forceLost,
     destId,
@@ -339,6 +368,7 @@ export function rollInteriorPkg(terrainOrigin, cellX, cellY) {
 
   return {
     size, label, kg, slots, scrip,
+    scripBase: scrip,  // v0.0.9.6.9.26 — original payout for damaged-pkg tooltip
     modifier: mod.id || null,
     isLost: false,
     destId,
@@ -501,6 +531,7 @@ export function tryOutboundDispatch(originNodeId) {
 
   const pkg = {
     size, label: chosen.label, kg, slots, scrip,
+    scripBase: scrip,  // v0.0.9.6.9.26 — original payout for damaged-pkg tooltip
     modifier: mod.id || null,
     isLost: false,
     destId,

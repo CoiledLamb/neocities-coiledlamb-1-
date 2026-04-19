@@ -493,6 +493,54 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 }
 .has-tooltip:hover::after { opacity: 1; }
 
+/* v0.0.9.6.9.26 — cargo cslots and the strain bar are now served by
+   the JS rich-tooltip (#richTooltip) so per-substring color works
+   and the tooltip can escape #gameShell's overflow:hidden clip.
+   Suppress the CSS ::after on these so we don't get both at once. */
+.cslot.cargo-cslot.has-tooltip::after { content: none !important; }
+.strain-bar.has-tooltip::after { content: none !important; }
+.strain-bar { cursor: help; }
+
+/* Rich tooltip element (body-portaled, position: fixed). Same look
+   as .has-tooltip::after but supports HTML children. */
+.rich-tip {
+  position: fixed;
+  background: #0b2e2d;
+  border: 1px solid #40a4b9;
+  color: #b1c9c3;
+  font-size: 8px;
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 4px 7px;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.1s;
+  line-height: 1.6;
+  min-width: 80px;
+  text-align: left;
+  visibility: hidden;
+}
+.rich-tip.on { opacity: 1; visibility: visible; }
+.rich-tip-head { color: #e0eeec; font-weight: 700; }
+.rich-tip-sub  { color: #7aa8a6; font-size: 8px; }
+.rich-tip-divider {
+  border-top: 1px solid #1e5554;
+  margin: 3px 0;
+}
+.rich-tip-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.rich-tip-lbl { color: #7aa8a6; flex: 0 0 auto; }
+.rich-tip-val { color: #b1c9c3; flex: 1 1 auto; }
+.rich-tip-hot { color: #da8bda; }     /* pink — penalty / damaged */
+.rich-tip-ok  { color: #77bfcf; }     /* cyan — mitigation       */
+.rich-tip-dim { color: #4a7a78; }     /* teal — neutral / "was"  */
+
 /* v0.0.8.3 \u2014 weight segs mirror the cargo grid's 2-row layout.
    Previously a flex row that expanded linearly with maxWeight, which
    became overwhelming at 10+ kg. Grid track sizes are set inline from
@@ -770,16 +818,31 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
    the bar. The fill always reads green→purple→pink across its
    current width, so the tip is always pink and the body stretches
    purple between green tail and pink head as the bar grows. */
+/* v0.0.9.6.9.25 — divider now edge-to-edge across the row and in
+   the same panel/border color (#1e5554) as every other panel seam.
+   Negative vertical margin cancels the row's 4px padding so the
+   line reaches the row border top and bottom. */
 .row-divider {
   display: inline-block;
   width: 1px;
-  height: 14px;
-  background: #1e3d3c;
-  margin: 0 8px;
-  vertical-align: middle;
+  align-self: stretch;
+  background: #1e5554;
+  margin: -4px 8px;
   flex-shrink: 0;
 }
 .strain-label { color: #3a6a68; }  /* same dull green as other row labels */
+/* v0.0.9.6.9.27 — strain % readout next to the bar (mirrors boots-val).
+   Pulls duty from the tooltip head so the tooltip can headline the
+   estimated time-till-trip instead. */
+.strain-val {
+  color: #b1c9c3;
+  min-width: 28px;
+  flex-shrink: 0;
+  font-size: 9px;
+  font-family: 'Source Code Pro', monospace;
+}
+.strain-val.warn { color: #9d78d4; }
+.strain-val.crit { color: #da8bda; }
 .strain-bar {
   position: relative;
   display: inline-block;
@@ -1119,6 +1182,26 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 }
 .kit-cap.gear-cap.empty .gear-glyph { color: #2a5c5a; }
 .kit-cap.gear-cap.empty .kit-cap-val { color: #3a6a68; }
+
+/* v0.0.9.6.9.25 — ladder glyph is now an inline SVG instead of a
+   dash pair. Sized to match the gun-web glyph footprint so all
+   kit-cap labels share a baseline. */
+.kit-cap.gear-cap .ladder-lbl {
+  display: inline-flex;
+  align-items: center;
+  width: 12px;
+  height: 12px;
+  color: inherit;
+}
+.kit-cap.gear-cap .ladder-lbl .ladder-glyph {
+  width: 100%;
+  height: 100%;
+}
+
+/* v0.0.9.6.9.25 — push the gear group (ladder + anchor + auto-gear)
+   to the right edge of .kit-caps. Scanner / gun, when present, stay
+   on the left as always-active tools. */
+.kit-caps #gearLadderCap { margin-left: auto; }
 .kit-buy-btn {
   background: transparent;
   color: #3a6a68;
@@ -1132,11 +1215,13 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .kit-buy-btn:hover { color: #7fa39c; border-color: #2a5c5a; }
 .kit-buy-btn:active { color: #b1c9c3; }
 /* v0.0.9.6.9.9 — the auto-gear button now uses the `.boots-auto`
-   class (matching autobuy / autodrink / auto-grab). The only kit-row
-   specific styling left is the "push to far right" margin, scoped by
-   id so the shared class stays generic. Resolves the long-standing
-   HANDOFF note about inverted on/off styling for this button. */
-#kitAutoGearBtn { margin-left: auto; }
+   class (matching autobuy / autodrink / auto-grab). Resolves the
+   long-standing HANDOFF note about inverted on/off styling for
+   this button.
+   v0.0.9.6.9.25 — auto-margin moved off auto-gear and onto the
+   ladder cap (above) so the whole gear group (ladder + anchor +
+   auto-gear) packs tight against the right edge. With auto-margin
+   on both, flex split the slack and centered the gear pair. */
 
 /* v0.0.9.6 commit 4 — placed gear glyphs on the route map. Wear
    color comes from the inline fill in route-map.js; this just

@@ -37,6 +37,8 @@
 
 import { S } from './state.js';
 import { addLog } from './render/log.js';
+import { bindStrainTooltip } from './render/strain-tip.js';
+import { emit as tEmit } from './telemetry.js';
 
 const els = S._transient.els;
 
@@ -119,6 +121,22 @@ export function renderStamina() {
   }
   const strainBar = document.getElementById('strainBar');
   if (strainBar) strainBar.setAttribute('aria-valuenow', String(Math.round((S.strain || 0) * 100)));
+  // v0.0.9.6.9.27 — strain % moved out of tooltip and into a sibling
+  // .strain-val readout (mirrors boots-val). Tooltip now headlines the
+  // estimated time-till-trip; the percent here is the at-a-glance.
+  const strainValEl = document.getElementById('strainVal');
+  if (strainValEl) {
+    const pct = Math.round((S.strain || 0) * 100);
+    const txt = pct + '%';
+    if (strainValEl.textContent !== txt) strainValEl.textContent = txt;
+    const cls = pct >= 85 ? 'strain-val crit'
+              : pct >= 60 ? 'strain-val warn'
+              :             'strain-val';
+    if (strainValEl.className !== cls) strainValEl.className = cls;
+  }
+  // v0.0.9.6.9.26 — wire the strain rich-tooltip on first paint. The
+  // bind is idempotent; subsequent renders skip past the guard.
+  bindStrainTooltip();
 
   // v0.0.9.6.9.18 — rest button: disabled unless the courier is
   // currently walking or carrying (can't rest while already resting
@@ -129,17 +147,13 @@ export function renderStamina() {
     restBtn.disabled = !eligible;
   }
 
-  const nowSegs = staminaSegCount();
-  // v0.0.9.5.1 — auto-drink safety net. The seg-transition trigger
-  // (nowSegs < prevStaminaSeg) misses scenarios where prevStaminaSeg
-  // ends up equal to nowSegs while stamina is still draining — e.g.
-  // renderStamina gets called mid-drain from a non-tick path, or the
-  // player's staminaMax is high enough that drain within seg 1 takes
-  // many ticks. Fall-through: if stamina is at or below 15% max and
-  // we have water to drink, fire regardless of seg transition.
-  const critLow = S.stamina <= S.staminaMax * 0.15;
-  if (S.autodrink && canDrink() && (nowSegs < S.prevStaminaSeg || critLow)) drinkWater();
-  S.prevStaminaSeg = nowSegs;
+  // v0.0.9.6.9.28 — autodrink + prevStaminaSeg tracking moved out of
+  // renderStamina into tickAutodrink() (exported below) and called
+  // from main.js tick() regardless of simMode. Previously this block
+  // lived here and relied on renderStamina being called every tick,
+  // which only happened in non-sim play. Headless sims skipped
+  // renderStamina → autodrink never fired → canteen stayed full and
+  // stamina pinned at 0, polluting strain telemetry.
   const canteenPct = Math.round((S.canteen/S.canteenMax)*100);
   if (els.drinkBtn) {
     els.drinkBtn.textContent = `drink (${canteenPct}%)`;
@@ -171,14 +185,34 @@ export function renderStamina() {
   }
 }
 
+// v0.0.9.6.9.28 — decoupled per-tick autodrink logic. Called from
+// main.js's tick() every tick regardless of sim mode so headless
+// sims exercise the drink loop the same way live play does.
+// Fires on any seg decrement (nowSegs < prevSeg) OR whenever stamina
+// crosses below 15% of max (critLow safety net).
+export function tickAutodrink() {
+  const nowSegs = staminaSegCount();
+  const critLow = S.stamina <= S.staminaMax * 0.15;
+  if (S.autodrink && canDrink() && (nowSegs < S.prevStaminaSeg || critLow)) drinkWater();
+  S.prevStaminaSeg = nowSegs;
+}
+
 export function drinkWater() {
   if (!canDrink()) return;
   const need = S.staminaMax - S.stamina;
   const rest = Math.min(need, (S.canteen/S.canteenMax) * S.staminaMax);
+  const canteenBefore = S.canteen;
   S.stamina  = Math.min(S.staminaMax, S.stamina+rest);
   const drainMult = S.upgrades.efficientConsumption ? 0.60 : 1.0;
   S.canteen  = Math.max(0, S.canteen-(rest/S.staminaMax)*S.canteenMax*drainMult);
   if (S.canteen < S.canteenMax * 0.005) S.canteen = 0;
+  // v0.0.9.6.9.28 — emit drink telemetry so sim can see how often
+  // autodrink fires and how much stamina it restores per sip.
+  tEmit('canteen.drink', {
+    stamina_restored_pct: Math.round(rest / S.staminaMax * 100),
+    canteen_before_pct:   Math.round(canteenBefore / S.canteenMax * 100),
+    canteen_after_pct:    Math.round(S.canteen / S.canteenMax * 100),
+  });
   addLog(`drank from canteen \u2014 <span class="log-hi">+${Math.round(rest/S.staminaMax*100)}% stamina</span>`);
 }
 
