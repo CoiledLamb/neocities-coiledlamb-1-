@@ -758,7 +758,18 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
      warn    #9d78d4 (purple — matches stamina .half)
      crit    #da8bda (pink   — matches stamina .crit + log-wn)
    Pairs with #restBtn. Classes renamed .warm/.hot → .warn to match
-   user-facing framing: build-up goes base → warn → crit before trip. */
+   user-facing framing: build-up goes base → warn → crit before trip.
+   v0.0.9.6.9.23 — fill is now a fixed gradient pinned to the bar's
+   60px width; growing the fill reveals more of the same continuous
+   green→purple→pink spectrum instead of swapping a flat color. .warn
+   and .crit no longer override background or animate — the gradient
+   itself communicates how deep into strain the courier is, with no
+   pulse. (Wound-coil texture concept parked in strain-mock.html for
+   later — too noisy at the in-game 60×10 size.)
+   v0.0.9.6.9.24 — gradient is now anchored to the fill itself, not
+   the bar. The fill always reads green→purple→pink across its
+   current width, so the tip is always pink and the body stretches
+   purple between green tail and pink head as the bar grows. */
 .row-divider {
   display: inline-block;
   width: 1px;
@@ -784,15 +795,22 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   position: absolute;
   top: 0; left: 0; bottom: 0;
   width: 0%;
-  background: #3a5a55;
-  transition: width 0.3s, background-color 0.3s;
+  background:
+    linear-gradient(
+      to right,
+      #3a5a55  0%,
+      #4a6a78 22%,
+      #6a6aa8 45%,
+      #9d78d4 68%,
+      #c688d4 85%,
+      #da8bda 100%);
+  transition: width 0.3s;
 }
-.strain-bar-fill.warn { background: #9d78d4; }
-.strain-bar-fill.crit { background: #da8bda; animation: strain-crit-pulse 0.7s ease-in-out infinite alternate; }
-@keyframes strain-crit-pulse {
-  from { background: #da8bda; box-shadow: inset 0 0 6px rgba(218, 139, 218, 0.45); }
-  to   { background: #eaabea; box-shadow: inset 0 0 10px rgba(234, 171, 234, 0.90); }
-}
+/* .warn / .crit kept as no-op class hooks so JS can still tag the
+   element for any future cue (sound, screenshake) without breaking
+   the moving purple→pink gradient. */
+.strain-bar-fill.warn,
+.strain-bar-fill.crit {}
 #restBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
