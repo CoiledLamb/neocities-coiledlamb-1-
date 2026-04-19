@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'>
+<title>strain bar — mockup v2</title>
+<style>
+  body {
+    background: #0a1414;
+    color: #cfe;
+    font-family: ui-monospace, 'Cascadia Mono', Menlo, monospace;
+    font-size: 13px;
+    padding: 28px 32px 80px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 14px; color: #6fa; margin: 0 0 4px; font-weight: normal; }
+  h2 { font-size: 12px; color: #9d78d4; margin: 28px 0 4px; font-weight: normal; letter-spacing: 0.5px; }
+  .sub { color: #4a7a78; margin-bottom: 16px; }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 10px 0;
+  }
+  .lbl { color: #3a6a68; width: 60px; font-size: 11px; }
+  .val { color: #4a7a78; font-size: 11px; min-width: 60px; }
+  hr { border: none; border-top: 1px solid #1a2a2a; margin: 28px 0 8px; }
+  .note { color: #4a6a68; font-size: 11px; max-width: 620px; margin-top: 6px; }
+  code { color: #9d78d4; }
+
+  /* ============================================================
+     SHARED — fixed gradient strip + reveal cover
+     The colored gradient is a fixed-position underlay; only the
+     LEFT portion (= --v) is exposed. Texture sits on top of the
+     gradient and is revealed alongside it.
+     ============================================================ */
+  .sb {
+    position: relative;
+    width: 260px;
+    height: 18px;
+    border: 1px solid #2a4040;
+    background: #0d1818;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .sb.tall { height: 28px; }
+  .sb.real { width: 60px; height: 10px; }
+  .sb-cover {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: calc(var(--v, 0) * 100%);
+    right: 0;
+    background: #0d1818;
+    /* faint dark seam, no animation */
+    border-left: 1px solid #20302f;
+  }
+
+  /* shared gradient — same color stops everywhere */
+  .grad-strip {
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      to right,
+      #3a5a55 0%,
+      #4a6a78 22%,
+      #6a6aa8 45%,
+      #9d78d4 68%,
+      #c688d4 85%,
+      #da8bda 100%
+    );
+  }
+
+  /* ============================================================
+     A — PIPE under strain
+     Horizontal tube: gradient + cylindrical shading (top/bottom dark,
+     middle bright). Stress highlights are diagonal white hairlines
+     that get brighter and crisper toward the pink (strained) end.
+     ============================================================ */
+  .pipe-shade {
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.55) 0%,
+      rgba(0,0,0,0.10) 18%,
+      rgba(255,255,255,0.10) 42%,
+      rgba(255,255,255,0.18) 50%,
+      rgba(255,255,255,0.10) 58%,
+      rgba(0,0,0,0.10) 82%,
+      rgba(0,0,0,0.55) 100%
+    );
+    mix-blend-mode: overlay;
+  }
+  .pipe-stress {
+    position: absolute; inset: 0;
+    background-image:
+      /* bright hot specular bands — short, irregular */
+      repeating-linear-gradient(
+        88deg,
+        rgba(255,255,255,0.00) 0px,
+        rgba(255,255,255,0.00) 14px,
+        rgba(255,255,255,0.95) 14px,
+        rgba(255,255,255,0.95) 14.7px,
+        rgba(255,255,255,0.00) 14.7px,
+        rgba(255,255,255,0.00) 32px
+      ),
+      /* dark counter-stress (where the tube is compressed) */
+      repeating-linear-gradient(
+        92deg,
+        rgba(0,0,0,0.00) 0px,
+        rgba(0,0,0,0.00) 22px,
+        rgba(0,0,0,0.55) 22px,
+        rgba(0,0,0,0.55) 23.5px,
+        rgba(0,0,0,0.00) 23.5px,
+        rgba(0,0,0,0.00) 51px
+      );
+    -webkit-mask-image: linear-gradient(to right,
+      rgba(0,0,0,0)    0%,
+      rgba(0,0,0,0.05) 30%,
+      rgba(0,0,0,0.40) 60%,
+      rgba(0,0,0,0.85) 85%,
+      rgba(0,0,0,1)   100%);
+            mask-image: linear-gradient(to right,
+      rgba(0,0,0,0)    0%,
+      rgba(0,0,0,0.05) 30%,
+      rgba(0,0,0,0.40) 60%,
+      rgba(0,0,0,0.85) 85%,
+      rgba(0,0,0,1)   100%);
+  }
+
+  /* ============================================================
+     B — VERTEBRAE
+     Segmented bar — vertical dark slits at fixed positions divide
+     the gradient into ~10 chunks. The slits glow bright white where
+     the bar is strained (toward pink). Each chunk catches a slight
+     top/bottom shadow so it reads as a discrete bone segment.
+     ============================================================ */
+  .vert-slits {
+    position: absolute; inset: 0;
+    background-image:
+      /* the slits themselves — narrow black bands, evenly spaced */
+      repeating-linear-gradient(
+        to right,
+        rgba(0,0,0,0)    0px,
+        rgba(0,0,0,0)   24px,
+        rgba(0,0,0,0.85) 24px,
+        rgba(0,0,0,0.85) 26px
+      );
+  }
+  .vert-glow {
+    position: absolute; inset: 0;
+    background-image:
+      /* bright white core inside each slit, only shows under stress */
+      repeating-linear-gradient(
+        to right,
+        rgba(255,255,255,0)    0px,
+        rgba(255,255,255,0)   24.5px,
+        rgba(255,255,255,1.0) 24.5px,
+        rgba(255,255,255,1.0) 25.5px
+      );
+    -webkit-mask-image: linear-gradient(to right,
+      rgba(0,0,0,0) 30%,
+      rgba(0,0,0,0.20) 50%,
+      rgba(0,0,0,0.70) 75%,
+      rgba(0,0,0,1.00) 100%);
+            mask-image: linear-gradient(to right,
+      rgba(0,0,0,0) 30%,
+      rgba(0,0,0,0.20) 50%,
+      rgba(0,0,0,0.70) 75%,
+      rgba(0,0,0,1.00) 100%);
+  }
+  .vert-shade {
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.30) 0%,
+      rgba(0,0,0,0.00) 28%,
+      rgba(0,0,0,0.00) 72%,
+      rgba(0,0,0,0.30) 100%
+    );
+  }
+
+  /* ============================================================
+     C — WOUND COIL
+     Diagonal repeating bands (steep angle) read as tightly-wound
+     wire/cable. Each "loop" has a dark trough and a bright crest.
+     Crests get brighter toward pink — coils are tensed where the
+     pipe is strained. Subtle horizontal shading gives 3D depth.
+     ============================================================ */
+  .coil-shade {
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.45) 0%,
+      rgba(0,0,0,0.00) 50%,
+      rgba(0,0,0,0.45) 100%
+    );
+    mix-blend-mode: multiply;
+  }
+  .coil-wrap {
+    position: absolute; inset: 0;
+    background-image:
+      /* dark trough between coils */
+      repeating-linear-gradient(
+        72deg,
+        rgba(0,0,0,0.00)   0px,
+        rgba(0,0,0,0.00)   5px,
+        rgba(0,0,0,0.65)   5px,
+        rgba(0,0,0,0.65)   6.4px,
+        rgba(0,0,0,0.00)   6.4px,
+        rgba(0,0,0,0.00)   10px
+      );
+  }
+  .coil-crest {
+    position: absolute; inset: 0;
+    background-image:
+      /* bright tensed crest of each coil — sits next to the trough */
+      repeating-linear-gradient(
+        72deg,
+        rgba(255,255,255,0.00) 0px,
+        rgba(255,255,255,0.00) 7px,
+        rgba(255,255,255,0.95) 7px,
+        rgba(255,255,255,0.95) 7.9px,
+        rgba(255,255,255,0.00) 7.9px,
+        rgba(255,255,255,0.00) 10px
+      );
+    -webkit-mask-image: linear-gradient(to right,
+      rgba(0,0,0,0)    0%,
+      rgba(0,0,0,0.10) 25%,
+      rgba(0,0,0,0.45) 55%,
+      rgba(0,0,0,0.85) 80%,
+      rgba(0,0,0,1)   100%);
+            mask-image: linear-gradient(to right,
+      rgba(0,0,0,0)    0%,
+      rgba(0,0,0,0.10) 25%,
+      rgba(0,0,0,0.45) 55%,
+      rgba(0,0,0,0.85) 80%,
+      rgba(0,0,0,1)   100%);
+  }
+
+  /* ============================================================
+     D — HYBRID: pipe shading + coil wrap (the "industrial cable")
+     Pipe-style top/bottom shading gives it body, coil bands wrap
+     across — bright white tensed crests near the pink end.
+     ============================================================ */
+</style>
+</head>
+<body>
+
+<h1>strain bar — concepts (no animation)</h1>
+<div class='sub'>fixed gradient underlay, reveal cover. stress = static bright/dark texture, intensifying toward pink.</div>
+
+<h2>A · pipe under strain</h2>
+<div class='sub'>cylindrical shading + diagonal stress hairlines (bright white near pink, dark counter-stress trailing)</div>
+<div class='row'><span class='lbl'>0%</span>
+  <div class='sb' style='--v: 0.00'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='pipe-stress'></div><div class='sb-cover'></div></div>
+  <span class='val'>fresh</span></div>
+<div class='row'><span class='lbl'>30%</span>
+  <div class='sb' style='--v: 0.30'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='pipe-stress'></div><div class='sb-cover'></div></div>
+  <span class='val'>warming</span></div>
+<div class='row'><span class='lbl'>60%</span>
+  <div class='sb' style='--v: 0.60'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='pipe-stress'></div><div class='sb-cover'></div></div>
+  <span class='val'>warn</span></div>
+<div class='row'><span class='lbl'>85%</span>
+  <div class='sb' style='--v: 0.85'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='pipe-stress'></div><div class='sb-cover'></div></div>
+  <span class='val'>crit</span></div>
+<div class='row'><span class='lbl'>100%</span>
+  <div class='sb tall' style='--v: 1.00'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='pipe-stress'></div><div class='sb-cover'></div></div>
+  <span class='val'>maxed (tall)</span></div>
+
+<h2>B · vertebrae</h2>
+<div class='sub'>segmented; bright white slits between bones glow only where strained</div>
+<div class='row'><span class='lbl'>0%</span>
+  <div class='sb' style='--v: 0.00'><div class='grad-strip'></div><div class='vert-shade'></div><div class='vert-slits'></div><div class='vert-glow'></div><div class='sb-cover'></div></div>
+  <span class='val'>fresh</span></div>
+<div class='row'><span class='lbl'>30%</span>
+  <div class='sb' style='--v: 0.30'><div class='grad-strip'></div><div class='vert-shade'></div><div class='vert-slits'></div><div class='vert-glow'></div><div class='sb-cover'></div></div>
+  <span class='val'>warming</span></div>
+<div class='row'><span class='lbl'>60%</span>
+  <div class='sb' style='--v: 0.60'><div class='grad-strip'></div><div class='vert-shade'></div><div class='vert-slits'></div><div class='vert-glow'></div><div class='sb-cover'></div></div>
+  <span class='val'>warn</span></div>
+<div class='row'><span class='lbl'>85%</span>
+  <div class='sb' style='--v: 0.85'><div class='grad-strip'></div><div class='vert-shade'></div><div class='vert-slits'></div><div class='vert-glow'></div><div class='sb-cover'></div></div>
+  <span class='val'>crit</span></div>
+<div class='row'><span class='lbl'>100%</span>
+  <div class='sb tall' style='--v: 1.00'><div class='grad-strip'></div><div class='vert-shade'></div><div class='vert-slits'></div><div class='vert-glow'></div><div class='sb-cover'></div></div>
+  <span class='val'>maxed (tall)</span></div>
+
+<h2>C · wound coil</h2>
+<div class='sub'>tightly-wrapped diagonal coils; bright crests where the cable is tensed</div>
+<div class='row'><span class='lbl'>0%</span>
+  <div class='sb' style='--v: 0.00'><div class='grad-strip'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='coil-shade'></div><div class='sb-cover'></div></div>
+  <span class='val'>fresh</span></div>
+<div class='row'><span class='lbl'>30%</span>
+  <div class='sb' style='--v: 0.30'><div class='grad-strip'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='coil-shade'></div><div class='sb-cover'></div></div>
+  <span class='val'>warming</span></div>
+<div class='row'><span class='lbl'>60%</span>
+  <div class='sb' style='--v: 0.60'><div class='grad-strip'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='coil-shade'></div><div class='sb-cover'></div></div>
+  <span class='val'>warn</span></div>
+<div class='row'><span class='lbl'>85%</span>
+  <div class='sb' style='--v: 0.85'><div class='grad-strip'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='coil-shade'></div><div class='sb-cover'></div></div>
+  <span class='val'>crit</span></div>
+<div class='row'><span class='lbl'>100%</span>
+  <div class='sb tall' style='--v: 1.00'><div class='grad-strip'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='coil-shade'></div><div class='sb-cover'></div></div>
+  <span class='val'>maxed (tall)</span></div>
+
+<h2>D · pipe + coil hybrid</h2>
+<div class='sub'>pipe shading underneath, coil bands across the top — reads as wrapped industrial cable</div>
+<div class='row'><span class='lbl'>0%</span>
+  <div class='sb' style='--v: 0.00'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='sb-cover'></div></div>
+  <span class='val'>fresh</span></div>
+<div class='row'><span class='lbl'>30%</span>
+  <div class='sb' style='--v: 0.30'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='sb-cover'></div></div>
+  <span class='val'>warming</span></div>
+<div class='row'><span class='lbl'>60%</span>
+  <div class='sb' style='--v: 0.60'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='sb-cover'></div></div>
+  <span class='val'>warn</span></div>
+<div class='row'><span class='lbl'>85%</span>
+  <div class='sb' style='--v: 0.85'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='sb-cover'></div></div>
+  <span class='val'>crit</span></div>
+<div class='row'><span class='lbl'>100%</span>
+  <div class='sb tall' style='--v: 1.00'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='sb-cover'></div></div>
+  <span class='val'>maxed (tall)</span></div>
+
+<hr>
+
+<h2>real size · 60×10 (in-game) — sanity check</h2>
+<div class='sub'>same four concepts at the actual bar dimensions — see what survives</div>
+<div class='row'><span class='lbl'>A pipe</span>
+  <div class='sb real' style='--v: 0.85'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='pipe-stress'></div><div class='sb-cover'></div></div>
+  <div class='sb real' style='--v: 0.40'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='pipe-stress'></div><div class='sb-cover'></div></div>
+</div>
+<div class='row'><span class='lbl'>B vert</span>
+  <div class='sb real' style='--v: 0.85'><div class='grad-strip'></div><div class='vert-shade'></div><div class='vert-slits'></div><div class='vert-glow'></div><div class='sb-cover'></div></div>
+  <div class='sb real' style='--v: 0.40'><div class='grad-strip'></div><div class='vert-shade'></div><div class='vert-slits'></div><div class='vert-glow'></div><div class='sb-cover'></div></div>
+</div>
+<div class='row'><span class='lbl'>C coil</span>
+  <div class='sb real' style='--v: 0.85'><div class='grad-strip'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='coil-shade'></div><div class='sb-cover'></div></div>
+  <div class='sb real' style='--v: 0.40'><div class='grad-strip'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='coil-shade'></div><div class='sb-cover'></div></div>
+</div>
+<div class='row'><span class='lbl'>D hybrid</span>
+  <div class='sb real' style='--v: 0.85'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='sb-cover'></div></div>
+  <div class='sb real' style='--v: 0.40'><div class='grad-strip'></div><div class='pipe-shade'></div><div class='coil-wrap'></div><div class='coil-crest'></div><div class='sb-cover'></div></div>
+</div>
+
+<p class='note'>
+  no animation anywhere. fixed gradient (full bar) + reveal cover for fill,
+  static texture overlay with a left→right opacity mask so the dark/bright
+  stress only shows on the strained portion.
+</p>
+
+</body>
+</html>

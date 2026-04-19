@@ -165,7 +165,7 @@ export function weatherAtCell(ci) {
 
 /** Roll a spawn location: ring-edge (with wetland bias) or interior
  *  (random point inside ring polygon). */
-function rollSpawnLocation() {
+function rollSpawnLocationRaw() {
   if (Math.random() >= C.STORM_INTERIOR_SPAWN_PCT) {
     // Ring spawn with wetland bias
     let edgeIdx = Math.floor(Math.random() * (S.edges ? S.edges.length : 12));
@@ -193,6 +193,21 @@ function rollSpawnLocation() {
     if (pointInRing(x, y)) return { x, y, isInterior: true };
   }
   return { x: 200, y: 200, isInterior: true };
+}
+
+/** v0.0.9.6.9.29 — pole-aware spawn: resample up to N times until we
+ *  land somewhere the climate field likes. Repeller zones (desert)
+ *  reject with probability 1 - exp(effect × K); attractor zones
+ *  always pass. Falls back to last sampled location if every attempt
+ *  lands in a repeller (rare given 8 attempts × exp falloff). */
+function rollSpawnLocation() {
+  let last = null;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const loc = rollSpawnLocationRaw();
+    last = loc;
+    if (acceptSpawnLocation(loc.x, loc.y)) return loc;
+  }
+  return last;
 }
 
 /** Schedule the next storm + pre-roll type, location, and nearest-
@@ -242,6 +257,9 @@ function spawnStormFromPreroll() {
     seed: Math.floor(Math.random() * 100000),
     isInterior: !!p.isInterior,
     intersects: [],
+    // v0.0.9.6.9.28 — soft-merge state
+    mergingWith: null,   // id of peer while approaching
+    mergedBonus: 1.0,    // dissipate-chance multiplier (<1 = slower)
   };
   S.storms.push(storm);
   tEmit('storm.spawned', { type: storm.type, isInterior: storm.isInterior });
@@ -254,21 +272,131 @@ function moveStorm(storm) {
   // STORM_DISSIPATE_CHANCE once past STORM_MIN_AGE_TICKS.
 }
 
+// ============================================================
+// v0.0.9.6.9.29 — CLIMATE POLES (spawn bias + drift + dissipate)
+// ============================================================
+
+/** Sum of (pull × gaussian falloff) across every climate pole at
+ *  (x, y). Positive = net attractor (wetland / ruins / mountains);
+ *  negative = net repeller (desert). Used by:
+ *    - rollSpawnLocation (exp-weighted accept/reject)
+ *    - dissipation (boost in repeller zones)
+ *    - tickWeather drift (gradient-style nudge per tick) */
+function climateEffectAt(x, y) {
+  let effect = 0;
+  for (const pole of C.CLIMATE_POLES) {
+    const dx = pole.x - x;
+    const dy = pole.y - y;
+    const d2 = dx * dx + dy * dy;
+    const r2 = pole.range * pole.range;
+    effect += pole.pull * Math.exp(-d2 / r2);
+  }
+  return effect;
+}
+
+/** Per-tick storm drift from the climate-pole field. Each pole
+ *  contributes a velocity nudge toward (attractor) or away from
+ *  (repeller) itself, scaled by gaussian falloff + CLIMATE_DRIFT_SCALE.
+ *  Magnitude is << Fujiwhara so it reads as a prevailing breeze, not
+ *  a hard pull. */
+function applyClimateDrift(storm) {
+  let dx = 0, dy = 0;
+  for (const pole of C.CLIMATE_POLES) {
+    const px = pole.x - storm.x;
+    const py = pole.y - storm.y;
+    const d  = Math.hypot(px, py);
+    if (d < 0.5) continue;
+    const falloff = Math.exp(-(d * d) / (pole.range * pole.range));
+    const mag = pole.pull * falloff * C.CLIMATE_DRIFT_SCALE;
+    dx += (px / d) * mag;
+    dy += (py / d) * mag;
+  }
+  storm.x += dx;
+  storm.y += dy;
+}
+
+/** Accept a candidate spawn location with probability weighted by
+ *  its climate effect. Attractor zones (effect > 0) always accept;
+ *  repeller zones (effect < 0) accept with exp(effect × K) < 1. */
+function acceptSpawnLocation(x, y) {
+  const eff = climateEffectAt(x, y);
+  if (eff >= 0) return true;
+  return Math.random() < Math.exp(eff * C.CLIMATE_SPAWN_BIAS_K);
+}
+
 function removeStorm(storm) {
   const idx = S.storms.indexOf(storm);
   if (idx >= 0) S.storms.splice(idx, 1);
   tEmit('storm.ended', { type: storm.type, age: storm.age });
+  // v0.0.9.6.9.28 — succession: a natural dissipation has a small
+  // chance of seeding a new storm nearby. Seeds respect the normal
+  // spawn cap when they actually fire; if the cap is full at seed
+  // time the seed is silently cancelled (no queue build-up).
+  if (Math.random() < C.STORM_SUCCESSION_CHANCE) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = Math.random() * C.STORM_SUCCESSION_RADIUS;
+    const sx    = storm.x + Math.cos(angle) * dist;
+    const sy    = storm.y + Math.sin(angle) * dist;
+    if (!S._transient.pendingStormSeeds) S._transient.pendingStormSeeds = [];
+    S._transient.pendingStormSeeds.push({
+      x: sx, y: sy,
+      type: storm.type,           // inherit type — regional weather consistency
+      spawnTick: S.ticks + C.STORM_SUCCESSION_DELAY,
+    });
+    tEmit('storm.seeded', { type: storm.type });
+  }
+}
+
+// v0.0.9.6.9.28 — promote a pending seed to an actual storm when its
+// delay expires. Respects MAX_CONCURRENT_STORMS (silently drops the
+// seed if at cap). Mirrors spawnStormFromPreroll but with explicit
+// x/y/type rather than pulling from S.nextStormSpawn.
+function spawnStormAt(x, y, type) {
+  const typeCfg = C.STORM_TYPES[type];
+  if (!typeCfg) return;
+  const angle = Math.random() * Math.PI * 2;
+  const dx    = Math.cos(angle) * typeCfg.speedSvg;
+  const dy    = Math.sin(angle) * typeCfg.speedSvg;
+  const offAngle = Math.random() * Math.PI * 2;
+  const offDist  = 18 + Math.random() * 18;
+  const storm = {
+    id: S._transient.stormIdCounter++,
+    type, x, y, dx, dy,
+    secondaryOffsetX: Math.cos(offAngle) * offDist,
+    secondaryOffsetY: Math.sin(offAngle) * offDist,
+    age: 0,
+    seed: Math.floor(Math.random() * 100000),
+    isInterior: false,   // succession seeds aren't tracked as interior-origin
+    intersects: [],
+    mergingWith: null,
+    mergedBonus: 1.0,
+  };
+  S.storms.push(storm);
+  tEmit('storm.spawned', { type, isInterior: false, succession: true });
+}
+
+function processPendingStormSeeds() {
+  const pending = S._transient.pendingStormSeeds;
+  if (!pending || pending.length === 0) return;
+  const kept = [];
+  for (const seed of pending) {
+    if (S.ticks < seed.spawnTick) { kept.push(seed); continue; }
+    // Silently drop if at storm cap
+    if (S.storms.length >= C.MAX_CONCURRENT_STORMS) continue;
+    spawnStormAt(seed.x, seed.y, seed.type);
+  }
+  S._transient.pendingStormSeeds = kept;
 }
 
 // ============================================================
-// COMBINE / INTERSECT DETECTION (stub, no merging behavior)
+// COMBINE / INTERSECT DETECTION + SOFT MERGE
 // ============================================================
 
 /** Pairwise overlap detection. Each storm gets .intersects[] populated
  *  with { otherId, overlapPct }. Overlap % is a linear approximation
- *  of circle-intersection relative to the smaller radius. Commit 7
- *  ships detection only; merge / cancel behavior deferred to v0.0.9.9+.
- *  Intensity-gradient behavior already lives in weatherAtPoint. */
+ *  of circle-intersection relative to the smaller radius.
+ *  Intensity-gradient behavior already lives in weatherAtPoint; merge
+ *  behavior lives in applyMergeDynamics (v0.0.9.6.9.28). */
 export function detectStormIntersections() {
   const storms = S.storms;
   if (!storms) return;
@@ -286,6 +414,112 @@ export function detectStormIntersections() {
         a.intersects.push({ otherId: b.id, overlapPct });
         b.intersects.push({ otherId: a.id, overlapPct });
       }
+    }
+  }
+}
+
+// v0.0.9.6.9.28 — type-promotion table for merge finalization. The
+// merged storm takes the "heavier" of the two types, except two
+// squalls combine into a front (small+small = medium) and two fronts
+// combine into a deluge (medium+medium = large). Deluge never
+// promotes further.
+const STORM_PROMOTE = {
+  'squall+squall': 'front',
+  'squall+front':  'front',
+  'front+squall':  'front',
+  'squall+deluge': 'deluge',
+  'deluge+squall': 'deluge',
+  'front+front':   'deluge',
+  'front+deluge':  'deluge',
+  'deluge+front':  'deluge',
+  'deluge+deluge': 'deluge',
+};
+function promoteType(aType, bType) {
+  return STORM_PROMOTE[`${aType}+${bType}`] || aType;
+}
+
+// v0.0.9.6.9.28 — finalize a merging pair into a single storm. Runs
+// once centers are close enough that the rendered contour is already
+// visually indistinguishable from a single lobe, so the swap is
+// invisible to the player. Survivor takes the weighted-centroid
+// position + velocity and promotes type; partner is removed.
+function finalizeMerge(a, b) {
+  const ra = C.STORM_TYPES[a.type].radiusSvg;
+  const rb = C.STORM_TYPES[b.type].radiusSvg;
+  const wa = ra * ra, wb = rb * rb;
+  const wSum = wa + wb;
+  const cx = (a.x * wa + b.x * wb) / wSum;
+  const cy = (a.y * wa + b.y * wb) / wSum;
+  const vx = (a.dx * wa + b.dx * wb) / wSum;
+  const vy = (a.dy * wa + b.dy * wb) / wSum;
+  const survivor = a;  // arbitrary — we mutate a and remove b
+  survivor.type        = promoteType(a.type, b.type);
+  survivor.x           = cx;
+  survivor.y           = cy;
+  survivor.dx          = vx;
+  survivor.dy          = vy;
+  survivor.age         = Math.max(a.age, b.age);
+  survivor.mergedBonus = Math.min(survivor.mergedBonus, C.STORM_MERGED_BONUS);
+  survivor.mergingWith = null;
+  // Remove partner
+  const idx = S.storms.indexOf(b);
+  if (idx >= 0) S.storms.splice(idx, 1);
+  tEmit('storm.merged', {
+    type:      survivor.type,
+    fromTypes: [a.type === survivor.type ? '_' : a.type, b.type === survivor.type ? '_' : b.type],
+  });
+}
+
+/** v0.0.9.6.9.28 — tag merging pairs, apply Fujiwhara drift, finalize
+ *  when centers converge. Runs after detectStormIntersections (which
+ *  populates .intersects). Pairs are formed greedily: each storm tags
+ *  at most one partner per tick, chosen by highest overlapPct. */
+export function applyMergeDynamics() {
+  const storms = S.storms;
+  if (!storms || storms.length < 2) {
+    for (const s of storms || []) s.mergingWith = null;
+    return;
+  }
+  // Clear stale tags; re-derive every tick so breakups happen
+  // automatically when storms drift apart.
+  for (const s of storms) s.mergingWith = null;
+  // Greedy pairing by max overlapPct
+  for (const a of storms) {
+    if (a.mergingWith != null) continue;
+    let best = null, bestPct = C.STORM_MERGE_THRESHOLD;
+    for (const inter of a.intersects) {
+      if (inter.overlapPct < bestPct) continue;
+      const b = storms.find(s => s.id === inter.otherId);
+      if (!b || b.mergingWith != null) continue;
+      best = b; bestPct = inter.overlapPct;
+    }
+    if (best) { a.mergingWith = best.id; best.mergingWith = a.id; }
+  }
+  // Fujiwhara drift — nudge each merging storm toward its peer
+  for (const a of storms) {
+    if (a.mergingWith == null) continue;
+    const b = storms.find(s => s.id === a.mergingWith);
+    if (!b) { a.mergingWith = null; continue; }
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const d  = Math.hypot(dx, dy);
+    if (d < 0.5) continue;
+    a.x += (dx / d) * C.STORM_MERGE_ATTRACT;
+    a.y += (dy / d) * C.STORM_MERGE_ATTRACT;
+  }
+  // Finalization — collapse pairs whose centers closed in enough
+  const consumed = new Set();
+  for (const a of storms.slice()) {
+    if (consumed.has(a.id) || a.mergingWith == null) continue;
+    const b = storms.find(s => s.id === a.mergingWith);
+    if (!b || consumed.has(b.id)) continue;
+    const ra = C.STORM_TYPES[a.type].radiusSvg;
+    const rb = C.STORM_TYPES[b.type].radiusSvg;
+    const minR = Math.min(ra, rb);
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (d < minR * C.STORM_MERGE_FINALIZE) {
+      finalizeMerge(a, b);
+      consumed.add(a.id); consumed.add(b.id);
     }
   }
 }
@@ -341,19 +575,43 @@ export function buildWeatherOverlay() {
 // ============================================================
 
 export function tickWeather() {
-  // --- Storm lifecycle ---
-  for (let i = S.storms.length - 1; i >= 0; i--) {
-    const storm = S.storms[i];
+  // v0.0.9.6.9.28 — lifecycle reordered so merge dynamics run between
+  // motion and dissipation: age/move → detect intersections → apply
+  // merge drift + finalize → dissipate. Merging storms skip their
+  // dissipation roll (can't die mid-fusion); merged survivors get a
+  // permanent ×STORM_MERGED_BONUS multiplier on the roll.
+
+  // --- 1. Age + move + climate drift ---
+  for (const storm of S.storms) {
     storm.age++;
     moveStorm(storm);
-    if (storm.age > C.STORM_MIN_AGE_TICKS) {
-      if (Math.random() < C.STORM_DISSIPATE_CHANCE) {
-        removeStorm(storm);
-      }
+    applyClimateDrift(storm);
+  }
+
+  // --- 2. Intersect detection (populates storm.intersects[]) ---
+  detectStormIntersections();
+
+  // --- 3. Soft-merge dynamics ---
+  applyMergeDynamics();
+
+  // --- 4. Dissipation ---
+  for (let i = S.storms.length - 1; i >= 0; i--) {
+    const storm = S.storms[i];
+    if (storm.mergingWith != null) continue;
+    if (storm.age <= C.STORM_MIN_AGE_TICKS) continue;
+    let mult = storm.mergedBonus || 1.0;
+    // v0.0.9.6.9.29 — storms drifting into repeller zones (desert)
+    // die off faster. Reinforces "storms don't hang around over
+    // the dry north".
+    if (climateEffectAt(storm.x, storm.y) < C.CLIMATE_REPELLER_THRESH) {
+      mult *= C.CLIMATE_DISSIPATE_BOOST;
+    }
+    if (Math.random() < C.STORM_DISSIPATE_CHANCE * mult) {
+      removeStorm(storm);
     }
   }
 
-  // --- Spawn check ---
+  // --- 5. Spawn check ---
   // v0.0.9.6 commit 7 — multi-concurrent: spawn when under cap (not
   // when empty). Reschedule immediately so the next storm can preroll
   // into the weather radio warning window.
@@ -363,8 +621,10 @@ export function tickWeather() {
     scheduleNextStorm();
   }
 
-  // --- Intersect detection (populated each tick for combine stub) ---
-  detectStormIntersections();
+  // --- 6. Succession seeds (v0.0.9.6.9.28) — pending seeds from
+  // storms that dissipated recently; fires them when their delay
+  // ticks land.
+  processPendingStormSeeds();
 
   // --- Overlay transition ---
   const w = weatherAtCourier();
