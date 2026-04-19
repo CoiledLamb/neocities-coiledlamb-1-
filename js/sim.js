@@ -19,11 +19,16 @@ import { buildWorld } from './world.js';
 import { initWeather } from './weather.js';
 import { setSilent, isSilent } from './multiplayer.js';
 import {
-  startCollection, stopCollection, emit, sample, series, isActive as telemetryActive,
+  startCollection, stopCollection, emit, sample, series, accum, isActive as telemetryActive,
 } from './telemetry.js';
 import { aggregateReports } from './sim-stats.js';
 import { UPGRADE_DEFS } from './data/upgrades.js';
 import * as Upg from './upgrades.js';
+// v0.0.9.6.9.12 — direct import so applyFreshState can synchronously
+// seed interior pkgs. world.js uses a dynamic .then() seeder to break
+// a module-load cycle in live; the sim's sync tick loop never lets
+// that promise resolve, leaving S.interiorPkgs = {} for the whole run.
+import { seedInteriorPkgs } from './packages.js';
 
 // ============================================================
 // SNAPSHOT / RESTORE
@@ -76,6 +81,7 @@ function applyFreshState() {
   S.stamina   = S.staminaMax;
   S.canteen   = S.canteenMax;
   S.bootDurability = 100;
+  S.strain    = 0;  // v0.0.9.6.9.17 — reset strain gauge per sim run.
   S.status    = 'walking';
   S.inventory = [];
   S.usedSlots = 0;
@@ -124,12 +130,26 @@ function applyFreshState() {
   S._transient.plateauGateLogged = false;
   S._transient.unpladderedTerrains = null;
   S._transient.currentSegment = null;
+  // v0.0.9.6.9.12 — reset telemetry edge-trackers so state from a prior
+  // sim run can't leak across. Otherwise bottleneck durations can go
+  // negative (inventoryMaxedSinceTick from run N still set at run N+1
+  // tick 0, yielding durationTicks = 0 - 4000).
+  S._transient.inventoryWasMaxed      = false;
+  S._transient.inventoryMaxedSinceTick = 0;
+  S._transient.bootsWasZero            = false;
+  if (S._transient.skipEmittedPkgs) S._transient.skipEmittedPkgs.clear();
   S._transient.lastWeatherIntensity = 'none';
   S._transient.stormIdCounter = 0;
   S.dotT    = 0;
   S.edgeIdx = 0;
   // Rebuild world + re-init weather (seeds interior pkgs via dynamic import).
   buildWorld();
+  // v0.0.9.6.9.12 — force synchronous interior-pkg seed. Without this,
+  // buildWorld's .then() seeder queues behind the sim's tick loop and
+  // never runs; plateau/mountain/rockyHills pkgs stay unseeded.
+  // seedInteriorPkgs is idempotent — re-running in the live game is a
+  // no-op because cells already populated are skipped.
+  seedInteriorPkgs();
   // Bootstrap initial segment so tick's segment lookups don't crash
   const firstEdge = S.edges && S.edges[0];
   if (firstEdge) {
@@ -198,13 +218,16 @@ function emitPerTickSamples() {
 // as soon as they become affordable" heuristic.
 function autoUpgradeBuy() {
   // UPGRADE_DEFS is an array of { id, cost, requires, trustReward?, ... }.
-  // Collect affordable, unowned, requirement-met candidates.
-  const candidates = [];
+  // Collect affordable AND visible-but-unaffordable candidates separately
+  // so telemetry can show "cheapest item the player could see but not buy"
+  // — that's the key gap signal for early-scrip balance tuning.
+  const affordable = [];
+  let cheapestVisible = Infinity;
+  let cheapestVisibleId = null;
   for (const def of UPGRADE_DEFS) {
     if (!def || !def.id) continue;
     if (S.upgrades[def.id]) continue;
     if (typeof def.cost !== 'number' || def.cost <= 0) continue;
-    if (S.scrip < def.cost) continue;
     // Requires chain — don't try if prereq isn't bought yet
     if (def.requires && !S.upgrades[def.requires]) continue;
     // Trust-gated upgrades — skip if the NPC hasn't hit the tier
@@ -212,12 +235,28 @@ function autoUpgradeBuy() {
       const npc = S.npcs[def.trustReward.npc];
       if (!npc || !npc.unlocks || !npc.unlocks[def.trustReward.tier]) continue;
     }
-    candidates.push(def);
+    // Track cheapest visible (affordable or not) — useful signal
+    if (def.cost < cheapestVisible) {
+      cheapestVisible   = def.cost;
+      cheapestVisibleId = def.id;
+    }
+    if (S.scrip >= def.cost) affordable.push(def);
   }
-  if (candidates.length === 0) return;
-  candidates.sort((a, b) => a.cost - b.cost);
+  // v0.0.9.6.9.5 — emit a diagnostic event so batches can report "how
+  // often autobuy runs vs actually buys" and "how big the scrip gap
+  // is when blocked". Hot-path emits gated by telemetry active flag.
+  const gap = cheapestVisible === Infinity ? null : (cheapestVisible - S.scrip);
+  emit('autoUpgrade.checked', {
+    scrip:          S.scrip,
+    cheapest_cost:  cheapestVisible === Infinity ? null : cheapestVisible,
+    cheapest_id:    cheapestVisibleId,
+    gap,
+    affordable:     affordable.length,
+  });
+  if (affordable.length === 0) return;
+  affordable.sort((a, b) => a.cost - b.cost);
   // Buy cheapest — let buyUpgrade's internal guards handle edge cases
-  Upg.buyUpgrade(candidates[0].id);
+  Upg.buyUpgrade(affordable[0].id);
 }
 
 // Loop-completion detector. Tracks whether the courier has left home
@@ -263,6 +302,10 @@ export function runSimulation(opts) {
   S._transient.simMode = true;
 
   applyFreshState();
+  // v0.0.9.6.9.8 — opt-in overrides for A/B counterfactuals. Default
+  // runSimulation matches max-automation baseline from applyFreshState;
+  // individual toggles can be flipped off for comparison arms.
+  if (opts.autobuyBoots === false) S.autobuyBoots = false;
   loopState = { leftHomeSinceLast: false, lastCountedLoop: 0 };
 
   startCollection();
@@ -320,14 +363,27 @@ export async function runBatch(opts) {
   if (ticks !== undefined) runOpts.ticks = ticks;
   if (maxRealtimeMs !== undefined) runOpts.maxRealtimeMs = maxRealtimeMs;
   if (autoUpgrade !== undefined) runOpts.autoUpgrade = autoUpgrade;
+  if (opts.autobuyBoots !== undefined) runOpts.autobuyBoots = opts.autobuyBoots;
+
+  // v0.0.9.6.9.6 — hold silent for the entire batch so the
+  // setTimeout(0) yield between runs can't leave a window where
+  // pollFeed / lost-fetch could hit the Cloudflare worker. Inner
+  // runSimulation calls still set/restore silent locally but land on
+  // our enforced 'true', so net effect is silent-for-whole-batch.
+  const wasSilentOuter = isSilent();
+  setSilent(true);
 
   const reports = [];
-  for (let i = 0; i < runs; i++) {
-    const r = runSimulation(runOpts);
-    reports.push(r);
-    // yield to the event loop so long batches don't deadlock the
-    // browser UI
-    await new Promise(r => setTimeout(r, 0));
+  try {
+    for (let i = 0; i < runs; i++) {
+      const r = runSimulation(runOpts);
+      reports.push(r);
+      // yield to the event loop so long batches don't deadlock the
+      // browser UI
+      await new Promise(r => setTimeout(r, 0));
+    }
+  } finally {
+    setSilent(wasSilentOuter);
   }
   const aggregate = aggregateReports(reports);
   const batch = { reports, aggregate };

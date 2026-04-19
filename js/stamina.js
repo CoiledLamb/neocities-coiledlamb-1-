@@ -72,6 +72,9 @@ export function renderStamina() {
   if (fill) {
     // Main bar always represents 0..staminaMax. Overboost spills into
     // the side-segment; the main bar stops at 100% and doesn't pulse.
+    // v0.0.9.6.9.18 — strain is NO LONGER rendered on the stamina bar.
+    // Moved to its own dedicated bar (renderStrain below) with a rest
+    // button adjacent. Stamina bar is back to showing only stamina.
     fill.style.width = (overboost ? 100 : pct) + '%';
     const cls = pct <= 25 ? 'stamina-bar-fill crit'
               : pct <= 50 ? 'stamina-bar-fill half'
@@ -98,6 +101,32 @@ export function renderStamina() {
     } else if (overWrap.style.display !== 'none') {
       overWrap.style.display = 'none';
     }
+  }
+
+  // v0.0.9.6.9.18 — strain bar has its own render slot next to the
+  // stamina bar in the stamina row. Fill width matches the 0..1 strain
+  // value; color progression base → warn (purple) → crit (pink).
+  // v0.0.9.6.9.19 — collapsed 3 thresholds to 2 states above base
+  // (warn + crit) per the "build up to warn, overflow at crit" framing.
+  const strainFill = document.getElementById('strainBarFill');
+  if (strainFill) {
+    const strainVal = S.strain || 0;
+    strainFill.style.width = (strainVal * 100) + '%';
+    const strainCls = strainVal >= 0.85 ? 'strain-bar-fill crit'
+                    : strainVal >= 0.60 ? 'strain-bar-fill warn'
+                    :                     'strain-bar-fill';
+    if (strainFill.className !== strainCls) strainFill.className = strainCls;
+  }
+  const strainBar = document.getElementById('strainBar');
+  if (strainBar) strainBar.setAttribute('aria-valuenow', String(Math.round((S.strain || 0) * 100)));
+
+  // v0.0.9.6.9.18 — rest button: disabled unless the courier is
+  // currently walking or carrying (can't rest while already resting
+  // or tripped). Click handler is wired in main.js init.
+  const restBtn = document.getElementById('restBtn');
+  if (restBtn) {
+    const eligible = (S.status === 'walking' || S.status === 'carrying');
+    restBtn.disabled = !eligible;
   }
 
   const nowSegs = staminaSegCount();

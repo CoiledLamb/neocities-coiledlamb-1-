@@ -19,7 +19,15 @@ export const S = {
   // ----- persisted: progress -----
   delivered: 0, scrip: 0, distKm: 0, ticks: 0,
   status: 'walking', restTimer: 0, tripTimer: 0,
-  maxSlots: 6, usedSlots: 0, maxWeight: 5, usedWeight: 0, inventory: [],
+  // v0.0.9.6.9.17 — strain gauge. Replaces per-tick trip roll with an
+  // accumulating stress metric. Rises with the same factor formula that
+  // used to compute per-tick tripChance; at >= 1.0 triggers a trip and
+  // resets. Rest dissipates strain. Graceful-stride bonuses reduce
+  // strainDelta (resilience — you take less strain from events while
+  // in good state). Range [0, 1]. Visualized as a color overlay on the
+  // stamina bar; no separate UI element.
+  strain: 0,
+  maxSlots: 6, usedSlots: 0, maxWeight: 6, usedWeight: 0, inventory: [],
   tieDownActive: false,
   // v0.0.9.6.9 — default auto-toggles (autobuy, autodrink, autoGrab,
   // autoGear) all flip to ON for fresh saves, matching the game's
@@ -45,7 +53,7 @@ export const S = {
   upgrades: {
     bootsT1: false, bootsT2: false,
     bootClip1: false, bootClip2: false,
-    cargoSling: false, cargoPack: false, cargoWeight: false,
+    cargoSling: false, cargoPack: false, cargoWeight: false, cargoWeight2: false,
     efficientConsumption: false, steadyFeet: false,
     sandalSatchel: false,
     // v0.0.7.21 — courier equipment v2

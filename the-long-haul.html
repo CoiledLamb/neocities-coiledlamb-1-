@@ -26,7 +26,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.3</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.22</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -95,6 +95,12 @@
               <div class="canteen-bar-wrap"><span class="canteen-cap" aria-hidden="true"></span><div class="canteen-bar-fill" id="canteenBar"></div></div>
               <button class="drink-btn" id="drinkBtn">drink (100%)</button>
               <button class="boots-auto" id="autodrinkBtn">auto: off</button>
+              <span class="row-divider" aria-hidden="true"></span>
+              <span class="tlh-row-label strain-label">strain</span>
+              <div class="strain-bar" id="strainBar" role="progressbar" aria-label="strain" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="strain-bar-fill" id="strainBarFill"></div>
+              </div>
+              <button class="drink-btn" id="restBtn">rest</button>
             </div>
 
             <div class="tlh-row kit-row" id="kitRow" style="display:none">

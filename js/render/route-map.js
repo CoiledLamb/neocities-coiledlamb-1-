@@ -74,10 +74,15 @@ export function courierTerrain() {
   const seg = S._transient.currentSegment;
   if (!seg) return 'flat';
   const xy = seg.pathFn(S.dotT);
+  // v0.0.9.6.9.15 — ring now returns the actual geography it passes
+  // through (mountain / rockyHills / river / desert / plateau) instead
+  // of hardcoded 'flat'. Matches design intent: these terrains
+  // intersect the ring AS WELL as being interior, so trip mechanics
+  // and severe-trip branches see real geo on the ring path too. Mesa
+  // outcrops still take precedence (ring-specific plateau concept).
   if (seg.type === 'ring') {
-    // Mesa outcrops on the ring line read as plateau.
     if (mesaOutcropAt(xy.x, xy.y)) return 'plateau';
-    return 'flat';
+    return terrainAt(xy.x, xy.y) || 'flat';
   }
   return terrainAt(xy.x, xy.y);
 }

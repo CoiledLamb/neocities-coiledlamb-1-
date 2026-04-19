@@ -131,20 +131,11 @@ export function renderKit() {
   if (structureKey !== lastStructure) {
     lastStructure = structureKey;
     let html = '';
-    // v0.0.9.6 commit 4 — ladder + anchor gear capsules. Sit
-    // between battery (left, in its own markup) and scan/gun so
-    // the kit bar reads: battery → gear → actions → weapons.
-    // Each capsule shows glyph + count + a [+5¢] buy button.
-    html += `<span class="kit-cap gear-cap" id="gearLadderCap">` +
-              `<span class="kit-cap-lbl gear-glyph">\u2010\u2010</span>` +
-              `<span class="kit-cap-val" id="kitLadderVal"></span>` +
-              `<button class="kit-buy-btn" id="kitLadderBuy" type="button" aria-label="buy ladder">+${GEAR_PRICE}\u00a2</button>` +
-            `</span>`;
-    html += `<span class="kit-cap gear-cap" id="gearAnchorCap">` +
-              `<span class="kit-cap-lbl gear-glyph">\u2020</span>` +
-              `<span class="kit-cap-val" id="kitAnchorVal"></span>` +
-              `<button class="kit-buy-btn" id="kitAnchorBuy" type="button" aria-label="buy anchor">+${GEAR_PRICE}\u00a2</button>` +
-            `</span>`;
+    // v0.0.9.6.9.9 — kit bar reorder. Scanner/gun lead (always-active
+    // tools), then the gear group (ladder + anchor capsules) sits
+    // adjacent to its auto-gear toggle at the right edge. Reads left
+    // to right: actions → weapons → gear + its toggle. Previous order
+    // split ladder/anchor from their auto-gear toggle by scanner/gun.
     if (hasScanner) {
       const stateCls = sState === 'ready' ? '' : ' ' + sState;
       html += `<button class="drink-btn scan-btn${stateCls}" id="scannerBtn" aria-label="scan">` +
@@ -163,11 +154,25 @@ export function renderKit() {
                 `<span class="kit-cap-val" id="gunAmmoVal"></span>` +
               `</span>`;
     }
-    // v0.0.9.6 commit 4 — auto-gear toggle at far right, matching the
-    // grab:auto / drink:auto placement pattern.
-    html += `<button class="kit-auto-btn" id="kitAutoGearBtn" type="button" aria-pressed="false">` +
-              `auto-gear: <span id="kitAutoGearVal">off</span>` +
-            `</button>`;
+    // Gear capsules — ladder + anchor with glyph + count + buy button.
+    html += `<span class="kit-cap gear-cap" id="gearLadderCap">` +
+              `<span class="kit-cap-lbl gear-glyph">\u2010\u2010</span>` +
+              `<span class="kit-cap-val" id="kitLadderVal"></span>` +
+              `<button class="kit-buy-btn" id="kitLadderBuy" type="button" aria-label="buy ladder">+${GEAR_PRICE}\u00a2</button>` +
+            `</span>`;
+    html += `<span class="kit-cap gear-cap" id="gearAnchorCap">` +
+              `<span class="kit-cap-lbl gear-glyph">\u2020</span>` +
+              `<span class="kit-cap-val" id="kitAnchorVal"></span>` +
+              `<button class="kit-buy-btn" id="kitAnchorBuy" type="button" aria-label="buy anchor">+${GEAR_PRICE}\u00a2</button>` +
+            `</span>`;
+    // v0.0.9.6.9.9 — auto-gear toggle restyled to match the other
+    // auto buttons (boots-auto class pattern, same as autobuy /
+    // autodrink / auto-grab). Inline text replaces the inner span.
+    // aria-pressed preserved for screen-reader semantics.
+    const autoGearOn    = S.kit && S.kit.autoGear ? ' on' : '';
+    const autoGearTxt   = S.kit && S.kit.autoGear ? 'auto-gear: on' : 'auto-gear: off';
+    const autoGearPress = S.kit && S.kit.autoGear ? 'true' : 'false';
+    html += `<button class="boots-auto${autoGearOn}" id="kitAutoGearBtn" type="button" aria-pressed="${autoGearPress}">${autoGearTxt}</button>`;
     caps.innerHTML = html;
 
     const newScan = document.getElementById('scannerBtn');
@@ -183,7 +188,6 @@ export function renderKit() {
     els.kitLadderCap  = document.getElementById('gearLadderCap');
     els.kitAnchorCap  = document.getElementById('gearAnchorCap');
     els.kitAutoGearBtn = document.getElementById('kitAutoGearBtn');
-    els.kitAutoGearVal = document.getElementById('kitAutoGearVal');
     const lBuy = document.getElementById('kitLadderBuy');
     const aBuy = document.getElementById('kitAnchorBuy');
     if (lBuy) lBuy.addEventListener('click', () => { buyGear('ladder'); renderKit(); });
@@ -230,11 +234,11 @@ export function renderKit() {
     const dim = anchors === 0 ? 'kit-cap gear-cap empty' : 'kit-cap gear-cap';
     if (els.kitAnchorCap.className !== dim) els.kitAnchorCap.className = dim;
   }
-  if (els.kitAutoGearBtn && els.kitAutoGearVal) {
+  if (els.kitAutoGearBtn) {
     const on = !!(S.kit && S.kit.autoGear);
-    const txt = on ? 'on' : 'off';
-    if (els.kitAutoGearVal.textContent !== txt) els.kitAutoGearVal.textContent = txt;
-    const want = on ? 'kit-auto-btn on' : 'kit-auto-btn';
+    const txt = on ? 'auto-gear: on' : 'auto-gear: off';
+    if (els.kitAutoGearBtn.textContent !== txt) els.kitAutoGearBtn.textContent = txt;
+    const want = on ? 'boots-auto on' : 'boots-auto';
     if (els.kitAutoGearBtn.className !== want) els.kitAutoGearBtn.className = want;
     const pressed = on ? 'true' : 'false';
     if (els.kitAutoGearBtn.getAttribute('aria-pressed') !== pressed) {

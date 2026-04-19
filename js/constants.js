@@ -140,7 +140,7 @@ export const RAIN_SPANS_DOWNPOUR       = 30;
 // ----- tick / stamina / trip -----
 export const TICK_MS           = 350;
 export const STAMINA_DRAIN     = 0.40;
-export const BOOT_DRAIN        = 0.12;
+export const BOOT_DRAIN        = 0.108;
 export const TRIP_CHANCE_BASE  = 0.006;
 export const CATCH_CHANCE_BASE = 0.35;
 export const REST_TICKS_MIN    = 43;
@@ -158,7 +158,12 @@ export const TRAIL_FADE_TICKS      = 300;
 export const TRAIL_DROP_EVERY      = 3;    // one trail cell every N ticks while shortcut is active
 
 // ----- boots -----
-export const BOOT_PRICE = 15;
+// v0.0.9.6.9.6 — early-scrip relief round 2. Boot autobuy was eating
+// ~61% of run income in 50x25 sim (325c/run → 192c to boots). Dropping
+// BOOT_DRAIN 0.12 → 0.108 (+11% boot life per pair) and BOOT_PRICE 15
+// → 10 (-33% per-refill cost). Expected combined effect: ~40% less
+// scrip to boots per run, freeing ~70-80c for upgrades.
+export const BOOT_PRICE = 10;
 
 // ----- trip drops -----
 // v0.0.7 commit 6: TRIP_LOST_DROP_CHANCE split into NORMAL/LOST — all cargo
@@ -167,6 +172,30 @@ export const BOOT_PRICE = 15;
 // (option B). See trip.js maybeTrip() for the new flow.
 export const TRIP_DROP_CHANCE_NORMAL = 0.20;
 export const TRIP_DROP_CHANCE_LOST   = 0.30;
+
+// v0.0.9.6.9.17 — strain gauge constants. Strain accumulates per-tick
+// while walking/carrying using the same factor-breakdown formula that
+// computed per-tick tripChance, then fires a trip when it hits 1.0.
+// STRAIN_DELTA_SCALE converts the old per-tick chance into a strain
+// delta calibrated so a "maintained" (70/70) player accumulates ~0.4
+// trips per 500-tick hop. Current mean tripChance was 0.014/tick;
+// scaling at 0.25 gives strainDelta ~0.0035/tick at that state → ~1.75
+// strain per 500 ticks → ~1.5 trips per hop. Tuneable.
+// STRAIN_REST_DISSIPATION drops strain during rest ticks — a full rest
+// clears ~0.5 strain over ~100 ticks, making rest a real trip-
+// prevention lever (not just stamina refill).
+export const STRAIN_DELTA_SCALE       = 0.25;
+export const STRAIN_REST_DISSIPATION  = 0.005;
+export const STRAIN_TRIP_THRESHOLD    = 1.0;
+
+// v0.0.9.6.9.20 — direct trip-chance multiplier when wearing makeshift
+// sandalweed lashing. Layered ON TOP of the existing boot-drain penalty
+// (1.30× wear in main.js:319, which indirectly drives bootFail up).
+// Narrative: sandalweed isn't just "worse boots", it's wobbly footing
+// while your gear is improvised. 1.25× feels noticeable without being
+// crushing; interwoven-lashing upgrade doesn't mod it (upgrade already
+// improves the repair amount from 30→50).
+export const MAKESHIFT_TRIP_MULT      = 1.25;
 
 // ----- recovery cargo (v0.0.7 commit 5) -----
 export const RECOVERY_BONUS_MULT    = 1.5;  // scrip multiplier for recovery deliveries

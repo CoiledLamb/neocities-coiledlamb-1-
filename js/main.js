@@ -197,6 +197,7 @@ function resolveEls() {
     clipBadge:    $('clipBadge'),
     drinkBtn:     $('drinkBtn'),
     autodrinkBtn: $('autodrinkBtn'),
+    restBtn:      $('restBtn'),
     autoGrabBtn:  $('autoGrabBtn'),
     canteenBar:   $('canteenBar'),
     tieDownBtn:   $('tieDownBtn'),
@@ -255,6 +256,11 @@ export function tick() {
 
   if (S.status==='resting') {
     S.restTimer--;
+    // v0.0.9.6.9.17 — strain dissipates during rest. Makes rest an
+    // active trip-prevention lever: a full shelter break can bleed
+    // ~0.4 strain, turning "about to trip" back into "safe for a
+    // while". Pairs with the strain-gauge system in trip.js.
+    if (S.strain > 0) S.strain = Math.max(0, S.strain - C.STRAIN_REST_DISSIPATION);
     if (S.restTimer<=0) {
       S.stamina=S.staminaMax*1.25; S.staminaOverboost=true;
       S.canteen=Math.min(S.canteenMax,S.canteen+20); S.status='walking';
@@ -681,6 +687,18 @@ function init() {
     S.autodrink=!S.autodrink;
     els.autodrinkBtn.textContent='auto: '+(S.autodrink?'on':'off');
     els.autodrinkBtn.classList.toggle('on',S.autodrink);
+  });
+  // v0.0.9.6.9.18 — manual rest. Lets the player sit down at any point
+  // while walking/carrying to dissipate strain and refill stamina.
+  // Uses the same rest-duration range as auto-rest. Disabled while
+  // already resting / tripped / severe-state.
+  if (els.restBtn) els.restBtn.addEventListener('click', () => {
+    if (S.status !== 'walking' && S.status !== 'carrying') return;
+    S.status = 'resting';
+    S.restTimer = C.REST_TICKS_MIN + Math.floor(Math.random() * (C.REST_TICKS_MAX - C.REST_TICKS_MIN));
+    tEmit('rest.started');
+    addLog('<span class="log-hi">catching breath</span> \u2014 resting');
+    if (els.courierAt) { els.courierAt.className = 'tlh-at rest'; els.courierAt.style.animation = ''; }
   });
   // v0.0.9.4.1 — `grab:` toggle mirrors the autodrink toggle pattern.
   // Controls pkg auto-pickup only (sandalweed still auto-harvests).

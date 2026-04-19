@@ -31,7 +31,7 @@ import { S } from './state.js';
 import * as C from './constants.js';
 import { addLog } from './render/log.js';
 import { updateHUD } from './render/hud.js';
-import { emit as tEmit } from './telemetry.js';
+import { emit as tEmit, accum as tAccum } from './telemetry.js';
 
 // Local alias — live reference into S._transient. Never reassign.
 const els = S._transient.els;
@@ -45,6 +45,7 @@ export function buyBoots() {
   if (S.bootDurability >= 100) return;
   if (S.scrip < C.BOOT_PRICE) return;
   S.scrip -= C.BOOT_PRICE; S.bootDurability = 100; S.usingMakeshift = false;
+  tAccum('scrip.spent', 'boots_manual', C.BOOT_PRICE);
   addLog(`purchased new <span class="log-hi">boots</span> (${C.BOOT_PRICE}\u00a2)`);
   renderBoots(); updateHUD();
 }
@@ -52,27 +53,56 @@ export function buyBoots() {
 export function checkAutobuy() {
   // Failsafe ladder when boots hit 0 — runs regardless of autobuy setting.
   // Clip first (real spare pair), sandalweed second (makeshift).
+  // v0.0.9.6.9.5 — edge-triggered so the counter reflects distinct
+  // wear-out events, not per-tick ticks-at-zero. _transient field
+  // resets implicitly across sim snapshot/restore (excluded from clone).
+  // v0.0.9.6.9.8 — justWentZero captures the edge for the bootless
+  // passthrough emit below (same edge semantics as worn_out).
+  const justWentZero = S.bootDurability <= 0 && !S._transient.bootsWasZero;
   if (S.bootDurability <= 0) {
-    // v0.0.9.6.9 sim telemetry — boots failure (regardless of which
-    // fallback fires). Useful for spotting mid-route boot failure rate.
-    tEmit('boots.worn_out', { status: S.status });
+    if (justWentZero) {
+      tEmit('boots.worn_out', { status: S.status });
+      S._transient.bootsWasZero = true;
+    }
+  } else if (S._transient.bootsWasZero) {
+    S._transient.bootsWasZero = false;
   }
+  // v0.0.9.6.9.8 — fallback-path telemetry. Each zero-transition
+  // (boots.worn_out above) resolves into exactly one of: clip, sandalweed,
+  // autobuy_emergency (at 0%), or bootless (nothing available). With
+  // autobuy firing preventively at <=20%, autobuy_preventive is the
+  // "no failure happened" path. Sum relationship for sim analysis:
+  //   boots.worn_out ≈ clip_consumed + sandalweed_lashed
+  //                    + autobuy_emergency + bootless_passthrough
   if (S.bootDurability <= 0 && S.bootClipCount > 0) {
     S.bootClipCount--; S.bootDurability = 100; S.usingMakeshift = false;
+    tEmit('boots.clip_consumed', { clipLeft: S.bootClipCount });
     addLog('<span class="log-hi">boot clip</span>: spare pair auto-equipped');
     renderBoots(); return;
   }
   if (S.bootDurability <= 0 && S.sandalweedCount > 0) {
     S.sandalweedCount--; S.bootDurability = S.upgrades.sandalEfficiency ? 50 : 30; S.usingMakeshift = true;
+    tEmit('boots.sandalweed_lashed', { sandalweedLeft: S.sandalweedCount, repairTo: S.bootDurability });
     addLog('<span class="log-wn">boots failed</span> \u2014 lashed on a <span class="log-hi">sandalweed</span> (' + S.sandalweedCount + '/' + sandalCap() + ' left)');
     renderBoots(); return;
   }
   // Auto-PURCHASE requires autobuy intent (it costs scrip, player needs to opt in).
-  if (!S.autobuyBoots) return;
+  if (!S.autobuyBoots) {
+    // Hit 0 with no clip, no sandalweed, autobuy off — player is walking bootless.
+    // Edge-only (justWentZero) so the counter matches worn_out semantics.
+    if (justWentZero) tEmit('boots.bootless_passthrough', { reason: 'autobuy_off' });
+    return;
+  }
   if (S.bootDurability <= 20 && S.scrip >= C.BOOT_PRICE) {
+    const wasEmergency = S.bootDurability <= 0;
     S.scrip -= C.BOOT_PRICE; S.bootDurability = 100; S.usingMakeshift = false;
+    tAccum('scrip.spent', 'boots_autobuy', C.BOOT_PRICE);
+    tEmit(wasEmergency ? 'boots.autobuy_emergency' : 'boots.autobuy_preventive', { scripLeft: S.scrip });
     addLog(`autobuy: new <span class="log-hi">boots</span> purchased (${C.BOOT_PRICE}\u00a2)`);
     updateHUD();
+  } else if (justWentZero) {
+    // Couldn't buy at zero (no scrip). Passthrough = bootless. Edge-only.
+    tEmit('boots.bootless_passthrough', { reason: 'no_scrip', scrip: S.scrip });
   }
 }
 
@@ -90,6 +120,7 @@ export function refillBootClip(nodeId) {
   const cost = (S.bootClipMax - S.bootClipCount) * C.BOOT_PRICE;
   if (S.scrip < cost) return;
   S.scrip -= cost;
+  tAccum('scrip.spent', 'boots_clip_refill', cost);
   S.bootClipCount = S.bootClipMax;
   addLog(`autobuy: boot clip refilled (${cost}\u00a2)`);
   renderBoots();
