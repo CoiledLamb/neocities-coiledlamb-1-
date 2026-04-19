@@ -49,21 +49,43 @@ export const UPGRADE_DEFS = [
   // ----- scrip-purchasable (no trustReward) -----
   // v0.0.9.5: efficientConsumption migrated off this list to nu t20.
   { id:'bootsT1',     name:'sturdy boots',      desc:'+25% boot durability',          cost:30,  requires:null,          apply:()=>{} },
-  { id:'bootClip2',   name:'extended clip',      desc:'carry 2 spare pairs of boots',  cost:100, requires:'bootClip1',   apply:()=>{ S.bootClipMax=2; S.bootClipCount=Math.min(2,S.bootClipCount+1); } },
-  { id:'cargoSling',  name:'cargo sling',        desc:'+2 carry slots',                cost:80,  requires:null,          apply:()=>{ S.maxSlots+=2; } },
-  { id:'cargoPack',   name:'expedition pack',    desc:'+4 more carry slots',           cost:180, requires:'cargoSling',  apply:()=>{ S.maxSlots+=4; } },
-  { id:'cargoWeight', name:'molly netting',      desc:'+5 kg capacity',                cost:150, requires:null,          apply:()=>{ S.maxWeight+=5; } },
+  // v0.0.9.6.9.7 — bootClip2 (extended clip) moved to rho t40 (see
+  // rho block below). rho is the boot depot so the whole clip chain
+  // lives there now; bootsT2 went the other direction.
+  { id:'cargoSling',  name:'cargo sling',        desc:'+2 carry slots',                cost:60,  requires:null,          apply:()=>{ S.maxSlots+=2; } },
+  { id:'cargoPack',   name:'expedition pack',    desc:'+4 more carry slots',           cost:100, requires:'cargoSling',  apply:()=>{ S.maxSlots+=4; } },
+  // v0.0.9.6.9.4 — molly netting split into two scrip entries for
+  // early-scrip relief. Buy the +2 starter first (60c), then the
+  // pack mule kit (+4 more, 100c) once it's affordable. Cargo-slot and
+  // cargo-weight chains share the same 60/100 price tier this round.
+  // Total post-split: +6 kg for 160c (was +5 kg for 150c).
+  // 'pack mule kit' reuses cargoWeight's original pre-0.0.9.5 name.
+  { id:'cargoWeight',  name:'molly netting',      desc:'+2 kg capacity',                cost:60,  requires:null,          apply:()=>{ S.maxWeight+=2; } },
+  { id:'cargoWeight2', name:'pack mule kit',      desc:'+4 more kg capacity',           cost:100, requires:'cargoWeight', apply:()=>{ S.maxWeight+=4; } },
   // v0.0.9.5.3 — steadyFeet (traction cleats) moved FROM tau t20
   // TO the open scrip shop at its historical price. Available from
   // the first upgrades-panel open; no trust gate. Impact unchanged
   // (trip.js reads S.upgrades.steadyFeet for trip + catch mods).
   { id:'steadyFeet',  name:'traction cleats',    desc:'-30% trip chance, +15% catch',  cost:120, requires:null,          apply:()=>{} },
+  // v0.0.9.6.9.7 — reinforced soles (bootsT2) moved FROM rho t40
+  // TO the open scrip shop. Sim data (50x25 batch, v0.0.9.6.9.6)
+  // showed 88% of runs buy bootsT1 but only a fraction reach rho t40,
+  // so the +50%-durability follow-up almost never lands. Open-shop
+  // placement lets any run that clears bootsT1 step up to bootsT2.
+  // Pairs naturally with the bootClip2 → rho t40 move below: rho now
+  // owns the full boot-clip chain, while open shop owns boot-life.
+  { id:'bootsT2',     name:'reinforced soles',   desc:'+50% boot durability',          cost:90,  requires:'bootsT1',     apply:()=>{} },
   // v0.0.9.5.3 — stickyGun moved FROM open scrip shop TO tau t20
   // (trust-gated, same 100¢ cost). See tau's trust-reward block below.
 
   // ----- trust-reward: rho (A) — boot depot -----
-  { id:'bootClip1',   name:'boot clip',          desc:'carry 1 spare pair of boots',   cost:40,  requires:null,      trustReward: { npc:'A', tier:'t20' }, apply:()=>{ S.bootClipMax=1; S.bootClipCount=1; } },
-  { id:'bootsT2',     name:'reinforced soles',   desc:'+50% boot durability',          cost:90,  requires:'bootsT1', trustReward: { npc:'A', tier:'t40' }, apply:()=>{} },
+  // v0.0.9.6.9.7 — rho now owns the full clip chain (bootClip1 t20 +
+  // bootClip2 t40). bootsT2 moved to open scrip shop. Flag: the clip
+  // mechanic today is "spare pair, auto-equipped on failure" — no
+  // bonus for carrying an unused pair. Worth revisiting alongside any
+  // future bootClip trust tier so trust investment has real weight.
+  { id:'bootClip1',   name:'boot clip',          desc:'carry 1 spare pair of boots',   cost:40,  requires:null,        trustReward: { npc:'A', tier:'t20' }, apply:()=>{ S.bootClipMax=1; S.bootClipCount=1; } },
+  { id:'bootClip2',   name:'extended clip',      desc:'carry 2 spare pairs of boots',  cost:100, requires:'bootClip1', trustReward: { npc:'A', tier:'t40' }, apply:()=>{ S.bootClipMax=2; S.bootClipCount=Math.min(2,S.bootClipCount+1); } },
 
   // ----- trust-reward: iota (B) — wetlands ecology -----
   { id:'sandalSatchel',    name:'sandalweed satchel',  desc:'hoard cap 5 \u2192 25',                    cost:60, requires:null, trustReward: { npc:'B', tier:'t20' }, apply:()=>{} },

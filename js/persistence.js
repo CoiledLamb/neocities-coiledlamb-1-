@@ -63,6 +63,7 @@ export function buildSavePayload() {
       autobuyBoots:   S.autobuyBoots,
       autodrink:      S.autodrink,
       autoGrab:       S.autoGrab,
+      strain:         S.strain,
     },
     position: { edgeIdx: S.edgeIdx, dotT: S.dotT },
     inventory: S.inventory.map(p => ({
@@ -224,6 +225,7 @@ function _applyValidated(data) {
     if (typeof p.autobuyBoots   === 'boolean') S.autobuyBoots   = p.autobuyBoots;
     if (typeof p.autodrink      === 'boolean') S.autodrink      = p.autodrink;
     if (typeof p.autoGrab       === 'boolean') S.autoGrab       = p.autoGrab;
+    if (typeof p.strain         === 'number')  S.strain         = Math.max(0, Math.min(1, p.strain));
 
     const pos = data.position || {};
     if (typeof pos.edgeIdx === 'number' && pos.edgeIdx >= 0 && pos.edgeIdx < S.edges.length) S.edgeIdx = pos.edgeIdx;

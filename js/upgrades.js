@@ -28,7 +28,7 @@ import { NPC_DEFS } from './data/npc-defs.js';
 import { addLog } from './render/log.js';
 import { updateHUD, renderCargoSlots } from './render/hud.js';
 import * as Boots from './boots.js';
-import { emit as tEmit } from './telemetry.js';
+import { emit as tEmit, accum as tAccum } from './telemetry.js';
 
 const els = S._transient.els;
 
@@ -106,6 +106,8 @@ export function buyUpgrade(id) {
   }
   S.scrip -= def.cost; S.upgrades[id] = true; def.apply();
   tEmit('upgrade.acquired', { id, cost: def.cost });
+  tAccum('scrip.spent', 'upgrade',          def.cost);
+  tAccum('scrip.spent_by_upgrade', def.id,  def.cost);
   // v0.0.9.5.2 — log flavor differs for gift-claim vs. open-shop purchase.
   if (def.trustReward && NPC_DEFS[def.trustReward.npc]) {
     const callsign = NPC_DEFS[def.trustReward.npc].callsign;

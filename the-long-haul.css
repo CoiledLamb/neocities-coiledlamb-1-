@@ -750,6 +750,54 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .stamina-bar-fill.half { background: #9d78d4; }
 .stamina-bar-fill.crit { background: #da8bda; }
 
+/* v0.0.9.6.9.18 — strain moved off the stamina bar into its own
+   dedicated bar in the stamina row. Divider separates stamina+canteen
+   block from strain+rest block.
+   v0.0.9.6.9.19 — palette aligned with stamina/log conventions:
+     base    #3a5a55 (dull green — matches stamina resting state)
+     warn    #9d78d4 (purple — matches stamina .half)
+     crit    #da8bda (pink   — matches stamina .crit + log-wn)
+   Pairs with #restBtn. Classes renamed .warm/.hot → .warn to match
+   user-facing framing: build-up goes base → warn → crit before trip. */
+.row-divider {
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: #1e3d3c;
+  margin: 0 8px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.strain-label { color: #3a6a68; }  /* same dull green as other row labels */
+.strain-bar {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 10px;
+  border: 1px solid #2a4040;
+  background: #0d1818;
+  vertical-align: middle;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.strain-bar-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 0%;
+  background: #3a5a55;
+  transition: width 0.3s, background-color 0.3s;
+}
+.strain-bar-fill.warn { background: #9d78d4; }
+.strain-bar-fill.crit { background: #da8bda; animation: strain-crit-pulse 0.7s ease-in-out infinite alternate; }
+@keyframes strain-crit-pulse {
+  from { background: #da8bda; box-shadow: inset 0 0 6px rgba(218, 139, 218, 0.45); }
+  to   { background: #eaabea; box-shadow: inset 0 0 10px rgba(234, 171, 234, 0.90); }
+}
+#restBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* v0.0.9.3.1 — overboost now overlays the main stamina bar (same size
    and shape) rather than sitting beside it as a side-segment. Still
    represents 0..25% of staminaMax (the overboost ceiling) as a 0..100%
@@ -1065,19 +1113,12 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 }
 .kit-buy-btn:hover { color: #7fa39c; border-color: #2a5c5a; }
 .kit-buy-btn:active { color: #b1c9c3; }
-.kit-auto-btn {
-  background: transparent;
-  color: #3a6a68;
-  border: 1px dashed #1e5554;
-  font: 600 9px/1 'Source Code Pro', monospace;
-  padding: 3px 6px;
-  cursor: pointer;
-  border-radius: 2px;
-  margin-left: auto;  /* push to far right of the caps row */
-}
-.kit-auto-btn.on { color: #7fa39c; border-color: #2a5c5a; border-style: solid; }
-.kit-auto-btn:hover { color: #b1c9c3; }
-.kit-auto-btn #kitAutoGearVal { color: inherit; }
+/* v0.0.9.6.9.9 — the auto-gear button now uses the `.boots-auto`
+   class (matching autobuy / autodrink / auto-grab). The only kit-row
+   specific styling left is the "push to far right" margin, scoped by
+   id so the shared class stays generic. Resolves the long-standing
+   HANDOFF note about inverted on/off styling for this button. */
+#kitAutoGearBtn { margin-left: auto; }
 
 /* v0.0.9.6 commit 4 — placed gear glyphs on the route map. Wear
    color comes from the inline fill in route-map.js; this just

@@ -62,6 +62,11 @@ import * as C from './constants.js';
 import { postLostDrop } from './multiplayer.js';
 import { staminaSegCount } from './stamina.js';
 import { emit as tEmit } from './telemetry.js';
+// v0.0.9.6.9.13 — trip-dropped cargo needs to hit the same bottleneck
+// edge-tracker used by normal pick/deliver paths. Without this, a
+// severe trip at full cargo can transition out of maxed without
+// emitting inventory.freed.
+import { onInventoryChange } from './packages.js';
 import { addLog } from './render/log.js';
 import { renderCourierStack, renderCargoSlots } from './render/hud.js';
 import { weatherAtCourier } from './weather.js';
@@ -124,57 +129,131 @@ function currentCellIsRisky() {
   return worldCells[ci] ? worldCells[ci].risky : false;
 }
 
+// v0.0.9.6.9.14 — tripChance rewritten to compute a factor breakdown
+// alongside the final value. The breakdown object is what sim telemetry
+// attributes each fired trip against: which multiplier was biggest at
+// the moment it rolled unlucky? Without this, trip.fired couldn't tell
+// us if fires were driven by boots, stamina, terrain, weather, or load.
+//
+// tripChance() keeps its old signature (returns number) for callers
+// that only want the scalar. Internal tick path uses tripChanceBreakdown
+// which returns { chance, factors } so maybeTrip can emit both.
 export function tripChance() {
-  const bootFail = (100-S.bootDurability)/100;
-  const segsLost = 4-staminaSegCount();
-  let chance = C.TRIP_CHANCE_BASE * bootFail * (1+segsLost*0.5);
-  if (S.upgrades.steadyFeet) chance *= 0.70;
-  // v0.0.7.21 — terrain scanner buff. When active, multiplies trip
-  // chance by S.scanner.buffMagnitude (set per ping in js/scanner.js).
-  if (S.scanner.buffActive) chance *= S.scanner.buffMagnitude;
-  // v0.0.9.6 commit 3 — per-cell terrain trip multiplier replaces the
-  // v0.0.9.3 flat SHORTCUT_TRIP_MULT. During interior travel the trip
-  // chance scales by what the courier is actually crossing: flat 1.0
-  // (cheaper than old flat tax), river 1.2, rockyHills 1.5, mountain
-  // 2.0 (severe without gear — commit 4 adds ladder/anchor mitigation).
-  // Weather + risky-cell remain ring-only.
-  const seg = S._transient.currentSegment;
-  const onInterior = seg && (seg.type === 'shortcut' || seg.type === 'river-drift');
-  if (onInterior) {
-    const terr = courierTerrain();
-    const xy   = seg.pathFn(S.dotT);
-    let terrMult = TERRAIN_TRIP_MULT[terr] || 1.0;
-    // v0.0.9.6 commit 4 — placed gear mitigation
-    if (GEAR_FOR_TERRAIN[terr] && placedGearAt(xy.x, xy.y)) {
-      terrMult *= GEAR_TRIP_MITIGATION;
-    }
-    // v0.0.9.6 commit 6 — trample continuous reduction. Composes with
-    // gear mitigation: gear first narrows the penalty range, trample
-    // paves the remainder toward flat. A mountain with ladder (×1.3)
-    // AND trample 0.5 lands at ×1.15 trip risk; with carve (0.85)
-    // it's ×1.05. Severity still scales on the reduced mult below.
-    terrMult = reduceMultWithTrample(terrMult, trampleAt(xy.x, xy.y));
-    chance *= terrMult;
-  } else {
-    if (currentCellIsRisky()) chance *= 1.40;
-    // v0.0.8 — weather multiplier (spatial intensity from weather.js)
-    const w = weatherAtCourier();
-    if (w.intensity === 'drizzle')       chance *= C.TRIP_MULT_DRIZZLE;
-    else if (w.intensity === 'rain')     chance *= C.TRIP_MULT_RAIN;
-    else if (w.intensity === 'downpour') chance *= C.TRIP_MULT_DOWNPOUR;
-  }
-  // v0.0.8 — encumbrance: heavier cargo = more trip risk.
-  // Scales linearly from 1.0 (empty) to TRIP_ENCUMBRANCE_MAX_MULT (full weight).
-  if (S.maxWeight > 0 && S.usedWeight > 0) {
-    const loadRatio = Math.min(1, S.usedWeight / S.maxWeight);
-    chance *= 1 + (C.TRIP_ENCUMBRANCE_MAX_MULT - 1) * loadRatio;
-  }
-  return chance;
+  return tripChanceBreakdown().chance;
 }
 
+export function tripChanceBreakdown() {
+  const bootFail = (100 - S.bootDurability) / 100;
+  const segsLost = 4 - staminaSegCount();
+  const staminaMult = 1 + segsLost * 0.5;
+  let chance = C.TRIP_CHANCE_BASE * bootFail * staminaMult;
+
+  // v0.0.9.6.9.14 — graceful-stride bonuses.
+  // v0.0.9.6.9.16 — bonus reshaped to 60-100% range only. Zero below
+  // 60% on either stat (no help when already struggling), linear ramp
+  // to -20% at 100%. Rewards *maintaining* peak state rather than
+  // providing incremental reduction across all durabilities. Combined
+  // effect at full both: 0.80 × 0.80 = 0.64 → 36% trip-chance cut.
+  const staminaPctRaw = 100 * S.stamina / (S.staminaMax || 1);
+  const bootGraceBonus    = 0.20 * Math.max(0, (S.bootDurability - 60) / 40);
+  const staminaGraceBonus = 0.20 * Math.max(0, (staminaPctRaw - 60) / 40);
+  chance *= (1 - bootGraceBonus);
+  chance *= (1 - staminaGraceBonus);
+
+  const steadyFeetMult  = S.upgrades.steadyFeet ? 0.70 : 1.0;
+  const scannerBuffMult = S.scanner.buffActive ? S.scanner.buffMagnitude : 1.0;
+  // v0.0.9.6.9.20 — direct makeshift trip bump (layered on boot-drain
+  // penalty from main.js). Sandalweed is actively wobblier footing.
+  const makeshiftMult   = S.usingMakeshift ? C.MAKESHIFT_TRIP_MULT : 1.0;
+  chance *= steadyFeetMult * scannerBuffMult * makeshiftMult;
+
+  // v0.0.9.6.9.15 — terrain, gear mitigation, and trample reduction now
+  // apply on BOTH ring and interior. courierTerrain() was updated to
+  // return real geography on the ring path, so mountain / rockyHills /
+  // river cells that intersect the ring carry their full trip penalty.
+  // Risky-cell and weather remain ring-only (they're ring-specific
+  // concepts — risky flags are hand-placed, weather is spatial over the
+  // ring). Shortcut and river-drift segments are still considered
+  // 'interior' for anything ring-specific.
+  const seg = S._transient.currentSegment;
+  const onInterior = seg && (seg.type === 'shortcut' || seg.type === 'river-drift');
+  const terrain = courierTerrain();
+  let terrMult = TERRAIN_TRIP_MULT[terrain] || 1.0;
+  let weatherMult = 1.0, riskyMult = 1.0, weather = 'none';
+  if (seg) {
+    const xy = seg.pathFn(S.dotT);
+    if (GEAR_FOR_TERRAIN[terrain] && placedGearAt(xy.x, xy.y)) {
+      terrMult *= GEAR_TRIP_MITIGATION;
+    }
+    terrMult = reduceMultWithTrample(terrMult, trampleAt(xy.x, xy.y));
+  }
+  chance *= terrMult;
+  if (!onInterior) {
+    if (currentCellIsRisky()) { riskyMult = 1.40; chance *= 1.40; }
+    const w = weatherAtCourier();
+    weather = w.intensity;
+    if (w.intensity === 'drizzle')       { weatherMult = C.TRIP_MULT_DRIZZLE;  chance *= weatherMult; }
+    else if (w.intensity === 'rain')     { weatherMult = C.TRIP_MULT_RAIN;     chance *= weatherMult; }
+    else if (w.intensity === 'downpour') { weatherMult = C.TRIP_MULT_DOWNPOUR; chance *= weatherMult; }
+  }
+
+  let encumbranceMult = 1.0;
+  if (S.maxWeight > 0 && S.usedWeight > 0) {
+    const loadRatio = Math.min(1, S.usedWeight / S.maxWeight);
+    encumbranceMult = 1 + (C.TRIP_ENCUMBRANCE_MAX_MULT - 1) * loadRatio;
+    chance *= encumbranceMult;
+  }
+
+  return {
+    chance,
+    factors: {
+      base:          C.TRIP_CHANCE_BASE,
+      bootPct:       S.bootDurability,
+      bootFail,
+      staminaPct:    Math.round(100 * S.stamina / (S.staminaMax || 1)),
+      segsLost,
+      staminaMult,
+      bootGraceBonus,    // shown as bonus (e.g. 0.18); effective mult = (1 - bonus)
+      staminaGraceBonus,
+      steadyFeetMult,
+      scannerBuffMult,
+      makeshiftMult,     // v0.0.9.6.9.20 — explicit factor in telemetry
+      terrain,           // 'ring' | 'mountain' | 'rockyHills' | 'river' | 'desert' | 'plateau' | 'flat' | 'clayBed'
+      terrMult,
+      weather,           // 'none' | 'drizzle' | 'rain' | 'downpour'
+      weatherMult,
+      riskyCell:     riskyMult > 1,
+      riskyMult,         // v0.0.9.6.9.19 — expose numerical value for factor audit
+      encumbranceMult,
+      cargoLoadPct:  S.maxWeight > 0 ? Math.round(100 * S.usedWeight / (S.maxWeight || 1)) : 0,
+      usingMakeshift: !!S.usingMakeshift,
+    },
+  };
+}
+
+// v0.0.9.6.9.15 — catch was boot-only; collapsed too hard at low state.
+// v0.0.9.6.9.16 — catch rebuilt with floor + boot + stam + asymmetry.
+// v0.0.9.6.9.21 — floor now SCALES with best stat instead of flat 0.10.
+//   Catch audit showed 70% of catches firing at 0-25% boots / 79% at
+//   0-25% stam, i.e. the flat floor was doing most of the work and
+//   bad-state catches felt "unearned". New floor: 0.05 + 0.05 × max
+//   (bootFrac, stamFrac). Preserves the "always some chance" safety
+//   net while rewarding even partial maintenance of either stat.
+//   Floor table (no steadyFeet):
+//     0/0   : 0.05 + 0       = 0.05
+//     50/0  : 0.05 + 0.025   = 0.075
+//     100/0 : 0.05 + 0.05    = 0.10   (old flat floor only at full-one-stat)
+//     100/100: 0.05 + 0.05   = 0.10   (floor caps at 0.10, the rest
+//                                      comes from the linear boot+stam terms)
 export function catchChance() {
-  const bf = S.bootDurability/100, sf = Math.min(S.stamina,S.staminaMax)/S.staminaMax;
-  let c = C.CATCH_CHANCE_BASE * ((bf+sf)/2);
+  const bootFrac = S.bootDurability / 100;
+  const stamFrac = Math.min(S.stamina, S.staminaMax) / (S.staminaMax || 1);
+  const higher   = Math.max(bootFrac, stamFrac);
+  let c = 0.05 + 0.05 * higher;  // scaled floor
+  c += 0.25 * bootFrac;
+  c += 0.25 * stamFrac;
+  const gap = Math.abs(bootFrac - stamFrac);
+  c += Math.min(0.15, 0.15 * gap * higher);
   if (S.upgrades.steadyFeet) c += 0.15;
   return Math.min(0.85, c);
 }
@@ -313,9 +392,27 @@ function dropTrippedPkg(target, invIdx) {
   S.usedSlots  = Math.max(0, S.usedSlots - target.slots);
   S.usedWeight = Math.max(0, S.usedWeight - target.kg);
   S.inventory.splice(invIdx, 1);
+  onInventoryChange();
+
+  // v0.0.9.6.9.13 — shared emit helper for the 3 trip-drop exits
+  // (pre-tagged isLost, shortcut-forced-lost, ±3-search-forced-lost).
+  // Mirrors pkg.lost's shape from packages.js so sim aggregation can
+  // treat all loss/toss events uniformly via reason: field.
+  const emitLost = (reason) => {
+    tEmit('pkg.lost', {
+      size:               target.size,
+      destId:             target.destId,
+      scrip:              target.scrip,
+      carryDurationTicks: (typeof target.pickupTick === 'number') ? (S.ticks - target.pickupTick) : null,
+      srcEdgeIdx:         (typeof target.srcEdgeIdx === 'number') ? target.srcEdgeIdx : null,
+      reason,
+      terrainOrigin:      target.terrainOrigin || 'ring',
+    });
+  };
 
   if (target.isLost) {
     postLostDrop(target);
+    emitLost('trip_pretagged');
     return { lost: true };
   }
   // During shortcut the courier is off-grid; worldCells index may not
@@ -324,6 +421,7 @@ function dropTrippedPkg(target, invIdx) {
   if (seg && seg.type === 'shortcut') {
     const asLost = { ...target, isLost: true };
     postLostDrop(asLost);
+    emitLost('trip_shortcut');
     return { lost: true };
   }
   const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
@@ -337,6 +435,7 @@ function dropTrippedPkg(target, invIdx) {
   if (dropCi < 0) {
     const asLost = { ...target, isLost: true };
     postLostDrop(asLost);
+    emitLost('trip_forced');
     return { lost: true };
   }
   worldCells[dropCi].pkg = {
@@ -352,6 +451,17 @@ function dropTrippedPkg(target, invIdx) {
     respawnIn: 0,
     tossedUntilTick: S.ticks + C.TOSS_COOLDOWN_TICKS,
   };
+  // v0.0.9.6.9.13 — trip-toss (landed on trail, recoverable).
+  // Distinct from manual toss via reason: 'trip'.
+  tEmit('pkg.tossed', {
+    size:               target.size,
+    destId:             target.destId,
+    scrip:              target.scrip,
+    carryDurationTicks: (typeof target.pickupTick === 'number') ? (S.ticks - target.pickupTick) : null,
+    srcEdgeIdx:         (typeof target.srcEdgeIdx === 'number') ? target.srcEdgeIdx : null,
+    reason:             'trip',
+    terrainOrigin:      target.terrainOrigin || 'ring',
+  });
   return { lost: false };
 }
 
@@ -420,12 +530,23 @@ export function maybeTrip() {
   // v0.0.9.6 commit 3 — if a stall state is active, we're in the
   // recovery window already; no double-trip.
   if (S._transient.severeTripState) return;
-  if (Math.random() >= tripChance()) return;
+  // v0.0.9.6.9.17 — strain gauge replaces per-tick trip roll.
+  // strainDelta uses the same factor breakdown that used to produce
+  // tripChance, scaled so accumulation-to-threshold feels tuned for
+  // integrated risk over an NPC hop rather than per-tick rolls.
+  // Graceful-stride bonuses already multiply into `chance` inside
+  // tripChanceBreakdown (i.e., resilience — same math). Trip fires
+  // when strain >= threshold; strain resets to 0.
+  const { chance, factors } = tripChanceBreakdown();
+  const strainDelta = chance * C.STRAIN_DELTA_SCALE;
+  S.strain = Math.min(1.0, (S.strain || 0) + strainDelta);
+  if (S.strain < C.STRAIN_TRIP_THRESHOLD) return;
+  S.strain = 0;
   const flavor = tripFlavor();
-  // v0.0.9.6.9 sim telemetry
-  tEmit('trip.fired', { flavor });
-  if (Math.random() < catchChance()) {
-    tEmit('trip.caught', { flavor });
+  tEmit('trip.fired', { tripChance: chance, strainDelta, ...factors });
+  const catchVal = catchChance();
+  if (Math.random() < catchVal) {
+    tEmit('trip.caught', { catchChance: catchVal, bootPct: S.bootDurability, staminaPct: factors.staminaPct, terrain: factors.terrain });
     addLog(TRIP_MSGS.catch[flavor] || TRIP_MSGS.catch.default);
     return;
   }

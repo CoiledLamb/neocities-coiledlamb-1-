@@ -284,6 +284,9 @@ export function broadcastTrampleMilestone(cellKey, value) {
 }
 
 export async function fetchLostFromPeer(peerPorterId) {
+  // v0.0.9.6.9.6 — respect silent mode (missing gate could let sim or
+  // user-silenced sessions hit Cloudflare worker).
+  if (isSilent()) return [];
   try {
     const res = await fetch(C.FEED_URL + '/lost/' + encodeURIComponent(peerPorterId));
     if (!res.ok) return [];
@@ -296,6 +299,10 @@ export async function fetchLostFromPeer(peerPorterId) {
 }
 
 export async function pollFeed() {
+  // v0.0.9.6.9.6 — respect silent mode (missing gate meant sim /
+  // user-silenced sessions still hit Cloudflare worker every POLL_MS).
+  // All outbound network calls in this module now check isSilent().
+  if (isSilent()) return;
   try {
     const url = C.FEED_URL + '/feed' + (S.lastFeedTimestamp ? ('?since=' + S.lastFeedTimestamp) : '');
     const res = await fetch(url);

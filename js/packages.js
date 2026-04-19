@@ -39,8 +39,8 @@ import {
   PKG_MODIFIERS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
   PKG_LABELS_BY_TERRAIN_ORIGIN,
 } from './data/packages.js';
-import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt } from './data/terrain.js';
-import { placedGearAt } from './gear.js';
+import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js';
+import { placedGearAt, autoPlaceForCell } from './gear.js';
 import { emit as tEmit, accum as tAccum } from './telemetry.js';
 import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js';
 import { updatePorterStripBadges } from './recovery.js';
@@ -73,6 +73,53 @@ let lastDeliveryBroadcastTs = 0;
 export function effectiveMaxSlots() {
   if (S.stickyGun && !S.stickyGun.holstered) return Math.max(0, S.maxSlots - 1);
   return S.maxSlots;
+}
+
+// v0.0.9.6.9.11 — inventory-bottleneck edge telemetry. Call after every
+// push/splice to S.inventory. Emits `inventory.maxed` on the tick slots
+// transition to full, and `inventory.freed` on the tick they drop below
+// full — with durationTicks since the maxed transition. Lets sim count
+// distinct bottleneck episodes and measure their length, not just their
+// frequency. _transient fields reset cleanly across sim snapshot/restore.
+//
+// v0.0.9.6.9.12 — skip dedupe lives alongside the maxed tracker. When
+// cargo state changes, the per-pkg skip-emit Set clears so each unique
+// pkg can emit `pickup.failed` once per cargo-state cycle. Prevents the
+// tick-multiplied inflation (prior run saw 494 skips/run; real distinct
+// skips are expected ~5-10x lower).
+function onInventoryChange() {
+  const maxSlots = effectiveMaxSlots();
+  const maxed    = maxSlots > 0 && S.usedSlots >= maxSlots;
+  if (maxed && !S._transient.inventoryWasMaxed) {
+    S._transient.inventoryWasMaxed      = true;
+    S._transient.inventoryMaxedSinceTick = S.ticks;
+    tEmit('inventory.maxed', { slots: S.usedSlots, maxSlots });
+  } else if (!maxed && S._transient.inventoryWasMaxed) {
+    const startTick = S._transient.inventoryMaxedSinceTick || S.ticks;
+    S._transient.inventoryWasMaxed = false;
+    tEmit('inventory.freed', { durationTicks: S.ticks - startTick, slots: S.usedSlots, maxSlots });
+  }
+  // Cargo state changed → reset the per-pkg skip-emit set.
+  if (S._transient.skipEmittedPkgs) S._transient.skipEmittedPkgs.clear();
+}
+
+// v0.0.9.6.9.13 — exported so trip.js can hook into the same bottleneck
+// tracking when a severe trip drops cargo from inventory. Without this,
+// inventory.maxed/freed only fires on normal pick/deliver/toss paths
+// and misses trip-caused drops, under-counting bottleneck episodes.
+export { onInventoryChange };
+
+// v0.0.9.6.9.12 — per-pkg skip dedupe. Returns true if we should emit
+// pickup.failed for this pkg in the current cargo state, and marks it
+// so subsequent ticks at the same cargo state are silent. Set is
+// cleared by onInventoryChange when cargo shifts; caller should use
+// a stable identifier (worldCell index for ring pkgs, cell key for
+// interior pkgs) so the same pkg is recognized tick-to-tick.
+function shouldEmitSkipFor(pkgKey) {
+  if (!S._transient.skipEmittedPkgs) S._transient.skipEmittedPkgs = new Set();
+  if (S._transient.skipEmittedPkgs.has(pkgKey)) return false;
+  S._transient.skipEmittedPkgs.add(pkgKey);
+  return true;
 }
 
 // v0.0.9.4.1 — shared tooltip formatter for pkg hover. Keeps the
@@ -322,57 +369,58 @@ function nearestEdgeToPoint(x, y) {
 // classifies each cell, rolls per-terrain spawn chance, and populates
 // S.interiorPkgs keyed by cell position. Idempotent — re-running on
 // a populated table is a no-op unless cell has no entry.
+// v0.0.9.6.9.12 — converted from dynamic-import .then() to a pure
+// synchronous function. terrain.js is already statically imported at
+// the top of this file (no cycle); the old late-import was belt-and-
+// suspenders that starved the sim's sync tick loop of any seeding.
+// seedInteriorPkgs is idempotent — repeated calls skip populated cells.
 export function seedInteriorPkgs() {
-  // Lazy-imported to avoid cycle — terrain.js doesn't need packages.js.
-  // Late dynamic import is fine at seed time (runs once, not hot path).
-  return import('./data/terrain.js').then(({ terrainAt, mesaOutcropAt, snapInteriorCell: snap, MESA_OUTCROP_CENTERS }) => {
-    const SPAWN_RATES = {
-      plateau:    C.INTERIOR_SPAWN_PLATEAU,
-      mountain:   C.INTERIOR_SPAWN_MOUNTAIN,
-      rockyHills: C.INTERIOR_SPAWN_ROCKYHILLS,
-    };
-    if (!S.interiorPkgs) S.interiorPkgs = {};
-    // Standard grid pass — handles interior terrain (plateau near
-    // xi, mountain, rockyHills).
-    for (let yy = 50; yy <= 350; yy += 12) {
-      for (let xx = 50; xx <= 350; xx += 12) {
-        if (!pointInRing(xx, yy)) continue;
-        const key = cellKeyFromCoords(xx, yy);
-        if (S.interiorPkgs[key]) continue;
-        const terr = terrainAt(xx, yy);
-        const rate = SPAWN_RATES[terr];
-        if (!rate) continue;
-        if (Math.random() >= rate) continue;
-        const snapped = snapInteriorCell(xx, yy);
-        const pkg = rollInteriorPkg(terr, snapped.x, snapped.y);
-        S.interiorPkgs[key] = {
-          x: snapped.x, y: snapped.y,
-          terrainOrigin: terr,
-          pkg,
-          respawnIn: 0,
-          picked: false,
-        };
-      }
-    }
-    // v0.0.9.6.9.3 — GUARANTEED mesa outcrop seeding. Each of the
-    // 4 ring-placed outcrops gets exactly one plateau pkg at its
-    // snapped center cell. Deterministic placement (not rate-
-    // rolled) so the teaching mechanic always has content —
-    // earlygame mesas can't afford to spawn empty.
-    for (const m of MESA_OUTCROP_CENTERS) {
-      const sn = snapInteriorCell(m.x, m.y);
-      const key = cellKeyFromCoords(sn.x, sn.y);
+  const SPAWN_RATES = {
+    plateau:    C.INTERIOR_SPAWN_PLATEAU,
+    mountain:   C.INTERIOR_SPAWN_MOUNTAIN,
+    rockyHills: C.INTERIOR_SPAWN_ROCKYHILLS,
+  };
+  if (!S.interiorPkgs) S.interiorPkgs = {};
+  // Standard grid pass — handles interior terrain (plateau near
+  // xi, mountain, rockyHills).
+  for (let yy = 50; yy <= 350; yy += 12) {
+    for (let xx = 50; xx <= 350; xx += 12) {
+      if (!pointInRing(xx, yy)) continue;
+      const key = cellKeyFromCoords(xx, yy);
       if (S.interiorPkgs[key]) continue;
-      const pkg = rollInteriorPkg('plateau', sn.x, sn.y);
+      const terr = terrainAt(xx, yy);
+      const rate = SPAWN_RATES[terr];
+      if (!rate) continue;
+      if (Math.random() >= rate) continue;
+      const snapped = snapInteriorCell(xx, yy);
+      const pkg = rollInteriorPkg(terr, snapped.x, snapped.y);
       S.interiorPkgs[key] = {
-        x: sn.x, y: sn.y,
-        terrainOrigin: 'plateau',
+        x: snapped.x, y: snapped.y,
+        terrainOrigin: terr,
         pkg,
         respawnIn: 0,
         picked: false,
       };
     }
-  });
+  }
+  // v0.0.9.6.9.3 — GUARANTEED mesa outcrop seeding. Each of the
+  // 4 ring-placed outcrops gets exactly one plateau pkg at its
+  // snapped center cell. Deterministic placement (not rate-
+  // rolled) so the teaching mechanic always has content —
+  // earlygame mesas can't afford to spawn empty.
+  for (const m of MESA_OUTCROP_CENTERS) {
+    const sn = snapInteriorCell(m.x, m.y);
+    const key = cellKeyFromCoords(sn.x, sn.y);
+    if (S.interiorPkgs[key]) continue;
+    const pkg = rollInteriorPkg('plateau', sn.x, sn.y);
+    S.interiorPkgs[key] = {
+      x: sn.x, y: sn.y,
+      terrainOrigin: 'plateau',
+      pkg,
+      respawnIn: 0,
+      picked: false,
+    };
+  }
 }
 
 // v0.0.9.4 — NPC outbound dispatch. On arrival at an NPC node, that NPC
@@ -478,13 +526,20 @@ export function tryOutboundDispatch(originNodeId) {
     recoveryFromPorter: null,
     outboundFrom: originNodeId,    // carries through to tryDeliver
     _worldCell: undefined,          // no world cell — dispatched, not picked up
+    // v0.0.9.6.9.10 — cargo telemetry: per-pkg pickup timestamp +
+    // ring-edge origin, for carry-duration histogram + src/dest analysis.
+    pickupTick:   S.ticks,
+    srcEdgeIdx:   S.edgeIdx,
+    pickupOrigin: 'dispatch',
   };
   S.inventory.push(carried);
   S.usedSlots  += carried.slots;
   S.usedWeight += carried.kg;
+  onInventoryChange();
   S.status = 'carrying';
   renderCourierStack();
   renderCargoSlots(true);
+  tEmit('pkg.picked', { size: carried.size, destId: carried.destId, scrip: carried.scrip, srcEdgeIdx: carried.srcEdgeIdx, pickupOrigin: 'dispatch', from: originNodeId });
 
   // +N trust at origin for accepting. Same weight-scaled formula as
   // delivery; +1 bonus does NOT apply here (that's the dest-side bonus).
@@ -522,6 +577,30 @@ function acceptPickup(ci, offset) {
     // order and each updates lastPickupFailKey, so neither hit its
     // own key on the next pass. New key fires once per cargo state,
     // re-fires after drop/deliver. Callsite unchanged.
+    // v0.0.9.6.9.10 — emit pickup.failed for ring pickups (previously
+    // only interior pickups emitted). Adds pkg.size + destId + scrip so
+    // sim can compare skipped packages' targets against the pkg the
+    // player WAS carrying — directly answers "what did holding a long-
+    // haul package cost me in passed-over deliveries".
+    // v0.0.9.6.9.11 — cargo-pressure snapshot (slots/weight at skip
+    // time) distinguishes "full cargo" skips from "this specific pkg
+    // didn't fit because of weight" skips. terrainOrigin dropped from
+    // ring-skip emit — always 'ring' here, tautology.
+    // v0.0.9.6.9.12 — per-pkg dedupe. Ring pkg identified by worldCell
+    // index. Same pkg at same cargo state emits once; next cargo
+    // transition (pickup / delivery / toss) unlocks it again.
+    if (shouldEmitSkipFor('ring:' + ci)) {
+      tEmit('pickup.failed', {
+        reason:            slotsShort ? 'slots' : 'weight',
+        size:              pkg.size,
+        destId:            pkg.destId,
+        scrip:             pkg.scrip,
+        slotsUsedAtSkip:   S.usedSlots,
+        maxSlotsAtSkip:    effectiveMaxSlots(),
+        weightUsedAtSkip:  S.usedWeight,
+        maxWeightAtSkip:   S.maxWeight,
+      });
+    }
     const key = `${S.usedSlots}:${S.usedWeight}`;
     if (S._transient.lastPickupFailKey !== key) {
       S._transient.lastPickupFailKey = key;
@@ -546,14 +625,20 @@ function acceptPickup(ci, offset) {
     isRecovery: !!pkg.isRecovery,
     recoveryFromPorter: pkg.recoveryFromPorter || null,
     _worldCell: ci,
+    // v0.0.9.6.9.10 — cargo telemetry fields (see dispatch branch).
+    pickupTick:   S.ticks,
+    srcEdgeIdx:   S.edgeIdx,
+    pickupOrigin: 'ring',
   };
   S.inventory.push(carried);
   S.usedSlots  += carried.slots;
   S.usedWeight += carried.kg;
+  onInventoryChange();
   S.status = 'carrying';
   renderCourierStack();
   renderCargoSlots(true);
   if (els.courierAt) els.courierAt.className = 'tlh-at bounce carry';
+  tEmit('pkg.picked', { size: carried.size, destId: carried.destId, scrip: carried.scrip, srcEdgeIdx: carried.srcEdgeIdx, pickupOrigin: 'ring', isLost: !!carried.isLost, isRecovery: !!carried.isRecovery });
   const lostTag = carried.isRecovery
     ? ` <span class="log-wn">[recovery]</span> from <span class="log-hi">${shortPorterId(carried.recoveryFromPorter)}</span>`
     : (carried.isLost ? ' <span class="log-wn">[lost pkg]</span>' : '');
@@ -588,8 +673,43 @@ function acceptInteriorPickup(entry) {
         if (mesaOutcropAt(g.x, g.y) === outcrop) { hasLadder = true; break; }
       }
     }
+    // v0.0.9.6.9.22 — reactive unlock. Auto-place was TERRAIN-triggered,
+    // which meant ladders landed wherever the courier's ring-path hit a
+    // plateau cell — often a different outcrop than the pkg we're now
+    // trying to pick. Before emitting the gate skip, try to place a
+    // ladder AT THIS pkg's cell using the same 3-tier logic as
+    // autoPlaceForCell (kit → autobuy → fail). If successful, re-check
+    // outcrop coverage and potentially pick the pkg this very tick.
+    // Gated on autoGear so a player who's off-toggled this intent
+    // doesn't get surprise spend. Sim data (.21): 11,608 plateau_gate
+    // skips vs 829 placed ladders — ladders weren't landing in the
+    // right outcrops. This closes that gap.
+    if (!hasLadder && S.kit && S.kit.autoGear) {
+      autoPlaceForCell('plateau', { x: entry.x, y: entry.y });
+      hasLadder = !!placedGearAt(entry.x, entry.y);
+      // Re-scan the outcrop since the fresh placement might cover via
+      // outcrop-match rather than exact-cell match.
+      if (!hasLadder && outcrop) {
+        for (const g of (S.placedGear || [])) {
+          if (g.type !== 'ladder') continue;
+          if (mesaOutcropAt(g.x, g.y) === outcrop) { hasLadder = true; break; }
+        }
+      }
+    }
     if (!hasLadder) {
-      tEmit('pickup.failed', { reason: 'plateau_gate' });
+      // v0.0.9.6.9.12 — dedupe plateau_gate emits per-pkg too (same
+      // mechanism as slots/weight skips). Resets on ladder placement
+      // (via gear.js onGearPlaced hook) so next visit re-evaluates.
+      const gateKey = 'plateau_gate:' + cellKeyFromCoords(entry.x, entry.y);
+      if (shouldEmitSkipFor(gateKey)) {
+        tEmit('pickup.failed', {
+          reason:        'plateau_gate',
+          size:          pkg.size,
+          destId:        pkg.destId,
+          scrip:         pkg.scrip,
+          terrainOrigin: entry.terrainOrigin,
+        });
+      }
       if (!S._transient.plateauGateLogged) {
         S._transient.plateauGateLogged = true;
         addLog('<span class="log-wn">plateau top out of reach</span> \u2014 a ladder would do it');
@@ -600,7 +720,27 @@ function acceptInteriorPickup(entry) {
   const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
   const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
   if (slotsShort || weightShort) {
-    tEmit('pickup.failed', { reason: slotsShort ? 'slots' : 'weight', terrainOrigin: entry.terrainOrigin });
+    // v0.0.9.6.9.10 — enriched with size/destId/scrip so sim can diff
+    // skipped-pkgs vs carried-pkgs.
+    // v0.0.9.6.9.11 — cargo-pressure snapshot for consistency with ring
+    // skip emit. terrainOrigin kept here because interior skips span
+    // plateau / mountain / rockyHills (non-tautological).
+    // v0.0.9.6.9.12 — per-pkg dedupe. Interior pkg identified by its
+    // cell key (coords-based, stable across ticks).
+    const interiorKey = 'int:' + cellKeyFromCoords(entry.x, entry.y);
+    if (shouldEmitSkipFor(interiorKey)) {
+      tEmit('pickup.failed', {
+        reason:            slotsShort ? 'slots' : 'weight',
+        size:              pkg.size,
+        destId:            pkg.destId,
+        scrip:             pkg.scrip,
+        terrainOrigin:     entry.terrainOrigin,
+        slotsUsedAtSkip:   S.usedSlots,
+        maxSlotsAtSkip:    effectiveMaxSlots(),
+        weightUsedAtSkip:  S.usedWeight,
+        maxWeightAtSkip:   S.maxWeight,
+      });
+    }
     const key = `${S.usedSlots}:${S.usedWeight}`;
     if (S._transient.lastPickupFailKey !== key) {
       S._transient.lastPickupFailKey = key;
@@ -610,17 +750,22 @@ function acceptInteriorPickup(entry) {
     return false;
   }
   entry.picked = true;
-  tEmit('pkg.picked', { size: pkg.size, terrainOrigin: entry.terrainOrigin });
+  tEmit('pkg.picked', { size: pkg.size, destId: pkg.destId, scrip: pkg.scrip, srcEdgeIdx: S.edgeIdx, pickupOrigin: 'interior', terrainOrigin: entry.terrainOrigin });
   const carried = {
     size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
     scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
     modifier: pkg.modifier || null,
     terrainOrigin: entry.terrainOrigin,
     _interiorKey: cellKeyFromCoords(entry.x, entry.y),
+    // v0.0.9.6.9.10 — cargo telemetry fields (see dispatch branch).
+    pickupTick:   S.ticks,
+    srcEdgeIdx:   S.edgeIdx,
+    pickupOrigin: 'interior',
   };
   S.inventory.push(carried);
   S.usedSlots  += carried.slots;
   S.usedWeight += carried.kg;
+  onInventoryChange();
   S.status = 'carrying';
   renderCourierStack();
   renderCargoSlots(true);
@@ -776,12 +921,24 @@ export function ejectFromCargo(invIdx) {
   S.inventory.splice(invIdx, 1);
   S.usedSlots  = Math.max(0, S.usedSlots - pkg.slots);
   S.usedWeight = Math.max(0, S.usedWeight - pkg.kg);
+  onInventoryChange();
 
   if (wentLost) {
     // Broadcast to the recovery pipeline (tags with porter id inside
     // postLostDrop via getCachedPorterId).
     const lostPkg = { ...pkg, isLost: true };
     postLostDrop(lostPkg);
+    // v0.0.9.6.9.10 — cargo telemetry: carry-duration on loss, for
+    // histogram vs delivered.
+    tEmit('pkg.lost', {
+      size:              pkg.size,
+      destId:            pkg.destId,
+      scrip:             pkg.scrip,
+      carryDurationTicks: (typeof pkg.pickupTick === 'number') ? (S.ticks - pkg.pickupTick) : null,
+      srcEdgeIdx:        (typeof pkg.srcEdgeIdx === 'number') ? pkg.srcEdgeIdx : null,
+      reason:            forcedLost ? 'forced' : 'toss_scatter',
+      terrainOrigin:     pkg.terrainOrigin || 'ring',
+    });
     const reason = forcedLost ? 'trail too crowded' : 'scattered on the toss';
     addLog(`<span class="log-wn">lost</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
   } else {
@@ -804,6 +961,19 @@ export function ejectFromCargo(invIdx) {
       tossedUntilTick: S.ticks + C.TOSS_COOLDOWN_TICKS,
     };
     worldCells[dropCi].pkg = dropped;
+    // v0.0.9.6.9.13 — pkg.tossed mirrors pkg.lost fields (carry
+    // duration + src origin) so sim can diff tossed vs delivered vs
+    // lost. reason='manual' distinguishes player drag-toss from
+    // trip-caused drops (reason='trip' emitted from trip.js).
+    tEmit('pkg.tossed', {
+      size:               pkg.size,
+      destId:             pkg.destId,
+      scrip:              pkg.scrip,
+      carryDurationTicks: (typeof pkg.pickupTick === 'number') ? (S.ticks - pkg.pickupTick) : null,
+      srcEdgeIdx:         (typeof pkg.srcEdgeIdx === 'number') ? pkg.srcEdgeIdx : null,
+      reason:             'manual',
+      terrainOrigin:      pkg.terrainOrigin || 'ring',
+    });
     addLog(`tossed <span class="log-hi">[${pkg.size}] ${pkg.label}</span> onto the trail`);
     postActivity('toss', { label: pkg.label, size: pkg.size });
   }
@@ -832,9 +1002,26 @@ export function tryDeliver(arrivedNodeId) {
   if (toDeliver.length === 0) return;
   const settle = S.settlements[arrivedNodeId];
   const destLabel = settle ? settle.label : arrivedNodeId;
+  // v0.0.9.6.9.11 — arrival-batch size snapshot for the "dumps everything
+  // at each stop vs one-at-a-time" question.
+  const arrivalCount = toDeliver.length;
   toDeliver.forEach(pkg => {
     // v0.0.9.6.9 sim telemetry
-    tEmit('pkg.delivered', { npc: arrivedNodeId, size: pkg.size, scrip: pkg.scrip, terrainOrigin: pkg.terrainOrigin || 'ring' });
+    // v0.0.9.6.9.10 — carry-duration + src origin added for sim carry-time histogram.
+    // v0.0.9.6.9.11 — arrivalBatchCount for batch-size analysis;
+    // outbound flag splits dispatch-targeted pairs vs opportunistic ring pickups.
+    tEmit('pkg.delivered', {
+      npc:                arrivedNodeId,
+      size:               pkg.size,
+      scrip:              pkg.scrip,
+      terrainOrigin:      pkg.terrainOrigin || 'ring',
+      carryDurationTicks: (typeof pkg.pickupTick === 'number') ? (S.ticks - pkg.pickupTick) : null,
+      srcEdgeIdx:         (typeof pkg.srcEdgeIdx === 'number') ? pkg.srcEdgeIdx : null,
+      destEdgeIdx:        S.edgeIdx,
+      pickupOrigin:       pkg.pickupOrigin || null,
+      arrivalBatchCount:  arrivalCount,
+      outbound:           !!pkg.outboundFrom,
+    });
     tAccum('pkg.delivered', 'scrip', pkg.scrip);
     tAccum('pkg.delivered', 'scrip_' + arrivedNodeId, pkg.scrip);
     tAccum('pkg.delivered', 'count_' + (pkg.terrainOrigin || 'ring'), 1);
@@ -843,6 +1030,7 @@ export function tryDeliver(arrivedNodeId) {
     S.usedSlots  -= pkg.slots;
     S.usedWeight -= pkg.kg;
     S.inventory.splice(S.inventory.indexOf(pkg), 1);
+    onInventoryChange();
     if (pkg._worldCell !== undefined && worldCells[pkg._worldCell] && worldCells[pkg._worldCell].pkg) {
       if (pkg.isRecovery) {
         worldCells[pkg._worldCell].pkg = null;

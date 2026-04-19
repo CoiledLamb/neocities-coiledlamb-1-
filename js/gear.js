@@ -38,7 +38,7 @@ import {
 } from './data/terrain.js';
 import { addLog } from './render/log.js';
 import { getCachedPorterId, broadcastGearPlacement } from './multiplayer.js';
-import { emit as tEmit } from './telemetry.js';
+import { emit as tEmit, accum as tAccum } from './telemetry.js';
 
 // Cell-snap grid for placement lookup. Matches the 12-
 // unit step used by drawInterior / terrain classifier.
@@ -146,6 +146,7 @@ export function autoPlaceForCell(terrain, xy) {
     S.scrip -= GEAR_PRICE;
     const entry = placeEntry(gearType, xy.x, xy.y, terrain);
     tEmit('gear.auto_bought', { type: gearType, terrain });
+    tAccum('scrip.spent', 'gear_autobuy', GEAR_PRICE);
     logAutoBuy(gearType, terrain);
     return entry;
   }
@@ -285,6 +286,7 @@ export function buyGear(type) {
   if (type !== 'ladder' && type !== 'anchor') return false;
   if (S.scrip < GEAR_PRICE) return false;
   S.scrip -= GEAR_PRICE;
+  tAccum('scrip.spent', 'gear_manual', GEAR_PRICE);
   const stackKey = type === 'ladder' ? 'ladders' : 'anchors';
   S.kit[stackKey]++;
   addLog(
