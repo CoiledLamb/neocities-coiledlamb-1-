@@ -100,6 +100,10 @@ export function deployCart({ reason } = {}) {
   S.carrier.deployed = true;
   S.carrier.autoDeployArmed = false;
   S.carrier.safeTerrainTicks = 0;
+  // v0.0.9.6.9.30m — clear the stuck-log dedupe on any deploy so
+  // the next genuine stuck event (different terrain / different
+  // bag state) gets its own log line.
+  S._transient.cartStuckLogKey = null;
   tEmit('carrier.deployed', { level: S.carrier.level, reason: reason || 'manual' });
   if (reason !== 'silent') {
     addLog(reason === 'autoRedeploy'
@@ -150,30 +154,50 @@ export function stowCart({ reason, forced } = {}) {
     S.carrier.inventory = [];
     addLog('<span class="log-ok">cart stowed</span>');
   } else {
-    // Forced path: try to transfer cart contents first; drop what
-    // doesn't fit; then check whether folded shape still fits in
-    // main. If not, abandon (cart stays deployed). Detail logic
-    // refined in .30k when terrain enforcement wires in the caller.
+    // v0.0.9.6.9.30m — forced path was atomicity-broken. Old order
+    // was: transfer cart→main first, then check if folded fits; if
+    // not, abandon with cart already emptied into main. Every
+    // subsequent tick the courier picked up new pkgs into the
+    // (now empty) cart, which then got transferred into the
+    // (now fuller) main on next force-stow attempt, making the
+    // fold ceiling harder each pass — and spamming the log.
+    //
+    // New order: reserve the folded footprint FIRST. If main
+    // can't fit the folded shape at all, abandon immediately
+    // without touching cart inventory. Otherwise relocate cart
+    // pkgs into the remaining (post-fold) budget, dropping
+    // overflow.
+    let availSlots = S.maxSlots  - S.usedSlots  - stats.foldedSlots;
+    let availKg    = S.maxWeight - S.usedWeight - stats.foldedKg;
+    if (availSlots < 0 || availKg < 0) {
+      // Folded won't fit even with zero cart content. Log once per
+      // (reason, main-bag-state) — dedupe lives on _transient so
+      // it resets naturally when the bag state changes (delivery,
+      // pickup that affects main, etc).
+      const stuckKey = `${reason}:${S.usedSlots}:${S.usedWeight}`;
+      if (S._transient.cartStuckLogKey !== stuckKey) {
+        S._transient.cartStuckLogKey = stuckKey;
+        addLog(`<span class="log-wn">cart stuck on ${reason || 'terrain'} \u2014 bag too full to fold</span>`);
+      }
+      return false;
+    }
+    // Folded WILL fit once we insert it. Transfer cart pkgs into
+    // the remaining budget; anything that doesn't fit drops.
     const droppedLabels = [];
     const toRelocate = S.carrier.inventory.slice();
     S.carrier.inventory.length = 0;
     for (const p of toRelocate) {
-      if (mainHasRoomFor((p.slots||0), (p.kg||0))) {
+      const ps = (p.slots || 0), pk = (p.kg || 0);
+      if (availSlots >= ps && availKg >= pk) {
         S.inventory.push(p);
-        S.usedSlots  += (p.slots || 0);
-        S.usedWeight += (p.kg    || 0);
+        S.usedSlots  += ps;
+        S.usedWeight += pk;
+        availSlots -= ps;
+        availKg    -= pk;
       } else {
         droppedLabels.push(p.label || `[${p.size}]`);
         tEmit('carrier.dropped', { size: p.size, label: p.label, scrip: p.scrip, reason: reason || 'forced' });
       }
-    }
-    if (!mainHasRoomFor(stats.foldedSlots, stats.foldedKg)) {
-      // Folded cart doesn't fit even after dropping cart pkgs. Abandon
-      // the stow — cart stays deployed. Caller sees false and decides
-      // how to handle (usually: log warning, let terrain penalties
-      // continue until the player clears main cargo).
-      addLog(`<span class="log-wn">cart stuck on ${reason || 'terrain'} \u2014 bag too full to fold</span>`);
-      return false;
     }
     if (droppedLabels.length > 0) {
       const summary = droppedLabels.length === 1
@@ -183,6 +207,9 @@ export function stowCart({ reason, forced } = {}) {
     } else {
       addLog(`<span class="log-wn">cart stowed \u2014 ${reason || 'incompatible terrain'}</span>`);
     }
+    // Successful stow — clear any dedupe key so the next genuine
+    // stuck event logs fresh.
+    S._transient.cartStuckLogKey = null;
   }
 
   // Insert folded pseudo-pkg.
@@ -230,11 +257,20 @@ export function tryAutoRedeploy(currentTerrain) {
 
 /** Per-tick forced-stow check. If deployed + current terrain is
  *  incompatible, stow forcibly. Called from main.js after terrain
- *  classification. Idempotent (early-returns if already stowed). */
+ *  classification. Idempotent (early-returns if already stowed).
+ *  Clears the stuck-log dedupe when the situation resolves
+ *  (cart already stowed, or terrain now compatible) so the next
+ *  genuine stuck event re-logs. */
 export function enforceTerrainCompatibility(currentTerrain) {
   if (!S.carrier || !S.carrier.unlocked) return;
-  if (!S.carrier.deployed) return;
-  if (isCarrierTerrainCompatible(currentTerrain)) return;
+  if (!S.carrier.deployed) {
+    S._transient.cartStuckLogKey = null;
+    return;
+  }
+  if (isCarrierTerrainCompatible(currentTerrain)) {
+    S._transient.cartStuckLogKey = null;
+    return;
+  }
   stowCart({ reason: currentTerrain, forced: true });
 }
 
