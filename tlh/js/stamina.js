@@ -39,6 +39,7 @@ import { S } from './state.js';
 import * as C from './constants.js';
 import { addLog } from './render/log.js';
 import { bindStrainTooltip } from './render/strain-tip.js';
+import { bindStaminaTooltip } from './render/stamina-tip.js';
 import { emit as tEmit } from './telemetry.js';
 
 const els = S._transient.els;
@@ -138,6 +139,8 @@ export function renderStamina() {
   // v0.0.9.6.9.26 — wire the strain rich-tooltip on first paint. The
   // bind is idempotent; subsequent renders skip past the guard.
   bindStrainTooltip();
+  // v0.0.9.6.10.5 — same pattern for the stamina bar's rich tooltip.
+  bindStaminaTooltip();
 
   // v0.0.9.6.9.30l — smoke-sandalweed button (replaces manual rest).
   // Text surfaces the stash count, switches to `smoking [Ns]` while
