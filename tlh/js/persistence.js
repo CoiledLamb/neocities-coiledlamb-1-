@@ -377,17 +377,29 @@ function _applyValidated(data) {
       S.npcs['\u03bd'].unlocks.t20  = true;
     }
 
-    // v0.0.8.6: retro-grant trust-reward upgrades for existing saves.
-    // If a player's NPC trust already exceeds a reward tier but the
-    // upgrade isn't owned (pre-.6 save), auto-apply it now.
+    // v0.0.8.6 → v0.0.9.6.9.30.5: retro-unlock trust-reward SHOP ROWS
+    // for existing saves. Originally this loop auto-granted ownership
+    // (trust >= tier ⇒ S.upgrades[id] = true + def.apply()), matching
+    // the pre-.9.5.2 auto-grant flow. The .9.5.2 flow change moved
+    // trust rewards to shop-purchasable (player pays scrip to claim),
+    // but this retro-loop kept firing on every load — silently owning
+    // unclaimed upgrades and bypassing the scrip cost.
+    // Now: mark the shop-tier unlock (npc.unlocks[tierKey] = true) so
+    // the shop row opens, but let the player pay to claim. Matches the
+    // post-.9.5.2 flow exactly. Already-owned upgrades (`S.upgrades[id]`
+    // already true from the pre-.9.5.2 auto-grant era) are untouched
+    // and stay owned.
     UPGRADE_DEFS.forEach(def => {
       if (!def.trustReward) return;
       const npcState = S.npcs[def.trustReward.npc];
       if (!npcState) return;
-      const tierVal = parseInt(def.trustReward.tier.substring(1), 10);
+      const tierKey  = def.trustReward.tier;
+      const tierVal  = parseInt(tierKey.substring(1), 10);
       if (npcState.trust >= tierVal && !S.upgrades[def.id]) {
-        S.upgrades[def.id] = true;
-        def.apply();
+        if (!npcState.unlocks) {
+          npcState.unlocks = { t20: false, t40: false, t60: false, t80: false };
+        }
+        npcState.unlocks[tierKey] = true;
       }
     });
 
