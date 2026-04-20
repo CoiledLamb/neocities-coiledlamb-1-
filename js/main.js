@@ -102,6 +102,7 @@ import {
 import * as Pkg from './packages.js';
 import * as Trip from './trip.js';
 import * as Boots from './boots.js';
+import * as Carrier from './carrier.js';
 import * as Stamina from './stamina.js';
 import * as Upg from './upgrades.js';
 import { tickScanner } from './scanner.js';
@@ -187,6 +188,11 @@ function resolveEls() {
     destDrift:    $('destDrift'),
     cargoSlots:   $('cargoSlots'),
     weightSegs:   $('weightSegs'),
+    cartBag:         $('cartBag'),
+    cartSlots:       $('cartSlots'),
+    cartWeightSegs:  $('cartWeightSegs'),
+    cartToggleBtn:   $('cartToggleBtn'),
+    cargoBtnStack:   document.querySelector('.cargo-btn-stack'),
     bootsBar:     $('bootsBar'),
     bootsVal:     $('bootsVal'),
     bootsGearBtn:   $('bootsGearBtn'),
@@ -701,6 +707,16 @@ function init() {
     });
   }
   if (els.tieDownBtn) els.tieDownBtn.addEventListener('click', Boots.toggleTieDown);
+  // v0.0.9.6.9.30j — cart stow/carry toggle. Visible only when the
+  // carrier is unlocked (renderKit / renderCargoSlots handle the
+  // hidden attribute). renderCargoSlots repaints text + `.on` class
+  // after any state change.
+  if (els.cartToggleBtn) {
+    els.cartToggleBtn.addEventListener('click', () => {
+      Carrier.toggleCart();
+      renderCargoSlots(true);
+    });
+  }
   // v0.0.9.4.1 — fieldstrip click delegation for cursor pickup.
   bindFieldstripInteractions();
   // v0.0.9.4.1 commit 2 — global drag layer (document-level

@@ -513,13 +513,14 @@ function _applyValidated(data) {
       if (typeof c.safeTerrainTicks === 'number') S.carrier.safeTerrainTicks = Math.max(0, c.safeTerrainTicks | 0);
       if (Array.isArray(c.inventory))             S.carrier.inventory = c.inventory.slice();
     }
-    // Retro-grant: upgrade flag → state reconstruction. Defaults to
-    // stowed on scaffolding (.30i); the UI follow-up flips new-unlock
-    // default back to deployed.
+    // Retro-grant: upgrade flag → state reconstruction. Default
+    // deployed=true for the "new cart arrives rolling" UX (same as
+    // the apply callback). Saves that DID have carrier state
+    // already restored it above and skip this branch.
     if (S.upgrades && (S.upgrades.mobileCarrier1 || S.upgrades.mobileCarrier2) && !S.carrier.unlocked) {
       S.carrier.unlocked = true;
       S.carrier.level    = S.upgrades.mobileCarrier2 ? 2 : 1;
-      S.carrier.deployed = false;
+      S.carrier.deployed = true;
       S.carrier.inventory = [];
     }
 

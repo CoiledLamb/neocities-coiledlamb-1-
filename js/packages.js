@@ -45,6 +45,31 @@ import { emit as tEmit, accum as tAccum } from './telemetry.js';
 import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js';
 import { updatePorterStripBadges } from './recovery.js';
 import { addTrust, computeTrustGain, speakDelivery, recordDelivery } from './trust.js';
+import { cartFits, pushToCart, removeFromInventories } from './carrier.js';
+
+// v0.0.9.6.9.30j — bucket-routing helper. All three pickup paths
+// (NPC dispatch, ring/ground, interior) funnel new pkgs through this
+// so the cart-first-when-deployed rule lives in one place. Returns
+// 'cart' when the pkg landed in the carrier, 'main' when it landed
+// in the main bag. Caller is responsible for the shape-fit gate
+// (cartOrMainFits) before calling this.
+function routeInbound(carried) {
+  if (cartFits(carried) && pushToCart(carried)) return 'cart';
+  S.inventory.push(carried);
+  S.usedSlots  += carried.slots;
+  S.usedWeight += carried.kg;
+  return 'main';
+}
+
+// Does EITHER bucket have room for the pkg? Extended shape gate used
+// by the three pickup paths. Cart-side check is a no-op (returns
+// false) when the cart is stowed / not owned, so pre-carrier behavior
+// is unchanged.
+function cartOrMainFits(pkg) {
+  const mainFits = (pkg.slots <= effectiveMaxSlots() - S.usedSlots) &&
+                   (pkg.kg    <= S.maxWeight    - S.usedWeight);
+  return mainFits || cartFits(pkg);
+}
 import { getNodeStage, setNodeStage } from './identification.js';
 import { sandalCap, renderBoots } from './boots.js';
 import { addLog } from './render/log.js';
@@ -549,8 +574,9 @@ export function tryOutboundDispatch(originNodeId) {
   // outboundLastVisit guard above already blocks re-rolls THIS visit,
   // and coming back to this NPC later re-rolls (may offer a different
   // pkg — that's fine, "no worries" per design intent).
-  if (pkg.slots > effectiveMaxSlots() - S.usedSlots) return;
-  if (pkg.kg   > S.maxWeight - S.usedWeight)         return;
+  // v0.0.9.6.9.30j — bucket-aware fit gate so a big pkg that wouldn't
+  // fit the main bag alone can still go straight to the deployed cart.
+  if (!cartOrMainFits(pkg)) return;
 
   const carried = {
     size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
@@ -566,9 +592,7 @@ export function tryOutboundDispatch(originNodeId) {
     srcEdgeIdx:   S.edgeIdx,
     pickupOrigin: 'dispatch',
   };
-  S.inventory.push(carried);
-  S.usedSlots  += carried.slots;
-  S.usedWeight += carried.kg;
+  routeInbound(carried);
   onInventoryChange();
   S.status = 'carrying';
   renderCourierStack();
@@ -602,9 +626,15 @@ function acceptPickup(ci, offset) {
   const cell = worldCells[ci];
   if (!cell || !cell.pkg || cell.pkg.picked) return false;
   const pkg = cell.pkg;
+  // v0.0.9.6.9.30j — shape gate checks main bag AND cart. The
+  // skip/fail branch only fires when NEITHER bucket can hold the pkg.
+  // slotsShort/weightShort still computed for the failure-reason
+  // telemetry + log line (reasons describe the main-bag state, which
+  // is what the player sees / decides around).
   const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
   const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
-  if (slotsShort || weightShort) {
+  const fitsSomewhere = cartOrMainFits(pkg);
+  if (!fitsSomewhere) {
     // v0.0.9.5.1 — pickup-fail dedupe keyed by cargo state ONLY (was
     // ci:usedSlots:usedWeight). Old key alternated between two heavy
     // pkgs in range every tick because the scan loop hits them in
@@ -664,9 +694,7 @@ function acceptPickup(ci, offset) {
     srcEdgeIdx:   S.edgeIdx,
     pickupOrigin: 'ring',
   };
-  S.inventory.push(carried);
-  S.usedSlots  += carried.slots;
-  S.usedWeight += carried.kg;
+  routeInbound(carried);
   onInventoryChange();
   S.status = 'carrying';
   renderCourierStack();
@@ -753,7 +781,8 @@ function acceptInteriorPickup(entry) {
   }
   const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
   const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
-  if (slotsShort || weightShort) {
+  // v0.0.9.6.9.30j — skip only when neither bucket fits.
+  if (!cartOrMainFits(pkg)) {
     // v0.0.9.6.9.10 — enriched with size/destId/scrip so sim can diff
     // skipped-pkgs vs carried-pkgs.
     // v0.0.9.6.9.11 — cargo-pressure snapshot for consistency with ring
@@ -796,9 +825,7 @@ function acceptInteriorPickup(entry) {
     srcEdgeIdx:   S.edgeIdx,
     pickupOrigin: 'interior',
   };
-  S.inventory.push(carried);
-  S.usedSlots  += carried.slots;
-  S.usedWeight += carried.kg;
+  routeInbound(carried);
   onInventoryChange();
   S.status = 'carrying';
   renderCourierStack();
@@ -1032,7 +1059,16 @@ export function tryDeliver(arrivedNodeId) {
     addLog(`<span class="log-ok">sticky gun</span> refilled \u2014 +${refilled} shots`);
   }
 
-  const toDeliver = S.inventory.filter(p => p.destId === arrivedNodeId);
+  // v0.0.9.6.9.30j — delivery checks BOTH main and cart inventories.
+  // Cart-first so cart empties before main (protects cart pkgs from
+  // forced-stow drops on terrain incompatibility; a delivered pkg is
+  // safer than a carried one, so we always prefer to clear the more
+  // exposed bucket first).
+  const cartInv    = (S.carrier && S.carrier.deployed && Array.isArray(S.carrier.inventory))
+    ? S.carrier.inventory : [];
+  const cartMatches = cartInv.filter(p => p.destId === arrivedNodeId);
+  const mainMatches = S.inventory.filter(p => p.destId === arrivedNodeId);
+  const toDeliver = cartMatches.concat(mainMatches);
   if (toDeliver.length === 0) return;
   const settle = S.settlements[arrivedNodeId];
   const destLabel = settle ? settle.label : arrivedNodeId;
@@ -1061,9 +1097,10 @@ export function tryDeliver(arrivedNodeId) {
     tAccum('pkg.delivered', 'count_' + (pkg.terrainOrigin || 'ring'), 1);
     S.scrip      += pkg.scrip;
     S.delivered  += 1;
-    S.usedSlots  -= pkg.slots;
-    S.usedWeight -= pkg.kg;
-    S.inventory.splice(S.inventory.indexOf(pkg), 1);
+    // v0.0.9.6.9.30j — removeFromInventories handles bucket detection
+    // + S.usedSlots/Weight accounting (cart pkgs don't touch the main
+    // totals). Replaces the old main-only splice + manual decrement.
+    removeFromInventories(pkg);
     onInventoryChange();
     if (pkg._worldCell !== undefined && worldCells[pkg._worldCell] && worldCells[pkg._worldCell].pkg) {
       if (pkg.isRecovery) {

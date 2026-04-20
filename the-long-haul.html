@@ -26,7 +26,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.30i</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.30j</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -70,14 +70,30 @@
                 <div class="cargo-slots" id="cargoSlots"></div>
                 <div class="weight-segs" id="weightSegs"></div>
               </div>
+              <!-- v0.0.9.6.9.30j — mobile carrier's separate inventory.
+                   Renders as a sibling cargo-bag ONLY when S.carrier.deployed.
+                   Same internal structure (slots grid + weight ribbon) so
+                   the cart reads as "another bag of the same kind."
+                   Hidden at module load; render/hud.js flips display based
+                   on carrier state. -->
+              <div class="cargo-bag cart-bag" id="cartBag" hidden>
+                <div class="cargo-slots" id="cartSlots"></div>
+                <div class="weight-segs" id="cartWeightSegs"></div>
+              </div>
               <!-- v0.0.9.4.1 — grab + tie-down stacked vertically to
                    reclaim cargo row whitespace without widening the
                    panel. Exception to the "buttons in rows, not
                    columns" rule: cargo row has the extra vertical
-                   real estate from the 2-row cargo grid. -->
+                   real estate from the 2-row cargo grid.
+                   v0.0.9.6.9.30j — migrated to a 2×2 CSS grid so the
+                   cart toggle fits without pushing the row height to
+                   3 buttons tall. Fourth cell is a reserved placeholder
+                   for future toggles. -->
               <div class="cargo-btn-stack">
                 <button class="boots-auto" id="autoGrabBtn">grab: auto</button>
+                <button class="boots-auto cart-btn" id="cartToggleBtn" hidden>cart: carry</button>
                 <button class="tie-down-btn boots-auto" id="tieDownBtn">tie-down: off</button>
+                <button class="boots-auto placeholder" id="cargoBtnPlaceholder" aria-hidden="true" disabled>&mdash;</button>
               </div>
             </div>
 
@@ -206,8 +222,8 @@
        lazily appended to <body> by js/render/rich-tooltip.js. -->
 
 
-  <script src="tlh-boot.js?v=096-9-30i"></script>
-  <script type="module" src="js/main.js?v=096-9-30i"></script>
+  <script src="tlh-boot.js?v=096-9-30j"></script>
+  <script type="module" src="js/main.js?v=096-9-30j"></script>
   <script>
     document.addEventListener('keydown', e => {
       if (document.getElementById('boot').style.display !== 'none') dismissBoot();

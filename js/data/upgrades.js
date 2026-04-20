@@ -128,13 +128,10 @@ export const UPGRADE_DEFS = [
   { id:'mobileCarrier1', name:'mobile carrier',      desc:'wheeled cart \u2014 +4 slots / +4 kg when deployed; folds into large cargo when stowed; consumes battery',                        cost:150, requires:null,              trustReward: { npc:'\u03b3', tier:'t20' }, apply:()=>{
       S.carrier.unlocked = true;
       S.carrier.level = 1;
-      // v0.0.9.6.9.30i ships scaffolding only — deploy/stow UI +
-      // pickup routing land in the UI follow-up. Default deployed
-      // FALSE until then so buying the gift doesn't spin up a
-      // battery consumer with no player-facing toggle to turn it
-      // off. The follow-up commit flips the initial-unlock default
-      // back to deployed:true ("new cart arrives rolling").
-      S.carrier.deployed = false;
+      // v0.0.9.6.9.30j — UI + routing live, flip initial-unlock
+      // default back to deployed=true ("new cart arrives rolling").
+      // Player can stow manually when they want.
+      S.carrier.deployed = true;
       S.carrier.autoDeployArmed = false;
       S.carrier.safeTerrainTicks = 0;
   } },

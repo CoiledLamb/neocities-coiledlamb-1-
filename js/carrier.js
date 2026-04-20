@@ -109,10 +109,17 @@ export function deployCart({ reason } = {}) {
   return true;
 }
 
-/** Stow the cart: insert folded pseudo-pkg into main cargo,
- *  flip deployed flag. When forced=true, drop cart inventory
- *  pkgs until the folded shape fits. Manual stow (forced=false)
- *  refuses if main cargo has no room and logs a warning. */
+/** Stow the cart. Reverse of deploy: cart contents transfer back
+ *  to main, folded pseudo-pkg takes a chunk of main cargo slots.
+ *
+ *  Manual (forced=false) — refuses if main doesn't have room for
+ *  cart contents + folded shape. Cart contents never lost on manual.
+ *
+ *  Forced (forced=true, called from terrain-enforcement in .30k) —
+ *  drops cart pkgs that can't be transferred to main. Folded shape
+ *  still has to fit afterward; if main is too full of its own
+ *  content, the stow abandons and the cart stays deployed (caller
+ *  handles the "cart stuck on terrain" fallback). */
 export function stowCart({ reason, forced } = {}) {
   if (!S.carrier || !S.carrier.unlocked) return false;
   if (!S.carrier.deployed) return true;
@@ -120,21 +127,52 @@ export function stowCart({ reason, forced } = {}) {
   const lvl = S.carrier.level;
   const stats = C.CARRIER_STATS[lvl];
 
-  // Forced path — drop cart pkgs until folded fits.
-  if (forced) {
-    const droppedLabels = [];
-    while (!mainHasRoomFor(stats.foldedSlots, stats.foldedKg) && S.carrier.inventory.length > 0) {
-      // Drop oldest-first (FIFO — feels less punishing than newest).
-      const dropped = S.carrier.inventory.shift();
-      droppedLabels.push(dropped.label || `[${dropped.size}]`);
-      tEmit('carrier.dropped', { size: dropped.size, label: dropped.label, scrip: dropped.scrip });
+  // Compute what main needs to absorb.
+  const cartSlots = S.carrier.inventory.reduce((s, p) => s + (p.slots || 0), 0);
+  const cartKg    = S.carrier.inventory.reduce((s, p) => s + (p.kg    || 0), 0);
+  const needSlots = cartSlots + stats.foldedSlots;
+  const needKg    = cartKg    + stats.foldedKg;
+
+  if (!forced) {
+    // Manual path: all-or-nothing. Refuse if main can't swallow
+    // everything. Player resolves by delivering or dropping pkgs,
+    // then re-trying.
+    if (!mainHasRoomFor(needSlots, needKg)) {
+      addLog('<span class="log-wn">can\u2019t stow cart \u2014 need bag space</span>');
+      return false;
     }
-    // If cart is now empty and we STILL don't fit, something's wrong
-    // with main cargo — bail out stowage (cart stays deployed, player
-    // sees a log warning). Shouldn't trigger unless main cargo is full
-    // of non-carrier stuff.
+    // Transfer cart contents into main.
+    for (const p of S.carrier.inventory) {
+      S.inventory.push(p);
+      S.usedSlots  += (p.slots || 0);
+      S.usedWeight += (p.kg    || 0);
+    }
+    S.carrier.inventory = [];
+    addLog('<span class="log-ok">cart stowed</span>');
+  } else {
+    // Forced path: try to transfer cart contents first; drop what
+    // doesn't fit; then check whether folded shape still fits in
+    // main. If not, abandon (cart stays deployed). Detail logic
+    // refined in .30k when terrain enforcement wires in the caller.
+    const droppedLabels = [];
+    const toRelocate = S.carrier.inventory.slice();
+    S.carrier.inventory.length = 0;
+    for (const p of toRelocate) {
+      if (mainHasRoomFor((p.slots||0), (p.kg||0))) {
+        S.inventory.push(p);
+        S.usedSlots  += (p.slots || 0);
+        S.usedWeight += (p.kg    || 0);
+      } else {
+        droppedLabels.push(p.label || `[${p.size}]`);
+        tEmit('carrier.dropped', { size: p.size, label: p.label, scrip: p.scrip, reason: reason || 'forced' });
+      }
+    }
     if (!mainHasRoomFor(stats.foldedSlots, stats.foldedKg)) {
-      addLog('<span class="log-wn">cart can\u2019t stow \u2014 bag too full</span>');
+      // Folded cart doesn't fit even after dropping cart pkgs. Abandon
+      // the stow — cart stays deployed. Caller sees false and decides
+      // how to handle (usually: log warning, let terrain penalties
+      // continue until the player clears main cargo).
+      addLog(`<span class="log-wn">cart stuck on ${reason || 'terrain'} \u2014 bag too full to fold</span>`);
       return false;
     }
     if (droppedLabels.length > 0) {
@@ -145,13 +183,6 @@ export function stowCart({ reason, forced } = {}) {
     } else {
       addLog(`<span class="log-wn">cart stowed \u2014 ${reason || 'incompatible terrain'}</span>`);
     }
-  } else {
-    // Manual stow — no drop. Refuse if no room.
-    if (!mainHasRoomFor(stats.foldedSlots, stats.foldedKg)) {
-      addLog('<span class="log-wn">can\u2019t stow cart \u2014 need bag space</span>');
-      return false;
-    }
-    addLog('<span class="log-ok">cart stowed</span>');
   }
 
   // Insert folded pseudo-pkg.
