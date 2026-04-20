@@ -85,3 +85,26 @@ export const NPC_ADJACENT = {
   'B':        ['?', 'C',      '\u03b8'],  // iota → phi, xi, theta
   'H':        ['C', '\u00b7', '\u03c0'],  // tau → xi, psi, pi (south)
 };
+
+// v0.0.9.6.10.3 — canonical NPC display order for user-facing menus.
+// Starts at tau (player's home — dotT 0 of edge 10, first NPC visited)
+// then follows the clockwise ring traversal back to pi. Consumed by
+// the upgrades shop (data/upgrades.js array order mirrors this) and
+// the settlements panel (render/settlements.js sorts by this).
+// The ring-index order in state.js::routeNodes is unchanged — that's
+// the adjacency source used by route-map.js. Display order is a
+// separate concern that lives here.
+export const NPC_VISIT_ORDER = [
+  'H',        // tau    — home (player start)
+  'A',        // rho    — left-rim-T (boot depot)
+  '\u03bd',   // nu     — NW corner (treatment plant)
+  '\u00b7',   // psi    — top-rim-L (oasis)
+  'B',        // iota   — top-rim-R (greenhouse)
+  '\u03b8',   // theta  — NE corner (kiln)
+  '?',        // phi    — right-rim-T (weather station)
+  '\u03b3',   // gamma  — right-rim-B (workshop)
+  'C',        // xi     — SE corner (city ruins)
+  '\u03b4',   // delta  — bottom-rim-R (reservoir)
+  '\u03bb',   // lambda — bottom-rim-L (lodge)
+  '\u03c0',   // pi     — SW corner (radio tower)
+];

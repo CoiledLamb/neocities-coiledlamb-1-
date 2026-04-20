@@ -24,11 +24,23 @@
 'use strict';
 
 import { S } from '../state.js';
-import { NPC_DEFS } from '../data/npc-defs.js';
+import { NPC_DEFS, NPC_VISIT_ORDER } from '../data/npc-defs.js';
 import { getNodeStage } from '../identification.js';
 import { getNpc } from '../trust.js';
 
 const els = S._transient.els;
+
+// v0.0.9.6.10.3 — settlements panel sorts by NPC_VISIT_ORDER (tau
+// first, then clockwise ring traversal) instead of S.routeNodes
+// native order (which starts at nu). Matches the upgrades shop
+// order so both user-facing menus read as "home, then walking route".
+// Nodes absent from NPC_VISIT_ORDER (shouldn't happen with current
+// 12-NPC roster but future-proof) fall to the end of the list.
+const VISIT_INDEX = new Map(NPC_VISIT_ORDER.map((id, i) => [id, i]));
+function visitIndexOf(nodeId) {
+  const i = VISIT_INDEX.get(nodeId);
+  return i === undefined ? NPC_VISIT_ORDER.length : i;
+}
 
 /**
  * Start (or restart) a typewriter emergence animation for a node.
@@ -51,6 +63,7 @@ export function renderSettlements() {
   els.settlementsEl.innerHTML = '';
   S.routeNodes.filter(n => getNodeStage(n.id) >= 2 && S.settlements[n.id])
     .map(n => ({ id:n.id, stage:getNodeStage(n.id), ...S.settlements[n.id] }))
+    .sort((a, b) => visitIndexOf(a.id) - visitIndexOf(b.id))
     .forEach(s => {
       const div = document.createElement('div');
 
