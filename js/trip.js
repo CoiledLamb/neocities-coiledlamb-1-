@@ -220,6 +220,17 @@ export function tripChanceBreakdown() {
     chance *= encumbranceMult;
   }
 
+  // v0.0.9.6.9.30k — "lugging a dead cart" penalty. Deployed cart
+  // with zero battery adds a flat trip-chance bump (CARRIER_DEAD_STRAIN_MULT
+  // defaults to 1.15). Stacks after encumbrance so a heavy dead cart
+  // compounds both. Battery-gated specifically on <=0, not low —
+  // player has time to recharge before the penalty kicks in.
+  let deadCartMult = 1.0;
+  if (S.carrier && S.carrier.unlocked && S.carrier.deployed && S.battery && S.battery.charge <= 0) {
+    deadCartMult = C.CARRIER_DEAD_STRAIN_MULT;
+    chance *= deadCartMult;
+  }
+
   return {
     chance,
     factors: {
@@ -244,6 +255,7 @@ export function tripChanceBreakdown() {
       cargoLoadPct:  S.maxWeight > 0 ? Math.round(100 * S.usedWeight / (S.maxWeight || 1)) : 0,
       usingMakeshift: !!S.usingMakeshift,
       exoMult,       // v0.0.9.6.9.30h — exoskel all-terrain mitigation
+      deadCartMult,  // v0.0.9.6.9.30k — dead-battery deployed cart drag
     },
   };
 }

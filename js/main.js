@@ -294,6 +294,14 @@ export function tick() {
     // early-route NPCs). Process terrain effects whenever a terrain
     // is non-flat, regardless of segment type.
     currentTerrain = courierTerrain();
+    // v0.0.9.6.9.30k — mobile carrier terrain awareness. Deployed
+    // cart on incompatible terrain forces a stow (lvl 1 refuses
+    // mountain + river; lvl 2 takes everything). Stowed + auto-
+    // armed cart re-deploys after N consecutive safe-terrain ticks.
+    // Both are idempotent + gated inside the module so carrier-less
+    // players pay no cost.
+    Carrier.enforceTerrainCompatibility(currentTerrain);
+    Carrier.tryAutoRedeploy(currentTerrain);
     if (currentTerrain !== 'flat') {
       staminaMult = TERRAIN_STAMINA_MULT[currentTerrain] || 1.0;
       if (currentTerrain === 'desert') {
@@ -426,7 +434,13 @@ export function tick() {
     // bonus goes cold at 0 charge but flag stays set ("graceful off").
     const exoSpeedMult = (S.exoskeleton && S.exoskeleton.unlocked && S.exoskeleton.level >= 2 && S.battery.charge > 0)
       ? C.EXO_SPEED_MULT : 1.0;
-    S.dotT += 0.006 * Stamina.speedMultiplier() * speedScale * exoSpeedMult;
+    // v0.0.9.6.9.30k — dead-battery deployed carrier: speed ×0.5
+    // ("lugging a dead cart"). User call: penalty instead of forced
+    // stow so battery fluctuations don't constantly disrupt play.
+    // Cart stays rolling; player notices and recharges.
+    const carrierDeadMult = (S.carrier && S.carrier.unlocked && S.carrier.deployed && S.battery.charge <= 0)
+      ? C.CARRIER_DEAD_SPEED_MULT : 1.0;
+    S.dotT += 0.006 * Stamina.speedMultiplier() * speedScale * exoSpeedMult * carrierDeadMult;
   }
 
   // v0.0.9.6 commit 4 — tick placed-gear wall-clock decay + remove

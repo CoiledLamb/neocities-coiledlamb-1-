@@ -120,6 +120,10 @@ function buildHTML() {
   if (factors.usingMakeshift && factors.makeshiftMult > 1.01) {
     lines.push(row('sandalweed', '', factors.makeshiftMult));
   }
+  // v0.0.9.6.9.30k — dead-battery deployed carrier drag.
+  if (factors.deadCartMult && factors.deadCartMult > 1.01) {
+    lines.push(row('dead cart', '', factors.deadCartMult));
+  }
 
   // Mitigations (any sub-1 mult or active grace bonus).
   const mitigations = [];
