@@ -362,8 +362,26 @@ export const BATTERY_DRAIN_PER_TICK = 0.03;
 // (~2.8 min drain from full) — tight enough that players care about
 // solar/turbine regen, loose enough that idle play at night isn't
 // instant-dead.
+// v0.0.9.6.10.13 — scanner draw model refactored. Was a flat
+// 0.03/tick any time the scanner was unlocked (idle-standby
+// model, see battery.js CONSUMERS note from pre-.13). Now draws
+// ONLY during the buffActive window (auto-ping or manual-ping
+// firing). Rate is higher per-tick to compensate for the lower
+// uptime; total drain lands near the old flat number at baseline
+// auto-ping cadence. T1 vs T2 split matches exo/carrier tiering —
+// T2's scanner is a more efficient chip, cheaper per-tick, so a
+// player who ticks T2 gets more mitigation (uptime ~40% vs 20%)
+// for roughly the same total battery budget.
+// Back-of-envelope: auto-ping cadence puts T1 at ~19.8% uptime,
+// T2 at ~40%. Per-tick × uptime ≈ total drain per tick:
+//   T1: 0.15 × 0.198 = 0.0297/tick (today: 0.03 flat)
+//   T2: 0.08 × 0.400 = 0.0320/tick (today: 0.03 flat)
+// Manual pings shift uptime up ~10-15pp per press, so the
+// player can CHOOSE to burn more battery for more strain
+// mitigation — the knob that was missing.
 export const BATTERY_DRAIN_RATES = {
-  scanner:          0.03,
+  scanner1:         0.15,
+  scanner2:         0.08,
   exoskeleton1:     0.08,
   exoskeleton2:     0.05,
   carrier1:         0.10,

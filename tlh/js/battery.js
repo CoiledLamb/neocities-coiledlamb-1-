@@ -42,10 +42,18 @@ const CONSUMERS = [
   {
     key: 'scanner',
     label: 'scanner',
-    rateOf:   () => C.BATTERY_DRAIN_RATES.scanner,
-    activeOf: () => !!(S.scanner && S.scanner.unlocked),
-    // Note: scanner drains while unlocked even when not actively
-    // pinging — the idle "standby" pull is the game mechanic.
+    // v0.0.9.6.10.13 — scanner draws only during the buffActive
+    // window (auto-ping or manual-ping firing). Previously a flat
+    // idle-standby pull; see BATTERY_DRAIN_RATES comment in
+    // constants.js for the rate-balance rationale. Scanner T2
+    // draws at a lower per-tick rate but pings more often + for
+    // longer — net total ≈ flat, but the player can now CHOOSE
+    // to burn battery for mitigation (manual pings cost real
+    // power during their buff window).
+    rateOf: () => S.scanner && S.scanner.level >= 2
+      ? C.BATTERY_DRAIN_RATES.scanner2
+      : C.BATTERY_DRAIN_RATES.scanner1,
+    activeOf: () => !!(S.scanner && S.scanner.unlocked && S.scanner.buffActive),
   },
   {
     key: 'exoskeleton',
