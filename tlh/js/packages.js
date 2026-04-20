@@ -77,7 +77,7 @@ function cartOrMainFits(pkg) {
 import { sandalCap, renderBoots } from './boots.js';
 import { addLog } from './render/log.js';
 import { renderCourierStack, renderCargoSlots } from './render/hud.js';
-import { courierXY, pointInRing } from './render/route-map.js';
+import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js';
 import { weatherAtCourier } from './weather.js';
 import { getDisplayLabel } from './identification.js';
 
@@ -174,6 +174,13 @@ export function formatPkgTooltip(pkg) {
     lines.push(`[lost]`);
   }
   lines.push(`\u2192 ${getDisplayLabel(pkg.destId)}`);
+  // v0.0.9.6.10.4 — clockwise ring distance from courier to dest.
+  // Null when courier is on a synthetic seg (river-drift) or the
+  // target isn't a ring node; skip the line rather than show bogus.
+  const km = distanceKmToNode(pkg.destId);
+  if (typeof km === 'number' && km >= 0.1) {
+    lines.push(`${km.toFixed(1)} km to go`);
+  }
   lines.push(`${pkg.scrip}\u00a2`);
   return lines.join('\n');
 }
@@ -198,6 +205,14 @@ export function formatPkgTooltipHTML(pkg) {
     lines.push(`<div>[lost]</div>`);
   }
   lines.push(`<div>\u2192 ${esc(getDisplayLabel(pkg.destId))}</div>`);
+  // v0.0.9.6.10.4 — clockwise ring distance from courier to dest.
+  // Dim (rich-tip-dim) so it reads as a secondary info line under
+  // the destination. Hidden when computation isn't valid (drift seg,
+  // unknown target).
+  const km = distanceKmToNode(pkg.destId);
+  if (typeof km === 'number' && km >= 0.1) {
+    lines.push(`<div class="rich-tip-dim">${km.toFixed(1)} km to go</div>`);
+  }
   // Damaged: current scrip in pink, "(was X¢)" dimmed. Undamaged or
   // missing scripBase: just show current value.
   const damaged = pkg.damaged && typeof pkg.scripBase === 'number' && pkg.scripBase > pkg.scrip;

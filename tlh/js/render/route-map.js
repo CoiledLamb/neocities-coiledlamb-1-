@@ -289,6 +289,21 @@ function liveRingDistance(targetId) {
   return remaining + ringNodeDistance(seg.to, targetId);
 }
 
+/** v0.0.9.6.10.4 — km distance from the courier's live position to the
+ *  given ring node, clockwise along the route. Returns null when the
+ *  computation isn't meaningful: no current segment, target not on the
+ *  ring, or courier is on a synthetic seg (river-drift) whose endpoint
+ *  isn't in the ring adjacency. Consumers (cargo pkg tooltip) use null
+ *  to hide the row rather than show a bogus value. */
+export function distanceKmToNode(nodeId) {
+  const seg = S._transient.currentSegment;
+  if (!seg) return null;
+  if (!S.routeNodes.find(n => n.id === nodeId)) return null;
+  if (!S.routeNodes.find(n => n.id === seg.to)) return null;
+  const svg = liveRingDistance(nodeId);
+  return svg / UNITS_PER_KM;
+}
+
 /** Live straight-line shortcut distance from courier's current xy to targetId. */
 function liveShortcutDistance(targetId) {
   const seg = S._transient.currentSegment;
