@@ -26,7 +26,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.29</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.30</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -62,8 +62,14 @@
 
             <div class="tlh-row cargo-row">
               <span class="tlh-row-label">cargo</span>
-              <div class="cargo-slots" id="cargoSlots"></div>
-              <div class="weight-segs" id="weightSegs"></div>
+              <!-- v0.0.9.6.9.30 — cargo grid + weight ribbon now share a
+                   flex-column container so they read as one "bag" widget.
+                   Ribbon width is set inline by renderCargoSlots to match
+                   the cargo grid exactly, so slot upgrades stretch both. -->
+              <div class="cargo-bag">
+                <div class="cargo-slots" id="cargoSlots"></div>
+                <div class="weight-segs" id="weightSegs"></div>
+              </div>
               <!-- v0.0.9.4.1 — grab + tie-down stacked vertically to
                    reclaim cargo row whitespace without widening the
                    panel. Exception to the "buttons in rows, not

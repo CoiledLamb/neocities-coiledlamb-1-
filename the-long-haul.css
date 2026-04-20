@@ -541,28 +541,42 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .rich-tip-ok  { color: #77bfcf; }     /* cyan — mitigation       */
 .rich-tip-dim { color: #4a7a78; }     /* teal — neutral / "was"  */
 
-/* v0.0.8.3 \u2014 weight segs mirror the cargo grid's 2-row layout.
-   Previously a flex row that expanded linearly with maxWeight, which
-   became overwhelming at 10+ kg. Grid track sizes are set inline from
-   renderCargoSlots (not in CSS) because they depend on maxWeight. */
-.weight-segs {
-  display: grid;
+/* v0.0.9.6.9.30 \u2014 cargo bag: flex-column wrapper that binds the
+   cargo grid + weight ribbon into one widget. Ribbon width is matched
+   to the grid inline so slot upgrades stretch both together. */
+.cargo-bag {
+  display: flex;
+  flex-direction: column;
   gap: 2px;
   flex-shrink: 0;
-  align-items: center;
-  margin-left: auto;
+}
+
+/* v0.0.9.6.9.30 \u2014 weight ribbon: single-row fuel-gauge sitting
+   directly under the cargo grid. One tick per kg, phantom ticks past
+   maxWeight. Same teal/purple/pink palette as the old pip grid, just
+   dissolved into a width-matched bar. Container draws the outer frame;
+   ticks are pure fill blocks separated by 1px gaps so the bg shows
+   through between them. Width + grid-template-columns are set inline
+   from renderCargoSlots. */
+.weight-segs {
+  display: grid;
+  gap: 1px;
+  flex-shrink: 0;
+  height: 4px;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  background: #132e2d;
+  cursor: help;
 }
 .wseg {
-  width: 8px; height: 8px;
-  border-radius: 1px;
-  border: 1px solid #1e5554;
+  height: 100%;
   background: #132e2d;
 }
-.wseg.filled     { background: #4a7a78; border-color: #3a6a68; }
-.wseg.heavy      { background: #9d78d4; border-color: #7a58a4; }
-.wseg.overloaded { background: #da8bda; border-color: #a4589a; }
-.wseg.empty      { background: #132e2d; border-color: #1e5554; }
-.wseg.phantom    { background: transparent; border-color: transparent; }
+.wseg.filled     { background: #4a7a78; }
+.wseg.heavy      { background: #9d78d4; }
+.wseg.overloaded { background: #da8bda; }
+.wseg.empty      { background: #132e2d; }
+.wseg.phantom    { background: transparent; }
 
 .log-btn {
   background: transparent;

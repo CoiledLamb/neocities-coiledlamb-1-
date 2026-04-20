@@ -22,6 +22,7 @@
 import { S } from '../state.js';
 import { STATUS_COLORS } from '../data/glyphs.js';
 import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js';
+import { getDisplayLabel } from '../identification.js';
 import { bindCargoDragSource } from './drag.js';
 import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js';
 import * as Upg from '../upgrades.js';
@@ -322,28 +323,82 @@ export function renderCargoSlots(force) {
   }
 
   if (els.weightSegs) {
-    // v0.0.8.3 — weight segs mirror cargo's 2-row grid so the HUD row
-    // doesn't grow linearly with maxWeight. Row-major fill (left-to-
-    // right, top-to-bottom) preserves the "fills up as you load"
-    // reading of the old flex-row layout.
+    // v0.0.9.6.9.30 — weight ribbon unified with the cargo grid.
+    // Single-row fuel-gauge, 4px tall, width-matched to the grid
+    // above (cols * 15px cells + (cols-1) * 2px gaps). One tick per
+    // kg; since maxWeight is an integer and pkg kg is floored, ticks
+    // and used-kg always align. Old 2-row pip grid is gone — the
+    // grouped container (.cargo-bag) handles the "same widget" read.
     els.weightSegs.innerHTML = '';
-    const wRows = 2;
-    const wCols = Math.max(1, Math.ceil(S.maxWeight / wRows));
-    els.weightSegs.style.gridTemplateColumns = `repeat(${wCols}, 8px)`;
-    els.weightSegs.style.gridTemplateRows    = `repeat(${wRows}, 8px)`;
-    const loadPct = S.usedWeight / S.maxWeight;
-    for (let i = 0; i < wCols * wRows; i++) {
+    const wCols = Math.max(1, S.maxWeight);
+    const cargoWidthPx = cols * 15 + (cols - 1) * 2;
+    els.weightSegs.style.width = cargoWidthPx + 'px';
+    els.weightSegs.style.gridTemplateColumns = `repeat(${wCols}, 1fr)`;
+    els.weightSegs.style.gridTemplateRows    = '';
+    const loadPct = S.maxWeight > 0 ? S.usedWeight / S.maxWeight : 0;
+    for (let i = 0; i < wCols; i++) {
       const pip = document.createElement('div');
-      if (i >= S.maxWeight) {
-        pip.className = 'wseg phantom';
-      } else if (i < S.usedWeight) {
+      if (i < S.usedWeight) {
         pip.className = loadPct <= 0.5 ? 'wseg filled' : loadPct <= 0.8 ? 'wseg heavy' : 'wseg overloaded';
       } else {
         pip.className = 'wseg empty';
       }
       els.weightSegs.appendChild(pip);
     }
+    bindCargoKgTooltip();
   }
+}
+
+// v0.0.9.6.9.30 — hover on the weight ribbon gives a per-pkg kg
+// breakdown. Same rich-tooltip surface the strain bar uses. Binds
+// once (idempotent) — the mouseenter handler reads live state each
+// time so rebuilds from renderCargoSlots don't invalidate the hover.
+let _cargoKgTipBound = false;
+function bindCargoKgTooltip() {
+  if (_cargoKgTipBound) return;
+  if (!els.weightSegs) return;
+  _cargoKgTipBound = true;
+  els.weightSegs.addEventListener('mouseenter', () => {
+    showRichTooltip(els.weightSegs, buildCargoKgHTML(), {
+      id: 'cargo-kg',
+      placement: 'above',
+      refresh: buildCargoKgHTML,
+      refreshMs: 200,
+    });
+  });
+  els.weightSegs.addEventListener('mouseleave', () => {
+    if (activeRichTooltipId() === 'cargo-kg') hideRichTooltip();
+  });
+}
+
+function escKg(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function buildCargoKgHTML() {
+  const used = S.usedWeight || 0;
+  const max  = S.maxWeight  || 0;
+  const loadPct = max > 0 ? (used / max) : 0;
+  // Echo the ribbon's own tone so the head reads the same way the bar does.
+  const headClass = loadPct <= 0.5 ? '' : loadPct <= 0.8 ? ' rich-tip-hot' : ' rich-tip-hot';
+  const lines = [];
+  lines.push(`<div class="rich-tip-head${headClass}">load ${used}/${max} kg</div>`);
+  if (!S.inventory || S.inventory.length === 0) {
+    lines.push('<div class="rich-tip-dim">bag empty</div>');
+    return lines.join('');
+  }
+  lines.push('<div class="rich-tip-divider"></div>');
+  for (const p of S.inventory) {
+    const mod = p.modifier ? ` <span class="rich-tip-dim">${escKg(p.modifier)}</span>` : '';
+    const dest = p.destId ? ` <span class="rich-tip-dim">\u2192 ${escKg(getDisplayLabel(p.destId))}</span>` : '';
+    lines.push(
+      `<div class="rich-tip-row">` +
+      `<span class="rich-tip-lbl">[${escKg(p.size)}]${mod}${dest}</span>` +
+      `<span class="rich-tip-val">${p.kg || 0} kg</span>` +
+      `</div>`
+    );
+  }
+  return lines.join('');
 }
 
 export function renderCourierStack() {
