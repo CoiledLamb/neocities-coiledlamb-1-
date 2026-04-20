@@ -27,6 +27,17 @@ export const KM_PER_EDGE       = 4.2;
 export const SANDAL_CAP_BASE     = 5;
 export const SANDAL_CAP_UPGRADED = 25;
 
+// v0.0.9.6.9.30l — smoke-sandalweed (replaces manual rest button).
+// Consumes one stash sandalweed for a timed trip-chance mitigation.
+// Magnitude: 25% flat cut (beats the 20% boot/stamina passive grace
+// max, since smoke has a resource cost). Duration: 60 ticks (~21s
+// at 350ms/tick) — enough to ride out a storm crossing or a mesa
+// descent without turning one sandalweed into a big payoff. Re-
+// smoking during an active window refreshes the duration; magnitude
+// never stacks.
+export const SMOKE_GRACE_TICKS     = 60;
+export const SMOKE_GRACE_MAGNITUDE = 0.25;
+
 // ----- environmental spawn rates (v0.0.7.18) -----
 // Centralized from zones.js. Sandalweed is a cross-zone resource with
 // design intent ("scarce overall, found mostly near wetlands and shelters")

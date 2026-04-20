@@ -36,6 +36,7 @@
 'use strict';
 
 import { S } from './state.js';
+import * as C from './constants.js';
 import { addLog } from './render/log.js';
 import { bindStrainTooltip } from './render/strain-tip.js';
 import { emit as tEmit } from './telemetry.js';
@@ -138,13 +139,21 @@ export function renderStamina() {
   // bind is idempotent; subsequent renders skip past the guard.
   bindStrainTooltip();
 
-  // v0.0.9.6.9.18 — rest button: disabled unless the courier is
-  // currently walking or carrying (can't rest while already resting
-  // or tripped). Click handler is wired in main.js init.
-  const restBtn = document.getElementById('restBtn');
-  if (restBtn) {
-    const eligible = (S.status === 'walking' || S.status === 'carrying');
-    restBtn.disabled = !eligible;
+  // v0.0.9.6.9.30l — smoke-sandalweed button (replaces manual rest).
+  // Text surfaces the stash count, switches to `smoking [Ns]` while
+  // the grace window is live. Disabled when stash is empty OR the
+  // courier isn't walking/carrying (can't smoke while tripped /
+  // resting / severe). Click handler lives in main.js init.
+  const smokeBtn = document.getElementById('smokeBtn');
+  if (smokeBtn) {
+    const eligible = (S.status === 'walking' || S.status === 'carrying') && (S.sandalweedCount || 0) > 0;
+    smokeBtn.disabled = !eligible;
+    const active = S.smokeGrace && S.smokeGrace.ticksRemaining > 0;
+    const txt = active
+      ? `smoking [${Math.max(1, Math.ceil(S.smokeGrace.ticksRemaining * C.TICK_MS / 1000))}s]`
+      : `smoke (${S.sandalweedCount || 0})`;
+    if (smokeBtn.textContent !== txt) smokeBtn.textContent = txt;
+    smokeBtn.classList.toggle('on', !!active);
   }
 
   // v0.0.9.6.9.28 — autodrink + prevStaminaSeg tracking moved out of

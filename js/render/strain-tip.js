@@ -132,6 +132,14 @@ function buildHTML() {
   if (factors.steadyFeetMult < 0.99)    mitigations.push(row('steady feet',   '', factors.steadyFeetMult));
   if (factors.scannerBuffMult < 0.99)   mitigations.push(row('scanner buff',  '', factors.scannerBuffMult));
   if (factors.exoMult && factors.exoMult < 0.99) mitigations.push(row('exoskeleton', '', factors.exoMult));
+  // v0.0.9.6.9.30l — smoke-sandalweed active-window mitigation. Shows
+  // the equivalent multiplier + a countdown so the player sees the
+  // window draining in real time.
+  if (factors.smokeActive && factors.smokeGraceBonus > 0) {
+    const mult = 1 - factors.smokeGraceBonus;
+    const secs = Math.max(1, Math.ceil(factors.smokeTicks * C.TICK_MS / 1000));
+    mitigations.push(row('smoke', `${secs}s`, mult));
+  }
   if (mitigations.length) {
     lines.push('<div class="rich-tip-divider"></div>');
     lines.push(...mitigations);

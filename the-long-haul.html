@@ -26,7 +26,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.30k</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.30l</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -123,7 +123,11 @@
                 <div class="strain-bar-fill" id="strainBarFill"></div>
               </div>
               <span class="strain-val" id="strainVal">0%</span>
-              <button class="drink-btn" id="restBtn">rest</button>
+              <!-- v0.0.9.6.9.30l — manual rest button replaced with
+                   smoke-sandalweed. Consumes one stash sandalweed for
+                   a 60-tick trip-grace window. Auto-rest at low
+                   stamina still fires via the tick loop. -->
+              <button class="drink-btn" id="smokeBtn">smoke (0)</button>
             </div>
 
             <div class="tlh-row kit-row" id="kitRow" style="display:none">
@@ -222,8 +226,8 @@
        lazily appended to <body> by js/render/rich-tooltip.js. -->
 
 
-  <script src="tlh-boot.js?v=096-9-30k"></script>
-  <script type="module" src="js/main.js?v=096-9-30k"></script>
+  <script src="tlh-boot.js?v=096-9-30l"></script>
+  <script type="module" src="js/main.js?v=096-9-30l"></script>
   <script>
     document.addEventListener('keydown', e => {
       if (document.getElementById('boot').style.display !== 'none') dismissBoot();

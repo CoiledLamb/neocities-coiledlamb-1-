@@ -160,6 +160,14 @@ export function tripChanceBreakdown() {
   chance *= (1 - bootGraceBonus);
   chance *= (1 - staminaGraceBonus);
 
+  // v0.0.9.6.9.30l — smoke-sandalweed grace window. Flat
+  // (1-magnitude) cut while ticksRemaining > 0. Stacks multiplicatively
+  // with the passive boot/stamina graces above — smoking at peak
+  // state compounds the benefit rather than gating on it.
+  const smokeActive      = !!(S.smokeGrace && S.smokeGrace.ticksRemaining > 0);
+  const smokeGraceBonus  = smokeActive ? (S.smokeGrace.magnitude || 0) : 0;
+  if (smokeGraceBonus > 0) chance *= (1 - smokeGraceBonus);
+
   const steadyFeetMult  = S.upgrades.steadyFeet ? 0.70 : 1.0;
   const scannerBuffMult = S.scanner.buffActive ? S.scanner.buffMagnitude : 1.0;
   // v0.0.9.6.9.20 — direct makeshift trip bump (layered on boot-drain
@@ -256,6 +264,9 @@ export function tripChanceBreakdown() {
       usingMakeshift: !!S.usingMakeshift,
       exoMult,       // v0.0.9.6.9.30h — exoskel all-terrain mitigation
       deadCartMult,  // v0.0.9.6.9.30k — dead-battery deployed cart drag
+      smokeGraceBonus,  // v0.0.9.6.9.30l — active smoke-sandalweed cut (0 when inactive)
+      smokeActive,      // explicit flag so strain-tip can render an active marker
+      smokeTicks:    smokeActive ? (S.smokeGrace.ticksRemaining | 0) : 0,
     },
   };
 }

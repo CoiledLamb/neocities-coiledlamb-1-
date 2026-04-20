@@ -37,6 +37,16 @@ export const S = {
   // first tick.
   bootDurability: 80, autobuyBoots: true, bootClipCount: 0, bootClipMax: 0, usingMakeshift: false,
   sandalweedCount: 0,
+
+  // v0.0.9.6.9.30l — smoke-sandalweed grace window. Consumes one
+  // stash sandalweed for a timed trip-chance mitigation. ticks
+  // counts down each tick while >0; magnitude is a flat (1-m)
+  // multiplier applied in tripChanceBreakdown after other graces.
+  // Persisted so a mid-smoke reload doesn't eat the bonus.
+  smokeGrace: {
+    ticksRemaining: 0,
+    magnitude:      0,
+  },
   stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
   canteen: 100, canteenMax: 100, autodrink: true,
   // v0.0.9.4.1 — auto-pickup toggle. Default true ("idle game first";

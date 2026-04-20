@@ -57,6 +57,10 @@ export function buildSavePayload() {
       bootClipMax:    S.bootClipMax,
       usingMakeshift: S.usingMakeshift,
       sandalweedCount: S.sandalweedCount,
+      // v0.0.9.6.9.30l — smoke-grace window ride-through.
+      smokeGrace: S.smokeGrace
+        ? { ticksRemaining: S.smokeGrace.ticksRemaining | 0, magnitude: +S.smokeGrace.magnitude || 0 }
+        : { ticksRemaining: 0, magnitude: 0 },
       stamina:          S.stamina,
       staminaOverboost: S.staminaOverboost,
       canteen:          S.canteen,
@@ -246,6 +250,12 @@ function _applyValidated(data) {
     if (typeof p.bootClipMax    === 'number') S.bootClipMax    = p.bootClipMax;
     if (typeof p.usingMakeshift === 'boolean') S.usingMakeshift = p.usingMakeshift;
     if (typeof p.sandalweedCount === 'number') S.sandalweedCount = Math.max(0, Math.floor(p.sandalweedCount));
+    // v0.0.9.6.9.30l — restore mid-smoke grace window; older saves
+    // (no smokeGrace field) fall through to the state.js defaults.
+    if (p.smokeGrace && typeof p.smokeGrace === 'object') {
+      S.smokeGrace.ticksRemaining = Math.max(0, p.smokeGrace.ticksRemaining | 0);
+      S.smokeGrace.magnitude      = Math.max(0, +p.smokeGrace.magnitude || 0);
+    }
     if (typeof p.stamina          === 'number') S.stamina        = p.stamina;
     if (typeof p.staminaOverboost === 'boolean') S.staminaOverboost = p.staminaOverboost;
     if (typeof p.canteen          === 'number') S.canteen        = p.canteen;

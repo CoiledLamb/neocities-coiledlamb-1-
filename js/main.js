@@ -204,7 +204,7 @@ function resolveEls() {
     clipBadge:    $('clipBadge'),
     drinkBtn:     $('drinkBtn'),
     autodrinkBtn: $('autodrinkBtn'),
-    restBtn:      $('restBtn'),
+    smokeBtn:     $('smokeBtn'),
     autoGrabBtn:  $('autoGrabBtn'),
     canteenBar:   $('canteenBar'),
     tieDownBtn:   $('tieDownBtn'),
@@ -302,6 +302,17 @@ export function tick() {
     // players pay no cost.
     Carrier.enforceTerrainCompatibility(currentTerrain);
     Carrier.tryAutoRedeploy(currentTerrain);
+    // v0.0.9.6.9.30l — smoke-sandalweed grace window tick-down.
+    // Runs only while walking/carrying so resting at a depot
+    // doesn't waste the duration. When the counter hits zero,
+    // clear magnitude too so trip.js sees a clean 1.0 mult.
+    if (S.smokeGrace && S.smokeGrace.ticksRemaining > 0) {
+      S.smokeGrace.ticksRemaining--;
+      if (S.smokeGrace.ticksRemaining === 0) {
+        S.smokeGrace.magnitude = 0;
+        tEmit('smoke.expired');
+      }
+    }
     if (currentTerrain !== 'flat') {
       staminaMult = TERRAIN_STAMINA_MULT[currentTerrain] || 1.0;
       if (currentTerrain === 'desert') {
@@ -697,17 +708,24 @@ function init() {
     els.autodrinkBtn.textContent='auto: '+(S.autodrink?'on':'off');
     els.autodrinkBtn.classList.toggle('on',S.autodrink);
   });
-  // v0.0.9.6.9.18 — manual rest. Lets the player sit down at any point
-  // while walking/carrying to dissipate strain and refill stamina.
-  // Uses the same rest-duration range as auto-rest. Disabled while
-  // already resting / tripped / severe-state.
-  if (els.restBtn) els.restBtn.addEventListener('click', () => {
+  // v0.0.9.6.9.30l — smoke sandalweed. Replaces the manual rest
+  // button. Consumes one sandalweed from the stash for a
+  // SMOKE_GRACE_TICKS window of flat trip-chance mitigation
+  // (trip.js picks it up as a `smokeMult` mitigation factor).
+  // Disabled when stash is empty OR courier isn't moving.
+  // Re-smoking refreshes duration; magnitude never stacks.
+  // Auto-rest at low stamina still fires in the tick body —
+  // losing the manual-rest button doesn't mean losing the rest
+  // mechanic, just the on-demand override.
+  if (els.smokeBtn) els.smokeBtn.addEventListener('click', () => {
     if (S.status !== 'walking' && S.status !== 'carrying') return;
-    S.status = 'resting';
-    S.restTimer = C.REST_TICKS_MIN + Math.floor(Math.random() * (C.REST_TICKS_MAX - C.REST_TICKS_MIN));
-    tEmit('rest.started');
-    addLog('<span class="log-hi">catching breath</span> \u2014 resting');
-    if (els.courierAt) { els.courierAt.className = 'tlh-at rest'; els.courierAt.style.animation = ''; }
+    if ((S.sandalweedCount || 0) <= 0) return;
+    S.sandalweedCount--;
+    S.smokeGrace.ticksRemaining = C.SMOKE_GRACE_TICKS;
+    S.smokeGrace.magnitude      = C.SMOKE_GRACE_MAGNITUDE;
+    tEmit('smoke.started', { ticks: C.SMOKE_GRACE_TICKS, magnitude: C.SMOKE_GRACE_MAGNITUDE });
+    const pct = Math.round(C.SMOKE_GRACE_MAGNITUDE * 100);
+    addLog(`smoked <span class="log-hi">sandalweed</span> \u2014 <span class="log-ok">\u2212${pct}% trip</span> for ${Math.round(C.SMOKE_GRACE_TICKS * C.TICK_MS / 1000)}s`);
   });
   // v0.0.9.4.1 — `grab:` toggle mirrors the autodrink toggle pattern.
   // Controls pkg auto-pickup only (sandalweed still auto-harvests).
