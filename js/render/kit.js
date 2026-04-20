@@ -27,6 +27,7 @@ import { manualPing } from './../scanner.js';
 import { GUN_WEB_SVG, LADDER_SVG, gunAmmoClass } from './hud.js';
 import { GEAR_PRICE } from './../data/terrain.js';
 import { buyGear } from './../gear.js';
+import { bindBatteryTooltip } from './battery-tip.js';
 
 const els = S._transient.els;
 
@@ -123,6 +124,10 @@ export function renderKit() {
   }
   if (battVal) battVal.textContent = charge + '%';
   if (batt) batt.setAttribute('aria-valuenow', String(charge));
+  // v0.0.9.6.9.30g — rich tooltip on the battery bar. Binds once
+  // (idempotent); reads active consumers + current solar/turbine
+  // gain via battery.js each refresh.
+  bindBatteryTooltip();
 
   // Structural diff — only the pieces that change DOM shape.
   const sState = hasScanner ? scannerState() : '';

@@ -129,8 +129,12 @@ export const UPGRADE_DEFS = [
   { id:'mobileCarrier2', name:'improved tie-downs', desc:'+capacity/battery/traction; folds into medium cargo; wetland/river/mountain (v0.0.9.6)', cost:200, requires:'mobileCarrier1', trustReward: { npc:'\u03b3', tier:'t40' }, apply:()=>{} },
 
   // ----- trust-reward: lambda (\u03bb) — mountain climbing lodge -----
-  // Both hook into v0.0.9.6 gear-placement system. Flag-only here.
-  { id:'mountainGear',     name:'mountain gear',      desc:'ladder + anchor durability \u00d72 (v0.0.9.6)',                 cost:60,  requires:null, trustReward: { npc:'\u03bb', tier:'t20' }, apply:()=>{} },
+  // Both hook into the gear-placement system (shipped v0.0.9.6).
+  // mountainGear is live — S.upgrades.mountainGear is read by
+  // gear.js::placeEntry at placement time, baking 24h lifetime
+  // (instead of 12h base) into the placed entry for all viewers.
+  // improvedTieDowns still pending wiring.
+  { id:'mountainGear',     name:'mountain gear',      desc:'ladder + anchor durability \u00d72',                            cost:60,  requires:null, trustReward: { npc:'\u03bb', tier:'t20' }, apply:()=>{} },
   { id:'improvedTieDowns', name:'improved tie-downs', desc:'chance to withstand a hit; cargo retention on hit (v0.0.9.6)',  cost:100, requires:null, trustReward: { npc:'\u03bb', tier:'t40' }, apply:()=>{} },
 
   // ----- trust-reward: pi (\u03c0) — summit radio-tower researcher -----
