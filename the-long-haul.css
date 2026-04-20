@@ -41,6 +41,48 @@
   --tlh-rule:           #1e5554;   /* rule/border color (1 text use, many borders) */
 }
 
+/* ===========================================================
+   BONE THEME (forward-looking, not active by default)
+
+   Activated by `<html data-theme="bone">`. Overrides the text
+   tones with a warm parchment ramp and the brand accents with a
+   warm gold/amber/rust palette. Rule color stays teal so
+   structural borders keep the existing brand grounding.
+
+   STATUS: scope is intentionally limited to the tokenized text +
+   brand color set. Borders, panel backgrounds, and renderer-side
+   atmospheric paths (sky, storms, terrain glyphs, stamina
+   gradient) keep their teal literals — bone reads as warm text
+   on a teal world. Extending bone to borders/bgs requires
+   tokenizing those next; see the v0.0.9.6.9.30 commit notes for
+   what is and isn't covered.
+
+   To see this live for testing:
+     1. document.documentElement.dataset.theme = 'bone'
+     2. import('./js/palette.js').then(m => m.clearPaletteCache())
+     3. trigger redraws (drawRouteMap, updateHUD) so JS-cached
+        renderers re-read the palette.
+
+   Known gap: status text + route node labels are JS-painted with
+   a cached palette read. Future theme-switch UI needs to call
+   clearPaletteCache() + re-render those surfaces; without that,
+   they keep their old colors until next page load.
+   =========================================================== */
+[data-theme="bone"] {
+  --tlh-text-faint:     #4a4233;
+  --tlh-text-dim:       #6a6253;
+  --tlh-text-mid:       #8a8273;
+  --tlh-text-secondary: #aca291;
+  --tlh-text:           #c8c0ae;
+  --tlh-text-bright:    #e6dfcc;
+
+  --tlh-accent:         #98875f;   /* warm olive/gold */
+  --tlh-warn:           #e99f10;   /* amber — universal warn */
+  --tlh-warn-deep:      #a64a2e;   /* rust — warn companion */
+  --tlh-crit:           #f15f22;   /* hot orange-red — crit */
+  /* --tlh-rule stays as the default #1e5554 (teal border). */
+}
+
 html, body {
   margin: 0;
   background: #155352;
