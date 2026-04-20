@@ -24,20 +24,20 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js';
-import * as C from './constants.js';
-import { NPC_DEFS } from './data/npc-defs.js';
-import { emit as tEmit, accum as tAccum } from './telemetry.js';
-import { postActivity, shortPorterId } from './multiplayer.js';
-import { updatePorterStripBadges } from './recovery.js';
-import { addTrust, computeTrustGain, speakDelivery, recordDelivery } from './trust.js';
-import { removeFromInventories } from './carrier.js';
-import { getNodeStage, setNodeStage } from './identification.js';
-import { addLog } from './render/log.js';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js';
-import { drawRouteMap } from './render/route-map.js';
-import { renderSettlements } from './render/settlements.js';
-import { onInventoryChange } from './packages.js';
+import { S } from './state.js?v=096-10-15';
+import * as C from './constants.js?v=096-10-15';
+import { NPC_DEFS } from './data/npc-defs.js?v=096-10-15';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-15';
+import { postActivity, shortPorterId } from './multiplayer.js?v=096-10-15';
+import { updatePorterStripBadges } from './recovery.js?v=096-10-15';
+import { addTrust, computeTrustGain, speakDelivery, recordDelivery } from './trust.js?v=096-10-15';
+import { removeFromInventories } from './carrier.js?v=096-10-15';
+import { getNodeStage, setNodeStage } from './identification.js?v=096-10-15';
+import { addLog } from './render/log.js?v=096-10-15';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-15';
+import { drawRouteMap } from './render/route-map.js?v=096-10-15';
+import { renderSettlements } from './render/settlements.js?v=096-10-15';
+import { onInventoryChange } from './packages.js?v=096-10-15';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els        = S._transient.els;

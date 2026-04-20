@@ -24,15 +24,15 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js';
-import * as C from './constants.js';
-import { buildSavePayload, saveGame, applySavePayload } from './persistence.js';
-import { addLog } from './render/log.js';
-import { updateHUD, renderCargoSlots, renderCourierStack } from './render/hud.js';
-import { drawRouteMap } from './render/route-map.js';
-import { renderSettlements } from './render/settlements.js';
-import * as Boots from './boots.js';
-import * as Stamina from './stamina.js';
+import { S } from './state.js?v=096-10-15';
+import * as C from './constants.js?v=096-10-15';
+import { buildSavePayload, saveGame, applySavePayload } from './persistence.js?v=096-10-15';
+import { addLog } from './render/log.js?v=096-10-15';
+import { updateHUD, renderCargoSlots, renderCourierStack } from './render/hud.js?v=096-10-15';
+import { drawRouteMap } from './render/route-map.js?v=096-10-15';
+import { renderSettlements } from './render/settlements.js?v=096-10-15';
+import * as Boots from './boots.js?v=096-10-15';
+import * as Stamina from './stamina.js?v=096-10-15';
 
 const PREFIX = 'TLH-SAVE:';
 

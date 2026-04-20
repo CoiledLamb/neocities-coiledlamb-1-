@@ -58,22 +58,22 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js';
-import * as C from './constants.js';
-import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js';
-import { NPC_LINES } from './data/npc-lines.js';
-import { UPGRADE_DEFS } from './data/upgrades.js';
-import { postActivity } from './multiplayer.js';
-import { emit as tEmit, accum as tAccum, markFirst as tMarkFirst } from './telemetry.js';
-import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js';
-import { speak } from './channels.js';
-import { pickRandom } from './util.js';
-import { staminaSegCount, renderStamina } from './stamina.js';
-import { addLog } from './render/log.js';
-import { updateHUD } from './render/hud.js';
-import { drawRouteMap } from './render/route-map.js';
-import { renderSettlements } from './render/settlements.js';
-import { weatherAtCourier } from './weather.js';
+import { S } from './state.js?v=096-10-15';
+import * as C from './constants.js?v=096-10-15';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-15';
+import { NPC_LINES } from './data/npc-lines.js?v=096-10-15';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-15';
+import { postActivity } from './multiplayer.js?v=096-10-15';
+import { emit as tEmit, accum as tAccum, markFirst as tMarkFirst } from './telemetry.js?v=096-10-15';
+import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js?v=096-10-15';
+import { speak } from './channels.js?v=096-10-15';
+import { pickRandom } from './util.js?v=096-10-15';
+import { staminaSegCount, renderStamina } from './stamina.js?v=096-10-15';
+import { addLog } from './render/log.js?v=096-10-15';
+import { updateHUD } from './render/hud.js?v=096-10-15';
+import { drawRouteMap } from './render/route-map.js?v=096-10-15';
+import { renderSettlements } from './render/settlements.js?v=096-10-15';
+import { weatherAtCourier } from './weather.js?v=096-10-15';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;

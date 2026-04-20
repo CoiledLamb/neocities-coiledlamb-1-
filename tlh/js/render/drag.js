@@ -30,8 +30,8 @@
    ============================================== */
 'use strict';
 
-import { S } from '../state.js';
-import { ejectFromCargo } from '../packages.js';
+import { S } from '../state.js?v=096-10-15';
+import { ejectFromCargo } from '../packages.js?v=096-10-15';
 
 // Pre-commit: mousedown recorded here but drag hasn't crossed the
 // 4px threshold yet. Cleared on mouseup. When a drag commits, this

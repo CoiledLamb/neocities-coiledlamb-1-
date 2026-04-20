@@ -28,8 +28,8 @@
 */
 'use strict';
 
-import { S } from '../state.js';
-import * as C from '../constants.js';
+import { S } from '../state.js?v=096-10-15';
+import * as C from '../constants.js?v=096-10-15';
 
 const els = S._transient.els;
 

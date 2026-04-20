@@ -30,10 +30,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js';
-import * as C from './constants.js';
-import { weatherAtCourier } from './weather.js';
-import { daylightOf, TICKS_PER_DAY } from './render/sky.js';
+import { S } from './state.js?v=096-10-15';
+import * as C from './constants.js?v=096-10-15';
+import { weatherAtCourier } from './weather.js?v=096-10-15';
+import { daylightOf, TICKS_PER_DAY } from './render/sky.js?v=096-10-15';
 
 // Per-consumer descriptors. `rateOf` / `activeOf` are callbacks so the
 // registry reads live state without cloning. `label` is the name

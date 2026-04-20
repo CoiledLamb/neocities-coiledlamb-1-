@@ -17,7 +17,7 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js';
+import { S } from './state.js?v=096-10-15';
 
 let active     = false;
 let startTick  = 0;

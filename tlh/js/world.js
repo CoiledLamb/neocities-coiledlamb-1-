@@ -24,12 +24,12 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js';
-import * as C from './constants.js';
-import { ZONE_TYPES } from './data/zones.js';
-import { rollPkg, rollDestForSpawn, pickupRange, tryCursorPickup, formatPkgTooltip, formatPkgTooltipHTML } from './packages.js';
-import { isOnShortcut } from './render/route-map.js';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js';
+import { S } from './state.js?v=096-10-15';
+import * as C from './constants.js?v=096-10-15';
+import { ZONE_TYPES } from './data/zones.js?v=096-10-15';
+import { rollPkg, rollDestForSpawn, pickupRange, tryCursorPickup, formatPkgTooltip, formatPkgTooltipHTML } from './packages.js?v=096-10-15';
+import { isOnShortcut } from './render/route-map.js?v=096-10-15';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js?v=096-10-15';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
@@ -117,7 +117,7 @@ export function buildWorld() {
   // cells already in the table (so loading a save with pre-existing
   // interior pkgs doesn't double-seed). Late-imported to avoid a
   // cycle with packages.js -> terrain.js -> gear.js -> state.js.
-  import('./packages.js').then(({ seedInteriorPkgs }) => {
+  import('./packages.js?v=096-10-15').then(({ seedInteriorPkgs }) => {
     if (typeof seedInteriorPkgs === 'function') seedInteriorPkgs();
   });
 }
