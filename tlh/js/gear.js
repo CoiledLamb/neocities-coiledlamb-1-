@@ -269,11 +269,16 @@ const LOCATION_NOUN = {
   river:      'bank',
 };
 
+// v0.0.9.6.10.9 — demoted from log-wn (crit pink) to log-soft
+// (purple warn). These fire on first entry to a terrain that could
+// benefit from placed gear but has none — purely advisory, not an
+// alert. Matches the log-soft treatment for weather onset, can't-
+// lift, and plateau-out-of-reach shipped in v0.0.9.6.10.
 const MISSING_GEAR_MSG = {
-  mountain:   '<span class="log-wn">slope is bare</span> \u2014 a ladder here would cost less than this climb',
-  rockyHills: '<span class="log-wn">hillside is bare</span> \u2014 a ladder would smooth the footing',
-  river:      '<span class="log-wn">no rope at the crossing</span> \u2014 an anchor would\u2019ve spared the cargo',
-  plateau:    '<span class="log-wn">mesa edge unclimbed</span> \u2014 a ladder would reach the top',
+  mountain:   '<span class="log-soft">slope is bare</span> \u2014 a ladder here would cost less than this climb',
+  rockyHills: '<span class="log-soft">hillside is bare</span> \u2014 a ladder would smooth the footing',
+  river:      '<span class="log-soft">no rope at the crossing</span> \u2014 an anchor would\u2019ve spared the cargo',
+  plateau:    '<span class="log-soft">mesa edge unclimbed</span> \u2014 a ladder would reach the top',
 };
 
 /** Remove expired placed gear + apply storm wear accelerator. Called
