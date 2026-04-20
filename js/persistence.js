@@ -214,6 +214,13 @@ function _applyValidated(data) {
     if (typeof p.ticks          === 'number') S.ticks          = p.ticks;
     if (typeof p.maxSlots       === 'number') S.maxSlots       = p.maxSlots;
     if (typeof p.maxWeight      === 'number') S.maxWeight      = p.maxWeight;
+    // v0.0.9.6.9.30b — maxWeight default was bumped 5 → 6 in
+    // v0.0.9.6.9.22 (strain-gauge pass). Saves created before that
+    // commit stayed at 5 because persisted values win over fresh
+    // defaults. Ratchet up to 6 for any legacy save that hasn't
+    // explicitly exceeded it via upgrades. Matches the existing
+    // v0.0.8.6 retro-grant pattern below for trust-reward upgrades.
+    if (S.maxWeight < 6) S.maxWeight = 6;
     if (typeof p.bootDurability === 'number') S.bootDurability = p.bootDurability;
     if (typeof p.bootClipCount  === 'number') S.bootClipCount  = p.bootClipCount;
     if (typeof p.bootClipMax    === 'number') S.bootClipMax    = p.bootClipMax;
