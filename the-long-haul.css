@@ -506,10 +506,15 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 
 /* v0.0.9.6.9.30 \u2014 cargo bag: flex-column wrapper that binds the
    cargo grid + weight ribbon into one widget. Ribbon width is matched
-   to the grid inline so slot upgrades stretch both together. */
+   to the grid inline so slot upgrades stretch both together.
+   align-items: flex-start is load-bearing \u2014 without it, the default
+   `stretch` makes the cargo-slots container widen to match the
+   ribbon's border-box (leaving 2px of empty air past the last cell),
+   and the ribbon reads 2px longer to the right than the grid. */
 .cargo-bag {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 2px;
   flex-shrink: 0;
 }
@@ -525,6 +530,12 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   display: grid;
   gap: 1px;
   flex-shrink: 0;
+  /* box-sizing: border-box so the inline width set in renderCargoSlots
+     equals the ribbon's outer edge. Lets the JS pass the cargo grid's
+     content width directly (cols*15 + (cols-1)*2) without subtracting
+     the 1px border on each side. Keeps the ribbon's right edge flush
+     with the last cargo cell's right edge. */
+  box-sizing: border-box;
   height: 4px;
   border: 1px solid #1e5554;
   border-radius: 1px;

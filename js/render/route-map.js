@@ -206,7 +206,16 @@ export function beginRiverDrift(sweepCells = 6) {
   if (!seg) return false;
   const startXY = seg.pathFn(S.dotT);
   // Original destination — we repath here after the drift completes.
-  const resumeTo = seg.to;
+  // v0.0.9.6.9.30e — if a severe river trip fires WHILE already
+  // drifting (possible: trip.js treats river-drift segs as "on
+  // interior" and re-rolls trips from them), seg.to is the sentinel
+  // '_drift_end' string, not a real node id. Using it as resumeTo
+  // propagates the sentinel into the next drift, and when that drift
+  // completes advanceSegmentAfterArrival → makeShortcutSegment fails
+  // to find a routeNode with id '_drift_end' and crashes on undefined
+  // toNode.x. Carry the ORIGINAL resumeTo forward across chained
+  // drifts so the post-drift shortcut always points at a real node.
+  const resumeTo = seg.type === 'river-drift' ? seg.resumeTo : seg.to;
   // SVG step is ~12 units per "cell" of texture; swept 5-10 cells lands
   // in the 60-120 unit range.
   const sweepSvg = 12 * sweepCells;
