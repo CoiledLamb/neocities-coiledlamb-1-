@@ -82,7 +82,7 @@ import {
   reduceMultWithTrample,
 } from './data/terrain.js';
 import { placedGearAt } from './gear.js';
-import { trampleAt, isPassCarved } from './trail.js';
+import { trampleAt } from './trail.js';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -620,21 +620,24 @@ export function maybeTrip() {
   if (TERRAIN_HAS_SEVERE[terr]) {
     const seg = S._transient.currentSegment;
     const xy  = seg.pathFn(S.dotT);
-    // v0.0.9.6 commit 6 — pass-carved mountain cells zero severity
-    // outright. The mountain-pass-carving mechanic: grind the same
-    // slope enough (trample ≥ 0.85) and it stops throwing severes.
-    // Also loop-safe: even if user wants to retrofit mountain tumble
-    // in .9.7 polish, pass-carving self-caps the retry count.
-    if (terr === 'mountain' && isPassCarved(xy.x, xy.y)) {
-      // severity forced to 0; non-severe trip paths still run
-    } else {
+    // v0.0.9.6.10.6 — mountain carve zero-severity branch removed.
+    // Prior behavior: trample ≥ 0.85 on a mountain cell zeroed
+    // severity entirely, effectively letting repeat loops (or peer
+    // paving via trample_milestone merges) disable mountains as a
+    // threat. Leftover from before ladders shipped as the intended
+    // mountain mitigation. Now: trample still smoothly reduces
+    // severity via reduceMultWithTrample (line below), but never to
+    // zero. Mountains stay hard, asymptoting toward "manageable"
+    // after traffic, never "cleared". Ladders remain the primary
+    // mitigation for a specific crossing.
+    {
       let tripMult = TERRAIN_TRIP_MULT[terr] || 1.0;
       // v0.0.9.6 commit 4 — placed gear reduces severe chance.
       if (GEAR_FOR_TERRAIN[terr] && placedGearAt(xy.x, xy.y)) {
         tripMult *= GEAR_TRIP_MITIGATION;
       }
       // v0.0.9.6 commit 6 — trample continuous reduction applies
-      // here too so severity tapers smoothly toward pass-carve.
+      // here too so severity tapers smoothly with traffic.
       tripMult = reduceMultWithTrample(tripMult, trampleAt(xy.x, xy.y));
       const severityChance = Math.max(0, (tripMult - 1.0) * SEVERITY_SCALE);
       if (Math.random() < severityChance) {

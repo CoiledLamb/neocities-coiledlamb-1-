@@ -105,9 +105,12 @@ export function receiveTrampleMilestone(payload) {
   }
 }
 
-/** True when the cell has been paved enough to bypass severity.
- *  Used by trip.js to zero out severe-trip rolls on carved
- *  mountain cells. */
+/** True when the cell has crossed the "carved" trample tier. As of
+ *  v0.0.9.6.10.6 this no longer has a gameplay effect — mountain
+ *  severity continues to scale continuously via reduceMultWithTrample
+ *  and never zeroes. Still used as a rendering + multiplayer signal
+ *  (peer channel message at threshold crossing, visual tier in
+ *  render/route-map.js). */
 export function isPassCarved(x, y) {
   return trampleAt(x, y) >= TRAMPLE_PASS_THRESHOLD;
 }
