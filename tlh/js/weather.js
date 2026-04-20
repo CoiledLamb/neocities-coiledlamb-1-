@@ -606,6 +606,17 @@ export function tickWeather() {
     if (climateEffectAt(storm.x, storm.y) < C.CLIMATE_REPELLER_THRESH) {
       mult *= C.CLIMATE_DISSIPATE_BOOST;
     }
+    // v0.0.9.6.10.2 — storms that have drifted out of the route
+    // viewBox (400×400 SVG units) have no gameplay effect — player
+    // can't see them, can't get rained on. They were just sitting in
+    // the pool waiting out the baseline dissipate roll, blocking the
+    // MAX_CONCURRENT_STORMS slot from a fresh spawn. Heavily boost
+    // dissipation so offscreen drift cleans itself up fast.
+    const offscreenMargin = 60;
+    if (storm.x < -offscreenMargin || storm.x > 400 + offscreenMargin ||
+        storm.y < -offscreenMargin || storm.y > 400 + offscreenMargin) {
+      mult *= 8.0;
+    }
     if (Math.random() < C.STORM_DISSIPATE_CHANCE * mult) {
       removeStorm(storm);
     }
