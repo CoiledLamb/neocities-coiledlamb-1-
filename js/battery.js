@@ -60,9 +60,19 @@ const CONSUMERS = [
     activeOf: () => !!(S.exoskeleton && S.exoskeleton.unlocked &&
       (S.status === 'walking' || S.status === 'carrying')),
   },
-  // Carrier row lands in commit 4 once S.carrier + deploy/stow state
-  // exists. Same shape as the exoskeleton row (rateOf gates on level,
-  // activeOf gates on deployed).
+  {
+    key: 'carrier',
+    label: 'carrier',
+    rateOf: () => S.carrier && S.carrier.level >= 2
+      ? C.BATTERY_DRAIN_RATES.carrier2
+      : C.BATTERY_DRAIN_RATES.carrier1,
+    // Draws only while deployed. Stowed = folded in main cargo, no
+    // wheels turning. Unlike exoskeleton the cart doesn't care
+    // whether the courier is walking — the "battery" is spinning
+    // the hub motors on the wheels and idle draw persists during
+    // rest stops (cart stays deployed through resting).
+    activeOf: () => !!(S.carrier && S.carrier.unlocked && S.carrier.deployed),
+  },
 ];
 
 export function activeBatteryConsumers() {

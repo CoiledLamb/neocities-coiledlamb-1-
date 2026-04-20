@@ -125,8 +125,23 @@ export const UPGRADE_DEFS = [
 
   // ----- trust-reward: gamma (\u03b3) — rocky hillside workshop -----
   // Mobile carrier is a v0.0.9.6 deployable. Flag-only here.
-  { id:'mobileCarrier1', name:'mobile carrier',    desc:'wheeled carrier; folds into large cargo when stowed (v0.0.9.6)',                         cost:150, requires:null,              trustReward: { npc:'\u03b3', tier:'t20' }, apply:()=>{} },
-  { id:'mobileCarrier2', name:'improved tie-downs', desc:'+capacity/battery/traction; folds into medium cargo; wetland/river/mountain (v0.0.9.6)', cost:200, requires:'mobileCarrier1', trustReward: { npc:'\u03b3', tier:'t40' }, apply:()=>{} },
+  { id:'mobileCarrier1', name:'mobile carrier',      desc:'wheeled cart \u2014 +4 slots / +4 kg when deployed; folds into large cargo when stowed; consumes battery',                        cost:150, requires:null,              trustReward: { npc:'\u03b3', tier:'t20' }, apply:()=>{
+      S.carrier.unlocked = true;
+      S.carrier.level = 1;
+      // v0.0.9.6.9.30i ships scaffolding only — deploy/stow UI +
+      // pickup routing land in the UI follow-up. Default deployed
+      // FALSE until then so buying the gift doesn't spin up a
+      // battery consumer with no player-facing toggle to turn it
+      // off. The follow-up commit flips the initial-unlock default
+      // back to deployed:true ("new cart arrives rolling").
+      S.carrier.deployed = false;
+      S.carrier.autoDeployArmed = false;
+      S.carrier.safeTerrainTicks = 0;
+  } },
+  { id:'mobileCarrier2', name:'improved tie-downs',   desc:'cart capacity +6 slots / +8 kg; folds into medium cargo; rolls across wetland/river/mountain; better battery',                     cost:200, requires:'mobileCarrier1', trustReward: { npc:'\u03b3', tier:'t40' }, apply:()=>{
+      S.carrier.unlocked = true;
+      S.carrier.level = 2;
+  } },
 
   // ----- trust-reward: lambda (\u03bb) — mountain climbing lodge -----
   // Both hook into the gear-placement system (shipped v0.0.9.6).

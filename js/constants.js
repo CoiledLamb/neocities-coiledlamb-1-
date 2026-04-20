@@ -375,6 +375,40 @@ export const EXO_SPEED_MULT      = 1.15;
 // don't have penalty mults to begin with.
 export const EXO_ALLTERRAIN_TARGETS = { mountain: true, rockyHills: true, river: true };
 
+// v0.0.9.6.9.30i — mobile carrier (gamma t20/t40).
+// Folded shape (main-cargo slot cost when stowed) + deployed
+// capacity + which terrains the cart can roll across per tier.
+// Tuning rationale:
+//   - Lvl 1 adds +4 slots / +4 kg (matches L-pkg baseline, so
+//     "deploy the cart = effectively a second L-slot of capacity")
+//   - Lvl 2 adds +6 slots / +8 kg AND reduces folded footprint
+//     to M (2 slots / 2 kg), so the upgrade is felt both in
+//     "more stuff when rolling" and "cheaper to stow when not"
+// Incompat terrains refuse the cart — forced-stow fires; any pkgs
+// in the cart that can't move to main bag get dropped.
+export const CARRIER_STATS = {
+  1: { maxSlots: 4, maxWeight: 4, foldedSize: 'l', foldedSlots: 4, foldedKg: 4,
+       incompatibleTerrains: { mountain: true, river: true } },
+  2: { maxSlots: 6, maxWeight: 8, foldedSize: 'm', foldedSlots: 2, foldedKg: 2,
+       incompatibleTerrains: {} },
+};
+
+// Dead-battery deployed cart penalties. User call: slow the
+// courier without forcing a stow (battery can fluctuate day/
+// night; forced stows on every sunset would be disruptive).
+// Speed mult stacks multiplicatively with exoSpeed + riverDrift
+// scale. Strain factor feeds trip.js tripChanceBreakdown as a
+// new `deadCartMult` in the penalty section.
+export const CARRIER_DEAD_SPEED_MULT  = 0.50;
+export const CARRIER_DEAD_STRAIN_MULT = 1.15;
+
+// Auto-redeploy armed cooldown. After a forced stow, the courier
+// must spend this many CONSECUTIVE ticks on compatible terrain
+// before the cart re-deploys. Any incompatible-terrain tick
+// resets the counter. Manual stow doesn't arm auto-redeploy —
+// player choice stays player choice.
+export const CARRIER_AUTO_REDEPLOY_TICKS = 5;
+
 // ----- v0.0.9.5 commit 3: battery baseline solar trickle -----
 // Peak (midday) regen per tick when no gadgets are draining. Sized so a
 // full idle day (zero drain) charges 0 → ~100 across one in-game day

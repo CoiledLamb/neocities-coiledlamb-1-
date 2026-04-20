@@ -137,6 +137,37 @@ export const S = {
     level:    0,
   },
 
+  // v0.0.9.6.9.30i — gamma's mobile carrier. Two-tier wheeled cart
+  // with its own inventory. Folds into main cargo (L pseudo-pkg at
+  // lvl 1 = 4 slots / 4 kg, M at lvl 2 = 2 slots / 2 kg) when stowed.
+  // Deploy opens a separate inventory bucket with the carrier's own
+  // maxSlots/maxWeight. Battery drains only while deployed. At 0
+  // charge the cart stays deployed but with a speed penalty + strain
+  // factor ("lugging a dead cart"); carries across terrain unchanged.
+  //
+  //   unlocked — any tier purchased
+  //   level    — 1 (compatible with everything except mountain/river) |
+  //              2 (all-terrain; compatible with mountain + river too)
+  //   deployed — false: folded pseudo-pkg lives in main S.inventory
+  //              true:  separate S.carrier.inventory is active
+  //   inventory — pkg array, same shape as S.inventory
+  //   autoDeployArmed — set true after a forced-stow (terrain refused
+  //              the cart). While true, a sustained safe-terrain run
+  //              re-deploys automatically. Manual stow clears this —
+  //              manual choices stay manual.
+  //   safeTerrainTicks — counter for the auto-redeploy cooldown. Any
+  //              incompatible-terrain tick resets to 0.
+  //   nextCartId — per-save incrementing id for placing cart-pkg
+  //              elements (not currently used; reserved).
+  carrier: {
+    unlocked:         false,
+    level:            0,
+    deployed:         false,
+    inventory:        [],
+    autoDeployArmed:  false,
+    safeTerrainTicks: 0,
+  },
+
   // v0.0.9.6 commit 5 — world-overlay placed structures. Promoted
   // from transient (commit 4 session-local) to persistent at schema
   // v9 so the amortization loop works — first placer pays, every

@@ -141,6 +141,19 @@ export function buildSavePayload() {
     exoskeleton: S.exoskeleton
       ? { unlocked: !!S.exoskeleton.unlocked, level: S.exoskeleton.level | 0 }
       : { unlocked: false, level: 0 },
+    // v0.0.9.6.9.30i — mobile carrier (gamma's trust gift). Additive
+    // on v9. Inventory is persisted as a simple pkg array (same shape
+    // as S.inventory entries). deployed/autoDeployArmed flags + the
+    // safe-terrain counter ride through so deploy state + auto-redeploy
+    // progress survive a reload.
+    carrier: S.carrier
+      ? { unlocked:        !!S.carrier.unlocked,
+          level:           S.carrier.level | 0,
+          deployed:        !!S.carrier.deployed,
+          autoDeployArmed: !!S.carrier.autoDeployArmed,
+          safeTerrainTicks: S.carrier.safeTerrainTicks | 0,
+          inventory:       Array.isArray(S.carrier.inventory) ? S.carrier.inventory.slice() : [] }
+      : { unlocked: false, level: 0, deployed: false, autoDeployArmed: false, safeTerrainTicks: 0, inventory: [] },
     // v0.0.9.6 commit 4 — placeable-gear kit inventory (persisted).
     kit: S.kit ? { ladders: S.kit.ladders, anchors: S.kit.anchors, autoGear: !!S.kit.autoGear } : undefined,
     // v0.0.9.6 commit 5 (schema v9) — shared world-overlay placed
@@ -484,6 +497,30 @@ function _applyValidated(data) {
     if (S.upgrades && (S.upgrades.exoskeleton1 || S.upgrades.exoskeleton2) && !S.exoskeleton.unlocked) {
       S.exoskeleton.unlocked = true;
       S.exoskeleton.level    = S.upgrades.exoskeleton2 ? 2 : 1;
+    }
+
+    // v0.0.9.6.9.30i — mobile carrier state. Same additive pattern +
+    // retro-grant from upgrade flags. Cart inventory restored as an
+    // array; per-pkg shape matches S.inventory entries so no extra
+    // migration needed (pkgs from before .30i just didn't exist in
+    // this bucket anyway).
+    if (data.carrier && typeof data.carrier === 'object') {
+      const c = data.carrier;
+      if (typeof c.unlocked === 'boolean')        S.carrier.unlocked = c.unlocked;
+      if (typeof c.level    === 'number')         S.carrier.level    = Math.max(0, Math.min(2, c.level | 0));
+      if (typeof c.deployed === 'boolean')        S.carrier.deployed = c.deployed;
+      if (typeof c.autoDeployArmed === 'boolean') S.carrier.autoDeployArmed = c.autoDeployArmed;
+      if (typeof c.safeTerrainTicks === 'number') S.carrier.safeTerrainTicks = Math.max(0, c.safeTerrainTicks | 0);
+      if (Array.isArray(c.inventory))             S.carrier.inventory = c.inventory.slice();
+    }
+    // Retro-grant: upgrade flag → state reconstruction. Defaults to
+    // stowed on scaffolding (.30i); the UI follow-up flips new-unlock
+    // default back to deployed.
+    if (S.upgrades && (S.upgrades.mobileCarrier1 || S.upgrades.mobileCarrier2) && !S.carrier.unlocked) {
+      S.carrier.unlocked = true;
+      S.carrier.level    = S.upgrades.mobileCarrier2 ? 2 : 1;
+      S.carrier.deployed = false;
+      S.carrier.inventory = [];
     }
 
     // v0.0.8 (schema v7) — weather system.
