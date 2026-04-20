@@ -359,6 +359,22 @@ export const BATTERY_DRAIN_RATES = {
   carrier2:         0.06,
 };
 
+// v0.0.9.6.9.30h — exoskeleton tunings (pi t20/t40).
+// All-terrain mitigation at lvl 1: ×0.80 trip mult on the trio of
+// penalty terrains (mountain, rockyHills, river). Composes
+// multiplicatively with gear + trample + scanner buff.
+// Speed bonus at lvl 2: +15% dotT advance on every segment
+// (ring + shortcut + river-drift alike). Numbers land in the
+// middle of handoff's speed-variant window; tune once sim data
+// from 8-20-run batches with exoskel-unlocked arm is in hand.
+export const EXO_ALLTERRAIN_MULT = 0.80;
+export const EXO_SPEED_MULT      = 1.15;
+// Terrains the all-terrain variant mitigates. Plateau is a
+// traversal question (gear required to climb, no trip mult);
+// desert is a stamina concern, not trip. Wetland and flat
+// don't have penalty mults to begin with.
+export const EXO_ALLTERRAIN_TARGETS = { mountain: true, rockyHills: true, river: true };
+
 // ----- v0.0.9.5 commit 3: battery baseline solar trickle -----
 // Peak (midday) regen per tick when no gadgets are draining. Sized so a
 // full idle day (zero drain) charges 0 → ~100 across one in-game day

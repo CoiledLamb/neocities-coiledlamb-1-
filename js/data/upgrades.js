@@ -138,11 +138,16 @@ export const UPGRADE_DEFS = [
   { id:'improvedTieDowns', name:'improved tie-downs', desc:'chance to withstand a hit; cargo retention on hit (v0.0.9.6)',  cost:100, requires:null, trustReward: { npc:'\u03bb', tier:'t40' }, apply:()=>{} },
 
   // ----- trust-reward: pi (\u03c0) — summit radio-tower researcher -----
-  // Exoskeleton hooks into battery (shipping in this patch) + mountain
-  // cells (v0.0.9.6). Flag-only here; .6 wires the stamina / terrain
-  // multipliers. Drain hook can land in .6 alongside the gear effects.
-  { id:'exoskeleton1', name:'exoskeleton',          desc:'speed or all-terrain variant; consumes battery (v0.0.9.6)',       cost:150, requires:null,           trustReward: { npc:'\u03c0', tier:'t20' }, apply:()=>{} },
-  { id:'exoskeleton2', name:'improved exoskeleton', desc:'combined speed + all-terrain + extended battery life (v0.0.9.6)', cost:200, requires:'exoskeleton1', trustReward: { npc:'\u03c0', tier:'t40' }, apply:()=>{} },
+  // All-terrain variant lands at t20 (trip mult mitigation on
+  // mountain/rockyHills/river), speed + extended battery at t40.
+  // Both battery-gated ("graceful off" at 0 charge — flag stays set
+  // but bonus goes cold, see trip.js + main.js speed advance).
+  // Variant tier order locked 2026-04-19 during the v0.0.9.6.9.30h
+  // build conversation — all-terrain reads as the safer first gift
+  // (more forgiving penalty smoothing) with speed as the second-tier
+  // flourish that compounds with the first.
+  { id:'exoskeleton1', name:'exoskeleton',          desc:'all-terrain \u2014 trip penalty \u00d70.80 on mountain / rocky hills / river; consumes battery',                 cost:150, requires:null,           trustReward: { npc:'\u03c0', tier:'t20' }, apply:()=>{ S.exoskeleton.unlocked = true; S.exoskeleton.level = 1; } },
+  { id:'exoskeleton2', name:'improved exoskeleton', desc:'+15% walk speed, extended battery life; lvl 1 mitigation retained',                                              cost:200, requires:'exoskeleton1', trustReward: { npc:'\u03c0', tier:'t40' }, apply:()=>{ S.exoskeleton.unlocked = true; S.exoskeleton.level = 2; } },
 
   // ----- trust-reward: delta (\u03b4) — reservoir engineer -----
   // Both hook directly into the battery baseline (commit 3). Apply

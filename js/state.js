@@ -126,6 +126,17 @@ export const S = {
     autoGear: true,
   },
 
+  // v0.0.9.6.9.30h — pi's exoskeleton. All-terrain variant at lvl 1
+  // (trip mitigation on mountain/rockyHills/river); lvl 2 adds speed
+  // and halves the battery draw. Battery-gated: at 0 charge the bonus
+  // goes cold but the flag stays set ("graceful off" per handoff).
+  //   unlocked — any tier purchased
+  //   level    — 1 (all-terrain only) | 2 (+ speed + extended battery)
+  exoskeleton: {
+    unlocked: false,
+    level:    0,
+  },
+
   // v0.0.9.6 commit 5 — world-overlay placed structures. Promoted
   // from transient (commit 4 session-local) to persistent at schema
   // v9 so the amortization loop works — first placer pays, every

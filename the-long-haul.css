@@ -1170,6 +1170,19 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .kit-cap.gear-cap.empty .gear-glyph { color: var(--tlh-text-faint); }
 .kit-cap.gear-cap.empty .kit-cap-val { color: var(--tlh-text-dim); }
 
+/* v0.0.9.6.9.30h — exoskeleton kit-bar capsule (pi's trust gift).
+   Pi glyph in accent cyan when battery is alive, dim + crit pink
+   on the .dead modifier so "bonus is cold" reads at a glance. */
+.kit-cap.exo-cap {
+  color: var(--tlh-accent);
+}
+.kit-cap.exo-cap .kit-cap-lbl { color: inherit; font-weight: 700; font-size: 13px; line-height: 1; }
+.kit-cap.exo-cap .kit-cap-val { color: inherit; }
+.kit-cap.exo-cap.dead {
+  color: var(--tlh-text-dim);
+}
+.kit-cap.exo-cap.dead .kit-cap-val { color: var(--tlh-crit); }
+
 /* v0.0.9.6.9.25 — ladder glyph is now an inline SVG instead of a
    dash pair. Sized to match the gun-web glyph footprint so all
    kit-cap labels share a baseline. */

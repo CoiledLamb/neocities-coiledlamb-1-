@@ -134,6 +134,13 @@ export function buildSavePayload() {
     // (solar trickle + new consumers + delta's regen upgrades) lands
     // in commit 4a; this commit just reserves the persistence slot.
     battery: { charge: S.battery.charge, max: S.battery.max },
+    // v0.0.9.6.9.30h — exoskeleton state (pi's trust gift). Purely
+    // additive on v9 — older saves restore with defaults and any
+    // purchased upgrade flag (S.upgrades.exoskeleton1/2) re-applies
+    // via restoreGame's upgrade replay path.
+    exoskeleton: S.exoskeleton
+      ? { unlocked: !!S.exoskeleton.unlocked, level: S.exoskeleton.level | 0 }
+      : { unlocked: false, level: 0 },
     // v0.0.9.6 commit 4 — placeable-gear kit inventory (persisted).
     kit: S.kit ? { ladders: S.kit.ladders, anchors: S.kit.anchors, autoGear: !!S.kit.autoGear } : undefined,
     // v0.0.9.6 commit 5 (schema v9) — shared world-overlay placed
@@ -461,6 +468,22 @@ function _applyValidated(data) {
       if (typeof data.battery.max === 'number') {
         S.battery.max = Math.max(1, Math.floor(data.battery.max));
       }
+    }
+
+    // v0.0.9.6.9.30h — exoskeleton state. Additive on v9 — absent in
+    // older saves, defaults stand; retro-grant from upgrade flags
+    // below handles the case where the player already bought the
+    // gift on a pre-.30h save (flag set, state field missing).
+    if (data.exoskeleton && typeof data.exoskeleton === 'object') {
+      if (typeof data.exoskeleton.unlocked === 'boolean') S.exoskeleton.unlocked = data.exoskeleton.unlocked;
+      if (typeof data.exoskeleton.level === 'number')     S.exoskeleton.level    = Math.max(0, Math.min(2, data.exoskeleton.level | 0));
+    }
+    // Retro-grant: if the save has exoskeleton1/2 flags set but no
+    // state record, reconstruct level from the flags. Covers saves
+    // made between .5 (flag-only stubs) and .30h (state shape added).
+    if (S.upgrades && (S.upgrades.exoskeleton1 || S.upgrades.exoskeleton2) && !S.exoskeleton.unlocked) {
+      S.exoskeleton.unlocked = true;
+      S.exoskeleton.level    = S.upgrades.exoskeleton2 ? 2 : 1;
     }
 
     // v0.0.8 (schema v7) — weather system.

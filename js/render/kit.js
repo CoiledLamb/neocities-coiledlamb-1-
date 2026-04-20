@@ -66,6 +66,9 @@ export function renderKit() {
 
   const hasScanner = !!S.scanner.unlocked;
   const hasGun     = !!S.stickyGun;
+  const hasExo     = !!(S.exoskeleton && S.exoskeleton.unlocked);
+  const exoLevel   = hasExo ? (S.exoskeleton.level | 0) : 0;
+  const exoLive    = hasExo && S.battery.charge > 0;
   // v0.0.9.6.5.1 — kit row is always visible. Previously gated on
   // scanner || gun ownership, which created a chicken-and-egg bug for
   // new players: they could shortcut across mountain terrain but
@@ -131,7 +134,11 @@ export function renderKit() {
 
   // Structural diff — only the pieces that change DOM shape.
   const sState = hasScanner ? scannerState() : '';
-  const structureKey = `${hasScanner?`s|${sState}`:''}||${hasGun?'g':''}`;
+  // v0.0.9.6.9.30h — exo structure key tracks ownership + level so
+  // the lvl 1 → lvl 2 upgrade rebuilds the cap text without waiting
+  // for another trigger. exoLive is reflected in className updates
+  // lower down (in-place, no DOM rebuild needed per battery tick).
+  const structureKey = `${hasScanner?`s|${sState}`:''}||${hasGun?'g':''}||${hasExo?`e${exoLevel}`:''}`;
 
   if (structureKey !== lastStructure) {
     lastStructure = structureKey;
@@ -157,6 +164,18 @@ export function renderKit() {
       html += `<span class="kit-cap gun-cap" id="gunCap">` +
                 `<span class="kit-cap-lbl gun-web-lbl">${GUN_WEB_SVG}</span>` +
                 `<span class="kit-cap-val" id="gunAmmoVal"></span>` +
+              `</span>`;
+    }
+    if (hasExo) {
+      // v0.0.9.6.9.30h — exoskeleton capsule (pi's trust gift). Pi
+      // glyph stands in for the gear identity (same visual anchor
+      // used in the route-map node label). `lvl 1` / `lvl 2` body
+      // text surfaces tier; `.dead` class flips dim + pink when the
+      // battery empties (bonus is off). Updated in place below.
+      const valTxt = `lvl ${exoLevel}`;
+      html += `<span class="kit-cap exo-cap" id="exoCap">` +
+                `<span class="kit-cap-lbl">\u03c0</span>` +
+                `<span class="kit-cap-val" id="exoVal">${valTxt}</span>` +
               `</span>`;
     }
     // Gear capsules — ladder + anchor with glyph + count + buy button.
@@ -187,6 +206,8 @@ export function renderKit() {
     els.scanTimer  = document.getElementById('scanTimer');
     els.gunAmmoVal = document.getElementById('gunAmmoVal');
     els.gunCap     = document.getElementById('gunCap');
+    els.exoCap     = document.getElementById('exoCap');
+    els.exoVal     = document.getElementById('exoVal');
 
     // Gear wiring.
     els.kitLadderVal  = document.getElementById('kitLadderVal');
@@ -220,6 +241,11 @@ export function renderKit() {
       const want = ('kit-cap gun-cap ' + gunAmmoClass(S.stickyGun)).trim();
       if (els.gunCap.className !== want) els.gunCap.className = want;
     }
+  }
+  // v0.0.9.6.9.30h — exo cap live-state class. dead=battery empty.
+  if (hasExo && els.exoCap) {
+    const want = exoLive ? 'kit-cap exo-cap' : 'kit-cap exo-cap dead';
+    if (els.exoCap.className !== want) els.exoCap.className = want;
   }
   // v0.0.9.6 commit 4 — gear capsule counts + auto-toggle state.
   const ladders = S.kit ? S.kit.ladders : 0;

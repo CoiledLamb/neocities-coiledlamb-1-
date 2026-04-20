@@ -127,6 +127,7 @@ function buildHTML() {
   if (factors.staminaGraceBonus > 0.01) mitigations.push(row('stamina grace', '', 1 - factors.staminaGraceBonus));
   if (factors.steadyFeetMult < 0.99)    mitigations.push(row('steady feet',   '', factors.steadyFeetMult));
   if (factors.scannerBuffMult < 0.99)   mitigations.push(row('scanner buff',  '', factors.scannerBuffMult));
+  if (factors.exoMult && factors.exoMult < 0.99) mitigations.push(row('exoskeleton', '', factors.exoMult));
   if (mitigations.length) {
     lines.push('<div class="rich-tip-divider"></div>');
     lines.push(...mitigations);

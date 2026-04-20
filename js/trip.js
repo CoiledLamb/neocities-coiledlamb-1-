@@ -187,6 +187,19 @@ export function tripChanceBreakdown() {
     }
     terrMult = reduceMultWithTrample(terrMult, trampleAt(xy.x, xy.y));
   }
+  // v0.0.9.6.9.30h — exoskeleton all-terrain variant. Applied AFTER
+  // gear + trample so the stack reads: terrain penalty → infra
+  // mitigation → paving mitigation → personal equipment. Battery-
+  // gated: bonus goes cold at 0 charge but the flag stays set. Both
+  // tiers of the exoskel get this (lvl 2 adds speed on top, see
+  // main.js dotT advance).
+  let exoMult = 1.0;
+  if (S.exoskeleton && S.exoskeleton.unlocked &&
+      S.battery && S.battery.charge > 0 &&
+      C.EXO_ALLTERRAIN_TARGETS[terrain]) {
+    exoMult = C.EXO_ALLTERRAIN_MULT;
+    terrMult *= exoMult;
+  }
   chance *= terrMult;
   // v0.0.9.6.9.28 — weather now applies on BOTH ring and interior.
   // Previously gated on !onInterior, which made shortcut/river-drift
@@ -230,6 +243,7 @@ export function tripChanceBreakdown() {
       encumbranceMult,
       cargoLoadPct:  S.maxWeight > 0 ? Math.round(100 * S.usedWeight / (S.maxWeight || 1)) : 0,
       usingMakeshift: !!S.usingMakeshift,
+      exoMult,       // v0.0.9.6.9.30h — exoskel all-terrain mitigation
     },
   };
 }

@@ -47,14 +47,22 @@ const CONSUMERS = [
     // Note: scanner drains while unlocked even when not actively
     // pinging — the idle "standby" pull is the game mechanic.
   },
-  // exoskeleton + carrier rows land in commits 3 & 4. Placeholders
-  // documented here so the registry is self-explanatory. Add:
-  //   { key: 'exoskeleton', rateOf: () => S.exoskeleton.level===2
-  //       ? C.BATTERY_DRAIN_RATES.exoskeleton2
-  //       : C.BATTERY_DRAIN_RATES.exoskeleton1,
-  //     activeOf: () => S.exoskeleton && S.exoskeleton.unlocked &&
-  //       (S.status === 'walking' || S.status === 'carrying') }
-  //   { key: 'carrier',     rateOf: () => ..., activeOf: () => ...deployed }
+  {
+    key: 'exoskeleton',
+    label: 'exoskeleton',
+    // Lvl 2 ("extended battery life") draws ~37% less than lvl 1.
+    rateOf: () => S.exoskeleton && S.exoskeleton.level >= 2
+      ? C.BATTERY_DRAIN_RATES.exoskeleton2
+      : C.BATTERY_DRAIN_RATES.exoskeleton1,
+    // Draws only while actively moving — idle / resting / tripped
+    // don't pull from the motor. Matches the "powered walking"
+    // flavor and keeps dead-battery consequences tied to movement.
+    activeOf: () => !!(S.exoskeleton && S.exoskeleton.unlocked &&
+      (S.status === 'walking' || S.status === 'carrying')),
+  },
+  // Carrier row lands in commit 4 once S.carrier + deploy/stow state
+  // exists. Same shape as the exoskeleton row (rateOf gates on level,
+  // activeOf gates on deployed).
 ];
 
 export function activeBatteryConsumers() {

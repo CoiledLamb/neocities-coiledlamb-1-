@@ -416,7 +416,11 @@ export function tick() {
     const seg = S._transient.currentSegment;
     // River drift moves at the speed of the water — slower than a walk.
     const speedScale = (seg && seg.type === 'river-drift') ? 0.4 : 1.0;
-    S.dotT += 0.006 * Stamina.speedMultiplier() * speedScale;
+    // v0.0.9.6.9.30h — exoskeleton lvl 2 speed bonus. Battery-gated:
+    // bonus goes cold at 0 charge but flag stays set ("graceful off").
+    const exoSpeedMult = (S.exoskeleton && S.exoskeleton.unlocked && S.exoskeleton.level >= 2 && S.battery.charge > 0)
+      ? C.EXO_SPEED_MULT : 1.0;
+    S.dotT += 0.006 * Stamina.speedMultiplier() * speedScale * exoSpeedMult;
   }
 
   // v0.0.9.6 commit 4 — tick placed-gear wall-clock decay + remove
