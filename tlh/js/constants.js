@@ -427,7 +427,15 @@ export const CARRIER_STATS = {
 // Speed mult stacks multiplicatively with exoSpeed + riverDrift
 // scale. Strain factor feeds trip.js tripChanceBreakdown as a
 // new `deadCartMult` in the penalty section.
-export const CARRIER_DEAD_SPEED_MULT  = 0.50;
+// v0.0.9.6.10.12 — speed mult softened 0.50 → 0.75. Sim data
+// (batteryEconomy timeline, v0.0.9.6.10.11) showed carrier owners
+// spending 40-45% of playtime at 0 charge before the delta t40
+// rainfall turbine lands. Half-speed + 45% of session = a
+// punitive "you paid for the cart and now it makes you slower"
+// feel. 25% slowdown still bites enough that the player cares
+// about the battery, but keeps the cart from being a regret
+// purchase when owned without solar/turbine support upgrades.
+export const CARRIER_DEAD_SPEED_MULT  = 0.75;
 export const CARRIER_DEAD_STRAIN_MULT = 1.15;
 
 // Auto-redeploy armed cooldown. After a forced stow, the courier
