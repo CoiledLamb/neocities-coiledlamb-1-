@@ -329,7 +329,35 @@ export const SCANNER_BUFF_MAGNITUDE_T2      = 0.35;
 // a session. At 0.03/tick on a 350ms tick, full drain ≈ 19.4 min.
 // Full mechanic (per-device drain + regen + upgrade) lands with a
 // schema v6→v7 bump in a later patch.
+// v0.0.9.6.9.30f — scanner drain becomes one entry in a keyed
+// consumer map (see BATTERY_DRAIN_RATES below). BATTERY_DRAIN_PER_TICK
+// preserved for back-compat with any stray callers (none in tree as
+// of this commit, but keep the export so future readers grepping for
+// it find the migration note).
 export const BATTERY_DRAIN_PER_TICK = 0.03;
+
+// v0.0.9.6.9.30f — battery consumer registry. Each tick main.js sums
+// over the rates for consumers that are (a) unlocked and (b) actively
+// drawing — scanner whenever unlocked, exoskeleton while walking,
+// carrier while deployed. Rates tuned so:
+//   - scanner alone: full drain in ~19 min (unchanged from the .7.28
+//     prototype so existing feel holds)
+//   - exoskeleton lvl 1 (all-terrain) adds 0.08/tick while walking —
+//     meaningful drain that makes solar panel/turbine upgrades feel
+//     load-bearing; lvl 2 drops to 0.05/tick ("extended battery life")
+//   - carrier lvl 1 (deployed) draws 0.10/tick — highest single
+//     consumer, motivates stow-when-idle; lvl 2 drops to 0.06/tick
+// Full stack walking lvl 1 gear = 0.03 + 0.08 + 0.10 = 0.21/tick
+// (~2.8 min drain from full) — tight enough that players care about
+// solar/turbine regen, loose enough that idle play at night isn't
+// instant-dead.
+export const BATTERY_DRAIN_RATES = {
+  scanner:          0.03,
+  exoskeleton1:     0.08,
+  exoskeleton2:     0.05,
+  carrier1:         0.10,
+  carrier2:         0.06,
+};
 
 // ----- v0.0.9.5 commit 3: battery baseline solar trickle -----
 // Peak (midday) regen per tick when no gadgets are draining. Sized so a

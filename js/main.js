@@ -106,6 +106,7 @@ import * as Stamina from './stamina.js';
 import * as Upg from './upgrades.js';
 import { tickScanner } from './scanner.js';
 import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js';
+import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js';
 import { renderKit } from './render/kit.js';
 import { initAdminChannel } from './admin-channel.js';
 import { initSaveIo } from './save-io.js';
@@ -523,46 +524,24 @@ export function tick() {
   if (S.ticks % 9 === 0) updateSaveStrip();
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
 
-  // v0.0.7.28 — battery prototype drain. Originally time-only whenever
-  // scanner or stickyGun was owned. v0.0.9.5 commit 3 decouples stickyGun
-  // (pure mechanical — rangefinder + sticky shot, no electronics) so only
-  // the scanner drains the battery from this pipeline. Additional
-  // consumers (pi's exoskeleton, gamma's mobile carrier) register through
-  // their own upgrade hooks in commit 4.
-  if (S.scanner.unlocked && S.battery.charge > 0) {
-    S.battery.charge = Math.max(0, S.battery.charge - C.BATTERY_DRAIN_PER_TICK);
+  // v0.0.9.6.9.30f — battery drain via keyed consumer map.
+  // Replaces the single hardcoded scanner-drain check. Each consumer
+  // contributes only when it's unlocked AND actively drawing (see
+  // activeBatteryDrainPerTick for the per-consumer gates). Net per-
+  // tick drain = sum of active rates. At charge 0 the inner guard
+  // zeros the floor — consumers read charge >0 themselves for "am I
+  // on right now" degradation (scanner stops pinging, etc.).
+  if (S.battery.charge > 0) {
+    const drain = activeBatteryDrainPerTick();
+    if (drain > 0) S.battery.charge = Math.max(0, S.battery.charge - drain);
   }
 
-  // v0.0.9.5 commit 3: innate solar trickle regen. The baseline feature
-  // (no upgrade required). daylightOf() peaks at 1.0 at midday, 0 at
-  // night, smooth through dawn/dusk. A full idle day charges 0 → ~95.
-  //
-  // v0.0.9.5 commit 4 additions:
-  //   - solarPanel    (delta t20): peak regen ×1.5. Desert-cell bonus
-  //                                 hook stays latent; v0.0.9.6 terrain
-  //                                 tagging flips it on.
-  //   - rainfallTurbine (delta t40): opens a rain-weighted regen channel
-  //                                    during active weather. Scales with
-  //                                    intensity: drizzle 0.25× peak /
-  //                                    rain 0.50× peak / downpour 0.75× peak.
-  //                                    Works day or night.
+  // v0.0.9.5 commit 3: innate solar trickle regen (solar panel × 1.5
+  // + rainfall turbine channel on top). Full breakdown now lives in
+  // battery.js::activeBatterySolarGainPerTick so the tooltip can
+  // display the same numbers this branch uses. Math unchanged.
   if (S.battery.charge < S.battery.max) {
-    let gain = 0;
-    // Solar channel (day only).
-    const sun = daylightOf(S.ticks % TICKS_PER_DAY);
-    if (sun > 0) {
-      const solarMult = S.upgrades.solarPanel ? 1.5 : 1.0;
-      gain += sun * C.BATTERY_SOLAR_PEAK_PER_TICK * solarMult;
-    }
-    // Rain channel (any time) via rainfall turbine.
-    if (S.upgrades.rainfallTurbine) {
-      const _w = weatherAtCourier();
-      const rainMult = _w.intensity === 'downpour' ? 0.75
-                     : _w.intensity === 'rain'     ? 0.50
-                     : _w.intensity === 'drizzle'  ? 0.25
-                     : 0;
-      if (rainMult > 0) gain += rainMult * C.BATTERY_SOLAR_PEAK_PER_TICK;
-    }
+    const gain = activeBatterySolarGainPerTick().total;
     if (gain > 0) S.battery.charge = Math.min(S.battery.max, S.battery.charge + gain);
   }
 
