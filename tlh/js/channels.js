@@ -40,22 +40,11 @@ export function speak(depotId, text) {
   renderChannels();
 }
 
-// v0.0.9.6 commit 5 — peer-placed-gear channel line. Bypasses the
-// speak() NPC-def check since the "sender" is a peer porter rather
-// than a known NPC. depotId 'peer' is an unused sentinel — renders
-// without per-NPC color; .9.7 polish can theme peer lines separately.
-export function postGearChannelMsg(shortPorterId, article, type, noun) {
-  S.channels.unshift({
-    depotId: 'peer',
-    callsign: shortPorterId || 'PTR-????',
-    text: `placed ${article} ${type} on the ${noun}`,
-    ts: S.ticks,
-  });
-  if (S.channels.length > C.CHANNELS_DISPLAY_CAP) {
-    S.channels.length = C.CHANNELS_DISPLAY_CAP;
-  }
-  renderChannels();
-}
+// v0.0.9.6.10 — postGearChannelMsg removed. Peer-placed infrastructure
+// now renders via network.js::formatEvent's 'gear_placement' case,
+// alongside other porter activity. Gear events were already in the
+// network feed; routing the log line here too was a v0.0.9.6 commit 5
+// hold-over from before the network panel existed in its current form.
 
 // v0.0.9.6 commit 7 — peer paving channel line. Fires on inbound
 // trample_milestone events when the crossing hits the carved

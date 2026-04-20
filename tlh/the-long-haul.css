@@ -1487,9 +1487,15 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 /* v0.0.9.5.1 — stacked-repeat counter badge appended to log lines
    when addLog coalesces consecutive duplicates. Dim teal, compact. */
 .log-mult { color: var(--tlh-text-dim); font-weight: 700; font-size: 9px; margin-left: 2px; letter-spacing: 0.03em; }
-.log-hi { color: var(--tlh-accent); }
-.log-wn { color: var(--tlh-crit); }
-.log-ok { color: var(--tlh-text-mid); }
+.log-hi   { color: var(--tlh-accent); }
+.log-wn   { color: var(--tlh-crit); }
+.log-ok   { color: var(--tlh-text-mid); }
+/* v0.0.9.6.10 — soft-warn tier between ok and wn. Purple (--tlh-warn)
+   reads as "note" rather than the crit pink of log-wn. Used for
+   soft-weather onset (drizzle/rain), can't-lift/out-of-reach guards,
+   and other advisories that aren't alerts. Downpour + real alerts
+   stay on log-wn. */
+.log-soft { color: var(--tlh-warn); }
 
 .upg-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
 .upg-item:last-child { border-bottom: none; }

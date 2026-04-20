@@ -20,6 +20,7 @@
 
 import { S } from '../state.js';
 import { getCachedPorterId, shortPorterId, isSilent } from '../multiplayer.js';
+import { TERRAIN_LOCATION_NOUN } from '../data/terrain.js';
 
 const els = S._transient.els;
 
@@ -100,6 +101,15 @@ function formatEvent(e) {
     case 'trust_unlock': {
       const tier = data.tier ? ` (${data.tier})` : '';
       return `${who} earned trust at <span class="net-ac">${data.npcLabel || '?'}</span>${tier}`;
+    }
+    case 'gear_placement': {
+      // v0.0.9.6.10 — peer-placed infrastructure moved off the channels
+      // panel and onto the network panel (alongside other porter
+      // activity). Terrain noun from TERRAIN_LOCATION_NOUN; falls back
+      // to generic "slope" if the payload terrain is missing/unknown.
+      const noun = TERRAIN_LOCATION_NOUN[data.terrain] || 'slope';
+      const a    = /^[aeiou]/i.test(data.type || '') ? 'an' : 'a';
+      return `${who} placed ${a} <span class="net-ac">${data.type || 'piece of gear'}</span> on the ${noun}`;
     }
     default:
       return `${who} ${e.type}`;

@@ -34,7 +34,6 @@ import {
   GEAR_LIFETIME_BASE_MS, GEAR_LIFETIME_EXTENDED_MS,
   GEAR_PRICE, gearWear,
   cellKeyFromCoords, snapInteriorCell,
-  TERRAIN_LOCATION_NOUN,
 } from './data/terrain.js';
 import { addLog } from './render/log.js';
 import { getCachedPorterId, broadcastGearPlacement } from './multiplayer.js';
@@ -253,31 +252,14 @@ export function receiveGearPlacement(payload) {
     lifetimeMs:      payload.lifetimeMs,
     stormDecayExtra: payload.stormDecayExtra || 0,
   };
-  const before = S.placedGear.length;
   upsertPlacedGear(entry);
-  // Only log a channel line if this was a fresh receive (dedup miss)
-  // and it's from a peer (not our own echo).
-  if (S.placedGear.length > before && payload.placerId !== getCachedPorterId()) {
-    logPeerPlacement(payload);
-  }
-}
-
-function logPeerPlacement(payload) {
-  // Build the "PTR-XXXX placed a ladder on the slope" line. Terrain
-  // noun pulled from TERRAIN_LOCATION_NOUN; falls back to generic
-  // "slope" if an unknown terrain slipped through.
-  const shortId = (payload.placerId || '').slice(0, 8);
-  const noun    = TERRAIN_LOCATION_NOUN[payload.terrain] || 'slope';
-  const a       = /^[aeiou]/i.test(payload.type) ? 'an' : 'a';
-  // Route through channels.js speak() — posted via import to avoid a
-  // circular dependency. Passing through the network feed keeps
-  // peer-built infrastructure visible in the channels panel where
-  // other porter activity already lives.
-  import('./channels.js').then((mod) => {
-    if (typeof mod.postGearChannelMsg === 'function') {
-      mod.postGearChannelMsg(shortId, a, payload.type, noun);
-    }
-  });
+  // v0.0.9.6.10 — peer-placement notifications now render via the
+  // network panel's formatEvent('gear_placement') case instead of a
+  // channels-panel line. The gear_placement event was already in
+  // S.networkFeed via multiplayer.js's feed poll; it was just falling
+  // through to the default "PTR-XXXX gear_placement" format. No-op
+  // receiver here — placement lands in S.placedGear for world overlay
+  // + amortization, network.js handles the player-visible log line.
 }
 
 /** Explicit kit-bar buy button entry point. Returns true on

@@ -634,11 +634,16 @@ export function tickWeather() {
     rebuildOverlay(w.intensity);
     if (prevIntensity === 'none' && w.intensity !== 'none') {
       S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_STORM_BURST);
-      addLog(`<span class="log-wn">${w.intensity} begins \u2014 canteen refilling</span>`);
+      // v0.0.9.6.10 — downpour stays on log-wn (crit pink). Drizzle
+      // and rain demoted to log-soft (purple warn) since they're
+      // advisories, not alerts.
+      const cls = w.intensity === 'downpour' ? 'log-wn' : 'log-soft';
+      addLog(`<span class="${cls}">${w.intensity} begins \u2014 canteen refilling</span>`);
     } else if (w.intensity === 'none' && prevIntensity !== 'none') {
       addLog('weather clears');
     } else if (w.intensity !== 'none' && prevIntensity !== 'none') {
-      addLog(`<span class="log-wn">weather shifts to ${w.intensity}</span>`);
+      const cls = w.intensity === 'downpour' ? 'log-wn' : 'log-soft';
+      addLog(`<span class="${cls}">weather shifts to ${w.intensity}</span>`);
     }
     S._transient.lastWeatherIntensity = w.intensity;
     updateWeatherIcon(w.intensity);

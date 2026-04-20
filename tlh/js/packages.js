@@ -679,7 +679,7 @@ function acceptPickup(ci, offset) {
     if (S._transient.lastPickupFailKey !== key) {
       S._transient.lastPickupFailKey = key;
       const reason = slotsShort ? 'no cargo slots' : 'too heavy';
-      addLog(`<span class="log-wn">can't lift</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
+      addLog(`<span class="log-soft">can't lift</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
     }
     return false;
   }
@@ -784,7 +784,7 @@ function acceptInteriorPickup(entry) {
       }
       if (!S._transient.plateauGateLogged) {
         S._transient.plateauGateLogged = true;
-        addLog('<span class="log-wn">plateau top out of reach</span> \u2014 a ladder would do it');
+        addLog('<span class="log-soft">plateau top out of reach</span> \u2014 a ladder would do it');
       }
       return false;
     }
@@ -818,7 +818,7 @@ function acceptInteriorPickup(entry) {
     if (S._transient.lastPickupFailKey !== key) {
       S._transient.lastPickupFailKey = key;
       const reason = slotsShort ? 'no cargo slots' : 'too heavy';
-      addLog(`<span class="log-wn">can't lift</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
+      addLog(`<span class="log-soft">can't lift</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
     }
     return false;
   }
@@ -841,7 +841,10 @@ function acceptInteriorPickup(entry) {
   renderCourierStack();
   renderCargoSlots(true);
   if (els.courierAt) els.courierAt.className = 'tlh-at bounce carry';
-  addLog(`picked up <span class="log-hi">[${carried.size}] ${carried.label}</span> <span class="log-dim">[${entry.terrainOrigin}]</span>`);
+  // v0.0.9.6.10 — dropped the terrain-origin tag; it was leaking
+  // interior classifier names ('[rockyHills]', '[mountain]', '[plateau]')
+  // into user-facing log output. The pkg label already tells the story.
+  addLog(`picked up <span class="log-hi">[${carried.size}] ${carried.label}</span>`);
   return true;
 }
 
