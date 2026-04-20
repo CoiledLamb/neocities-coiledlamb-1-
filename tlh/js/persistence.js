@@ -34,10 +34,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-15';
-import * as C from './constants.js?v=096-10-15';
-import { addLog } from './render/log.js?v=096-10-15';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-15';
+import { S } from './state.js?v=096-10-16';
+import * as C from './constants.js?v=096-10-16';
+import { addLog } from './render/log.js?v=096-10-16';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-16';
 
 const els = S._transient.els;
 

@@ -19,15 +19,15 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=096-10-15';
-import { statusColor } from '../data/glyphs.js?v=096-10-15';
-import { tlhPalette } from '../palette.js?v=096-10-15';
-import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js?v=096-10-15';
-import { getDisplayLabel } from '../identification.js?v=096-10-15';
-import { bindCargoDragSource } from './drag.js?v=096-10-15';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=096-10-15';
-import * as Upg from '../upgrades.js?v=096-10-15';
-import { CARRIER_STATS } from '../constants.js?v=096-10-15';
+import { S } from '../state.js?v=096-10-16';
+import { statusColor } from '../data/glyphs.js?v=096-10-16';
+import { tlhPalette } from '../palette.js?v=096-10-16';
+import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js?v=096-10-16';
+import { getDisplayLabel } from '../identification.js?v=096-10-16';
+import { bindCargoDragSource } from './drag.js?v=096-10-16';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=096-10-16';
+import * as Upg from '../upgrades.js?v=096-10-16';
+import { CARRIER_STATS } from '../constants.js?v=096-10-16';
 
 const els = S._transient.els;
 
@@ -109,11 +109,15 @@ function cargoKey() {
 // v0.0.8.1 — unified pkg shapes. Each pkg renders as a single multi-cell
 // div via CSS grid spans rather than N adjacent 1-cell slots. Size glyph
 // centers on the shape. Layout is 2 rows \u00d7 ceil(maxSlots/2) columns.
+// v0.0.9.6.10.16 — mediums can rotate. Each entry is a list of
+// orientations the packer will try in order. First one that fits
+// wins; shape picked survives onto the placement so render uses
+// the right span.
 const PKG_SHAPES = {
-  s:  { w: 1, h: 1 },
-  m:  { w: 2, h: 1 },
-  l:  { w: 2, h: 2 },
-  xl: { w: 4, h: 2 },
+  s:  [{ w: 1, h: 1 }],
+  m:  [{ w: 2, h: 1 }, { w: 1, h: 2 }],
+  l:  [{ w: 2, h: 2 }],
+  xl: [{ w: 4, h: 2 }],
 };
 
 // v0.0.8.3 — pkg footprint. Base shape from PKG_SHAPES plus modifier
@@ -123,49 +127,79 @@ const PKG_SHAPES = {
 // gap between them IS the visual — reads as "main pkg with an awkward
 // extra bit." Honest slot accounting — total rendered cells match
 // pkg.slots.
+// v0.0.9.6.10.16 — returns one variant per available orientation.
+// Unwieldy trail stays anchored to the chosen base (right-of-bottom-
+// row) so vertical-medium + unwieldy would produce a 1x2 + 1x1 trail
+// at (x+0, y+2). No size currently mixes rotation + unwieldy (only
+// mediums rotate, unwieldy spawns on any size), so the trail math
+// just follows the variant's w/h.
 function pkgFootprint(pkg) {
-  const base = PKG_SHAPES[pkg.size] || PKG_SHAPES.s;
-  const cells = [];
-  for (let dy = 0; dy < base.h; dy++)
-    for (let dx = 0; dx < base.w; dx++)
-      cells.push({ dx, dy });
+  const orientations = PKG_SHAPES[pkg.size] || PKG_SHAPES.s;
   const hasTrail = pkg.modifier === 'unwieldy';
-  if (hasTrail) cells.push({ dx: base.w, dy: base.h - 1, trail: true });
-  return { base, cells, hasTrail };
+  const variants = orientations.map(base => {
+    const cells = [];
+    for (let dy = 0; dy < base.h; dy++)
+      for (let dx = 0; dx < base.w; dx++)
+        cells.push({ dx, dy });
+    if (hasTrail) cells.push({ dx: base.w, dy: base.h - 1, trail: true });
+    return { base, cells };
+  });
+  return { variants, hasTrail };
 }
 
 // binPack — first-fit packer. Sorts by cell count desc so larger
 // footprints land first, then smaller fill in. Multi-cell aware:
 // checks every cell in pkg.cells (not just a bounding rect).
+// v0.0.9.6.10.16 — orientation-aware. pkgFootprint now returns
+// a list of variants (shape + cell layout). The packer tries each
+// variant at each (x, y) before moving on. Medium pkgs have two
+// variants (2x1 horizontal, 1x2 vertical); the packer picks
+// whichever fits first given the grid state. The chosen variant's
+// `base` rides onto the placement so render uses the right span.
 // Returns { placements: [{pkg, x, y, base, hasTrail}], grid }.
 function binPack(pkgs, cols, rows, blockedCells) {
   const grid = Array.from({length: rows}, () => Array(cols).fill(null));
   for (const { x, y } of (blockedCells || [])) {
     if (y >= 0 && y < rows && x >= 0 && x < cols) grid[y][x] = '_blocked';
   }
+  // Sort by largest variant's cell count so a pkg with any big variant
+  // is placed first. Prevents a medium-vertical squeezing into a slot
+  // before an XL gets its chance.
   const withFootprint = pkgs.map(p => ({ pkg: p, fp: pkgFootprint(p) }));
-  withFootprint.sort((a, b) => b.fp.cells.length - a.fp.cells.length);
+  withFootprint.sort((a, b) => {
+    const aMax = Math.max(...a.fp.variants.map(v => v.cells.length));
+    const bMax = Math.max(...b.fp.variants.map(v => v.cells.length));
+    return bMax - aMax;
+  });
   const placements = [];
   for (const { pkg, fp } of withFootprint) {
-    const { base, cells, hasTrail } = fp;
-    // Scan bounds: unwieldy extends width by 1 (trail cell is at x=base.w).
-    const fpW = hasTrail ? base.w + 1 : base.w;
-    const fpH = base.h;
+    const { variants, hasTrail } = fp;
     let placed = false;
-    for (let y = 0; y + fpH <= rows && !placed; y++) {
-      for (let x = 0; x + fpW <= cols && !placed; x++) {
-        let free = true;
-        for (const c of cells) {
-          if (grid[y + c.dy][x + c.dx]) { free = false; break; }
-        }
-        if (free) {
-          for (const c of cells) grid[y + c.dy][x + c.dx] = pkg;
-          placements.push({ pkg, x, y, base, hasTrail });
-          placed = true;
+    for (let y = 0; y < rows && !placed; y++) {
+      for (let x = 0; x < cols && !placed; x++) {
+        // Try each orientation at this (x, y). First fit wins.
+        for (const variant of variants) {
+          const fpW = hasTrail ? variant.base.w + 1 : variant.base.w;
+          const fpH = variant.base.h;
+          if (x + fpW > cols || y + fpH > rows) continue;
+          let free = true;
+          for (const c of variant.cells) {
+            if (grid[y + c.dy][x + c.dx]) { free = false; break; }
+          }
+          if (free) {
+            for (const c of variant.cells) grid[y + c.dy][x + c.dx] = pkg;
+            placements.push({ pkg, x, y, base: variant.base, hasTrail });
+            placed = true;
+            break;
+          }
         }
       }
     }
-    if (!placed) placements.push({ pkg, overflow: true, base, hasTrail });
+    if (!placed) {
+      // Overflow placement — use the first variant's base for sizing
+      // so the overflow badge renders at a sensible shape.
+      placements.push({ pkg, overflow: true, base: variants[0].base, hasTrail });
+    }
   }
   return { placements, grid };
 }

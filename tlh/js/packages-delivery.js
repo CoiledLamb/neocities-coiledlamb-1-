@@ -24,20 +24,20 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-15';
-import * as C from './constants.js?v=096-10-15';
-import { NPC_DEFS } from './data/npc-defs.js?v=096-10-15';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-15';
-import { postActivity, shortPorterId } from './multiplayer.js?v=096-10-15';
-import { updatePorterStripBadges } from './recovery.js?v=096-10-15';
-import { addTrust, computeTrustGain, speakDelivery, recordDelivery } from './trust.js?v=096-10-15';
-import { removeFromInventories } from './carrier.js?v=096-10-15';
-import { getNodeStage, setNodeStage } from './identification.js?v=096-10-15';
-import { addLog } from './render/log.js?v=096-10-15';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-15';
-import { drawRouteMap } from './render/route-map.js?v=096-10-15';
-import { renderSettlements } from './render/settlements.js?v=096-10-15';
-import { onInventoryChange } from './packages.js?v=096-10-15';
+import { S } from './state.js?v=096-10-16';
+import * as C from './constants.js?v=096-10-16';
+import { NPC_DEFS } from './data/npc-defs.js?v=096-10-16';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-16';
+import { postActivity, shortPorterId } from './multiplayer.js?v=096-10-16';
+import { updatePorterStripBadges } from './recovery.js?v=096-10-16';
+import { addTrust, computeTrustGain, speakDelivery, recordDelivery } from './trust.js?v=096-10-16';
+import { removeFromInventories } from './carrier.js?v=096-10-16';
+import { getNodeStage, setNodeStage } from './identification.js?v=096-10-16';
+import { addLog } from './render/log.js?v=096-10-16';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-16';
+import { drawRouteMap } from './render/route-map.js?v=096-10-16';
+import { renderSettlements } from './render/settlements.js?v=096-10-16';
+import { onInventoryChange } from './packages.js?v=096-10-16';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els        = S._transient.els;
