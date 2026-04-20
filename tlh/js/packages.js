@@ -40,7 +40,7 @@ import {
   PKG_LABELS_BY_TERRAIN_ORIGIN,
 } from './data/packages.js';
 import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js';
-import { placedGearAt, autoPlaceForCell } from './gear.js';
+import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js';
 import { emit as tEmit, accum as tAccum } from './telemetry.js';
 import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js';
 // v0.0.9.6.9.30.4 — updatePorterStripBadges, computeTrustGain,
@@ -755,7 +755,10 @@ function acceptInteriorPickup(entry) {
     if (!hasLadder && outcrop) {
       // Any ladder whose snapped cell sits within the same outcrop
       // radius grants access to this pkg.
-      for (const g of (S.placedGear || [])) {
+      // v0.0.9.6.10.7 — use visible subset so a density-evicted
+      // ladder can't grant pickup. Keeps gameplay consistent with
+      // what the player sees rendered on the route map.
+      for (const g of visiblePlacedGear()) {
         if (g.type !== 'ladder') continue;
         if (mesaOutcropAt(g.x, g.y) === outcrop) { hasLadder = true; break; }
       }

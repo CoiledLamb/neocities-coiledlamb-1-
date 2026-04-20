@@ -43,17 +43,88 @@ import { emit as tEmit, accum as tAccum } from './telemetry.js';
 // unit step used by drawInterior / terrain classifier.
 function snapCell(x, y) { return snapInteriorCell(x, y); }
 
+// v0.0.9.6.10.7 — density-cap constants for placed gear display.
+// Full pool lives in S.placedGear (persisted, peer-broadcast) but
+// what the player actually sees + what placedGearAt returns is
+// filtered so a single region can't accumulate an infinite stack
+// of peer-placed ladders. Keeps the world overlay readable and
+// prevents "everything already done for you" on fresh saves that
+// inherit a heavy peer history.
+//
+//   REGION_RADIUS_SVG — entries within this many SVG units of the
+//     query point count against the region cap. 40 SVG ≈ 3 cells
+//     at the 12-unit grid spacing, so roughly a 3×3 neighborhood.
+//   REGION_DISPLAY_CAP — max entries per region visible to the
+//     player. Newest wins (sort by placedWallClock desc, keep 3).
+//   POOL_MAX — hard safety cap on S.placedGear total length. If
+//     the pool exceeds this, trimPlacedGearPool() evicts oldest
+//     entries so localStorage payload doesn't grow unbounded on
+//     long-running saves with heavy peer traffic.
+const REGION_RADIUS_SVG  = 40;
+const REGION_DISPLAY_CAP = 3;
+const POOL_MAX           = 500;
+
+/** Visibility filter — which entries from the full pool actually
+ *  show up in renders + gameplay lookups. For each entry, counts
+ *  how many *newer* entries sit within REGION_RADIUS_SVG. If 3 or
+ *  more are newer, this entry is considered superseded and hidden.
+ *  Called by drawRouteMap (render), placedGearAt (trip/stamina
+ *  mitigation + pkg pickup gating), and elsewhere that reads the
+ *  public surface. Not called from persistence (full pool persists)
+ *  or from placement (every placement always lands in the pool). */
+export function visiblePlacedGear() {
+  const arr = S.placedGear || [];
+  if (arr.length === 0) return arr;
+  // Sort descending by placement time so newer entries take the
+  // first slots per region. Stable sort not required (ids are
+  // unique by construction).
+  const sorted = arr.slice().sort((a, b) => (b.placedWallClock || 0) - (a.placedWallClock || 0));
+  const visible = [];
+  for (const candidate of sorted) {
+    let nearerCount = 0;
+    for (const v of visible) {
+      const d2 = (candidate.x - v.x) ** 2 + (candidate.y - v.y) ** 2;
+      if (d2 <= REGION_RADIUS_SVG * REGION_RADIUS_SVG) nearerCount++;
+      if (nearerCount >= REGION_DISPLAY_CAP) break;
+    }
+    if (nearerCount < REGION_DISPLAY_CAP) visible.push(candidate);
+  }
+  return visible;
+}
+
 /** Returns the placed-gear entry at (x, y) if any, else null.
  *  Snaps the lookup to the cell grid so different courier
- *  dotT samples on the same cell see the same placement. */
+ *  dotT samples on the same cell see the same placement.
+ *  v0.0.9.6.10.7 — now reads from visiblePlacedGear() so
+ *  density-evicted entries don't grant mitigation. A player
+ *  walking into a region with 5 peer-placed ladders sees (and
+ *  benefits from) the 3 most recent, not all 5. Net effect is
+ *  unchanged for normal play (usually 0-1 entries per cell);
+ *  only matters at high density. */
 export function placedGearAt(x, y) {
   const s = snapCell(x, y);
-  const arr = S.placedGear;
+  const arr = visiblePlacedGear();
   for (let i = 0; i < arr.length; i++) {
     const g = arr[i];
     if (g.x === s.x && g.y === s.y) return g;
   }
   return null;
+}
+
+/** Hard safety cap on the pool. S.placedGear persists to save +
+ *  receives broadcasts from peers; without this, a long-running
+ *  save on a busy server could grow the pool (and therefore the
+ *  localStorage payload) unbounded. Evicts the oldest entries
+ *  beyond POOL_MAX. Evicted entries never show up in
+ *  visiblePlacedGear — they'd lose the newness race anyway — so
+ *  trimming doesn't disturb what the player sees. Called from
+ *  tickGearDecay at the same cadence as natural expiry. */
+function trimPlacedGearPool() {
+  const arr = S.placedGear;
+  if (!arr || arr.length <= POOL_MAX) return;
+  arr.sort((a, b) => (a.placedWallClock || 0) - (b.placedWallClock || 0));
+  const toRemove = arr.length - POOL_MAX;
+  arr.splice(0, toRemove);
 }
 
 /** Canonical ID: ${porterId}-${placedWallClock}-${cellKey}.
@@ -236,6 +307,10 @@ export function tickGearDecay() {
       arr.splice(i, 1);
     }
   }
+  // v0.0.9.6.10.7 — hard pool cap after natural expiry so
+  // long-running saves on busy servers don't accumulate gear
+  // indefinitely in localStorage.
+  trimPlacedGearPool();
 }
 
 /** Broadcast receiver — called by multiplayer.js on incoming

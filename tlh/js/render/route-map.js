@@ -27,6 +27,11 @@ import {
   cellKeyFromCoords, mesaOutcropAt,
 } from '../data/terrain.js';
 import { trampleTier } from '../trail.js';
+// v0.0.9.6.10.7 — use the density-filtered view of placed gear so
+// render matches placedGearAt() gameplay lookup. Full pool lives
+// on S.placedGear (persisted, broadcast-addressable); this is the
+// curated subset that should be visible to the player.
+import { visiblePlacedGear } from '../gear.js';
 import { speedMultiplier } from '../stamina.js';
 import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js';
 import { tlhPalette } from '../palette.js';
@@ -524,9 +529,11 @@ export function drawRouteMap() {
   // v0.0.9.6 commit 5 — source promoted from transient to persistent
   // S.placedGear so shared infrastructure survives reloads and peer
   // placements render alongside our own.
+  // v0.0.9.6.10.7 — filter through visiblePlacedGear() so regions
+  // with >3 nearby placements render only the 3 newest.
   const gearG = document.createElementNS(ns, 'g');
   gearG.setAttribute('id', 'routeGear');
-  const placed = S.placedGear;
+  const placed = visiblePlacedGear();
   for (let i = 0; i < placed.length; i++) {
     const entry = placed[i];
     const wear  = gearWear(entry);
