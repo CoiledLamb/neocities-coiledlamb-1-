@@ -199,6 +199,24 @@ function emitPerTickSamples() {
   sample('boots_histogram',   bucketPct(S.bootDurability, 100));
   if (S.battery) sample('battery_histogram', bucketPct(S.battery.charge, S.battery.max));
 
+  // v0.0.9.6.10.10 — battery economy telemetry. Histogram alone
+  // doesn't tell the story for balance tuning; we need:
+  //   battery_zero_ticks — total ticks spent at 0 charge (feature-
+  //     cold time for exo/carrier). The critical signal for "is
+  //     battery tight enough to bite?"
+  //   battery_full_ticks — ticks pinned at max (solar headroom
+  //     wasted). High = player could handle more consumers.
+  //   battery_charge_timeline — sparse series every 1000 ticks so
+  //     batch aggregation can plot the shape of the curve.
+  if (S.battery) {
+    const charge = S.battery.charge;
+    if (charge <= 0)                   accum('battery.time', 'zero_ticks', 1);
+    if (charge >= S.battery.max - 0.5) accum('battery.time', 'full_ticks', 1);
+    accum('battery.time', 'total_ticks', 1);
+    accum('battery.charge_sum', 'total', charge);
+    if (S.ticks % 1000 === 0) series('battery_charge_timeline', charge);
+  }
+
   // Inventory utilization
   const slotsPct = S.maxSlots > 0 ? Math.round(100 * S.usedSlots / S.maxSlots) : 0;
   sample('inventory_slots_pct', bucketPct(S.usedSlots, S.maxSlots));
@@ -309,6 +327,30 @@ export function runSimulation(opts) {
   // runSimulation matches max-automation baseline from applyFreshState;
   // individual toggles can be flipped off for comparison arms.
   if (opts.autobuyBoots === false) S.autobuyBoots = false;
+  // v0.0.9.6.10.10 — preown upgrades for scenario sims (e.g. battery-
+  // economy A/B/C with no-upgrades vs. drain-consumers vs. drain +
+  // regen upgrades). Takes a list of upgrade ids, sets S.upgrades[id]
+  // = true, calls the def's apply() to side-effect any one-time state
+  // (carrier.unlocked, scanner.unlocked, etc). Bypasses the trust gate
+  // + scrip cost — pure "what if they had this" scenario harness.
+  if (Array.isArray(opts.preownUpgrades) && opts.preownUpgrades.length) {
+    for (const id of opts.preownUpgrades) {
+      const def = UPGRADE_DEFS.find(d => d.id === id);
+      if (!def) continue;
+      S.upgrades[id] = true;
+      if (typeof def.apply === 'function') {
+        try { def.apply(); } catch (e) { /* side-effect may fail harmlessly in sim */ }
+      }
+    }
+  }
+  // Scenario sims want to disable the auto-upgrade buyer so the
+  // preowned set stays the pure variable. Turn auto-upgrade off by
+  // default whenever preownUpgrades is set; caller can force it back
+  // on with opts.autoUpgrade = true if desired.
+  const scenarioMode = Array.isArray(opts.preownUpgrades) && opts.preownUpgrades.length > 0;
+  const autoUpgradeEffective = opts.autoUpgrade !== undefined
+    ? opts.autoUpgrade
+    : !scenarioMode && autoUpgrade;
   loopState = { leftHomeSinceLast: false, lastCountedLoop: 0 };
 
   startCollection();
@@ -328,7 +370,7 @@ export function runSimulation(opts) {
       loopCount = checkLoopCompletion(loopCount);
 
       // Auto-upgrade attempt periodically (cheap)
-      if (autoUpgrade && tickCount % upgradeEvery === 0) autoUpgradeBuy();
+      if (autoUpgradeEffective && tickCount % upgradeEvery === 0) autoUpgradeBuy();
 
       // Termination checks
       if (maxLoops > 0 && loopCount >= maxLoops) { terminated = 'max_loops'; break; }
@@ -367,6 +409,11 @@ export async function runBatch(opts) {
   if (maxRealtimeMs !== undefined) runOpts.maxRealtimeMs = maxRealtimeMs;
   if (autoUpgrade !== undefined) runOpts.autoUpgrade = autoUpgrade;
   if (opts.autobuyBoots !== undefined) runOpts.autobuyBoots = opts.autobuyBoots;
+  // v0.0.9.6.10.10 — forward preown list to each run of the batch
+  // so scenario sims (battery economy A/B/C) work through runBatch.
+  if (Array.isArray(opts.preownUpgrades) && opts.preownUpgrades.length) {
+    runOpts.preownUpgrades = opts.preownUpgrades;
+  }
 
   // v0.0.9.6.9.6 — hold silent for the entire batch so the
   // setTimeout(0) yield between runs can't leave a window where

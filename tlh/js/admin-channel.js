@@ -157,6 +157,60 @@ function dispatch(cmd, args) {
         return { ok };
       });
     }
+    // v0.0.9.6.10.10 — battery-economy scenario harness. Runs three
+    // arms back-to-back and prints a side-by-side comparison:
+    //   A) no upgrades             — baseline drain, no bonus regen
+    //   B) all drain consumers     — scanner + exo + carrier, both
+    //                                exo + carrier leveled up so the
+    //                                reduced-draw variant kicks in
+    //   C) drain + regen bonuses   — B plus solarPanel + rainfallTurbine
+    // Metrics: mean time at 0 charge, mean time at full, mean charge,
+    // delivered count. Args: { runs, loops, ticks }.
+    case 'batteryEconomy': {
+      return import('./sim.js').then(async mod => {
+        const runs  = (args && args.runs)  || 8;
+        const loops = (args && args.loops) || 10;
+        const ticks = (args && args.ticks) || 60000;
+        const scenarios = [
+          { name: 'A_no_upgrades',      preown: [] },
+          { name: 'B_drain_only',       preown: ['scannerT1', 'scannerT2', 'exoskeleton1', 'exoskeleton2', 'mobileCarrier1', 'mobileCarrier2'] },
+          { name: 'C_drain_plus_gain',  preown: ['scannerT1', 'scannerT2', 'exoskeleton1', 'exoskeleton2', 'mobileCarrier1', 'mobileCarrier2', 'solarPanel', 'rainfallTurbine'] },
+        ];
+        addLog(`<span class="log-hi">battery economy scenarios</span>: ${runs}\u00d7${loops} loops, cap ${ticks} ticks each`);
+        const results = [];
+        for (const sc of scenarios) {
+          const batch = await mod.runBatch({ runs, loops, ticks, preownUpgrades: sc.preown, autoUpgrade: false });
+          results.push({ name: sc.name, preown: sc.preown, batch });
+          addLog(`  ${sc.name} \u2014 ${batch.reports.length} runs done`);
+        }
+        // Summarize — pull battery.time accumulators out of each batch aggregate.
+        const rows = results.map(r => {
+          const ag    = r.batch.aggregate;
+          const acc   = ag.accumSum || {};
+          const bt    = acc['battery.time'] || {};
+          const bc    = acc['battery.charge_sum'] || {};
+          const zero  = (bt.zero_ticks  && bt.zero_ticks.mean)  || 0;
+          const full  = (bt.full_ticks  && bt.full_ticks.mean)  || 0;
+          const total = (bt.total_ticks && bt.total_ticks.mean) || 1;
+          const chargeSum = (bc.total && bc.total.mean) || 0;
+          const meanCharge = chargeSum / total;
+          const delivered = (ag.counters['pkg.delivered'] && ag.counters['pkg.delivered'].mean) || 0;
+          return {
+            scenario:       r.name,
+            mean_charge:    +meanCharge.toFixed(1),
+            zero_pct:       +(100 * zero  / total).toFixed(1),
+            full_pct:       +(100 * full  / total).toFixed(1),
+            delivered_mean: +delivered.toFixed(1),
+            total_ticks:    Math.round(total),
+          };
+        });
+        // Pretty-print to console as a table
+        console.log('[sim] battery economy comparison:');
+        console.table(rows);
+        addLog(`<span class="log-hi">battery scenarios complete</span> \u2014 see console for comparison table`);
+        return { ok: true, rows, results };
+      });
+    }
 
     // ----- resources -----
     case 'setScrip': {
