@@ -85,6 +85,43 @@ export function activeBatteryConsumers() {
   return out;
 }
 
+// v0.0.9.6.9.30m — full consumer list with active flag for the tooltip.
+// Returns every installed/unlocked consumer (not just actively drawing)
+// so cold ones ("exo offline at 0 charge", "cart idle while stowed")
+// surface as dimmed rows in the battery tooltip instead of vanishing.
+// `cold` specifically flags consumers that are installed + powered-on
+// contextually (exo while walking, cart while deployed) but blocked by
+// empty battery — these are the "bonus has gone cold" cases the player
+// needs to notice. Stowed-cart / idle-exo inactive states use `idle`.
+export function listBatteryConsumers() {
+  const charge = (S.battery && S.battery.charge) || 0;
+  const out    = [];
+  for (const c of CONSUMERS) {
+    // Skip unowned / pre-unlock consumers entirely.
+    const unlocked = c.key === 'scanner'
+      ? !!(S.scanner && S.scanner.unlocked)
+      : c.key === 'exoskeleton'
+        ? !!(S.exoskeleton && S.exoskeleton.unlocked)
+        : c.key === 'carrier'
+          ? !!(S.carrier && S.carrier.unlocked)
+          : false;
+    if (!unlocked) continue;
+    const active = !!c.activeOf();
+    // Cold = would-be-active if charge were positive. Exo needs a walking
+    // status AND charge; carrier needs deployed AND charge. Charge=0 with
+    // the other preconditions met = cold. Scanner's activeOf is "unlocked"
+    // alone, so it's never cold in this sense (it keeps a standby draw
+    // even at 0 charge — the game treats scanner as the last thing to go).
+    let cold = false;
+    if (!active && charge <= 0) {
+      if (c.key === 'exoskeleton' && (S.status === 'walking' || S.status === 'carrying')) cold = true;
+      if (c.key === 'carrier' && S.carrier && S.carrier.deployed) cold = true;
+    }
+    out.push({ key: c.key, label: c.label, rate: c.rateOf(), active, cold });
+  }
+  return out;
+}
+
 export function activeBatteryDrainPerTick() {
   let sum = 0;
   for (const c of CONSUMERS) {

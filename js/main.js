@@ -580,6 +580,42 @@ export function tick() {
     if (gain > 0) S.battery.charge = Math.min(S.battery.max, S.battery.charge + gain);
   }
 
+  // v0.0.9.6.9.30m — battery-gate edge detection for exo + carrier. The
+  // .dead class on the kit-cap / cart-bag conveys the state visually
+  // (pink crit tint) but is easy to miss mid-play. A one-shot log line
+  // on each transition tells the player the exact moment the bonus (or
+  // penalty) flips. Edge-triggered: only fires when engaged state flips
+  // live ↔ cold, skipping the first observation so loading into a
+  // dead-battery save doesn't spam the log.
+  {
+    const exoEngaged  = !!(S.exoskeleton && S.exoskeleton.unlocked &&
+                            (S.status === 'walking' || S.status === 'carrying'));
+    const exoLive     = exoEngaged && S.battery.charge > 0;
+    const cartEngaged = !!(S.carrier && S.carrier.unlocked && S.carrier.deployed);
+    const cartLive    = cartEngaged && S.battery.charge > 0;
+    const t = S._transient;
+    if (exoEngaged) {
+      if (t.exoBatteryLive !== undefined && t.exoBatteryLive !== exoLive) {
+        addLog(exoLive
+          ? 'exoskeleton <span class="log-ok">back online</span>'
+          : '<span class="log-wn">exoskeleton offline</span> \u2014 battery empty');
+      }
+      t.exoBatteryLive = exoLive;
+    } else {
+      t.exoBatteryLive = undefined;
+    }
+    if (cartEngaged) {
+      if (t.cartBatteryLive !== undefined && t.cartBatteryLive !== cartLive) {
+        addLog(cartLive
+          ? 'cart motor <span class="log-ok">back online</span>'
+          : '<span class="log-wn">cart battery dead</span> \u2014 lugging it now');
+      }
+      t.cartBatteryLive = cartLive;
+    } else {
+      t.cartBatteryLive = undefined;
+    }
+  }
+
   // v0.0.9.6.9.28 — autodrink trigger fires every tick unconditionally
   // (was previously coupled to renderStamina, which is rendered-gated
   // and never ran in sim mode). Restores canteen-driven stamina loop

@@ -15,7 +15,7 @@
 'use strict';
 
 import { S } from '../state.js';
-import { activeBatteryConsumers, activeBatterySolarGainPerTick } from '../battery.js';
+import { activeBatteryConsumers, activeBatterySolarGainPerTick, listBatteryConsumers } from '../battery.js';
 import * as C from '../constants.js';
 import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js';
 
@@ -67,6 +67,11 @@ function buildHTML() {
   const rounded = Math.round(charge);
   const consumers = activeBatteryConsumers();
   const gain      = activeBatterySolarGainPerTick();
+  // v0.0.9.6.9.30m — full installed list for the tooltip. Drain math
+  // still uses `consumers` (active subset), but the tooltip walks the
+  // full list so cold and idle consumers render as dim rows instead of
+  // vanishing at 0 charge.
+  const installed = listBatteryConsumers();
 
   const totalDrain = consumers.reduce((s, c) => s + c.rate, 0);
   const totalGain  = gain.total;
@@ -79,16 +84,24 @@ function buildHTML() {
   lines.push(`<div class="rich-tip-head">charge ${rounded}/${max}</div>`);
 
   // Empty state: nothing to report.
-  if (consumers.length === 0 && totalGain === 0) {
+  if (installed.length === 0 && totalGain === 0) {
     lines.push('<div class="rich-tip-dim">standby \u2014 no drain, no sun</div>');
     return lines.join('');
   }
 
-  // Consumer rows.
-  if (consumers.length > 0) {
+  // Consumer rows. Active rows read hot (they're pulling), cold rows
+  // read dim with a parenthetical ("offline — no charge") so the player
+  // sees the installed consumer hasn't vanished, just gone quiet.
+  if (installed.length > 0) {
     lines.push('<div class="rich-tip-divider"></div>');
-    for (const c of consumers) {
-      lines.push(row(c.label, fmtRate(-c.rate), 'rich-tip-hot'));
+    for (const c of installed) {
+      if (c.active) {
+        lines.push(row(c.label, fmtRate(-c.rate), 'rich-tip-hot'));
+      } else if (c.cold) {
+        lines.push(row(c.label, 'offline', 'rich-tip-dim'));
+      } else {
+        lines.push(row(c.label, 'idle', 'rich-tip-dim'));
+      }
     }
   }
 

@@ -624,6 +624,10 @@ function _applyValidated(data) {
 
 export function wipeSave() {
   try {
+    // v0.0.9.6.9.30m — V9 key was missing from the wipe list. Without
+    // this line loadGame()'s V9-first priority reloads the active save
+    // on the post-wipe reload, so the wipe silently didn't take.
+    localStorage.removeItem(C.SAVE_KEY_V9);
     localStorage.removeItem(C.SAVE_KEY_V8);
     localStorage.removeItem(C.SAVE_KEY_V7);
     localStorage.removeItem(C.SAVE_KEY_V6);
