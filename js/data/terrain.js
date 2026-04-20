@@ -416,10 +416,15 @@ export const GEAR_GLYPH = {
   anchor: '\u2020',        // '†'  — dagger
 };
 
+// v0.0.9.6.9.30 — tier colors remapped to the cyan/warn/crit
+// brand ramp and resolved lazily from the CSS palette so a
+// future bone-theme switch picks up automatically. tier.color
+// is a getter — call sites stay unchanged.
+import { tlhPalette as _gearPalette } from '../palette.js';
 export const GEAR_WEAR_TIERS = [
-  { max: 0.35, name: 'fresh',     color: '#6fd4c0' },  // cyan
-  { max: 0.70, name: 'weathered', color: '#7fa39c' },  // mid-teal
-  { max: 1.01, name: 'rotting',   color: '#b87a5a' },  // rust
+  { max: 0.35, name: 'fresh',     get color() { return _gearPalette().accent; } },
+  { max: 0.70, name: 'weathered', get color() { return _gearPalette().warn;   } },
+  { max: 1.01, name: 'rotting',   get color() { return _gearPalette().crit;   } },
 ];
 
 // Classify wear (0..1) into the fresh/weathered/rotting tier.

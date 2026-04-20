@@ -125,20 +125,41 @@ export const UPGRADE_DEFS = [
 
   // ----- trust-reward: gamma (\u03b3) — rocky hillside workshop -----
   // Mobile carrier is a v0.0.9.6 deployable. Flag-only here.
-  { id:'mobileCarrier1', name:'mobile carrier',    desc:'wheeled carrier; folds into large cargo when stowed (v0.0.9.6)',                         cost:150, requires:null,              trustReward: { npc:'\u03b3', tier:'t20' }, apply:()=>{} },
-  { id:'mobileCarrier2', name:'improved tie-downs', desc:'+capacity/battery/traction; folds into medium cargo; wetland/river/mountain (v0.0.9.6)', cost:200, requires:'mobileCarrier1', trustReward: { npc:'\u03b3', tier:'t40' }, apply:()=>{} },
+  { id:'mobileCarrier1', name:'mobile carrier',      desc:'wheeled cart \u2014 +4 slots / +4 kg when deployed; folds into large cargo when stowed; consumes battery',                        cost:150, requires:null,              trustReward: { npc:'\u03b3', tier:'t20' }, apply:()=>{
+      S.carrier.unlocked = true;
+      S.carrier.level = 1;
+      // v0.0.9.6.9.30j — UI + routing live, flip initial-unlock
+      // default back to deployed=true ("new cart arrives rolling").
+      // Player can stow manually when they want.
+      S.carrier.deployed = true;
+      S.carrier.autoDeployArmed = false;
+      S.carrier.safeTerrainTicks = 0;
+  } },
+  { id:'mobileCarrier2', name:'improved tie-downs',   desc:'cart capacity +6 slots / +8 kg; folds into medium cargo; rolls across wetland/river/mountain; better battery',                     cost:200, requires:'mobileCarrier1', trustReward: { npc:'\u03b3', tier:'t40' }, apply:()=>{
+      S.carrier.unlocked = true;
+      S.carrier.level = 2;
+  } },
 
   // ----- trust-reward: lambda (\u03bb) — mountain climbing lodge -----
-  // Both hook into v0.0.9.6 gear-placement system. Flag-only here.
-  { id:'mountainGear',     name:'mountain gear',      desc:'ladder + anchor durability \u00d72 (v0.0.9.6)',                 cost:60,  requires:null, trustReward: { npc:'\u03bb', tier:'t20' }, apply:()=>{} },
+  // Both hook into the gear-placement system (shipped v0.0.9.6).
+  // mountainGear is live — S.upgrades.mountainGear is read by
+  // gear.js::placeEntry at placement time, baking 24h lifetime
+  // (instead of 12h base) into the placed entry for all viewers.
+  // improvedTieDowns still pending wiring.
+  { id:'mountainGear',     name:'mountain gear',      desc:'ladder + anchor durability \u00d72',                            cost:60,  requires:null, trustReward: { npc:'\u03bb', tier:'t20' }, apply:()=>{} },
   { id:'improvedTieDowns', name:'improved tie-downs', desc:'chance to withstand a hit; cargo retention on hit (v0.0.9.6)',  cost:100, requires:null, trustReward: { npc:'\u03bb', tier:'t40' }, apply:()=>{} },
 
   // ----- trust-reward: pi (\u03c0) — summit radio-tower researcher -----
-  // Exoskeleton hooks into battery (shipping in this patch) + mountain
-  // cells (v0.0.9.6). Flag-only here; .6 wires the stamina / terrain
-  // multipliers. Drain hook can land in .6 alongside the gear effects.
-  { id:'exoskeleton1', name:'exoskeleton',          desc:'speed or all-terrain variant; consumes battery (v0.0.9.6)',       cost:150, requires:null,           trustReward: { npc:'\u03c0', tier:'t20' }, apply:()=>{} },
-  { id:'exoskeleton2', name:'improved exoskeleton', desc:'combined speed + all-terrain + extended battery life (v0.0.9.6)', cost:200, requires:'exoskeleton1', trustReward: { npc:'\u03c0', tier:'t40' }, apply:()=>{} },
+  // All-terrain variant lands at t20 (trip mult mitigation on
+  // mountain/rockyHills/river), speed + extended battery at t40.
+  // Both battery-gated ("graceful off" at 0 charge — flag stays set
+  // but bonus goes cold, see trip.js + main.js speed advance).
+  // Variant tier order locked 2026-04-19 during the v0.0.9.6.9.30h
+  // build conversation — all-terrain reads as the safer first gift
+  // (more forgiving penalty smoothing) with speed as the second-tier
+  // flourish that compounds with the first.
+  { id:'exoskeleton1', name:'exoskeleton',          desc:'all-terrain \u2014 trip penalty \u00d70.80 on mountain / rocky hills / river; consumes battery',                 cost:150, requires:null,           trustReward: { npc:'\u03c0', tier:'t20' }, apply:()=>{ S.exoskeleton.unlocked = true; S.exoskeleton.level = 1; } },
+  { id:'exoskeleton2', name:'improved exoskeleton', desc:'+15% walk speed, extended battery life; lvl 1 mitigation retained',                                              cost:200, requires:'exoskeleton1', trustReward: { npc:'\u03c0', tier:'t40' }, apply:()=>{ S.exoskeleton.unlocked = true; S.exoskeleton.level = 2; } },
 
   // ----- trust-reward: delta (\u03b4) — reservoir engineer -----
   // Both hook directly into the battery baseline (commit 3). Apply

@@ -20,11 +20,14 @@
 'use strict';
 
 import { S } from '../state.js';
-import { STATUS_COLORS } from '../data/glyphs.js';
+import { statusColor } from '../data/glyphs.js';
+import { tlhPalette } from '../palette.js';
 import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js';
+import { getDisplayLabel } from '../identification.js';
 import { bindCargoDragSource } from './drag.js';
 import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js';
 import * as Upg from '../upgrades.js';
+import { CARRIER_STATS } from '../constants.js';
 
 const els = S._transient.els;
 
@@ -81,7 +84,7 @@ export function updateHUD() {
   els.scrip.textContent     = S.scrip + '\u00a2';
   els.walked.textContent    = (Math.round(S.distKm * 10) / 10) + 'km';
   els.status.textContent    = S.status;
-  els.status.style.color    = STATUS_COLORS[S.status] || '#b1c9c3';
+  els.status.style.color    = statusColor(S.status) || tlhPalette().text;
   Upg.renderUpgrades();
 }
 
@@ -90,8 +93,17 @@ function cargoKey() {
   // refresh when gun is purchased / holstered / fired.
   // v0.0.8.1 — modifier included so the pkg rewrite's inert modifier
   // field still triggers a redraw if it ever starts affecting visuals.
+  // v0.0.9.6.9.30j — carrier state folded in so deploy/stow + cart
+  // inventory changes trigger a redraw (cart-bag visibility, folded
+  // pkg in main, cart slot contents).
   const gunKey = S.stickyGun ? `${S.stickyGun.ammo}/${S.stickyGun.ammoMax}${S.stickyGun.holstered?'h':''}` : '-';
-  return S.inventory.map(p => `${p.size}${p.destId}${p.scrip}${p.modifier||''}`).join('|') + '|' + S.maxSlots + '|' + S.usedWeight + '|' + gunKey;
+  const mainKey = S.inventory.map(p => `${p.size}${p.destId||''}${p.scrip}${p.modifier||''}${p.kind||''}`).join('|');
+  const cart    = S.carrier || {};
+  const cartInv = cart.inventory || [];
+  const cartKey = cart.unlocked
+    ? `c${cart.level}${cart.deployed?'d':'s'}:${cartInv.map(p => `${p.size}${p.destId||''}${p.scrip}`).join('|')}`
+    : 'c-';
+  return mainKey + '|' + S.maxSlots + '|' + S.usedWeight + '|' + gunKey + '|' + cartKey;
 }
 
 // v0.0.8.1 — unified pkg shapes. Each pkg renders as a single multi-cell
@@ -236,6 +248,24 @@ export function renderCargoSlots(force) {
     const invIdx = S.inventory.indexOf(p.pkg);
 
     const main = document.createElement('div');
+    // v0.0.9.6.9.30j — folded carrier pseudo-pkg renders distinctly:
+    // dashed-cyan border, `\u25AD` glyph, no drag (can't eject your
+    // cart like a regular pkg). Size class drops — the geometry is
+    // carried by the grid-span props below; folded class styles the
+    // rest. Tooltip still renders via the regular rich-tooltip path
+    // so hovering reports "mobile carrier (stowed)".
+    if (p.pkg.kind === 'carrier-folded') {
+      main.className = `cslot carrier-folded has-tooltip cargo-cslot`;
+      main.style.gridColumn = `${p.x + 1} / span ${p.base.w}`;
+      main.style.gridRow    = `${p.y + 1} / span ${p.base.h}`;
+      main.textContent = '\u25AD';
+      const foldedTip = p.pkg.label || 'mobile carrier (stowed)';
+      main.setAttribute('data-tooltip', foldedTip);
+      main.setAttribute('aria-label', foldedTip);
+      main._tipHTML = `<div>${foldedTip}</div><div>deploy to use</div>`;
+      els.cargoSlots.appendChild(main);
+      continue;
+    }
     main.className = `cslot ${p.pkg.size}${modClass} has-tooltip cargo-cslot`;
     main.style.gridColumn = `${p.x + 1} / span ${p.base.w}`;
     main.style.gridRow    = `${p.y + 1} / span ${p.base.h}`;
@@ -322,28 +352,226 @@ export function renderCargoSlots(force) {
   }
 
   if (els.weightSegs) {
-    // v0.0.8.3 — weight segs mirror cargo's 2-row grid so the HUD row
-    // doesn't grow linearly with maxWeight. Row-major fill (left-to-
-    // right, top-to-bottom) preserves the "fills up as you load"
-    // reading of the old flex-row layout.
+    // v0.0.9.6.9.30 — weight ribbon unified with the cargo grid.
+    // Single-row fuel-gauge, 4px tall, width-matched to the grid
+    // above (cols * 15px cells + (cols-1) * 2px gaps). One tick per
+    // kg; since maxWeight is an integer and pkg kg is floored, ticks
+    // and used-kg always align. Old 2-row pip grid is gone — the
+    // grouped container (.cargo-bag) handles the "same widget" read.
     els.weightSegs.innerHTML = '';
-    const wRows = 2;
-    const wCols = Math.max(1, Math.ceil(S.maxWeight / wRows));
-    els.weightSegs.style.gridTemplateColumns = `repeat(${wCols}, 8px)`;
-    els.weightSegs.style.gridTemplateRows    = `repeat(${wRows}, 8px)`;
-    const loadPct = S.usedWeight / S.maxWeight;
-    for (let i = 0; i < wCols * wRows; i++) {
+    const wCols = Math.max(1, S.maxWeight);
+    const cargoWidthPx = cols * 15 + (cols - 1) * 2;
+    els.weightSegs.style.width = cargoWidthPx + 'px';
+    els.weightSegs.style.gridTemplateColumns = `repeat(${wCols}, 1fr)`;
+    els.weightSegs.style.gridTemplateRows    = '';
+    const loadPct = S.maxWeight > 0 ? S.usedWeight / S.maxWeight : 0;
+    for (let i = 0; i < wCols; i++) {
       const pip = document.createElement('div');
-      if (i >= S.maxWeight) {
-        pip.className = 'wseg phantom';
-      } else if (i < S.usedWeight) {
+      if (i < S.usedWeight) {
         pip.className = loadPct <= 0.5 ? 'wseg filled' : loadPct <= 0.8 ? 'wseg heavy' : 'wseg overloaded';
       } else {
         pip.className = 'wseg empty';
       }
       els.weightSegs.appendChild(pip);
     }
+    bindCargoKgTooltip();
   }
+
+  // v0.0.9.6.9.30j — mobile carrier overlay. Toggles the cargo-btn-
+  // stack to 2x2 grid when unlocked, paints the cart-toggle button
+  // text + .on class, shows/hides the cart-bag sibling, and renders
+  // the cart's own slots + weight ribbon when deployed.
+  renderCarrierOverlay();
+}
+
+export function renderCarrierOverlay() {
+  const carrierUnlocked = !!(S.carrier && S.carrier.unlocked);
+  const deployed        = !!(S.carrier && S.carrier.deployed);
+
+  // Toggle 2x2 grid layout + placeholder visibility based on unlock.
+  if (els.cargoBtnStack) {
+    els.cargoBtnStack.classList.toggle('grid2x2', carrierUnlocked);
+  }
+  if (els.cartToggleBtn) {
+    els.cartToggleBtn.hidden = !carrierUnlocked;
+    // Stow/carry text flips with state. `.on` class when cart is
+    // deployed (active state = rolling cart); dim when stowed.
+    els.cartToggleBtn.textContent = deployed ? 'cart: stow' : 'cart: carry';
+    els.cartToggleBtn.classList.toggle('on', deployed);
+  }
+
+  // Cart bag visibility + contents.
+  if (els.cartBag) {
+    els.cartBag.hidden = !deployed;
+    // Pink frame class (wired fully in .30k when dead-battery
+    // penalties land). Using battery charge directly here so the
+    // visual flip is tied to the same gating the UI semantics will
+    // use — no other state needed.
+    const dead = deployed && S.battery && S.battery.charge <= 0;
+    els.cartBag.classList.toggle('dead', dead);
+  }
+  if (deployed && els.cartSlots) {
+    renderCartGrid();
+  }
+}
+
+// Mirrors the main cargo-slots layout but for S.carrier.inventory.
+// Grid geometry is driven by CARRIER_STATS so lvl 1 renders 2x2 and
+// lvl 2 renders 3x2.
+function renderCartGrid() {
+  if (!els.cartSlots) return;
+  els.cartSlots.innerHTML = '';
+  if (els.cartWeightSegs) els.cartWeightSegs.innerHTML = '';
+
+  const stats = CARRIER_STATS[S.carrier.level] || CARRIER_STATS[1];
+  const maxSlots  = stats.maxSlots;
+  const maxWeight = stats.maxWeight;
+  const rows = 2;
+  const cols = Math.max(1, Math.ceil(maxSlots / rows));
+  const gridPxW = cols * 15 + (cols - 1) * 2;
+
+  els.cartSlots.style.gridTemplateColumns = `repeat(${cols}, var(--cslot-size, 15px))`;
+  els.cartSlots.style.gridTemplateRows    = `repeat(${rows}, var(--cslot-size, 15px))`;
+
+  // Phantoms past maxSlots (when cols*rows > maxSlots, i.e. odd).
+  const blocked = [];
+  let realSeen = 0;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const flatIdx = y * cols + x;
+      if (flatIdx >= maxSlots) {
+        blocked.push({ x, y });
+      } else {
+        realSeen++;
+      }
+    }
+  }
+
+  const inv = (S.carrier.inventory) || [];
+  const { placements, grid } = binPack(inv, cols, rows, blocked);
+
+  // Placed pkgs (no drag binding for cart pkgs in this commit — a
+  // separate drag source would be needed to let the player pull
+  // cart pkgs; deferred to a polish follow-up).
+  for (const p of placements) {
+    if (p.overflow) continue;
+    const tip = formatPkgTooltip(p.pkg);
+    const tipHTML = formatPkgTooltipHTML(p.pkg);
+    const modClass = p.pkg.modifier ? ` mod-${p.pkg.modifier}` : '';
+    const main = document.createElement('div');
+    main.className = `cslot ${p.pkg.size}${modClass} has-tooltip cargo-cslot cart-cslot`;
+    main.style.gridColumn = `${p.x + 1} / span ${p.base.w}`;
+    main.style.gridRow    = `${p.y + 1} / span ${p.base.h}`;
+    main.textContent = p.pkg.size;
+    main.setAttribute('data-tooltip', tip);
+    main.setAttribute('aria-label', tip);
+    main._tipHTML = tipHTML;
+    els.cartSlots.appendChild(main);
+    if (p.hasTrail) {
+      const trail = document.createElement('div');
+      trail.className = `cslot ${p.pkg.size}${modClass} has-tooltip cargo-cslot cart-cslot`;
+      trail.style.gridColumn = `${p.x + p.base.w + 1}`;
+      trail.style.gridRow    = `${p.y + p.base.h}`;
+      trail.setAttribute('data-tooltip', tip);
+      trail.setAttribute('aria-label', tip);
+      trail._tipHTML = tipHTML;
+      els.cartSlots.appendChild(trail);
+    }
+  }
+
+  // Phantoms (past maxSlots).
+  for (const c of blocked) {
+    const d = document.createElement('div');
+    d.className = 'cslot phantom';
+    d.style.gridColumn = `${c.x + 1}`;
+    d.style.gridRow    = `${c.y + 1}`;
+    els.cartSlots.appendChild(d);
+  }
+
+  // Empties.
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (grid[y][x]) continue;
+      const d = document.createElement('div');
+      d.className = 'cslot e';
+      d.style.gridColumn = `${x + 1}`;
+      d.style.gridRow    = `${y + 1}`;
+      els.cartSlots.appendChild(d);
+    }
+  }
+
+  // Weight ribbon — same shape + palette as main. Width matches the
+  // cart slots' content box so the two pair visually.
+  if (els.cartWeightSegs) {
+    const usedW = inv.reduce((s, p) => s + (p.kg || 0), 0);
+    els.cartWeightSegs.style.width = (gridPxW + 4) + 'px'; // +4 for the 2px slot-frame padding on each side
+    els.cartWeightSegs.style.gridTemplateColumns = `repeat(${maxWeight}, 1fr)`;
+    els.cartWeightSegs.style.gridTemplateRows    = '';
+    const loadPct = maxWeight > 0 ? usedW / maxWeight : 0;
+    for (let i = 0; i < maxWeight; i++) {
+      const pip = document.createElement('div');
+      if (i < usedW) {
+        pip.className = loadPct <= 0.5 ? 'wseg filled' : loadPct <= 0.8 ? 'wseg heavy' : 'wseg overloaded';
+      } else {
+        pip.className = 'wseg empty';
+      }
+      els.cartWeightSegs.appendChild(pip);
+    }
+  }
+}
+
+// v0.0.9.6.9.30 — hover on the weight ribbon gives a per-pkg kg
+// breakdown. Same rich-tooltip surface the strain bar uses. Binds
+// once (idempotent) — the mouseenter handler reads live state each
+// time so rebuilds from renderCargoSlots don't invalidate the hover.
+let _cargoKgTipBound = false;
+function bindCargoKgTooltip() {
+  if (_cargoKgTipBound) return;
+  if (!els.weightSegs) return;
+  _cargoKgTipBound = true;
+  els.weightSegs.addEventListener('mouseenter', () => {
+    showRichTooltip(els.weightSegs, buildCargoKgHTML(), {
+      id: 'cargo-kg',
+      placement: 'above',
+      refresh: buildCargoKgHTML,
+      refreshMs: 200,
+    });
+  });
+  els.weightSegs.addEventListener('mouseleave', () => {
+    if (activeRichTooltipId() === 'cargo-kg') hideRichTooltip();
+  });
+}
+
+function escKg(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function buildCargoKgHTML() {
+  const used = S.usedWeight || 0;
+  const max  = S.maxWeight  || 0;
+  // Plain .rich-tip-head (cyan) — informational, not severity-coded.
+  // The ribbon underneath already carries the teal/purple/pink
+  // severity channel; repeating it in the head would be noise. The
+  // dedicated .rich-tip-head-strain class (v0.0.9.6.9.30) exists for
+  // tooltips where severity is the primary signal; kg isn't that.
+  const lines = [];
+  lines.push(`<div class="rich-tip-head">load ${used}/${max} kg</div>`);
+  if (!S.inventory || S.inventory.length === 0) {
+    lines.push('<div class="rich-tip-dim">bag empty</div>');
+    return lines.join('');
+  }
+  lines.push('<div class="rich-tip-divider"></div>');
+  for (const p of S.inventory) {
+    const mod = p.modifier ? ` <span class="rich-tip-dim">${escKg(p.modifier)}</span>` : '';
+    const dest = p.destId ? ` <span class="rich-tip-dim">\u2192 ${escKg(getDisplayLabel(p.destId))}</span>` : '';
+    lines.push(
+      `<div class="rich-tip-row">` +
+      `<span class="rich-tip-lbl">[${escKg(p.size)}]${mod}${dest}</span>` +
+      `<span class="rich-tip-val">${p.kg || 0} kg</span>` +
+      `</div>`
+    );
+  }
+  return lines.join('');
 }
 
 export function renderCourierStack() {

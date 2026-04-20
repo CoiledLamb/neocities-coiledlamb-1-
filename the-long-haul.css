@@ -4,7 +4,7 @@
    ============================================== */
 
 /* v0.0.9.1 — palette additions (sunrise/sunset sky work).
-   m (#b154cf) and M (#da5bd6) are already in use elsewhere
+   m (#b154cf) and M (#da8bda) are already in use elsewhere
    on the site; these three are the new ones. */
 :root {
   --tlh-O: #e99f10;   /* orange — warm radial core */
@@ -14,12 +14,37 @@
   /* 0..1 daylight signal, published by sky.js each tick.
      Not consumed by .1 CSS but available for future hooks. */
   --tlh-daylight: 0;
+
+  /* v0.0.9.6.9.30 — text-color tokens, semantic-by-intent.
+     Only `color:` declarations use these; backgrounds, borders,
+     and gradient stops keep their hex literals. Set up so a future
+     `[data-theme="bone"]` block can override the text tones in one
+     place. JS color reads via getComputedStyle on
+     document.documentElement (route-map.js node label text uses
+     this; everything else stays literal). */
+
+  /* Text tones — dim → bright */
+  --tlh-text-faint:     #2a5c5a;   /* almost-bg cues (sandalweed plant glyph removed) */
+  --tlh-text-dim:       #3a6a68;   /* muted UI, sandal-badge, route stage labels */
+  --tlh-text-mid:       #4a7a78;   /* neutral/was/dim states — log-ok, fc-depot, rich-tip-dim */
+  --tlh-text-secondary: #7aa8a6;   /* labels, log lines, tooltip secondary */
+  --tlh-text:           #b1c9c3;   /* primary body text */
+  --tlh-text-bright:    #e0eeec;   /* HUD values, highlights */
+
+  /* Brand semantic accents — functional severity ramp */
+  --tlh-accent:         #77bfcf;   /* primary cyan accent (tooltip heads, ok states) */
+  --tlh-warn:           #9d78d4;   /* warn state (section headers, route current) */
+  --tlh-warn-deep:      #7a58a4;   /* warn companion (borders, gradients, shadows) */
+  --tlh-crit:           #da8bda;   /* crit state (lost pkgs, downpour, ammo crit) */
+
+  /* Structural */
+  --tlh-rule:           #1e5554;   /* rule/border color (1 text use, many borders) */
 }
 
 html, body {
   margin: 0;
   background: #155352;
-  color: #b1c9c3;
+  color: var(--tlh-text);
   font-family: 'Source Code Pro', monospace;
   font-weight: 600;
   min-height: 100vh;
@@ -53,14 +78,14 @@ html, body {
 .tlh-title {
   font-size: clamp(1.4rem, 3vw, 2rem);
   font-weight: 700;
-  color: #e0eeec;
+  color: var(--tlh-text-bright);
   text-transform: lowercase;
   line-height: 1;
   margin: 0 0 3px;
 }
 .tlh-subtitle {
   font-size: 11px;
-  color: #7aa8a6;
+  color: var(--tlh-text-secondary);
   letter-spacing: 0.05em;
   text-transform: lowercase;
   margin: 0;
@@ -103,15 +128,15 @@ html, body {
   font-family: 'Source Code Pro', monospace;
   flex-shrink: 0;
 }
-.tlh-porter-label { color: #3a6a68; flex-shrink: 0; }
+.tlh-porter-label { color: var(--tlh-text-dim); flex-shrink: 0; }
 .tlh-porter-id {
-  color: #77bfcf;
+  color: var(--tlh-accent);
   font-weight: 700;
   letter-spacing: 0.06em;
   flex-shrink: 0;
 }
 .tlh-porter-hint {
-  color: #2a5c5a;
+  color: var(--tlh-text-faint);
   font-size: 9px;
   margin-left: auto;
   text-align: right;
@@ -119,13 +144,14 @@ html, body {
 
 .tlh-porter-recovery {
   font-size: 9px;
-  color: #da8bda;
-  border: 1px solid #7a4a78;
+  color: var(--tlh-crit);
+  border: 1px solid #7a58a4;
   border-radius: 1px;
   padding: 1px 5px;
   letter-spacing: 0.04em;
   flex-shrink: 0;
   opacity: 0.75;
+  cursor: help;
 }
 
 .tlh-viewport {
@@ -150,50 +176,9 @@ html, body {
   z-index: 0;
 }
 
-/* v0.0.9.3 — route-map hover tooltip. Absolute-positioned by route-map.js
-   on every mousemove. Pointer-events off so the tooltip never eats a
-   subsequent click. */
-#routeTooltip {
-  position: absolute;
-  pointer-events: none;
-  background: #0f3b3a;
-  border: 1px solid #40a4b9;
-  color: #b1c9c3;
-  font-family: 'Source Code Pro', monospace;
-  font-size: 10px;
-  line-height: 1.45;
-  padding: 5px 7px;
-  max-width: 220px;
-  z-index: 1000;
-  opacity: 0;
-  transition: opacity 0.12s;
-  white-space: normal;
-}
-#routeTooltip.on { opacity: 1; }
-#routeTooltip .tip-label {
-  display: block;
-  color: #77bfcf;
-  font-weight: 700;
-  margin-bottom: 2px;
-}
-#routeTooltip .tip-row {
-  display: block;
-  color: #b1c9c3;
-  opacity: 0.85;
-}
-#routeTooltip .tip-cta {
-  display: block;
-  color: #77bfcf;
-  margin-top: 3px;
-  font-size: 9px;
-}
-#routeTooltip .tip-dim {
-  display: block;
-  color: #7aa8a6;
-  opacity: 0.75;
-  margin-top: 2px;
-  font-size: 9px;
-}
+/* v0.0.9.6.9.30 — #routeTooltip + .tip-* substructure removed;
+   route-map.js now uses the unified rich-tooltip system with
+   placement: 'cursor' and rich-tip-head/-line/-ok/-dim spans. */
 
 .tlh-fieldstrip {
   display: flex;
@@ -231,14 +216,14 @@ html, body {
   display: block;
   font-size: 10px;
   font-weight: 700;
-  color: #2a5c5a;
+  color: var(--tlh-text-faint);
   line-height: 1.3;
   letter-spacing: 0.05em;
 }
 .dest-label {
   display: block;
   font-size: 8px;
-  color: #1e5554;
+  color: var(--tlh-rule);
   margin-top: 2px;
   letter-spacing: 0.1em;
   text-transform: lowercase;
@@ -278,22 +263,22 @@ html, body {
 .courier-pkg {
   font-size: 10px;
   font-weight: 700;
-  color: #77bfcf;
+  color: var(--tlh-accent);
   line-height: 1;
   font-family: 'Source Code Pro', monospace;
 }
-.courier-pkg.lost { color: #da8bda; }
+.courier-pkg.lost { color: var(--tlh-crit); }
 
 .tlh-at {
   font-size: 16px;
   font-weight: 700;
-  color: #e0eeec;
+  color: var(--tlh-text-bright);
   line-height: 1;
 }
 .tlh-at.bounce { animation: bounce 0.4s steps(1) infinite; }
-.tlh-at.carry  { color: #77bfcf; }
-.tlh-at.rest   { color: #4a7a78; }
-.tlh-at.trip   { color: #da8bda; }
+.tlh-at.carry  { color: var(--tlh-accent); }
+.tlh-at.rest   { color: var(--tlh-text-mid); }
+.tlh-at.trip   { color: var(--tlh-crit); }
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-3px); }
@@ -305,12 +290,12 @@ html, body {
 }
 
 .fc { display: inline-block; padding: 0 1px; user-select: none; font-family: 'Source Code Pro', monospace; }
-.fc-fl       { color: #1e5554; }
-.fc-rn       { color: #3a6a68; }
-.fc-sg       { color: #4a7a78; }
-.fc-sw       { color: #2a5c5a; }
-.fc-pk       { color: #77bfcf; font-weight: 700; }
-.fc-pk-lost  { color: #da8bda; font-weight: 700; }
+.fc-fl       { color: var(--tlh-rule); }
+.fc-rn       { color: var(--tlh-text-dim); }
+.fc-sg       { color: var(--tlh-text-mid); }
+.fc-sw       { color: var(--tlh-text-faint); }
+.fc-pk       { color: var(--tlh-accent); font-weight: 700; }
+.fc-pk-lost  { color: var(--tlh-crit); font-weight: 700; }
 /* v0.0.9.4.1 — cursor-pointer on in-range ground pkgs (overrides the
    .has-tooltip default `cursor: help`). Out-of-range pkgs keep the
    help cursor + still show their tooltip, so the player can examine
@@ -366,38 +351,20 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
    pattern. The .has-tooltip class still sets cursor: help (overridden
    to cursor: pointer on .in-range), but the ::after is suppressed so
    there's no double-render when the JS tooltip shows. */
-.fc-pk.has-tooltip::after { content: none !important; }
-
-#pkgTooltip {
-  position: absolute;
-  pointer-events: none;
-  background: #0b2e2d;
-  border: 1px solid #40a4b9;
-  color: #b1c9c3;
-  font-family: 'Source Code Pro', monospace;
-  font-size: 8px;
-  font-weight: 600;
-  line-height: 1.6;
-  white-space: pre;
-  padding: 4px 7px;
-  border-radius: 1px;
-  z-index: 1000;
-  opacity: 0;
-  transition: opacity 0.1s;
-  min-width: 80px;
-  text-align: left;
-}
-#pkgTooltip.on { opacity: 1; }
-.fc-sw-plant { color: #2a7a58; }
-.fc-depot    { color: #4a7a78; font-weight: 700; }
+/* v0.0.9.6.9.30 — #pkgTooltip + .fc-pk.has-tooltip::after suppressor
+   removed; ground pkg tooltips now go through rich-tooltip with
+   placement: 'below' and the text: shortcut for multiline plain
+   text (newlines auto-converted to <br>). */
+.fc-sw-plant { color: var(--tlh-text-mid); }
+.fc-depot    { color: var(--tlh-text-mid); font-weight: 700; }
 
 .tlh-hud { display: flex; border-bottom: 1px solid #1e5554; flex-shrink: 0; }
 .tlh-hc  { flex: 1; padding: 5px 8px; border-right: 1px solid #1e5554; }
 .tlh-hc:last-child { border-right: none; }
-.tlh-hl  { display: block; font-size: 9px; color: #3a6a68; text-transform: lowercase; letter-spacing: 0.04em; margin-bottom: 2px; }
-.tlh-hv  { font-size: 12px; font-weight: 700; color: #e0eeec; }
-.tlh-hv.ac { color: #77bfcf; }
-.tlh-hv.status { color: #da8bda; }
+.tlh-hl  { display: block; font-size: 9px; color: var(--tlh-text-dim); text-transform: lowercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+.tlh-hv  { font-size: 12px; font-weight: 700; color: var(--tlh-text-bright); }
+.tlh-hv.ac { color: var(--tlh-accent); }
+.tlh-hv.status { color: var(--tlh-crit); }
 
 .tlh-row {
   display: flex;
@@ -410,7 +377,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   flex-wrap: wrap;
   flex-shrink: 0;
 }
-.tlh-row-label { color: #3a6a68; min-width: 36px; flex-shrink: 0; text-transform: lowercase; }
+.tlh-row-label { color: var(--tlh-text-dim); min-width: 36px; flex-shrink: 0; text-transform: lowercase; }
 
 /* v0.0.8.1 \u2014 cargo slots are a 2-row CSS grid. Packages render as
    single multi-cell divs (grid-column/row span) rather than N adjacent
@@ -428,14 +395,14 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   border-radius: 1px;
   font-size: 9px;
   display: flex; align-items: center; justify-content: center;
-  color: #3a6a68;
+  color: var(--tlh-text-dim);
   font-family: 'Source Code Pro', monospace;
   position: relative;
   min-width: 0; /* grid children shouldn't expand beyond track */
 }
-.cslot.s  { background: #1e5554; color: #77bfcf; border-color: #40a4b9; }
-.cslot.m  { background: #1a3040; color: #9d78d4; border-color: #9d78d4; }
-.cslot.l  { background: #2a1a3a; color: #da8bda; border-color: #da8bda; }
+.cslot.s  { background: #1e5554; color: var(--tlh-accent); border-color: #40a4b9; }
+.cslot.m  { background: #1a3040; color: var(--tlh-warn); border-color: #9d78d4; }
+.cslot.l  { background: #2a1a3a; color: var(--tlh-crit); border-color: #da8bda; }
 .cslot.xl { background: #3a2050; color: #f5b6ff; border-color: #f5b6ff; font-size: 10px; }
 .cslot.e  { background: transparent; }
 /* phantom \u2014 cells past maxSlots ceiling (when cols*rows > maxSlots). */
@@ -463,51 +430,24 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
    inherits its size class — no dedicated trail CSS. The 2px grid gap
    between main and trail carries the "awkward extra bit" signal. */
 
-/* v0.0.7.19: tooltip content now reads from `data-tooltip` attribute,
-   NOT `title`. Decouples the custom hover overlay from the browser-native
-   tooltip so you don't get both at once. JS sets data-tooltip + aria-label
-   on .has-tooltip elements (boots.js sandalBadge, recovery.js recoveryBadge). */
+/* v0.0.9.6.9.30 — legacy .has-tooltip::after pseudo-element tooltip
+   removed. All tooltips now go through the unified rich-tooltip
+   system in js/render/rich-tooltip.js (body-portaled, viewport-
+   clamped, escapes #gameShell's overflow:hidden). The .has-tooltip
+   class is retained ONLY for the cursor: help styling on .fc-pk
+   (out-of-range ground pkgs); JS sets data-tooltip + aria-label
+   for screen readers and the hover handler. */
 .has-tooltip { cursor: help; position: relative; }
-.has-tooltip::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 5px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: #0b2e2d;
-  border: 1px solid #40a4b9;
-  color: #b1c9c3;
-  font-size: 8px;
-  font-family: 'Source Code Pro', monospace;
-  font-weight: 600;
-  white-space: pre;
-  padding: 4px 7px;
-  border-radius: 1px;
-  pointer-events: none;
-  z-index: 100;
-  opacity: 0;
-  transition: opacity 0.1s;
-  line-height: 1.6;
-  min-width: 80px;
-  text-align: left;
-}
-.has-tooltip:hover::after { opacity: 1; }
+.strain-bar  { cursor: help; }
 
-/* v0.0.9.6.9.26 — cargo cslots and the strain bar are now served by
-   the JS rich-tooltip (#richTooltip) so per-substring color works
-   and the tooltip can escape #gameShell's overflow:hidden clip.
-   Suppress the CSS ::after on these so we don't get both at once. */
-.cslot.cargo-cslot.has-tooltip::after { content: none !important; }
-.strain-bar.has-tooltip::after { content: none !important; }
-.strain-bar { cursor: help; }
-
-/* Rich tooltip element (body-portaled, position: fixed). Same look
-   as .has-tooltip::after but supports HTML children. */
+/* Rich tooltip element (body-portaled, position: fixed). The single
+   tooltip element used by every tooltip in the game; see
+   js/render/rich-tooltip.js for the API. */
 .rich-tip {
   position: fixed;
   background: #0b2e2d;
   border: 1px solid #40a4b9;
-  color: #b1c9c3;
+  color: var(--tlh-text);
   font-size: 8px;
   font-family: 'Source Code Pro', monospace;
   font-weight: 600;
@@ -524,8 +464,18 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   visibility: hidden;
 }
 .rich-tip.on { opacity: 1; visibility: visible; }
-.rich-tip-head { color: #e0eeec; font-weight: 700; }
-.rich-tip-sub  { color: #7aa8a6; font-size: 8px; }
+/* v0.0.9.6.9.30 — head is now cyan + block by default. Block
+   forces the next sibling line below the title (route tooltip's
+   "adjacent on ring" line lands under the place name instead of
+   inline). Cyan matches the legacy #routeTooltip .tip-label and
+   the rest of the game's accent color. Strain tooltip uses a
+   separate .rich-tip-head-strain class because its title color
+   is dynamic (white → purple → pink by trip proximity). */
+.rich-tip-head { color: var(--tlh-accent); font-weight: 700; display: block; }
+.rich-tip-head-strain { color: var(--tlh-text-bright); font-weight: 700; display: block; }
+.rich-tip-head-strain.warn { color: var(--tlh-warn); }
+.rich-tip-head-strain.crit { color: var(--tlh-crit); }
+.rich-tip-sub  { color: var(--tlh-text-secondary); font-size: 8px; }
 .rich-tip-divider {
   border-top: 1px solid #1e5554;
   margin: 3px 0;
@@ -535,40 +485,120 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   gap: 8px;
   align-items: baseline;
 }
-.rich-tip-lbl { color: #7aa8a6; flex: 0 0 auto; }
-.rich-tip-val { color: #b1c9c3; flex: 1 1 auto; }
-.rich-tip-hot { color: #da8bda; }     /* pink — penalty / damaged */
-.rich-tip-ok  { color: #77bfcf; }     /* cyan — mitigation       */
-.rich-tip-dim { color: #4a7a78; }     /* teal — neutral / "was"  */
+.rich-tip-lbl { color: var(--tlh-text-secondary); flex: 0 0 auto; }
+.rich-tip-val { color: var(--tlh-text); flex: 1 1 auto; }
+.rich-tip-hot { color: var(--tlh-crit); }     /* pink — penalty / damaged */
+.rich-tip-ok  { color: var(--tlh-accent); }     /* cyan — mitigation       */
+.rich-tip-dim { color: var(--tlh-text-mid); }     /* teal — neutral / "was"  */
 
-/* v0.0.8.3 \u2014 weight segs mirror the cargo grid's 2-row layout.
-   Previously a flex row that expanded linearly with maxWeight, which
-   became overwhelming at 10+ kg. Grid track sizes are set inline from
-   renderCargoSlots (not in CSS) because they depend on maxWeight. */
-.weight-segs {
-  display: grid;
+/* v0.0.9.6.9.30 — block-level single-line variant. Used by the
+   route tooltip's per-row text (was .tip-row in #routeTooltip).
+   Distinct from .rich-tip-row which is a flex 2-col label/value
+   pair. */
+.rich-tip-line { display: block; color: var(--tlh-text); }
+
+/* multiline modifier — set when opts.multiline is true. Wraps
+   long lines (route tooltip uses this; cargo + strain don't). */
+.rich-tip.multiline {
+  white-space: normal;
+  max-width: 220px;
+}
+
+/* v0.0.9.6.9.30 \u2014 cargo bag: flex-column wrapper that binds the
+   cargo grid + weight ribbon into one widget. Ribbon width is matched
+   to the grid inline so slot upgrades stretch both together.
+   align-items: flex-start is load-bearing \u2014 without it, the default
+   `stretch` makes the cargo-slots container widen to match the
+   ribbon's border-box (leaving 2px of empty air past the last cell),
+   and the ribbon reads 2px longer to the right than the grid. */
+.cargo-bag {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 2px;
   flex-shrink: 0;
-  align-items: center;
-  margin-left: auto;
+}
+
+/* v0.0.9.6.9.30 \u2014 weight ribbon: single-row fuel-gauge sitting
+   directly under the cargo grid. One tick per kg, phantom ticks past
+   maxWeight. Same teal/purple/pink palette as the old pip grid, just
+   dissolved into a width-matched bar. Container draws the outer frame;
+   ticks are pure fill blocks separated by 1px gaps so the bg shows
+   through between them. Width + grid-template-columns are set inline
+   from renderCargoSlots. */
+.weight-segs {
+  display: grid;
+  gap: 1px;
+  flex-shrink: 0;
+  /* box-sizing: border-box so the inline width set in renderCargoSlots
+     equals the ribbon's outer edge. Lets the JS pass the cargo grid's
+     content width directly (cols*15 + (cols-1)*2) without subtracting
+     the 1px border on each side. Keeps the ribbon's right edge flush
+     with the last cargo cell's right edge. */
+  box-sizing: border-box;
+  height: 4px;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  background: #132e2d;
+  cursor: help;
 }
 .wseg {
-  width: 8px; height: 8px;
-  border-radius: 1px;
-  border: 1px solid #1e5554;
+  height: 100%;
   background: #132e2d;
 }
-.wseg.filled     { background: #4a7a78; border-color: #3a6a68; }
-.wseg.heavy      { background: #9d78d4; border-color: #7a58a4; }
-.wseg.overloaded { background: #da8bda; border-color: #a4589a; }
-.wseg.empty      { background: #132e2d; border-color: #1e5554; }
-.wseg.phantom    { background: transparent; border-color: transparent; }
+/* Parity with .strain-bar-fill: baseline uses --tlh-text-mid (it lives
+   in the palette as the neutral/mid tier), warn/crit backgrounds stay
+   literal per the text-only-tokenization rule. Keeps the weight ribbon
+   and strain bar on the same palette channel without double-declaring. */
+.wseg.filled     { background: var(--tlh-text-mid); }
+.wseg.heavy      { background: #9d78d4; }
+.wseg.overloaded { background: #da8bda; }
+.wseg.empty      { background: #132e2d; }
+.wseg.phantom    { background: transparent; }
+
+/* v0.0.9.6.9.30j — mobile carrier bag (sibling to main cargo-bag).
+   Thin frame around the cart's slots carries the "separate bag"
+   read — no text label. Margin-left gives breathing room from
+   the main bag's right edge. */
+.cart-bag {
+  position: relative;
+  margin-left: 14px;
+}
+/* .cargo-bag declares `display: flex`, which overrides the HTML
+   `hidden` attribute unless we spell out the precedence. Without
+   this, toggling `hidden` on #cartBag changes the attr but the
+   flex rule keeps it visible. */
+.cargo-bag[hidden] { display: none; }
+.cart-bag .cargo-slots {
+  padding: 2px;
+  border: 1px solid var(--tlh-text-dim);
+  border-radius: 1px;
+}
+/* Dead-battery deployed state (wired fully in .30k). CSS class exists
+   now so the render path can toggle it without waiting for the
+   terrain/sim-tick work. Pink frame = 'cart still rolling, but the
+   bonus is off'. No typography change \u2014 the border is the tell. */
+.cart-bag.dead .cargo-slots { border-color: var(--tlh-crit); }
+
+/* Folded mobile carrier pseudo-pkg (appears in MAIN cargo grid when
+   cart is stowed). Dashed-cyan border distinguishes it from size-
+   colored cargo pkgs \u2014 reads as 'gear, not cargo'. Glyph (box
+   character) centers in the cell(s). Cursor stays default: you
+   can't drag-eject your cart like a regular pkg. */
+.cslot.carrier-folded {
+  background: #132e2d;
+  color: var(--tlh-accent);
+  border: 1px dashed var(--tlh-accent);
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: default;
+}
 
 .log-btn {
   background: transparent;
   border: 1px solid #3a6a68;
   border-radius: 1px;
-  color: #77bfcf;
+  color: var(--tlh-accent);
   font-family: 'Source Code Pro', monospace;
   font-size: 8px; font-weight: 600;
   padding: 1px 5px; cursor: pointer;
@@ -585,29 +615,30 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .boots-bar-fill { height: 100%; border-radius: 1px; transition: width 0.5s, background-color 0.5s; background: #4a7a78; }
 .boots-bar-fill.worn { background: #9d78d4; }
 .boots-bar-fill.bad  { background: #da8bda; }
-.boots-val { color: #b1c9c3; min-width: 30px; flex-shrink: 0; }
+.boots-val { color: var(--tlh-text); min-width: 30px; flex-shrink: 0; }
 
 .clip-badge {
-  font-size: 9px; color: #77bfcf;
+  font-size: 9px; color: var(--tlh-accent);
   border: 1px solid #40a4b9;
   border-radius: 1px; padding: 1px 5px;
   flex-shrink: 0;
 }
 
 .sandal-badge {
-  color: #2a7a58;
-  border-color: #2a7a58;
+  color: var(--tlh-text-secondary);
+  border-color: #3a6a68;
+  cursor: help;
 }
 .sandal-badge.at-cap {
-  color: #2a7a58;
-  border-color: #2a7a58;
+  color: var(--tlh-text-secondary);
+  border-color: #3a6a68;
 }
 
 .boots-gear-btn {
   background: transparent;
   border: 1px solid #1e5554;
   border-radius: 1px;
-  color: #7aa8a6;
+  color: var(--tlh-text-secondary);
   font-family: 'Source Code Pro', monospace;
   font-size: 11px;
   font-weight: 600;
@@ -617,8 +648,8 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   line-height: 1.2;
   transition: color 0.12s, border-color 0.12s;
 }
-.boots-gear-btn:hover { color: #b1c9c3; border-color: #40a4b9; }
-.boots-gear-btn.on    { color: #77bfcf; border-color: #40a4b9; }
+.boots-gear-btn:hover { color: var(--tlh-text); border-color: #40a4b9; }
+.boots-gear-btn.on    { color: var(--tlh-accent); border-color: #40a4b9; }
 
 
 .inline-gear-wrap {
@@ -639,12 +670,12 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 }
 .inline-gear-wrap .gear-line {
   font-size: 9px;
-  color: #3a6a68;
+  color: var(--tlh-text-dim);
   padding: 0 2px;
   border-left: 1px solid #132e2d;
   border-right: 1px solid #132e2d;
 }
-.inline-gear-wrap .gear-val { color: #77bfcf; font-weight: 700; }
+.inline-gear-wrap .gear-val { color: var(--tlh-accent); font-weight: 700; }
 
 /* v0.0.8.7 — weather gear (route panel bottom)
    v0.0.9.5.1 — canvas expanded to fill the row; labels run along the
@@ -662,9 +693,9 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   min-width: 18px;
   transition: color 0.3s, border-color 0.3s;
 }
-.weather-gear-btn.intensity-drizzle  { color: #3a6a88; border-color: #3a6a88; }
-.weather-gear-btn.intensity-rain     { color: #7a5a98; border-color: #7a5a98; }
-.weather-gear-btn.intensity-downpour { color: #da8bda; border-color: #da8bda; }
+.weather-gear-btn.intensity-drizzle  { color: var(--tlh-text-dim); border-color: #3a6a68; }
+.weather-gear-btn.intensity-rain     { color: var(--tlh-warn-deep); border-color: #7a58a4; }
+.weather-gear-btn.intensity-downpour { color: var(--tlh-crit); border-color: #da8bda; }
 .weather-legend-wrap {
   flex: 1;
   display: flex;
@@ -690,13 +721,13 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 }
 .weather-legend-lbl { opacity: 0.7; }
 /* Inverted: green=low (984), pink=high (1020) */
-.wl-lo  { color: #3a6a68; }
-.wl-mid { color: #7a5a98; }
-.wl-hi  { color: #da5bd6; }
+.wl-lo  { color: var(--tlh-text-dim); }
+.wl-mid { color: var(--tlh-warn-deep); }
+.wl-hi  { color: var(--tlh-crit); }
 .weather-legend-unit {
   font-size: 7px;
   font-family: 'Source Code Pro', monospace;
-  color: #5a6a88;
+  color: var(--tlh-text-dim);
   opacity: 0.6;
   margin-left: 3px;
 }
@@ -712,7 +743,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .route-clock {
   font-family: 'Source Code Pro', monospace;
   font-size: 9px;
-  color: #77bfcf;
+  color: var(--tlh-accent);
   font-weight: 700;
   letter-spacing: 0.04em;
   opacity: 0.85;
@@ -724,21 +755,21 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   padding: 3px 2px 1px;
   font-size: 9px;
   font-family: 'Source Code Pro', monospace;
-  color: #7aa8a6;
+  color: var(--tlh-text-secondary);
   letter-spacing: 0.03em;
   opacity: 0.85;
 }
 .route-coord .lbl,
 .route-next  .lbl { opacity: 0.5; font-weight: 400; margin-right: 3px; }
 .route-coord .val,
-.route-next  .val { color: #77bfcf; font-weight: 700; }
+.route-next  .val { color: var(--tlh-accent); font-weight: 700; }
 .route-next:empty { display: none; }
 
 .boots-auto {
   background: transparent;
   border: 1px dashed #1e5554;
   border-radius: 1px;
-  color: #3a6a68;
+  color: var(--tlh-text-dim);
   font-family: 'Source Code Pro', monospace;
   font-size: 9px; font-weight: 600;
   padding: 2px 6px; cursor: pointer;
@@ -746,12 +777,16 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   transition: color 0.12s, border-color 0.12s;
   flex-shrink: 0;
 }
-.boots-auto.on { color: #77bfcf; border-color: #40a4b9; }
-.boots-auto:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
+.boots-auto.on { color: var(--tlh-accent); border-color: #40a4b9; }
+.boots-auto:disabled { color: var(--tlh-text-faint); border-color: #132e2d; cursor: default; }
 
-/* v0.0.9.4.1 — cargo-row specifically stacks grab + tie-down vertically
-   (exception to the "buttons in rows, not columns" convention; cargo
-   row has extra vertical real estate thanks to the 2-row cargo grid). */
+/* v0.0.9.4.1 — cargo-row button cluster. Originally a 1\u00d73 column
+   flex (grab, tie-down, (future cart toggle)). v0.0.9.6.9.30j migrates
+   to a 2\u00d72 CSS grid when the carrier gift is owned so the cart
+   toggle joins without pushing row height to 3 buttons. Fourth cell is
+   a reserved placeholder (future toggle slot). The base layout stays
+   column-flex for pre-carrier players so the button cluster doesn't
+   grow width when it doesn't need to. */
 .cargo-btn-stack {
   display: flex;
   flex-direction: column;
@@ -760,6 +795,25 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   align-self: stretch;
 }
 .cargo-btn-stack .boots-auto { width: 100%; box-sizing: border-box; }
+/* 2\u00d72 grid flipped on when the carrier is owned. Both columns get
+   equal width; rows auto-size to the button content. The placeholder
+   in cell 4 reveals when this class is on. */
+.cargo-btn-stack.grid2x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 2px;
+  min-width: 180px;
+}
+.cargo-btn-stack .placeholder {
+  border: 1px dashed var(--tlh-text-faint);
+  color: var(--tlh-text-faint);
+  background: transparent;
+  cursor: default;
+}
+/* Placeholder hidden by default (pre-carrier). Shown only when the
+   2x2 grid is active. */
+.cargo-btn-stack:not(.grid2x2) .placeholder { display: none; }
 
 /* v0.0.7.29 — stamina gets the contiguous bar + tick-line visual
    (previously on kit-battery). Width is driven by JS; ticks every
@@ -830,19 +884,19 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   margin: -4px 8px;
   flex-shrink: 0;
 }
-.strain-label { color: #3a6a68; }  /* same dull green as other row labels */
+.strain-label { color: var(--tlh-text-dim); }  /* same dull green as other row labels */
 /* v0.0.9.6.9.27 — strain % readout next to the bar (mirrors boots-val).
    Pulls duty from the tooltip head so the tooltip can headline the
    estimated time-till-trip instead. */
 .strain-val {
-  color: #b1c9c3;
+  color: var(--tlh-text);
   min-width: 28px;
   flex-shrink: 0;
   font-size: 9px;
   font-family: 'Source Code Pro', monospace;
 }
-.strain-val.warn { color: #9d78d4; }
-.strain-val.crit { color: #da8bda; }
+.strain-val.warn { color: var(--tlh-warn); }
+.strain-val.crit { color: var(--tlh-crit); }
 .strain-bar {
   position: relative;
   display: inline-block;
@@ -854,26 +908,20 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   overflow: hidden;
   flex-shrink: 0;
 }
+/* v0.0.9.6.9.30 — flat fill that swaps color by severity tier
+   instead of a moving multi-stop gradient. Default is dim teal
+   (no concern), .warn flips to purple, .crit to pink — same
+   ramp as the rest of the game. background transition keeps the
+   tier change smooth. */
 .strain-bar-fill {
   position: absolute;
   top: 0; left: 0; bottom: 0;
   width: 0%;
-  background:
-    linear-gradient(
-      to right,
-      #3a5a55  0%,
-      #4a6a78 22%,
-      #6a6aa8 45%,
-      #9d78d4 68%,
-      #c688d4 85%,
-      #da8bda 100%);
-  transition: width 0.3s;
+  background: var(--tlh-text-dim);
+  transition: width 0.3s, background 0.3s;
 }
-/* .warn / .crit kept as no-op class hooks so JS can still tag the
-   element for any future cue (sound, screenshake) without breaking
-   the moving purple→pink gradient. */
-.strain-bar-fill.warn,
-.strain-bar-fill.crit {}
+.strain-bar-fill.warn { background: #9d78d4; }
+.strain-bar-fill.crit { background: #da8bda; }
 #restBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -971,7 +1019,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   background: transparent;
   border: 1px solid #1e5554;
   border-radius: 1px;
-  color: #7aa8a6;
+  color: var(--tlh-text-secondary);
   font-family: 'Source Code Pro', monospace;
   font-size: 9px; font-weight: 600;
   padding: 2px 7px; cursor: pointer;
@@ -979,9 +1027,9 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   transition: border-color 0.12s, color 0.12s;
   flex-shrink: 0;
 }
-.drink-btn:hover { border-color: #40a4b9; color: #b1c9c3; }
-.drink-btn.on    { color: #77bfcf; border-color: #40a4b9; }
-.drink-btn.cd    { color: #2a5c5a; border-color: #132e2d; cursor: default; }
+.drink-btn:hover { border-color: #40a4b9; color: var(--tlh-text); }
+.drink-btn.on    { color: var(--tlh-accent); border-color: #40a4b9; }
+.drink-btn.cd    { color: var(--tlh-text-faint); border-color: #132e2d; cursor: default; }
 
 /* v0.0.7.24 — kit row: battery + gadget capsules (scanner, sticky-gun
    ammo, future devices). Battery is stylized like a classic cell
@@ -1103,7 +1151,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .bseg.dissolving.warn::after { background: #9d78d4; }
 .bseg.dissolving.crit::after { background: #da8bda; }
 .kit-battery-val {
-  color: #b1c9c3;
+  color: var(--tlh-text);
   font-size: 10px;
   font-weight: 700;
   min-width: 30px;
@@ -1128,11 +1176,11 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   gap: 4px;
   font-size: 10px;
   font-family: 'Source Code Pro', monospace;
-  color: #7aa8a6;
+  color: var(--tlh-text-secondary);
   flex-shrink: 0;
 }
-.kit-cap-lbl { color: #3a6a68; }
-.kit-cap-val { color: #b1c9c3; font-weight: 700; }
+.kit-cap-lbl { color: var(--tlh-text-dim); }
+.kit-cap-val { color: var(--tlh-text); font-weight: 700; }
 
 /* v0.0.9.6.1 — sticky gun kit-bar capsule. Replaces the "gun:" text
    label with the shared web SVG; matches the cargo-slot ammo-state
@@ -1140,7 +1188,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
    currentColor propagates from .kit-cap.gun-cap down through the
    web glyph + ammo count, so one color var drives the whole pill. */
 .kit-cap.gun-cap {
-  color: #b58df5;
+  color: var(--tlh-warn);
 }
 .kit-cap.gun-cap .kit-cap-val { color: inherit; }
 .kit-cap.gun-cap .gun-web-lbl {
@@ -1155,13 +1203,13 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   height: 100%;
   filter: drop-shadow(0 0 1px currentColor);
 }
-.kit-cap.gun-cap.ammo-full { color: #e0eeec; }
-.kit-cap.gun-cap.ammo-warn { color: #b58df5; }
+.kit-cap.gun-cap.ammo-full { color: var(--tlh-text-bright); }
+.kit-cap.gun-cap.ammo-warn { color: var(--tlh-warn); }
 .kit-cap.gun-cap.ammo-crit {
-  color: #da5bd6;
+  color: var(--tlh-crit);
   animation: ammo-crit-pulse 1.4s ease-in-out infinite;
 }
-.kit-cap.gun-cap.ammo-empty { color: #3a6a68; }
+.kit-cap.gun-cap.ammo-empty { color: var(--tlh-text-dim); }
 .kit-cap.gun-cap.ammo-empty .gun-web-lbl .gun-web { filter: none; }
 @keyframes ammo-crit-pulse {
   0%, 100% { opacity: 1; }
@@ -1173,15 +1221,28 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
    value + inline buy button. Empty (count=0) capsules dim the glyph
    so the buy button is the visible affordance. */
 .kit-cap.gear-cap {
-  color: #7fa39c;
+  color: var(--tlh-text-secondary);
 }
 .kit-cap.gear-cap .gear-glyph {
-  color: #7fa39c;
+  color: var(--tlh-text-secondary);
   font-weight: 700;
   letter-spacing: 1px;
 }
-.kit-cap.gear-cap.empty .gear-glyph { color: #2a5c5a; }
-.kit-cap.gear-cap.empty .kit-cap-val { color: #3a6a68; }
+.kit-cap.gear-cap.empty .gear-glyph { color: var(--tlh-text-faint); }
+.kit-cap.gear-cap.empty .kit-cap-val { color: var(--tlh-text-dim); }
+
+/* v0.0.9.6.9.30h — exoskeleton kit-bar capsule (pi's trust gift).
+   Pi glyph in accent cyan when battery is alive, dim + crit pink
+   on the .dead modifier so "bonus is cold" reads at a glance. */
+.kit-cap.exo-cap {
+  color: var(--tlh-accent);
+}
+.kit-cap.exo-cap .kit-cap-lbl { color: inherit; font-weight: 700; font-size: 13px; line-height: 1; }
+.kit-cap.exo-cap .kit-cap-val { color: inherit; }
+.kit-cap.exo-cap.dead {
+  color: var(--tlh-text-dim);
+}
+.kit-cap.exo-cap.dead .kit-cap-val { color: var(--tlh-crit); }
 
 /* v0.0.9.6.9.25 — ladder glyph is now an inline SVG instead of a
    dash pair. Sized to match the gun-web glyph footprint so all
@@ -1204,7 +1265,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .kit-caps #gearLadderCap { margin-left: auto; }
 .kit-buy-btn {
   background: transparent;
-  color: #3a6a68;
+  color: var(--tlh-text-dim);
   border: 1px solid #1e5554;
   font: 600 9px/1 'Source Code Pro', monospace;
   padding: 2px 5px;
@@ -1212,8 +1273,8 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   border-radius: 2px;
   margin-left: 2px;
 }
-.kit-buy-btn:hover { color: #7fa39c; border-color: #2a5c5a; }
-.kit-buy-btn:active { color: #b1c9c3; }
+.kit-buy-btn:hover { color: var(--tlh-text-secondary); border-color: #2a5c5a; }
+.kit-buy-btn:active { color: var(--tlh-text); }
 /* v0.0.9.6.9.9 — the auto-gear button now uses the `.boots-auto`
    class (matching autobuy / autodrink / auto-grab). Resolves the
    long-standing HANDOFF note about inverted on/off styling for
@@ -1299,7 +1360,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   70%      { opacity: 0.08; }
 }
 .scan-timer {
-  color: #3a6a68;
+  color: var(--tlh-text-dim);
   font-size: 8px;
   font-weight: 600;
   margin-left: 1px;
@@ -1311,7 +1372,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   .scan-btn.on .scan-dot::before,
   .scan-btn.on .scan-dot::after   { animation: none; opacity: 0; }
 }
-.drink-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
+.drink-btn:disabled { color: var(--tlh-text-faint); border-color: #132e2d; cursor: default; }
 
 .tlh-panels {
   display: flex;
@@ -1329,7 +1390,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .tlh-panel:last-child { border-right: none; }
 .tlh-ptitle {
   font-size: 9px;
-  color: #3a6a68;
+  color: var(--tlh-text-dim);
   letter-spacing: 0.08em;
   text-transform: lowercase;
   margin-bottom: 5px;
@@ -1421,26 +1482,26 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   -webkit-mask-image: none;
 }
 
-.log-line { display: block; font-size: 10px; line-height: 1.7; color: #7aa8a6; font-family: 'Source Code Pro', monospace; }
-.log-ts { color: #2a5c5a; }
+.log-line { display: block; font-size: 10px; line-height: 1.7; color: var(--tlh-text-secondary); font-family: 'Source Code Pro', monospace; }
+.log-ts { color: var(--tlh-text-faint); }
 /* v0.0.9.5.1 — stacked-repeat counter badge appended to log lines
    when addLog coalesces consecutive duplicates. Dim teal, compact. */
-.log-mult { color: #3a6a68; font-weight: 700; font-size: 9px; margin-left: 2px; letter-spacing: 0.03em; }
-.log-hi { color: #77bfcf; }
-.log-wn { color: #da8bda; }
-.log-ok { color: #4a7a78; }
+.log-mult { color: var(--tlh-text-dim); font-weight: 700; font-size: 9px; margin-left: 2px; letter-spacing: 0.03em; }
+.log-hi { color: var(--tlh-accent); }
+.log-wn { color: var(--tlh-crit); }
+.log-ok { color: var(--tlh-text-mid); }
 
 .upg-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
 .upg-item:last-child { border-bottom: none; }
-.upg-name { color: #b1c9c3; line-height: 1.4; }
-.upg-name small { color: #3a6a68; font-size: 9px; display: block; }
+.upg-name { color: var(--tlh-text); line-height: 1.4; }
+.upg-name small { color: var(--tlh-text-dim); font-size: 9px; display: block; }
 /* v0.0.9.5.2 — trust-reward gift tag: tiny purple chip next to the
    upgrade name indicating which NPC unlocked it for purchase. */
-.upg-gift { color: #9d78d4; font-size: 8px; font-weight: 400; letter-spacing: 0.04em; margin-left: 4px; opacity: 0.8; }
+.upg-gift { color: var(--tlh-warn); font-size: 8px; font-weight: 400; letter-spacing: 0.04em; margin-left: 4px; opacity: 0.8; }
 .upg-btn {
   background: transparent;
   border: 1px solid #1e5554;
-  color: #7aa8a6;
+  color: var(--tlh-text-secondary);
   font-family: 'Source Code Pro', monospace;
   font-size: 9px; font-weight: 600;
   padding: 2px 6px; border-radius: 1px;
@@ -1450,10 +1511,10 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   flex-shrink: 0;
 }
 .upg-btn:hover:not(:disabled) {
-  color: #b1c9c3;
+  color: var(--tlh-text);
   animation: oil-border 4s linear infinite;
 }
-.upg-btn:disabled { color: #2a5c5a; border-color: #132e2d; cursor: default; }
+.upg-btn:disabled { color: var(--tlh-text-faint); border-color: #132e2d; cursor: default; }
 
 .settle-item { padding: 3px 0; border-bottom: 1px solid #132e2d; font-size: 10px; font-family: 'Source Code Pro', monospace; }
 .settle-item:last-child { border-bottom: none; }
@@ -1472,14 +1533,14 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   animation: settle-caret-blink 0.55s steps(1) infinite;
 }
 @keyframes settle-caret-blink { 50% { opacity: 0; } }
-.settle-name { color: #e0eeec; font-weight: 700; font-size: 10px; display: flex; justify-content: space-between; }
-.settle-name span { color: #3a6a68; font-weight: 400; font-size: 9px; }
+.settle-name { color: var(--tlh-text-bright); font-weight: 700; font-size: 10px; display: flex; justify-content: space-between; }
+.settle-name span { color: var(--tlh-text-dim); font-weight: 400; font-size: 9px; }
 .settle-bar { height: 3px; background: #132e2d; border-radius: 1px; overflow: hidden; margin-top: 3px; }
 .settle-bar.settle-bar-wip { opacity: 0.45; }
 .settle-fill { height: 100%; border-radius: 1px; }
 .settle-fill.a { background: #4a7a78; }
-.settle-fill.b { background: linear-gradient(90deg,#40a4b9,#9d78d4); animation: oil 3s linear infinite; background-size: 200% auto; }
-.settle-quote { font-size: 9px; color: #2a5c5a; margin-top: 3px; line-height: 1.4; }
+.settle-fill.b { background: linear-gradient(90deg, #40a4b9, #9d78d4); animation: oil 3s linear infinite; background-size: 200% auto; }
+.settle-quote { font-size: 9px; color: var(--tlh-text-faint); margin-top: 3px; line-height: 1.4; }
 
 .settle-trust {
   display: flex;
@@ -1490,7 +1551,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   font-family: 'Source Code Pro', monospace;
 }
 .settle-trust-label {
-  color: #9d78d4;
+  color: var(--tlh-warn);
   font-weight: 700;
   text-transform: lowercase;
   letter-spacing: 0.05em;
@@ -1519,7 +1580,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   pointer-events: none;
 }
 .settle-trust-val {
-  color: #7a58a4;
+  color: var(--tlh-warn-deep);
   font-size: 9px;
   flex-shrink: 0;
   min-width: 18px;
@@ -1537,20 +1598,20 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   font-family: 'Source Code Pro', monospace;
   flex-shrink: 0;
 }
-.tlh-save-label { color: #3a6a68; flex-shrink: 0; }
+.tlh-save-label { color: var(--tlh-text-dim); flex-shrink: 0; }
 .tlh-save-ago {
-  color: #2a5c5a;
+  color: var(--tlh-text-faint);
   font-size: 9px;
   margin-left: auto;
   text-align: right;
 }
-.tlh-save-ago span { color: #3a6a68; }
+.tlh-save-ago span { color: var(--tlh-text-dim); }
 
 .save-btn {
   background: transparent;
   border: 1px solid #1e5554;
   border-radius: 1px;
-  color: #7aa8a6;
+  color: var(--tlh-text-secondary);
   font-family: 'Source Code Pro', monospace;
   font-size: 9px; font-weight: 600;
   padding: 2px 8px; cursor: pointer;
@@ -1558,11 +1619,11 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   transition: border-color 0.12s, color 0.12s;
   flex-shrink: 0;
 }
-.save-btn:hover { border-color: #40a4b9; color: #b1c9c3; }
-.save-btn.wipe { color: #7a4a78; border-color: #2a1a3a; }
-.save-btn.wipe:hover { border-color: #9d78d4; color: #b1c9c3; }
+.save-btn:hover { border-color: #40a4b9; color: var(--tlh-text); }
+.save-btn.wipe { color: var(--tlh-warn-deep); border-color: #2a1a3a; }
+.save-btn.wipe:hover { border-color: #9d78d4; color: var(--tlh-text); }
 .save-btn.wipe.armed {
-  color: #da8bda;
+  color: var(--tlh-crit);
   border-color: #da8bda;
   animation: overboost-pulse 1.2s ease-in-out infinite;
 }
@@ -1614,16 +1675,16 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   overflow-y: auto;
 }
 
-.net-item { font-size: 9px; color: #7aa8a6; line-height: 1.65; border-bottom: 1px solid #132e2d; padding: 2px 0; font-family: 'Source Code Pro', monospace; }
+.net-item { font-size: 9px; color: var(--tlh-text-secondary); line-height: 1.65; border-bottom: 1px solid #132e2d; padding: 2px 0; font-family: 'Source Code Pro', monospace; }
 .net-item:last-child { border-bottom: none; }
-.net-hi { color: #da8bda; }
-.net-ac { color: #77bfcf; }
-.net-item.net-quiet { color: #2a5c5a; font-style: italic; }
-.net-item.net-census { color: #4a7a78; font-size: 9px; padding-bottom: 4px; margin-bottom: 2px; border-bottom: 1px solid #1e5554; }
+.net-hi { color: var(--tlh-crit); }
+.net-ac { color: var(--tlh-accent); }
+.net-item.net-quiet { color: var(--tlh-text-faint); font-style: italic; }
+.net-item.net-census { color: var(--tlh-text-mid); font-size: 9px; padding-bottom: 4px; margin-bottom: 2px; border-bottom: 1px solid #1e5554; }
 
 .chan-item {
   font-size: 9px;
-  color: #b1c9c3;
+  color: var(--tlh-text);
   line-height: 1.5;
   border-bottom: 1px solid #132e2d;
   padding: 4px 0;
@@ -1638,7 +1699,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .chan-item:last-child { border-bottom: none; }
 .chan-cs {
   grid-area: cs;
-  color: #9d78d4;
+  color: var(--tlh-warn);
   font-weight: 700;
   text-transform: lowercase;
   letter-spacing: 0.05em;
@@ -1646,22 +1707,22 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 }
 .chan-ago {
   grid-area: ago;
-  color: #2a5c5a;
+  color: var(--tlh-text-faint);
   font-size: 8px;
   text-align: right;
 }
 .chan-text {
   grid-area: text;
-  color: #b1c9c3;
+  color: var(--tlh-text);
   font-style: italic;
   font-weight: 400;
   /* v0.0.9.5.1 — clamp removed. Long chatter wraps freely; the
      channels panel caps its own height and scrolls via mask-fade. */
 }
-.chan-item[data-depot="A"] .chan-cs { color: #77bfcf; }
-.chan-item[data-depot="B"] .chan-cs { color: #da8bda; }
-.chan-item[data-depot="H"] .chan-cs { color: #9d78d4; }
-.chan-item.chan-quiet { color: #2a5c5a; font-style: italic; display: block; padding: 2px 0; }
+.chan-item[data-depot="A"] .chan-cs { color: var(--tlh-accent); }
+.chan-item[data-depot="B"] .chan-cs { color: var(--tlh-crit); }
+.chan-item[data-depot="H"] .chan-cs { color: var(--tlh-warn); }
+.chan-item.chan-quiet { color: var(--tlh-text-faint); font-style: italic; display: block; padding: 2px 0; }
 
 @media (max-width: 700px) {
   /* v0.0.9.6.2 — mobile playability pass.
@@ -1744,7 +1805,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .cslot.gun {
   background: #132e2d;
   border: 1px solid #9d78d4;
-  color: #b58df5;
+  color: var(--tlh-warn);
   text-shadow: 0 0 4px #7a58a4;
   display: flex;
   align-items: center;
@@ -1758,20 +1819,20 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   filter: drop-shadow(0 0 1px currentColor);
 }
 .cslot.gun.ammo-full {
-  color: #e0eeec;
+  color: var(--tlh-text-bright);
   border-color: #b1c9c3;
 }
 .cslot.gun.ammo-warn {
-  color: #b58df5;
+  color: var(--tlh-warn);
   border-color: #9d78d4;
 }
 .cslot.gun.ammo-crit {
-  color: #da5bd6;
+  color: var(--tlh-crit);
   border-color: #a4589a;
   animation: ammo-crit-pulse 1.4s ease-in-out infinite;
 }
 .cslot.gun.ammo-empty {
-  color: #3a6a68;
+  color: var(--tlh-text-dim);
   border-color: #2a5c5a;
   text-shadow: none;
 }
@@ -1782,7 +1843,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 /* network panel: throttled state */
 #networkEl.throttled { opacity: 0.5; }
 .net-throttled {
-  color: #da8bda;
+  color: var(--tlh-crit);
   font-style: italic;
 }
 
@@ -1795,7 +1856,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: #9d78d4;
+  color: var(--tlh-warn);
   transition: color 0.2s;
   min-width: 0;
 }
@@ -1810,10 +1871,10 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   padding: 2px 6px;
   font-size: 9px;
 }
-.net-silent-btn.on { color: #da8bda; border-color: #9d78d4; border-style: solid; }
+.net-silent-btn.on { color: var(--tlh-crit); border-color: #9d78d4; border-style: solid; }
 #networkEl.silent { opacity: 0.55; }
 .net-item.net-silent {
-  color: #9d78d4;
+  color: var(--tlh-warn);
   font-style: italic;
   border-bottom: 1px solid #2a1a3a;
 }
@@ -1842,7 +1903,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   width: min(520px, 92vw);
   max-height: 88vh;
   overflow: auto;
-  color: #b1c9c3;
+  color: var(--tlh-text);
   font-size: 10px;
   box-shadow: 0 0 30px rgba(64, 164, 185, 0.3);
 }
@@ -1855,7 +1916,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   border-bottom: 1px solid #1e5554;
 }
 .tlh-modal-title {
-  color: #77bfcf;
+  color: var(--tlh-accent);
   font-weight: 600;
   text-transform: lowercase;
   letter-spacing: 0.05em;
@@ -1863,17 +1924,17 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .tlh-modal-close {
   background: transparent;
   border: none;
-  color: #7aa8a6;
+  color: var(--tlh-text-secondary);
   font-size: 18px;
   font-weight: 600;
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
 }
-.tlh-modal-close:hover { color: #da8bda; }
+.tlh-modal-close:hover { color: var(--tlh-crit); }
 .tlh-modal-section { margin: 10px 0; }
 .tlh-modal-sectitle {
-  color: #77bfcf;
+  color: var(--tlh-accent);
   font-size: 9px;
   margin-bottom: 4px;
   text-transform: lowercase;
@@ -1885,7 +1946,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   background: #050f0f;
   border: 1px solid #1e5554;
   border-radius: 1px;
-  color: #b1c9c3;
+  color: var(--tlh-text);
   font-family: 'Source Code Pro', monospace;
   font-size: 9px;
   padding: 5px 6px;
@@ -1904,7 +1965,7 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   background: transparent;
   border: 1px solid #3a6a68;
   border-radius: 1px;
-  color: #77bfcf;
+  color: var(--tlh-accent);
   font-family: 'Source Code Pro', monospace;
   font-size: 9px;
   font-weight: 600;
@@ -1913,20 +1974,20 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   text-transform: lowercase;
 }
 .tlh-modal-btn:hover {
-  color: #b1c9c3;
+  color: var(--tlh-text);
   border-color: #77bfcf;
 }
 .tlh-modal-check {
   font-size: 9px;
-  color: #7aa8a6;
+  color: var(--tlh-text-secondary);
   display: inline-flex;
   gap: 4px;
   align-items: center;
 }
 .tlh-modal-msg {
   font-size: 9px;
-  color: #7aa8a6;
+  color: var(--tlh-text-secondary);
   margin-left: auto;
 }
 .tlh-modal-msg.ok { color: #4a9a78; }
-.tlh-modal-msg.wn { color: #da8bda; }
+.tlh-modal-msg.wn { color: var(--tlh-crit); }

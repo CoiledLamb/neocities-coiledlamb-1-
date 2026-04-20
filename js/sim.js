@@ -96,6 +96,9 @@ function applyFreshState() {
   S.interiorPkgs = {};
   S.interiorTrample = {};
   S.sandalweedCount = 0;
+  // v0.0.9.6.9.30l — sim starts fresh with no smoke window; avoids
+  // a partial carryover biasing early strain accumulation.
+  if (S.smokeGrace) { S.smokeGrace.ticksRemaining = 0; S.smokeGrace.magnitude = 0; }
   S.distKm    = 0;
   // Max automation — every auto-toggle ON. Sim represents configured
   // player behavior, not tutorial onboarding.

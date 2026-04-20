@@ -57,6 +57,10 @@ export function buildSavePayload() {
       bootClipMax:    S.bootClipMax,
       usingMakeshift: S.usingMakeshift,
       sandalweedCount: S.sandalweedCount,
+      // v0.0.9.6.9.30l — smoke-grace window ride-through.
+      smokeGrace: S.smokeGrace
+        ? { ticksRemaining: S.smokeGrace.ticksRemaining | 0, magnitude: +S.smokeGrace.magnitude || 0 }
+        : { ticksRemaining: 0, magnitude: 0 },
       stamina:          S.stamina,
       staminaOverboost: S.staminaOverboost,
       canteen:          S.canteen,
@@ -134,6 +138,26 @@ export function buildSavePayload() {
     // (solar trickle + new consumers + delta's regen upgrades) lands
     // in commit 4a; this commit just reserves the persistence slot.
     battery: { charge: S.battery.charge, max: S.battery.max },
+    // v0.0.9.6.9.30h — exoskeleton state (pi's trust gift). Purely
+    // additive on v9 — older saves restore with defaults and any
+    // purchased upgrade flag (S.upgrades.exoskeleton1/2) re-applies
+    // via restoreGame's upgrade replay path.
+    exoskeleton: S.exoskeleton
+      ? { unlocked: !!S.exoskeleton.unlocked, level: S.exoskeleton.level | 0 }
+      : { unlocked: false, level: 0 },
+    // v0.0.9.6.9.30i — mobile carrier (gamma's trust gift). Additive
+    // on v9. Inventory is persisted as a simple pkg array (same shape
+    // as S.inventory entries). deployed/autoDeployArmed flags + the
+    // safe-terrain counter ride through so deploy state + auto-redeploy
+    // progress survive a reload.
+    carrier: S.carrier
+      ? { unlocked:        !!S.carrier.unlocked,
+          level:           S.carrier.level | 0,
+          deployed:        !!S.carrier.deployed,
+          autoDeployArmed: !!S.carrier.autoDeployArmed,
+          safeTerrainTicks: S.carrier.safeTerrainTicks | 0,
+          inventory:       Array.isArray(S.carrier.inventory) ? S.carrier.inventory.slice() : [] }
+      : { unlocked: false, level: 0, deployed: false, autoDeployArmed: false, safeTerrainTicks: 0, inventory: [] },
     // v0.0.9.6 commit 4 — placeable-gear kit inventory (persisted).
     kit: S.kit ? { ladders: S.kit.ladders, anchors: S.kit.anchors, autoGear: !!S.kit.autoGear } : undefined,
     // v0.0.9.6 commit 5 (schema v9) — shared world-overlay placed
@@ -214,11 +238,24 @@ function _applyValidated(data) {
     if (typeof p.ticks          === 'number') S.ticks          = p.ticks;
     if (typeof p.maxSlots       === 'number') S.maxSlots       = p.maxSlots;
     if (typeof p.maxWeight      === 'number') S.maxWeight      = p.maxWeight;
+    // v0.0.9.6.9.30b — maxWeight default was bumped 5 → 6 in
+    // v0.0.9.6.9.22 (strain-gauge pass). Saves created before that
+    // commit stayed at 5 because persisted values win over fresh
+    // defaults. Ratchet up to 6 for any legacy save that hasn't
+    // explicitly exceeded it via upgrades. Matches the existing
+    // v0.0.8.6 retro-grant pattern below for trust-reward upgrades.
+    if (S.maxWeight < 6) S.maxWeight = 6;
     if (typeof p.bootDurability === 'number') S.bootDurability = p.bootDurability;
     if (typeof p.bootClipCount  === 'number') S.bootClipCount  = p.bootClipCount;
     if (typeof p.bootClipMax    === 'number') S.bootClipMax    = p.bootClipMax;
     if (typeof p.usingMakeshift === 'boolean') S.usingMakeshift = p.usingMakeshift;
     if (typeof p.sandalweedCount === 'number') S.sandalweedCount = Math.max(0, Math.floor(p.sandalweedCount));
+    // v0.0.9.6.9.30l — restore mid-smoke grace window; older saves
+    // (no smokeGrace field) fall through to the state.js defaults.
+    if (p.smokeGrace && typeof p.smokeGrace === 'object') {
+      S.smokeGrace.ticksRemaining = Math.max(0, p.smokeGrace.ticksRemaining | 0);
+      S.smokeGrace.magnitude      = Math.max(0, +p.smokeGrace.magnitude || 0);
+    }
     if (typeof p.stamina          === 'number') S.stamina        = p.stamina;
     if (typeof p.staminaOverboost === 'boolean') S.staminaOverboost = p.staminaOverboost;
     if (typeof p.canteen          === 'number') S.canteen        = p.canteen;
@@ -454,6 +491,47 @@ function _applyValidated(data) {
       if (typeof data.battery.max === 'number') {
         S.battery.max = Math.max(1, Math.floor(data.battery.max));
       }
+    }
+
+    // v0.0.9.6.9.30h — exoskeleton state. Additive on v9 — absent in
+    // older saves, defaults stand; retro-grant from upgrade flags
+    // below handles the case where the player already bought the
+    // gift on a pre-.30h save (flag set, state field missing).
+    if (data.exoskeleton && typeof data.exoskeleton === 'object') {
+      if (typeof data.exoskeleton.unlocked === 'boolean') S.exoskeleton.unlocked = data.exoskeleton.unlocked;
+      if (typeof data.exoskeleton.level === 'number')     S.exoskeleton.level    = Math.max(0, Math.min(2, data.exoskeleton.level | 0));
+    }
+    // Retro-grant: if the save has exoskeleton1/2 flags set but no
+    // state record, reconstruct level from the flags. Covers saves
+    // made between .5 (flag-only stubs) and .30h (state shape added).
+    if (S.upgrades && (S.upgrades.exoskeleton1 || S.upgrades.exoskeleton2) && !S.exoskeleton.unlocked) {
+      S.exoskeleton.unlocked = true;
+      S.exoskeleton.level    = S.upgrades.exoskeleton2 ? 2 : 1;
+    }
+
+    // v0.0.9.6.9.30i — mobile carrier state. Same additive pattern +
+    // retro-grant from upgrade flags. Cart inventory restored as an
+    // array; per-pkg shape matches S.inventory entries so no extra
+    // migration needed (pkgs from before .30i just didn't exist in
+    // this bucket anyway).
+    if (data.carrier && typeof data.carrier === 'object') {
+      const c = data.carrier;
+      if (typeof c.unlocked === 'boolean')        S.carrier.unlocked = c.unlocked;
+      if (typeof c.level    === 'number')         S.carrier.level    = Math.max(0, Math.min(2, c.level | 0));
+      if (typeof c.deployed === 'boolean')        S.carrier.deployed = c.deployed;
+      if (typeof c.autoDeployArmed === 'boolean') S.carrier.autoDeployArmed = c.autoDeployArmed;
+      if (typeof c.safeTerrainTicks === 'number') S.carrier.safeTerrainTicks = Math.max(0, c.safeTerrainTicks | 0);
+      if (Array.isArray(c.inventory))             S.carrier.inventory = c.inventory.slice();
+    }
+    // Retro-grant: upgrade flag → state reconstruction. Default
+    // deployed=true for the "new cart arrives rolling" UX (same as
+    // the apply callback). Saves that DID have carrier state
+    // already restored it above and skip this branch.
+    if (S.upgrades && (S.upgrades.mobileCarrier1 || S.upgrades.mobileCarrier2) && !S.carrier.unlocked) {
+      S.carrier.unlocked = true;
+      S.carrier.level    = S.upgrades.mobileCarrier2 ? 2 : 1;
+      S.carrier.deployed = true;
+      S.carrier.inventory = [];
     }
 
     // v0.0.8 (schema v7) — weather system.

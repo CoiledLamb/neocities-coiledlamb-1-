@@ -26,7 +26,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.29</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.30l</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -62,16 +62,38 @@
 
             <div class="tlh-row cargo-row">
               <span class="tlh-row-label">cargo</span>
-              <div class="cargo-slots" id="cargoSlots"></div>
-              <div class="weight-segs" id="weightSegs"></div>
+              <!-- v0.0.9.6.9.30 — cargo grid + weight ribbon now share a
+                   flex-column container so they read as one "bag" widget.
+                   Ribbon width is set inline by renderCargoSlots to match
+                   the cargo grid exactly, so slot upgrades stretch both. -->
+              <div class="cargo-bag">
+                <div class="cargo-slots" id="cargoSlots"></div>
+                <div class="weight-segs" id="weightSegs"></div>
+              </div>
+              <!-- v0.0.9.6.9.30j — mobile carrier's separate inventory.
+                   Renders as a sibling cargo-bag ONLY when S.carrier.deployed.
+                   Same internal structure (slots grid + weight ribbon) so
+                   the cart reads as "another bag of the same kind."
+                   Hidden at module load; render/hud.js flips display based
+                   on carrier state. -->
+              <div class="cargo-bag cart-bag" id="cartBag" hidden>
+                <div class="cargo-slots" id="cartSlots"></div>
+                <div class="weight-segs" id="cartWeightSegs"></div>
+              </div>
               <!-- v0.0.9.4.1 — grab + tie-down stacked vertically to
                    reclaim cargo row whitespace without widening the
                    panel. Exception to the "buttons in rows, not
                    columns" rule: cargo row has the extra vertical
-                   real estate from the 2-row cargo grid. -->
+                   real estate from the 2-row cargo grid.
+                   v0.0.9.6.9.30j — migrated to a 2×2 CSS grid so the
+                   cart toggle fits without pushing the row height to
+                   3 buttons tall. Fourth cell is a reserved placeholder
+                   for future toggles. -->
               <div class="cargo-btn-stack">
                 <button class="boots-auto" id="autoGrabBtn">grab: auto</button>
+                <button class="boots-auto cart-btn" id="cartToggleBtn" hidden>cart: carry</button>
                 <button class="tie-down-btn boots-auto" id="tieDownBtn">tie-down: off</button>
+                <button class="boots-auto placeholder" id="cargoBtnPlaceholder" aria-hidden="true" disabled>&mdash;</button>
               </div>
             </div>
 
@@ -101,7 +123,11 @@
                 <div class="strain-bar-fill" id="strainBarFill"></div>
               </div>
               <span class="strain-val" id="strainVal">0%</span>
-              <button class="drink-btn" id="restBtn">rest</button>
+              <!-- v0.0.9.6.9.30l — manual rest button replaced with
+                   smoke-sandalweed. Consumes one stash sandalweed for
+                   a 60-tick trip-grace window. Auto-rest at low
+                   stamina still fires via the tick loop. -->
+              <button class="drink-btn" id="smokeBtn">smoke (0)</button>
             </div>
 
             <div class="tlh-row kit-row" id="kitRow" style="display:none">
@@ -195,16 +221,13 @@
       </div>
   </div>
 
-  <!-- v0.0.9.3 — route-map hover tooltip (absolute positioned, driven by route-map.js) -->
-  <div id="routeTooltip" aria-hidden="true"></div>
-  <!-- v0.0.9.4.1 — ground pkg hover tooltip. Body-portal pattern: the
-       fieldstrip's ancestors (#viewport, #gameShell) have overflow:
-       hidden for the scrolling strip, which clips a pseudo-element
-       tooltip. Hosting the element at body level lets it escape. -->
-  <div id="pkgTooltip" aria-hidden="true"></div>
+  <!-- v0.0.9.6.9.30 — #routeTooltip + #pkgTooltip removed; both
+       collapsed into the unified #richTooltip element which is
+       lazily appended to <body> by js/render/rich-tooltip.js. -->
 
-  <script src="boot.js"></script>
-  <script type="module" src="js/main.js?v=096-9-30b"></script>
+
+  <script src="tlh-boot.js?v=096-9-30l"></script>
+  <script type="module" src="js/main.js?v=096-9-30l"></script>
   <script>
     document.addEventListener('keydown', e => {
       if (document.getElementById('boot').style.display !== 'none') dismissBoot();

@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tlh — mobile carrier cargo-row mockup</title>
+<style>
+  :root {
+    --bg:        #0f3b3a;
+    --bg2:       #132e2d;
+    --rule:      #1e5554;
+    --text-faint:  #2a5c5a;
+    --text-dim:    #3a6a68;
+    --text-mid:    #4a7a78;
+    --text-sec:    #7aa8a6;
+    --text:        #b1c9c3;
+    --text-bright: #e0eeec;
+    --accent:      #77bfcf;
+    --warn:        #9d78d4;
+    --crit:        #da8bda;
+  }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Source Code Pro', ui-monospace, monospace;
+    font-weight: 600;
+    font-size: 11px;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 920px;
+    margin: 24px auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  h1 {
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-transform: lowercase;
+    margin: 0;
+    opacity: 0.7;
+  }
+  h1 .v { color: var(--accent); }
+  h2 {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: lowercase;
+    margin: 0 0 8px;
+    color: var(--text);
+    opacity: 0.65;
+  }
+  .note {
+    color: var(--text-dim);
+    font-size: 10px;
+    line-height: 1.5;
+    max-width: 620px;
+  }
+  .note em { color: var(--accent); font-style: normal; }
+  .note b  { color: var(--text-bright); font-weight: 600; }
+
+  /* ========= shared cargo-row bits (match live HUD) ========= */
+  .tlh-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid var(--rule);
+    background: var(--bg2);
+    font-size: 10px;
+    flex-wrap: wrap;
+  }
+  .tlh-row-label {
+    color: var(--text-dim);
+    min-width: 36px;
+    flex-shrink: 0;
+    text-transform: lowercase;
+  }
+  .cargo-btn-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-left: 6px;
+  }
+  /* --- 2×2 variant: grid with the cart toggle spanning the full
+     bottom row. Keeps total height to 2 rows instead of 3 and gives
+     the cart action visual weight (half the cluster). --- */
+  .cargo-btn-stack.grid2x2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 2px;
+    min-width: 180px;
+  }
+  .cargo-btn-stack.grid2x2 .cart-btn {
+    grid-column: 1 / 3;
+  }
+  /* --- 2×2 variant B: four cells, cart in its own top-right cell,
+     tie-down moves under grab, bottom-right left empty (reserved
+     slot for future toggle — dispatch-pref? sort?). --- */
+  .cargo-btn-stack.grid2x2b {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 2px;
+    min-width: 180px;
+  }
+  .cargo-btn-stack.grid2x2b .placeholder {
+    border: 1px dashed var(--text-faint);
+    color: var(--text-faint);
+    background: transparent;
+  }
+  .boots-auto {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid #40a4b9;
+    padding: 2px 6px;
+    font: inherit;
+    cursor: default;
+    border-radius: 1px;
+    text-align: center;
+  }
+  .boots-auto.on { color: var(--accent); border-color: #40a4b9; }
+  .cargo-btn-stack .boots-auto { width: 100%; box-sizing: border-box; min-width: 88px; }
+
+  /* ========= main cargo bag (already live) ========= */
+  .cargo-bag {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .cargo-slots {
+    --cslot-size: 15px;
+    display: grid;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .cslot {
+    border: 1px solid var(--rule);
+    border-radius: 1px;
+    font-size: 9px;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+  }
+  .cslot.s  { background: #1e5554; color: var(--accent); border-color: #40a4b9; }
+  .cslot.m  { background: #1a3040; color: var(--warn);   border-color: var(--warn); }
+  .cslot.l  { background: #2a1a3a; color: var(--crit);   border-color: var(--crit); }
+  .cslot.xl { background: #3a2050; color: #f5b6ff; border-color: #f5b6ff; font-size: 10px; }
+  .cslot.e  { background: transparent; }
+  .cslot.phantom { background: transparent; border-color: transparent; }
+
+  .weight-segs {
+    display: grid;
+    gap: 1px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    height: 4px;
+    border: 1px solid var(--rule);
+    border-radius: 1px;
+    background: var(--bg2);
+  }
+  .wseg { height: 100%; background: var(--bg2); }
+  .wseg.filled     { background: var(--text-mid); }
+  .wseg.heavy      { background: var(--warn); }
+  .wseg.overloaded { background: var(--crit); }
+  .wseg.empty      { background: var(--bg2); }
+  .wseg.phantom    { background: transparent; }
+
+  /* ========= NEW: folded-cart pseudo-pkg in main grid ========= */
+  /* Distinct from size-colored pkgs. Uses cyan border + faint bg
+     so it reads as "gear, not cargo." Glyph is a stylized box. */
+  .cslot.carrier-folded {
+    background: var(--bg2);
+    color: var(--accent);
+    border: 1px dashed var(--accent);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  /* ========= NEW: cart cargo-bag ========= */
+  /* Same internal structure as the main cargo-bag; the LABEL above
+     it says "cart" so it reads as a second bucket. Sits as a sibling
+     in the cargo-row flex container, so when the row gets wide it
+     naturally wraps on small screens. */
+  .cart-bag {
+    position: relative;
+  }
+  .cart-bag::before {
+    content: 'cart';
+    position: absolute;
+    top: -14px;
+    left: 0;
+    font-size: 8px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: lowercase;
+  }
+  /* Cart's cargo-slots sit in a slightly tinted frame so the reader
+     can tell at a glance which bag a pkg lives in. Subtle — doesn't
+     fight the size-color channel. */
+  .cart-bag .cargo-slots {
+    padding: 2px;
+    border: 1px solid var(--text-dim);
+    border-radius: 1px;
+  }
+  .cart-bag .weight-segs {
+    /* matches main weight-segs border exactly so the ribbon reads
+       identically; the outer cargo-slots frame carries the "cart-ness" */
+  }
+
+  /* Dead-battery-while-deployed state: pink border on the cart-slots
+     frame — that's the whole tell. Label stays plain 'cart'; the
+     border carries the warning so the typography doesn't spike. */
+  .cart-bag.dead .cargo-slots { border-color: var(--crit); }
+
+  /* ========= cart toggle button (sits in cargo-btn-stack) ========= */
+  /* Visually matches grab/tie-down. Active state uses the .on class
+     when deployed, dim otherwise. */
+  .cart-btn.stowed { color: var(--text-dim); border-color: var(--text-dim); }
+
+  /* ========= scenario grid ========= */
+  .section {
+    border: 1px solid var(--rule);
+    padding: 16px 16px 18px;
+    border-radius: 1px;
+  }
+  .section.rec {
+    border-color: #40a4b9;
+    box-shadow: inset 0 0 0 1px rgba(64,164,185,0.12);
+  }
+  .section h2 .tag { color: var(--accent); font-weight: 700; letter-spacing: 0; }
+  .sc-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  .sc-row:first-of-type { margin-top: 6px; }
+  .sc-label {
+    min-width: 140px;
+    color: var(--text-dim);
+    font-size: 10px;
+    padding-top: 4px;
+  }
+  .sc-label b { color: var(--accent); font-weight: 600; }
+  .sc-label .sub { color: var(--text-faint); font-size: 9px; display: block; margin-top: 2px; }
+
+  .tip {
+    margin-top: 10px;
+    font-size: 10px;
+    color: var(--text-faint);
+    background: rgba(0,0,0,0.12);
+    padding: 6px 8px;
+    border-left: 2px solid var(--text-dim);
+  }
+
+  .legend {
+    display: flex; gap: 12px;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .legend .sw {
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .legend .sw i {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 1px dashed var(--accent);
+    background: var(--bg2);
+    color: var(--accent);
+    font-style: normal;
+    font-size: 8px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 14px;
+    letter-spacing: 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>tlh — mobile carrier cargo-row mockup <span class="v">v0.0.9.6.9.30i-wip</span></h1>
+  <div class="note">
+    puts the toggle in the <b>cargo-btn-stack</b> (alongside <em>grab: auto</em> and
+    <em>tie-down: off</em>) and shows the cart inventory as a sibling <em>cargo-bag</em>
+    to the right of the main bag when deployed. folded state puts a dashed-cyan
+    pseudo-pkg in the main grid (<b>L</b> at lvl 1, <b>M</b> at lvl 2).
+    <div class="legend" style="margin-top: 8px">
+      <span class="sw"><i>▭</i> folded cart pseudo-pkg (gear, not cargo — dashed cyan border)</span>
+    </div>
+  </div>
+
+  <!-- ================ BUTTON LAYOUT OPTIONS ================ -->
+  <div class="section rec">
+    <h2><span class="tag">★</span> button stack — 1×3 vs 2×2 layouts</h2>
+    <div class="note" style="margin-bottom: 12px">
+      the cart toggle adds a 3rd button. <b>1×3</b> keeps the existing column-flex but
+      grows the cargo-row height by one button. <b>2×2 · cart wide</b> drops to 2 rows
+      by pairing grab + tie-down on top and making the cart span the full bottom width
+      (reads as "the bigger action"). <b>2×2 · 4-cell</b> reserves the 4th slot as a
+      dashed placeholder — clean grid, but empty-cell air looks a little neglected.
+    </div>
+    <div class="sc-row" style="gap: 40px; align-items: flex-start">
+      <div>
+        <div class="sc-label" style="min-width: 0; margin-bottom: 8px"><b>1×3 (current mock)</b></div>
+        <div class="cargo-btn-stack" style="margin-left: 0">
+          <button class="boots-auto on">grab: auto</button>
+          <button class="boots-auto">tie-down: off</button>
+          <button class="boots-auto on cart-btn">cart: stow</button>
+        </div>
+      </div>
+      <div>
+        <div class="sc-label" style="min-width: 0; margin-bottom: 8px"><b>2×2 · cart wide</b></div>
+        <div class="cargo-btn-stack grid2x2" style="margin-left: 0">
+          <button class="boots-auto on">grab: auto</button>
+          <button class="boots-auto">tie-down: off</button>
+          <button class="boots-auto on cart-btn">cart: stow</button>
+        </div>
+      </div>
+      <div>
+        <div class="sc-label" style="min-width: 0; margin-bottom: 8px"><b>2×2 · 4-cell</b></div>
+        <div class="cargo-btn-stack grid2x2b" style="margin-left: 0">
+          <button class="boots-auto on">grab: auto</button>
+          <button class="boots-auto on cart-btn">cart: stow</button>
+          <button class="boots-auto">tie-down: off</button>
+          <button class="boots-auto placeholder">&mdash;</button>
+        </div>
+      </div>
+    </div>
+    <div class="tip" style="margin-top: 14px">my vote: <b>2×2 · cart wide</b>. the cart spans both columns on the bottom which matches its actual surface area (it's the gateway to a whole second inventory); grab + tie-down are smaller/lateral modifiers paired above. no empty cells, no dashed placeholder to explain.</div>
+  </div>
+
+  <!-- ================ LVL 1: stowed vs deployed ================ -->
+  <div class="section rec">
+    <h2><span class="tag">★</span> lvl 1 (mobile carrier — +4 slots / +4 kg)</h2>
+
+    <div class="sc-row">
+      <div class="sc-label">
+        <b>stowed</b>
+        <span class="sub">folded into L pkg (4 slots / 4 kg)</span>
+        <span class="sub">main bag: 6/6 slots · 5/10 kg</span>
+      </div>
+      <div class="tlh-row" style="flex:1; min-width:460px">
+        <span class="tlh-row-label">cargo</span>
+        <div class="cargo-bag">
+          <div class="cargo-slots" style="grid-template-columns: repeat(3, 15px); grid-template-rows: repeat(2, 15px); width: 49px;">
+            <!-- folded cart occupies 2x2 (size L) in columns 1-2, both rows -->
+            <div class="cslot carrier-folded" style="grid-column:1/3;grid-row:1/3">▭</div>
+            <!-- 2 s-pkgs in col 3 -->
+            <div class="cslot s" style="grid-column:3;grid-row:1">s</div>
+            <div class="cslot s" style="grid-column:3;grid-row:2">s</div>
+          </div>
+          <div class="weight-segs" style="width: 49px; grid-template-columns: repeat(10, 1fr);">
+            <div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div>
+            <div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div>
+          </div>
+        </div>
+        <div class="cargo-btn-stack grid2x2">
+          <button class="boots-auto on">grab: auto</button>
+          <button class="boots-auto">tie-down: off</button>
+          <button class="boots-auto cart-btn stowed">cart: carry</button>
+        </div>
+      </div>
+      <div class="tip">button reads <b>cart: carry</b> when stowed — clicking deploys. folded pseudo-pkg in cols 1–2 eats 4 main-slots / 4 kg. everything else works normally.</div>
+    </div>
+
+    <div class="sc-row">
+      <div class="sc-label">
+        <b>deployed</b>
+        <span class="sub">cart bag active — 4/4 slots · 4/4 kg</span>
+        <span class="sub">main bag frees up: 2/6 slots · 2/10 kg</span>
+      </div>
+      <div class="tlh-row" style="flex:1; min-width:460px">
+        <span class="tlh-row-label">cargo</span>
+        <!-- main bag -->
+        <div class="cargo-bag">
+          <div class="cargo-slots" style="grid-template-columns: repeat(3, 15px); grid-template-rows: repeat(2, 15px); width: 49px;">
+            <div class="cslot s" style="grid-column:1;grid-row:1">s</div>
+            <div class="cslot s" style="grid-column:2;grid-row:1">s</div>
+            <div class="cslot e"  style="grid-column:3;grid-row:1"></div>
+            <div class="cslot e"  style="grid-column:1;grid-row:2"></div>
+            <div class="cslot e"  style="grid-column:2;grid-row:2"></div>
+            <div class="cslot e"  style="grid-column:3;grid-row:2"></div>
+          </div>
+          <div class="weight-segs" style="width: 49px; grid-template-columns: repeat(10, 1fr);">
+            <div class="wseg filled"></div><div class="wseg filled"></div>
+            <div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div>
+          </div>
+        </div>
+        <!-- cart bag (separate) -->
+        <div class="cargo-bag cart-bag" style="margin-left: 14px;">
+          <div class="cargo-slots" style="grid-template-columns: repeat(2, 15px); grid-template-rows: repeat(2, 15px); width: 32px;">
+            <div class="cslot m" style="grid-column:1/3;grid-row:1">m</div>
+            <div class="cslot s" style="grid-column:1;grid-row:2">s</div>
+            <div class="cslot s" style="grid-column:2;grid-row:2">s</div>
+          </div>
+          <div class="weight-segs" style="width: 36px; grid-template-columns: repeat(4, 1fr);">
+            <div class="wseg heavy"></div><div class="wseg heavy"></div><div class="wseg heavy"></div><div class="wseg heavy"></div>
+          </div>
+        </div>
+        <div class="cargo-btn-stack grid2x2">
+          <button class="boots-auto on">grab: auto</button>
+          <button class="boots-auto">tie-down: off</button>
+          <button class="boots-auto on cart-btn">cart: stow</button>
+        </div>
+      </div>
+      <div class="tip">cart bag sits to the right of main, labeled <b>cart</b> above. deploying frees the 4 folded slots in main; new pickups route to cart first (it's emptied first on delivery so forced-stow drops hurt less).</div>
+    </div>
+
+    <div class="sc-row">
+      <div class="sc-label">
+        <b>dead battery</b>
+        <span class="sub">cart still deployed, bonus cold</span>
+        <span class="sub">speed ×0.5, strain factor ×1.15</span>
+      </div>
+      <div class="tlh-row" style="flex:1; min-width:460px">
+        <span class="tlh-row-label">cargo</span>
+        <div class="cargo-bag">
+          <div class="cargo-slots" style="grid-template-columns: repeat(3, 15px); grid-template-rows: repeat(2, 15px); width: 49px;">
+            <div class="cslot s" style="grid-column:1;grid-row:1">s</div>
+            <div class="cslot e"  style="grid-column:2;grid-row:1"></div>
+            <div class="cslot e"  style="grid-column:3;grid-row:1"></div>
+            <div class="cslot e"  style="grid-column:1;grid-row:2"></div>
+            <div class="cslot e"  style="grid-column:2;grid-row:2"></div>
+            <div class="cslot e"  style="grid-column:3;grid-row:2"></div>
+          </div>
+          <div class="weight-segs" style="width: 49px; grid-template-columns: repeat(10, 1fr);">
+            <div class="wseg filled"></div>
+            <div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div>
+          </div>
+        </div>
+        <div class="cargo-bag cart-bag dead" style="margin-left: 14px;">
+          <div class="cargo-slots" style="grid-template-columns: repeat(2, 15px); grid-template-rows: repeat(2, 15px); width: 32px;">
+            <div class="cslot l" style="grid-column:1/3;grid-row:1/3">l</div>
+          </div>
+          <div class="weight-segs" style="width: 36px; grid-template-columns: repeat(4, 1fr);">
+            <div class="wseg overloaded"></div><div class="wseg overloaded"></div><div class="wseg overloaded"></div><div class="wseg overloaded"></div>
+          </div>
+        </div>
+        <div class="cargo-btn-stack grid2x2">
+          <button class="boots-auto on">grab: auto</button>
+          <button class="boots-auto">tie-down: off</button>
+          <button class="boots-auto on cart-btn">cart: stow</button>
+        </div>
+      </div>
+      <div class="tip">battery at 0 while deployed → cart label turns pink (<b>cart · dead</b>), cart bag border pink. battery tooltip shows carrier consumer still drawing at its rate (but charge can't go below 0). speed + strain penalties handled in sim code.</div>
+    </div>
+  </div>
+
+  <!-- ================ LVL 2 ================ -->
+  <div class="section">
+    <h2>lvl 2 (improved tie-downs — +6 slots / +8 kg, rolls everywhere)</h2>
+
+    <div class="sc-row">
+      <div class="sc-label">
+        <b>stowed</b>
+        <span class="sub">folded into <b>M</b> pkg (2 slots / 2 kg)</span>
+        <span class="sub">much cheaper to stow vs lvl 1</span>
+      </div>
+      <div class="tlh-row" style="flex:1; min-width:460px">
+        <span class="tlh-row-label">cargo</span>
+        <div class="cargo-bag">
+          <div class="cargo-slots" style="grid-template-columns: repeat(3, 15px); grid-template-rows: repeat(2, 15px); width: 49px;">
+            <!-- folded M occupies 2x1 in columns 1-2 top row -->
+            <div class="cslot carrier-folded" style="grid-column:1/3;grid-row:1">▭</div>
+            <div class="cslot s" style="grid-column:3;grid-row:1">s</div>
+            <div class="cslot s" style="grid-column:1;grid-row:2">s</div>
+            <div class="cslot s" style="grid-column:2;grid-row:2">s</div>
+            <div class="cslot s" style="grid-column:3;grid-row:2">s</div>
+          </div>
+          <div class="weight-segs" style="width: 49px; grid-template-columns: repeat(10, 1fr);">
+            <div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div>
+            <div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div>
+          </div>
+        </div>
+        <div class="cargo-btn-stack grid2x2">
+          <button class="boots-auto on">grab: auto</button>
+          <button class="boots-auto">tie-down: off</button>
+          <button class="boots-auto cart-btn stowed">cart: carry</button>
+        </div>
+      </div>
+      <div class="tip">folded shape drops from <b>4 slots/4 kg</b> to <b>2 slots/2 kg</b> — the improvement is felt as "cheaper to stow" in addition to "more capacity when rolling."</div>
+    </div>
+
+    <div class="sc-row">
+      <div class="sc-label">
+        <b>deployed · full</b>
+        <span class="sub">cart: 6/6 slots · 8/8 kg</span>
+        <span class="sub">main: 3/6 slots · 3/10 kg</span>
+      </div>
+      <div class="tlh-row" style="flex:1; min-width:460px">
+        <span class="tlh-row-label">cargo</span>
+        <div class="cargo-bag">
+          <div class="cargo-slots" style="grid-template-columns: repeat(3, 15px); grid-template-rows: repeat(2, 15px); width: 49px;">
+            <div class="cslot s" style="grid-column:1;grid-row:1">s</div>
+            <div class="cslot s" style="grid-column:2;grid-row:1">s</div>
+            <div class="cslot s" style="grid-column:3;grid-row:1">s</div>
+            <div class="cslot e"  style="grid-column:1;grid-row:2"></div>
+            <div class="cslot e"  style="grid-column:2;grid-row:2"></div>
+            <div class="cslot e"  style="grid-column:3;grid-row:2"></div>
+          </div>
+          <div class="weight-segs" style="width: 49px; grid-template-columns: repeat(10, 1fr);">
+            <div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div>
+            <div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div>
+          </div>
+        </div>
+        <div class="cargo-bag cart-bag" style="margin-left: 14px;">
+          <div class="cargo-slots" style="grid-template-columns: repeat(3, 15px); grid-template-rows: repeat(2, 15px); width: 49px;">
+            <div class="cslot l" style="grid-column:1/3;grid-row:1/3">l</div>
+            <div class="cslot m" style="grid-column:3;grid-row:1/3">m</div>
+          </div>
+          <div class="weight-segs" style="width: 53px; grid-template-columns: repeat(8, 1fr);">
+            <div class="wseg overloaded"></div><div class="wseg overloaded"></div><div class="wseg overloaded"></div><div class="wseg overloaded"></div><div class="wseg overloaded"></div><div class="wseg overloaded"></div><div class="wseg overloaded"></div><div class="wseg overloaded"></div>
+          </div>
+        </div>
+        <div class="cargo-btn-stack grid2x2">
+          <button class="boots-auto on">grab: auto</button>
+          <button class="boots-auto">tie-down: off</button>
+          <button class="boots-auto on cart-btn">cart: stow</button>
+        </div>
+      </div>
+      <div class="tip">lvl 2 cart grid expands to match its 6-slot capacity. weight ribbon spans its full 8 kg. note the wetland/river/mountain icon isn't shown here — that's a sim-behavior thing (terrain check accepts this cart), not a visual change.</div>
+    </div>
+  </div>
+
+  <!-- ================ RACE CONDITIONS / EDGE STATES ================ -->
+  <div class="section">
+    <h2>edge cases</h2>
+
+    <div class="sc-row">
+      <div class="sc-label">
+        <b>no-room stow</b>
+        <span class="sub">main bag full, manual stow refused</span>
+      </div>
+      <div class="tlh-row" style="flex:1; min-width:460px">
+        <span class="tlh-row-label">cargo</span>
+        <div class="cargo-bag">
+          <div class="cargo-slots" style="grid-template-columns: repeat(3, 15px); grid-template-rows: repeat(2, 15px); width: 49px;">
+            <div class="cslot s" style="grid-column:1;grid-row:1">s</div>
+            <div class="cslot s" style="grid-column:2;grid-row:1">s</div>
+            <div class="cslot s" style="grid-column:3;grid-row:1">s</div>
+            <div class="cslot s" style="grid-column:1;grid-row:2">s</div>
+            <div class="cslot s" style="grid-column:2;grid-row:2">s</div>
+            <div class="cslot s" style="grid-column:3;grid-row:2">s</div>
+          </div>
+          <div class="weight-segs" style="width: 49px; grid-template-columns: repeat(10, 1fr);">
+            <div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div>
+            <div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div>
+          </div>
+        </div>
+        <div class="cargo-bag cart-bag" style="margin-left: 14px;">
+          <div class="cargo-slots" style="grid-template-columns: repeat(2, 15px); grid-template-rows: repeat(2, 15px); width: 32px;">
+            <div class="cslot s" style="grid-column:1;grid-row:1">s</div>
+            <div class="cslot e"  style="grid-column:2;grid-row:1"></div>
+            <div class="cslot e"  style="grid-column:1;grid-row:2"></div>
+            <div class="cslot e"  style="grid-column:2;grid-row:2"></div>
+          </div>
+          <div class="weight-segs" style="width: 36px; grid-template-columns: repeat(4, 1fr);">
+            <div class="wseg filled"></div>
+            <div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div>
+          </div>
+        </div>
+        <div class="cargo-btn-stack grid2x2">
+          <button class="boots-auto on">grab: auto</button>
+          <button class="boots-auto">tie-down: off</button>
+          <button class="boots-auto on cart-btn">cart: stow</button>
+        </div>
+      </div>
+      <div class="tip">clicking <b>cart: stow</b> here — no 4-slot hole in main bag — logs <em>"can't stow cart — need bag space"</em> and keeps cart deployed. player delivers a pkg first, then retries. (forced-stow from terrain would drop cart pkgs until fit; manual stow never drops.)</div>
+    </div>
+
+    <div class="sc-row">
+      <div class="sc-label">
+        <b>forced stow</b>
+        <span class="sub">lvl 1 cart stepping onto mountain</span>
+        <span class="sub">3 cart pkgs dropped to fit</span>
+      </div>
+      <div class="tlh-row" style="flex:1; min-width:460px">
+        <span class="tlh-row-label">cargo</span>
+        <div class="cargo-bag">
+          <div class="cargo-slots" style="grid-template-columns: repeat(3, 15px); grid-template-rows: repeat(2, 15px); width: 49px;">
+            <!-- auto-stow just succeeded, folded pkg re-inserted -->
+            <div class="cslot carrier-folded" style="grid-column:1/3;grid-row:1/3">▭</div>
+            <div class="cslot s" style="grid-column:3;grid-row:1">s</div>
+            <div class="cslot s" style="grid-column:3;grid-row:2">s</div>
+          </div>
+          <div class="weight-segs" style="width: 49px; grid-template-columns: repeat(10, 1fr);">
+            <div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div><div class="wseg filled"></div>
+            <div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div><div class="wseg empty"></div>
+          </div>
+        </div>
+        <div class="cargo-btn-stack grid2x2">
+          <button class="boots-auto on">grab: auto</button>
+          <button class="boots-auto">tie-down: off</button>
+          <button class="boots-auto cart-btn stowed">cart: carry</button>
+        </div>
+      </div>
+      <div class="tip">auto-stow from hitting a mountain cell: cart drops oldest-first until the folded pkg fits. log line: <em>"cart stuck on mountain — threw off 3 pkgs"</em>. auto-redeploy arms; 5 consecutive safe-terrain ticks re-deploys automatically (thrash-protection). manual stow never trips this path.</div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:4px">
+    <b>defer from this commit:</b>
+    <br>— <em>fieldstrip cart sprite</em> (small rolling cart glyph trailing the <b>@</b>). keeping the cargo-row mechanic honest first; the fieldstrip sprite is pure decoration and lands as a polish follow-up once the cargo mechanics are confirmed.
+  </div>
+</div>
+</body>
+</html>

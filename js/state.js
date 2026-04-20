@@ -37,6 +37,16 @@ export const S = {
   // first tick.
   bootDurability: 80, autobuyBoots: true, bootClipCount: 0, bootClipMax: 0, usingMakeshift: false,
   sandalweedCount: 0,
+
+  // v0.0.9.6.9.30l — smoke-sandalweed grace window. Consumes one
+  // stash sandalweed for a timed trip-chance mitigation. ticks
+  // counts down each tick while >0; magnitude is a flat (1-m)
+  // multiplier applied in tripChanceBreakdown after other graces.
+  // Persisted so a mid-smoke reload doesn't eat the bonus.
+  smokeGrace: {
+    ticksRemaining: 0,
+    magnitude:      0,
+  },
   stamina: 400, staminaMax: 400, staminaOverboost: false, prevStaminaSeg: 4,
   canteen: 100, canteenMax: 100, autodrink: true,
   // v0.0.9.4.1 — auto-pickup toggle. Default true ("idle game first";
@@ -124,6 +134,48 @@ export const S = {
     ladders:  0,
     anchors:  0,
     autoGear: true,
+  },
+
+  // v0.0.9.6.9.30h — pi's exoskeleton. All-terrain variant at lvl 1
+  // (trip mitigation on mountain/rockyHills/river); lvl 2 adds speed
+  // and halves the battery draw. Battery-gated: at 0 charge the bonus
+  // goes cold but the flag stays set ("graceful off" per handoff).
+  //   unlocked — any tier purchased
+  //   level    — 1 (all-terrain only) | 2 (+ speed + extended battery)
+  exoskeleton: {
+    unlocked: false,
+    level:    0,
+  },
+
+  // v0.0.9.6.9.30i — gamma's mobile carrier. Two-tier wheeled cart
+  // with its own inventory. Folds into main cargo (L pseudo-pkg at
+  // lvl 1 = 4 slots / 4 kg, M at lvl 2 = 2 slots / 2 kg) when stowed.
+  // Deploy opens a separate inventory bucket with the carrier's own
+  // maxSlots/maxWeight. Battery drains only while deployed. At 0
+  // charge the cart stays deployed but with a speed penalty + strain
+  // factor ("lugging a dead cart"); carries across terrain unchanged.
+  //
+  //   unlocked — any tier purchased
+  //   level    — 1 (compatible with everything except mountain/river) |
+  //              2 (all-terrain; compatible with mountain + river too)
+  //   deployed — false: folded pseudo-pkg lives in main S.inventory
+  //              true:  separate S.carrier.inventory is active
+  //   inventory — pkg array, same shape as S.inventory
+  //   autoDeployArmed — set true after a forced-stow (terrain refused
+  //              the cart). While true, a sustained safe-terrain run
+  //              re-deploys automatically. Manual stow clears this —
+  //              manual choices stay manual.
+  //   safeTerrainTicks — counter for the auto-redeploy cooldown. Any
+  //              incompatible-terrain tick resets to 0.
+  //   nextCartId — per-save incrementing id for placing cart-pkg
+  //              elements (not currently used; reserved).
+  carrier: {
+    unlocked:         false,
+    level:            0,
+    deployed:         false,
+    inventory:        [],
+    autoDeployArmed:  false,
+    safeTerrainTicks: 0,
   },
 
   // v0.0.9.6 commit 5 — world-overlay placed structures. Promoted
@@ -383,7 +435,7 @@ export const S = {
     // null). Used by renderFieldstrip to detect when a hovered span
     // gets destroyed across a tick re-render — browsers don't fire
     // mouseout on detached elements, so without tracking this the
-    // #pkgTooltip gets stuck visible indefinitely.
+    // rich-tooltip gets stuck visible indefinitely.
     hoveredPkgCi: null,
 
     // Weather system (v0.0.8). Transient rendering state — the storms

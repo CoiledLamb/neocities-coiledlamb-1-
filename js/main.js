@@ -102,10 +102,12 @@ import {
 import * as Pkg from './packages.js';
 import * as Trip from './trip.js';
 import * as Boots from './boots.js';
+import * as Carrier from './carrier.js';
 import * as Stamina from './stamina.js';
 import * as Upg from './upgrades.js';
 import { tickScanner } from './scanner.js';
 import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js';
+import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js';
 import { renderKit } from './render/kit.js';
 import { initAdminChannel } from './admin-channel.js';
 import { initSaveIo } from './save-io.js';
@@ -186,6 +188,11 @@ function resolveEls() {
     destDrift:    $('destDrift'),
     cargoSlots:   $('cargoSlots'),
     weightSegs:   $('weightSegs'),
+    cartBag:         $('cartBag'),
+    cartSlots:       $('cartSlots'),
+    cartWeightSegs:  $('cartWeightSegs'),
+    cartToggleBtn:   $('cartToggleBtn'),
+    cargoBtnStack:   document.querySelector('.cargo-btn-stack'),
     bootsBar:     $('bootsBar'),
     bootsVal:     $('bootsVal'),
     bootsGearBtn:   $('bootsGearBtn'),
@@ -197,7 +204,7 @@ function resolveEls() {
     clipBadge:    $('clipBadge'),
     drinkBtn:     $('drinkBtn'),
     autodrinkBtn: $('autodrinkBtn'),
-    restBtn:      $('restBtn'),
+    smokeBtn:     $('smokeBtn'),
     autoGrabBtn:  $('autoGrabBtn'),
     canteenBar:   $('canteenBar'),
     tieDownBtn:   $('tieDownBtn'),
@@ -287,6 +294,25 @@ export function tick() {
     // early-route NPCs). Process terrain effects whenever a terrain
     // is non-flat, regardless of segment type.
     currentTerrain = courierTerrain();
+    // v0.0.9.6.9.30k — mobile carrier terrain awareness. Deployed
+    // cart on incompatible terrain forces a stow (lvl 1 refuses
+    // mountain + river; lvl 2 takes everything). Stowed + auto-
+    // armed cart re-deploys after N consecutive safe-terrain ticks.
+    // Both are idempotent + gated inside the module so carrier-less
+    // players pay no cost.
+    Carrier.enforceTerrainCompatibility(currentTerrain);
+    Carrier.tryAutoRedeploy(currentTerrain);
+    // v0.0.9.6.9.30l — smoke-sandalweed grace window tick-down.
+    // Runs only while walking/carrying so resting at a depot
+    // doesn't waste the duration. When the counter hits zero,
+    // clear magnitude too so trip.js sees a clean 1.0 mult.
+    if (S.smokeGrace && S.smokeGrace.ticksRemaining > 0) {
+      S.smokeGrace.ticksRemaining--;
+      if (S.smokeGrace.ticksRemaining === 0) {
+        S.smokeGrace.magnitude = 0;
+        tEmit('smoke.expired');
+      }
+    }
     if (currentTerrain !== 'flat') {
       staminaMult = TERRAIN_STAMINA_MULT[currentTerrain] || 1.0;
       if (currentTerrain === 'desert') {
@@ -415,7 +441,17 @@ export function tick() {
     const seg = S._transient.currentSegment;
     // River drift moves at the speed of the water — slower than a walk.
     const speedScale = (seg && seg.type === 'river-drift') ? 0.4 : 1.0;
-    S.dotT += 0.006 * Stamina.speedMultiplier() * speedScale;
+    // v0.0.9.6.9.30h — exoskeleton lvl 2 speed bonus. Battery-gated:
+    // bonus goes cold at 0 charge but flag stays set ("graceful off").
+    const exoSpeedMult = (S.exoskeleton && S.exoskeleton.unlocked && S.exoskeleton.level >= 2 && S.battery.charge > 0)
+      ? C.EXO_SPEED_MULT : 1.0;
+    // v0.0.9.6.9.30k — dead-battery deployed carrier: speed ×0.5
+    // ("lugging a dead cart"). User call: penalty instead of forced
+    // stow so battery fluctuations don't constantly disrupt play.
+    // Cart stays rolling; player notices and recharges.
+    const carrierDeadMult = (S.carrier && S.carrier.unlocked && S.carrier.deployed && S.battery.charge <= 0)
+      ? C.CARRIER_DEAD_SPEED_MULT : 1.0;
+    S.dotT += 0.006 * Stamina.speedMultiplier() * speedScale * exoSpeedMult * carrierDeadMult;
   }
 
   // v0.0.9.6 commit 4 — tick placed-gear wall-clock decay + remove
@@ -523,46 +559,24 @@ export function tick() {
   if (S.ticks % 9 === 0) updateSaveStrip();
   if (S.ticks % 9 === 0 && S.channels.length > 0) renderChannels();
 
-  // v0.0.7.28 — battery prototype drain. Originally time-only whenever
-  // scanner or stickyGun was owned. v0.0.9.5 commit 3 decouples stickyGun
-  // (pure mechanical — rangefinder + sticky shot, no electronics) so only
-  // the scanner drains the battery from this pipeline. Additional
-  // consumers (pi's exoskeleton, gamma's mobile carrier) register through
-  // their own upgrade hooks in commit 4.
-  if (S.scanner.unlocked && S.battery.charge > 0) {
-    S.battery.charge = Math.max(0, S.battery.charge - C.BATTERY_DRAIN_PER_TICK);
+  // v0.0.9.6.9.30f — battery drain via keyed consumer map.
+  // Replaces the single hardcoded scanner-drain check. Each consumer
+  // contributes only when it's unlocked AND actively drawing (see
+  // activeBatteryDrainPerTick for the per-consumer gates). Net per-
+  // tick drain = sum of active rates. At charge 0 the inner guard
+  // zeros the floor — consumers read charge >0 themselves for "am I
+  // on right now" degradation (scanner stops pinging, etc.).
+  if (S.battery.charge > 0) {
+    const drain = activeBatteryDrainPerTick();
+    if (drain > 0) S.battery.charge = Math.max(0, S.battery.charge - drain);
   }
 
-  // v0.0.9.5 commit 3: innate solar trickle regen. The baseline feature
-  // (no upgrade required). daylightOf() peaks at 1.0 at midday, 0 at
-  // night, smooth through dawn/dusk. A full idle day charges 0 → ~95.
-  //
-  // v0.0.9.5 commit 4 additions:
-  //   - solarPanel    (delta t20): peak regen ×1.5. Desert-cell bonus
-  //                                 hook stays latent; v0.0.9.6 terrain
-  //                                 tagging flips it on.
-  //   - rainfallTurbine (delta t40): opens a rain-weighted regen channel
-  //                                    during active weather. Scales with
-  //                                    intensity: drizzle 0.25× peak /
-  //                                    rain 0.50× peak / downpour 0.75× peak.
-  //                                    Works day or night.
+  // v0.0.9.5 commit 3: innate solar trickle regen (solar panel × 1.5
+  // + rainfall turbine channel on top). Full breakdown now lives in
+  // battery.js::activeBatterySolarGainPerTick so the tooltip can
+  // display the same numbers this branch uses. Math unchanged.
   if (S.battery.charge < S.battery.max) {
-    let gain = 0;
-    // Solar channel (day only).
-    const sun = daylightOf(S.ticks % TICKS_PER_DAY);
-    if (sun > 0) {
-      const solarMult = S.upgrades.solarPanel ? 1.5 : 1.0;
-      gain += sun * C.BATTERY_SOLAR_PEAK_PER_TICK * solarMult;
-    }
-    // Rain channel (any time) via rainfall turbine.
-    if (S.upgrades.rainfallTurbine) {
-      const _w = weatherAtCourier();
-      const rainMult = _w.intensity === 'downpour' ? 0.75
-                     : _w.intensity === 'rain'     ? 0.50
-                     : _w.intensity === 'drizzle'  ? 0.25
-                     : 0;
-      if (rainMult > 0) gain += rainMult * C.BATTERY_SOLAR_PEAK_PER_TICK;
-    }
+    const gain = activeBatterySolarGainPerTick().total;
     if (gain > 0) S.battery.charge = Math.min(S.battery.max, S.battery.charge + gain);
   }
 
@@ -694,17 +708,24 @@ function init() {
     els.autodrinkBtn.textContent='auto: '+(S.autodrink?'on':'off');
     els.autodrinkBtn.classList.toggle('on',S.autodrink);
   });
-  // v0.0.9.6.9.18 — manual rest. Lets the player sit down at any point
-  // while walking/carrying to dissipate strain and refill stamina.
-  // Uses the same rest-duration range as auto-rest. Disabled while
-  // already resting / tripped / severe-state.
-  if (els.restBtn) els.restBtn.addEventListener('click', () => {
+  // v0.0.9.6.9.30l — smoke sandalweed. Replaces the manual rest
+  // button. Consumes one sandalweed from the stash for a
+  // SMOKE_GRACE_TICKS window of flat trip-chance mitigation
+  // (trip.js picks it up as a `smokeMult` mitigation factor).
+  // Disabled when stash is empty OR courier isn't moving.
+  // Re-smoking refreshes duration; magnitude never stacks.
+  // Auto-rest at low stamina still fires in the tick body —
+  // losing the manual-rest button doesn't mean losing the rest
+  // mechanic, just the on-demand override.
+  if (els.smokeBtn) els.smokeBtn.addEventListener('click', () => {
     if (S.status !== 'walking' && S.status !== 'carrying') return;
-    S.status = 'resting';
-    S.restTimer = C.REST_TICKS_MIN + Math.floor(Math.random() * (C.REST_TICKS_MAX - C.REST_TICKS_MIN));
-    tEmit('rest.started');
-    addLog('<span class="log-hi">catching breath</span> \u2014 resting');
-    if (els.courierAt) { els.courierAt.className = 'tlh-at rest'; els.courierAt.style.animation = ''; }
+    if ((S.sandalweedCount || 0) <= 0) return;
+    S.sandalweedCount--;
+    S.smokeGrace.ticksRemaining = C.SMOKE_GRACE_TICKS;
+    S.smokeGrace.magnitude      = C.SMOKE_GRACE_MAGNITUDE;
+    tEmit('smoke.started', { ticks: C.SMOKE_GRACE_TICKS, magnitude: C.SMOKE_GRACE_MAGNITUDE });
+    const pct = Math.round(C.SMOKE_GRACE_MAGNITUDE * 100);
+    addLog(`smoked <span class="log-hi">sandalweed</span> \u2014 <span class="log-ok">\u2212${pct}% trip</span> for ${Math.round(C.SMOKE_GRACE_TICKS * C.TICK_MS / 1000)}s`);
   });
   // v0.0.9.4.1 — `grab:` toggle mirrors the autodrink toggle pattern.
   // Controls pkg auto-pickup only (sandalweed still auto-harvests).
@@ -718,6 +739,16 @@ function init() {
     });
   }
   if (els.tieDownBtn) els.tieDownBtn.addEventListener('click', Boots.toggleTieDown);
+  // v0.0.9.6.9.30j — cart stow/carry toggle. Visible only when the
+  // carrier is unlocked (renderKit / renderCargoSlots handle the
+  // hidden attribute). renderCargoSlots repaints text + `.on` class
+  // after any state change.
+  if (els.cartToggleBtn) {
+    els.cartToggleBtn.addEventListener('click', () => {
+      Carrier.toggleCart();
+      renderCargoSlots(true);
+    });
+  }
   // v0.0.9.4.1 — fieldstrip click delegation for cursor pickup.
   bindFieldstripInteractions();
   // v0.0.9.4.1 commit 2 — global drag layer (document-level

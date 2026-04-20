@@ -49,12 +49,25 @@ function fmtSecs(s) {
   return r === 0 ? m + 'm' : m + 'm ' + r + 's';
 }
 
+// v0.0.9.6.9.30 — strain head color shifts on trip proximity.
+// White at low strain, purple at warn (≥0.50), pink at crit
+// (≥0.85). Matches the boot screen's strainState() thresholds
+// and the rest of the game's white→purple→pink severity ramp.
+function strainHeadClass() {
+  const s = S.strain || 0;
+  if (s >= 0.85) return 'rich-tip-head-strain crit';
+  if (s >= 0.50) return 'rich-tip-head-strain warn';
+  return 'rich-tip-head-strain';
+}
+
 function buildHTML() {
   const walking = S.status === 'walking' || S.status === 'carrying';
   if (!walking) {
+    // Non-walking states never trigger a trip — head stays white
+    // (no severity modifier).
     const head = S.status === 'resting'
-      ? '<div class="rich-tip-head">resting</div><div class="rich-tip-dim">strain dissipating</div>'
-      : `<div class="rich-tip-head">${S.status || 'idle'}</div><div class="rich-tip-dim">no strain accumulation</div>`;
+      ? '<div class="rich-tip-head-strain">resting</div><div class="rich-tip-dim">strain dissipating</div>'
+      : `<div class="rich-tip-head-strain">${S.status || 'idle'}</div><div class="rich-tip-dim">no strain accumulation</div>`;
     return head;
   }
 
@@ -65,13 +78,14 @@ function buildHTML() {
   // factors. delta is per-tick; convert to seconds via TICK_MS.
   // If factors stay constant we'd hit threshold in `remainTicks`;
   // it's an estimate, not a promise.
+  const headCls = strainHeadClass();
   const lines = [];
   if (delta > 1e-6) {
     const secs = (remain / delta) * (C.TICK_MS / 1000);
-    lines.push(`<div class="rich-tip-head">trip in ~${fmtSecs(secs)}</div>`);
+    lines.push(`<div class="${headCls}">trip in ~${fmtSecs(secs)}</div>`);
     lines.push(`<div class="rich-tip-sub">+${delta.toFixed(4)}/tick at current factors</div>`);
   } else {
-    lines.push('<div class="rich-tip-head">trip in \u221e</div>');
+    lines.push(`<div class="${headCls}">trip in \u221e</div>`);
     lines.push('<div class="rich-tip-sub">no accumulation right now</div>');
   }
   lines.push('<div class="rich-tip-divider"></div>');
@@ -106,6 +120,10 @@ function buildHTML() {
   if (factors.usingMakeshift && factors.makeshiftMult > 1.01) {
     lines.push(row('sandalweed', '', factors.makeshiftMult));
   }
+  // v0.0.9.6.9.30k — dead-battery deployed carrier drag.
+  if (factors.deadCartMult && factors.deadCartMult > 1.01) {
+    lines.push(row('dead cart', '', factors.deadCartMult));
+  }
 
   // Mitigations (any sub-1 mult or active grace bonus).
   const mitigations = [];
@@ -113,6 +131,15 @@ function buildHTML() {
   if (factors.staminaGraceBonus > 0.01) mitigations.push(row('stamina grace', '', 1 - factors.staminaGraceBonus));
   if (factors.steadyFeetMult < 0.99)    mitigations.push(row('steady feet',   '', factors.steadyFeetMult));
   if (factors.scannerBuffMult < 0.99)   mitigations.push(row('scanner buff',  '', factors.scannerBuffMult));
+  if (factors.exoMult && factors.exoMult < 0.99) mitigations.push(row('exoskeleton', '', factors.exoMult));
+  // v0.0.9.6.9.30l — smoke-sandalweed active-window mitigation. Shows
+  // the equivalent multiplier + a countdown so the player sees the
+  // window draining in real time.
+  if (factors.smokeActive && factors.smokeGraceBonus > 0) {
+    const mult = 1 - factors.smokeGraceBonus;
+    const secs = Math.max(1, Math.ceil(factors.smokeTicks * C.TICK_MS / 1000));
+    mitigations.push(row('smoke', `${secs}s`, mult));
+  }
   if (mitigations.length) {
     lines.push('<div class="rich-tip-divider"></div>');
     lines.push(...mitigations);

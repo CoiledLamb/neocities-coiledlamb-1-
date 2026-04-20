@@ -3,11 +3,17 @@
 
    NODE_GLYPHS: two-line ASCII art shown by the
      destination drift indicator for each node.
-   STATUS_COLORS: HUD status text color per game state.
+   statusColor(): HUD status text color per game state,
+     resolved lazily from the CSS palette tokens (so a
+     future bone-theme switch picks up automatically).
 
-   Verbatim extract from main.js (commit 3 / SHA 077f9e8).
+   v0.0.9.6.9.30 — STATUS_COLORS object replaced by the
+   statusColor() function so colors track the live palette
+   instead of baking literals at module-load time.
    ============================================== */
 'use strict';
+
+import { tlhPalette } from '../palette.js';
 
 export const NODE_GLYPHS = {
   'A':       '/--\\\n[_A_]',
@@ -18,12 +24,20 @@ export const NODE_GLYPHS = {
   '\u00b7':  '  !  \n =\u00b7= ',
 };
 
-export const STATUS_COLORS = {
-  idle:       '#da8bda',
-  walking:    '#7aa8a6',
-  carrying:   '#77bfcf',
-  delivering: '#9d78d4',
-  returning:  '#4a7a78',
-  resting:    '#da8bda',
-  tripped:    '#da8bda',
-};
+/** HUD status text color for the current game state. Returns a
+ *  hex string read from the CSS palette tokens — caller can pass
+ *  the result straight to .style.color. Returns undefined for
+ *  unknown statuses; consumer should fall back to its own default. */
+export function statusColor(status) {
+  const p = tlhPalette();
+  switch (status) {
+    case 'idle':       return p.crit;
+    case 'walking':    return p.textSecondary;
+    case 'carrying':   return p.accent;
+    case 'delivering': return p.warn;
+    case 'returning':  return p.textMid;
+    case 'resting':    return p.crit;
+    case 'tripped':    return p.crit;
+    default:           return undefined;
+  }
+}

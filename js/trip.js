@@ -160,6 +160,14 @@ export function tripChanceBreakdown() {
   chance *= (1 - bootGraceBonus);
   chance *= (1 - staminaGraceBonus);
 
+  // v0.0.9.6.9.30l — smoke-sandalweed grace window. Flat
+  // (1-magnitude) cut while ticksRemaining > 0. Stacks multiplicatively
+  // with the passive boot/stamina graces above — smoking at peak
+  // state compounds the benefit rather than gating on it.
+  const smokeActive      = !!(S.smokeGrace && S.smokeGrace.ticksRemaining > 0);
+  const smokeGraceBonus  = smokeActive ? (S.smokeGrace.magnitude || 0) : 0;
+  if (smokeGraceBonus > 0) chance *= (1 - smokeGraceBonus);
+
   const steadyFeetMult  = S.upgrades.steadyFeet ? 0.70 : 1.0;
   const scannerBuffMult = S.scanner.buffActive ? S.scanner.buffMagnitude : 1.0;
   // v0.0.9.6.9.20 — direct makeshift trip bump (layered on boot-drain
@@ -187,6 +195,19 @@ export function tripChanceBreakdown() {
     }
     terrMult = reduceMultWithTrample(terrMult, trampleAt(xy.x, xy.y));
   }
+  // v0.0.9.6.9.30h — exoskeleton all-terrain variant. Applied AFTER
+  // gear + trample so the stack reads: terrain penalty → infra
+  // mitigation → paving mitigation → personal equipment. Battery-
+  // gated: bonus goes cold at 0 charge but the flag stays set. Both
+  // tiers of the exoskel get this (lvl 2 adds speed on top, see
+  // main.js dotT advance).
+  let exoMult = 1.0;
+  if (S.exoskeleton && S.exoskeleton.unlocked &&
+      S.battery && S.battery.charge > 0 &&
+      C.EXO_ALLTERRAIN_TARGETS[terrain]) {
+    exoMult = C.EXO_ALLTERRAIN_MULT;
+    terrMult *= exoMult;
+  }
   chance *= terrMult;
   // v0.0.9.6.9.28 — weather now applies on BOTH ring and interior.
   // Previously gated on !onInterior, which made shortcut/river-drift
@@ -205,6 +226,17 @@ export function tripChanceBreakdown() {
     const loadRatio = Math.min(1, S.usedWeight / S.maxWeight);
     encumbranceMult = 1 + (C.TRIP_ENCUMBRANCE_MAX_MULT - 1) * loadRatio;
     chance *= encumbranceMult;
+  }
+
+  // v0.0.9.6.9.30k — "lugging a dead cart" penalty. Deployed cart
+  // with zero battery adds a flat trip-chance bump (CARRIER_DEAD_STRAIN_MULT
+  // defaults to 1.15). Stacks after encumbrance so a heavy dead cart
+  // compounds both. Battery-gated specifically on <=0, not low —
+  // player has time to recharge before the penalty kicks in.
+  let deadCartMult = 1.0;
+  if (S.carrier && S.carrier.unlocked && S.carrier.deployed && S.battery && S.battery.charge <= 0) {
+    deadCartMult = C.CARRIER_DEAD_STRAIN_MULT;
+    chance *= deadCartMult;
   }
 
   return {
@@ -230,6 +262,11 @@ export function tripChanceBreakdown() {
       encumbranceMult,
       cargoLoadPct:  S.maxWeight > 0 ? Math.round(100 * S.usedWeight / (S.maxWeight || 1)) : 0,
       usingMakeshift: !!S.usingMakeshift,
+      exoMult,       // v0.0.9.6.9.30h — exoskel all-terrain mitigation
+      deadCartMult,  // v0.0.9.6.9.30k — dead-battery deployed cart drag
+      smokeGraceBonus,  // v0.0.9.6.9.30l — active smoke-sandalweed cut (0 when inactive)
+      smokeActive,      // explicit flag so strain-tip can render an active marker
+      smokeTicks:    smokeActive ? (S.smokeGrace.ticksRemaining | 0) : 0,
     },
   };
 }

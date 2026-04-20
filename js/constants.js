@@ -27,6 +27,17 @@ export const KM_PER_EDGE       = 4.2;
 export const SANDAL_CAP_BASE     = 5;
 export const SANDAL_CAP_UPGRADED = 25;
 
+// v0.0.9.6.9.30l — smoke-sandalweed (replaces manual rest button).
+// Consumes one stash sandalweed for a timed trip-chance mitigation.
+// Magnitude: 25% flat cut (beats the 20% boot/stamina passive grace
+// max, since smoke has a resource cost). Duration: 60 ticks (~21s
+// at 350ms/tick) — enough to ride out a storm crossing or a mesa
+// descent without turning one sandalweed into a big payoff. Re-
+// smoking during an active window refreshes the duration; magnitude
+// never stacks.
+export const SMOKE_GRACE_TICKS     = 60;
+export const SMOKE_GRACE_MAGNITUDE = 0.25;
+
 // ----- environmental spawn rates (v0.0.7.18) -----
 // Centralized from zones.js. Sandalweed is a cross-zone resource with
 // design intent ("scarce overall, found mostly near wetlands and shelters")
@@ -329,7 +340,85 @@ export const SCANNER_BUFF_MAGNITUDE_T2      = 0.35;
 // a session. At 0.03/tick on a 350ms tick, full drain ≈ 19.4 min.
 // Full mechanic (per-device drain + regen + upgrade) lands with a
 // schema v6→v7 bump in a later patch.
+// v0.0.9.6.9.30f — scanner drain becomes one entry in a keyed
+// consumer map (see BATTERY_DRAIN_RATES below). BATTERY_DRAIN_PER_TICK
+// preserved for back-compat with any stray callers (none in tree as
+// of this commit, but keep the export so future readers grepping for
+// it find the migration note).
 export const BATTERY_DRAIN_PER_TICK = 0.03;
+
+// v0.0.9.6.9.30f — battery consumer registry. Each tick main.js sums
+// over the rates for consumers that are (a) unlocked and (b) actively
+// drawing — scanner whenever unlocked, exoskeleton while walking,
+// carrier while deployed. Rates tuned so:
+//   - scanner alone: full drain in ~19 min (unchanged from the .7.28
+//     prototype so existing feel holds)
+//   - exoskeleton lvl 1 (all-terrain) adds 0.08/tick while walking —
+//     meaningful drain that makes solar panel/turbine upgrades feel
+//     load-bearing; lvl 2 drops to 0.05/tick ("extended battery life")
+//   - carrier lvl 1 (deployed) draws 0.10/tick — highest single
+//     consumer, motivates stow-when-idle; lvl 2 drops to 0.06/tick
+// Full stack walking lvl 1 gear = 0.03 + 0.08 + 0.10 = 0.21/tick
+// (~2.8 min drain from full) — tight enough that players care about
+// solar/turbine regen, loose enough that idle play at night isn't
+// instant-dead.
+export const BATTERY_DRAIN_RATES = {
+  scanner:          0.03,
+  exoskeleton1:     0.08,
+  exoskeleton2:     0.05,
+  carrier1:         0.10,
+  carrier2:         0.06,
+};
+
+// v0.0.9.6.9.30h — exoskeleton tunings (pi t20/t40).
+// All-terrain mitigation at lvl 1: ×0.80 trip mult on the trio of
+// penalty terrains (mountain, rockyHills, river). Composes
+// multiplicatively with gear + trample + scanner buff.
+// Speed bonus at lvl 2: +15% dotT advance on every segment
+// (ring + shortcut + river-drift alike). Numbers land in the
+// middle of handoff's speed-variant window; tune once sim data
+// from 8-20-run batches with exoskel-unlocked arm is in hand.
+export const EXO_ALLTERRAIN_MULT = 0.80;
+export const EXO_SPEED_MULT      = 1.15;
+// Terrains the all-terrain variant mitigates. Plateau is a
+// traversal question (gear required to climb, no trip mult);
+// desert is a stamina concern, not trip. Wetland and flat
+// don't have penalty mults to begin with.
+export const EXO_ALLTERRAIN_TARGETS = { mountain: true, rockyHills: true, river: true };
+
+// v0.0.9.6.9.30i — mobile carrier (gamma t20/t40).
+// Folded shape (main-cargo slot cost when stowed) + deployed
+// capacity + which terrains the cart can roll across per tier.
+// Tuning rationale:
+//   - Lvl 1 adds +4 slots / +4 kg (matches L-pkg baseline, so
+//     "deploy the cart = effectively a second L-slot of capacity")
+//   - Lvl 2 adds +6 slots / +8 kg AND reduces folded footprint
+//     to M (2 slots / 2 kg), so the upgrade is felt both in
+//     "more stuff when rolling" and "cheaper to stow when not"
+// Incompat terrains refuse the cart — forced-stow fires; any pkgs
+// in the cart that can't move to main bag get dropped.
+export const CARRIER_STATS = {
+  1: { maxSlots: 4, maxWeight: 4, foldedSize: 'l', foldedSlots: 4, foldedKg: 4,
+       incompatibleTerrains: { mountain: true, river: true } },
+  2: { maxSlots: 6, maxWeight: 8, foldedSize: 'm', foldedSlots: 2, foldedKg: 2,
+       incompatibleTerrains: {} },
+};
+
+// Dead-battery deployed cart penalties. User call: slow the
+// courier without forcing a stow (battery can fluctuate day/
+// night; forced stows on every sunset would be disruptive).
+// Speed mult stacks multiplicatively with exoSpeed + riverDrift
+// scale. Strain factor feeds trip.js tripChanceBreakdown as a
+// new `deadCartMult` in the penalty section.
+export const CARRIER_DEAD_SPEED_MULT  = 0.50;
+export const CARRIER_DEAD_STRAIN_MULT = 1.15;
+
+// Auto-redeploy armed cooldown. After a forced stow, the courier
+// must spend this many CONSECUTIVE ticks on compatible terrain
+// before the cart re-deploys. Any incompatible-terrain tick
+// resets the counter. Manual stow doesn't arm auto-redeploy —
+// player choice stays player choice.
+export const CARRIER_AUTO_REDEPLOY_TICKS = 5;
 
 // ----- v0.0.9.5 commit 3: battery baseline solar trickle -----
 // Peak (midday) regen per tick when no gadgets are draining. Sized so a
