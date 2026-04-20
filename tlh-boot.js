@@ -287,7 +287,15 @@ function injectStyle() {
   style.id = STYLE_ID;
   style.textContent = `
     #boot {
-      background: #0b2e2d;
+      /* YoRHa-style cube matrix backdrop — radial-gradient dots
+         on a 6px grid. Alpha tuned so the grid reads as discrete
+         cubes (not a vague noise) but still sits behind text.
+         Layered over the deep teal base; vignette + scanlines
+         overlays sit on top. */
+      background-color: #0b2e2d;
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(170,210,220,0.18) 1px, transparent 1.4px);
+      background-size: 6px 6px;
       color: #77bfcf;
       font-family: 'Source Code Pro', ui-monospace, monospace;
       /* Override site boot's center-everything flex; Nier wants
@@ -367,7 +375,7 @@ function injectStyle() {
       white-space: pre;
       padding-left: 2px;
     }
-    #boot .tlh-bl .sub  { color: #3a6a68; }
+    #boot .tlh-bl .sub  { color: #7aa8a6; }
     #boot .tlh-bl .dots { color: #3a6a68; opacity: 0.75; white-space: pre; flex: 0 0 auto; }
     #boot .tlh-bl .val  { color: #77bfcf; padding-left: 4px; }
     #boot .tlh-bl .val.warn    { color: #da8bda; }
