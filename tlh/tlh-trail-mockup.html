@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>TLH trail-overlay mockup</title>
+<style>
+  :root {
+    --bg:            #11171a;
+    --text:          #b1c9c3;
+    --text-dim:      #4a7a78;
+    --accent:        #77bfcf;
+    --rule:          #1e5554;
+    --terrain-mtn:   #7a8594;
+    --terrain-rock:  #8a7f66;
+    --terrain-flat:  #2a5c5a;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Source Code Pro', ui-monospace, monospace;
+    margin: 0;
+    padding: 40px 24px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  h1 { font-size: 14px; font-weight: 700; color: var(--accent); margin: 0 0 4px 0; letter-spacing: 0.05em; }
+  .subtitle { color: var(--text-dim); margin: 0 0 32px 0; font-size: 11px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .panel {
+    border: 1px solid var(--rule);
+    padding: 16px;
+    background: #151c1e;
+  }
+  .panel h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 0 0 4px 0;
+  }
+  .panel .tag {
+    color: var(--text-dim);
+    margin: 0 0 12px 0;
+    font-size: 11px;
+  }
+  .panel svg {
+    display: block;
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+  }
+  .notes {
+    margin-top: 12px;
+    color: var(--text-dim);
+    font-size: 11px;
+    line-height: 1.7;
+  }
+  .notes strong { color: var(--text); font-weight: 600; }
+
+  /* existing (current) trample glyph tier styles for reference panel */
+  .current-walked { fill: #6a9d95; opacity: 0.70; }
+  .current-paved  { fill: #8fc3b8; opacity: 0.85; }
+  .current-carved { fill: #6fd4c0; opacity: 0.95; }
+
+  .reference {
+    max-width: 1100px;
+    margin: 32px auto 0 auto;
+    border: 1px dashed var(--rule);
+    padding: 16px;
+    background: #0f1518;
+  }
+  .reference h2 { margin: 0 0 4px 0; color: var(--text-dim); font-size: 12px; font-weight: 600; }
+  .reference .tag { color: var(--text-dim); margin: 0 0 12px 0; font-size: 11px; }
+  .comparison {
+    max-width: 1100px;
+    margin: 32px auto 0 auto;
+    padding: 16px;
+    border: 1px solid var(--rule);
+    background: #151c1e;
+  }
+  .comparison h2 { margin: 0 0 12px 0; color: var(--accent); font-size: 13px; font-weight: 600; }
+  .comparison ul { margin: 0; padding-left: 20px; }
+  .comparison li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+  <h1>TLH trail-overlay mockup &mdash; v0.0.9.6.10.x</h1>
+  <p class="subtitle">Persistent trample visual &mdash; comparing two approaches against the current implementation.</p>
+
+  <div class="grid">
+
+    <!-- ============ OPTION A ============ -->
+    <div class="panel">
+      <h2>Option A &mdash; persistent dots, scales with trample</h2>
+      <p class="tag">Trample is a separate dot layer. Opacity = trample * 0.75. Courier's live fade-trail keeps its own behavior &mdash; same cyan, just time-based.</p>
+      <svg viewBox="0 0 400 280" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <!-- background: rough biome tint -->
+        <rect x="0" y="0" width="400" height="280" fill="#11171a"/>
+        <!-- mountain patch (upper left) -->
+        <rect x="40" y="20" width="120" height="100" fill="var(--terrain-mtn)" fill-opacity="0.10"/>
+        <!-- rocky hills patch (right) -->
+        <rect x="230" y="50" width="130" height="120" fill="var(--terrain-rock)" fill-opacity="0.10"/>
+
+        <!-- base terrain glyphs (sparse, dim) -->
+        <g font-family="'Source Code Pro',monospace" font-size="6" text-anchor="middle" fill="var(--terrain-mtn)" opacity="0.40">
+          <text x="52" y="34">^</text><text x="64" y="34">^</text><text x="76" y="34">/</text><text x="88" y="34">^</text><text x="100" y="34">\</text><text x="112" y="34">^</text><text x="124" y="34">/</text><text x="136" y="34">^</text><text x="148" y="34">^</text>
+          <text x="52" y="46">/</text><text x="64" y="46">^</text><text x="76" y="46">^</text><text x="88" y="46">\</text><text x="100" y="46">^</text><text x="112" y="46">/</text><text x="124" y="46">^</text><text x="136" y="46">/</text><text x="148" y="46">^</text>
+          <text x="52" y="58">^</text><text x="64" y="58">\</text><text x="76" y="58">^</text><text x="88" y="58">^</text><text x="100" y="58">\</text><text x="112" y="58">^</text><text x="124" y="58">/</text><text x="136" y="58">^</text><text x="148" y="58">\</text>
+          <text x="52" y="70">/</text><text x="64" y="70">^</text><text x="76" y="70">/</text><text x="88" y="70">^</text><text x="100" y="70">^</text><text x="112" y="70">\</text><text x="124" y="70">^</text><text x="136" y="70">^</text><text x="148" y="70">/</text>
+          <text x="52" y="82">^</text><text x="64" y="82">^</text><text x="76" y="82">\</text><text x="88" y="82">/</text><text x="100" y="82">^</text><text x="112" y="82">^</text><text x="124" y="82">/</text><text x="136" y="82">\</text><text x="148" y="82">^</text>
+          <text x="52" y="94">\</text><text x="64" y="94">/</text><text x="76" y="94">^</text><text x="88" y="94">^</text><text x="100" y="94">\</text><text x="112" y="94">^</text><text x="124" y="94">^</text><text x="136" y="94">/</text><text x="148" y="94">^</text>
+          <text x="52" y="106">^</text><text x="64" y="106">^</text><text x="76" y="106">/</text><text x="88" y="106">\</text><text x="100" y="106">^</text><text x="112" y="106">/</text><text x="124" y="106">^</text><text x="136" y="106">^</text><text x="148" y="106">\</text>
+        </g>
+        <g font-family="'Source Code Pro',monospace" font-size="6" text-anchor="middle" fill="var(--terrain-rock)" opacity="0.45">
+          <text x="240" y="64">,</text><text x="252" y="64">.</text><text x="264" y="64">~</text><text x="276" y="64">,</text><text x="288" y="64">.</text><text x="300" y="64">`</text><text x="312" y="64">,</text><text x="324" y="64">~</text><text x="336" y="64">.</text><text x="348" y="64">,</text>
+          <text x="240" y="76">.</text><text x="252" y="76">~</text><text x="264" y="76">,</text><text x="276" y="76">.</text><text x="288" y="76">`</text><text x="300" y="76">,</text><text x="312" y="76">~</text><text x="324" y="76">,</text><text x="336" y="76">.</text><text x="348" y="76">~</text>
+          <text x="240" y="88">~</text><text x="252" y="88">.</text><text x="264" y="88">`</text><text x="276" y="88">,</text><text x="288" y="88">.</text><text x="300" y="88">~</text><text x="312" y="88">.</text><text x="324" y="88">,</text><text x="336" y="88">~</text><text x="348" y="88">.</text>
+          <text x="240" y="100">.</text><text x="252" y="100">,</text><text x="264" y="100">.</text><text x="276" y="100">~</text><text x="288" y="100">,</text><text x="300" y="100">.</text><text x="312" y="100">,</text><text x="324" y="100">~</text><text x="336" y="100">.</text><text x="348" y="100">`</text>
+          <text x="240" y="112">,</text><text x="252" y="112">~</text><text x="264" y="112">.</text><text x="276" y="112">,</text><text x="288" y="112">~</text><text x="300" y="112">.</text><text x="312" y="112">~</text><text x="324" y="112">,</text><text x="336" y="112">.</text><text x="348" y="112">~</text>
+          <text x="240" y="124">~</text><text x="252" y="124">.</text><text x="264" y="124">,</text><text x="276" y="124">.</text><text x="288" y="124">~</text><text x="300" y="124">,</text><text x="312" y="124">.</text><text x="324" y="124">`</text><text x="336" y="124">,</text><text x="348" y="124">.</text>
+          <text x="240" y="136">.</text><text x="252" y="136">~</text><text x="264" y="136">,</text><text x="276" y="136">.</text><text x="288" y="136">~</text><text x="300" y="136">,</text><text x="312" y="136">.</text><text x="324" y="136">~</text><text x="336" y="136">.</text><text x="348" y="136">,</text>
+        </g>
+
+        <!-- PERSISTENT TRAMPLE (Option A) — opacity scales with tier -->
+        <!-- Heavily carved path through mountain pass -->
+        <g fill="#77bfcf">
+          <!-- carved ribbon (paved+) through mountain — strong dots -->
+          <circle cx="52" cy="46"  r="1.4" opacity="0.75"/>
+          <circle cx="64" cy="58"  r="1.4" opacity="0.75"/>
+          <circle cx="76" cy="70"  r="1.4" opacity="0.75"/>
+          <circle cx="88" cy="82"  r="1.4" opacity="0.75"/>
+          <circle cx="100" cy="94" r="1.4" opacity="0.75"/>
+          <circle cx="112" cy="94" r="1.4" opacity="0.75"/>
+          <circle cx="124" cy="94" r="1.4" opacity="0.75"/>
+          <circle cx="136" cy="94" r="1.4" opacity="0.75"/>
+          <!-- paved approach on mountain (medium) -->
+          <circle cx="52" cy="58"  r="1.3" opacity="0.50"/>
+          <circle cx="64" cy="70"  r="1.3" opacity="0.50"/>
+          <circle cx="76" cy="82"  r="1.3" opacity="0.50"/>
+          <circle cx="88" cy="94"  r="1.3" opacity="0.50"/>
+          <circle cx="148" cy="94" r="1.3" opacity="0.50"/>
+          <!-- lightly walked (faint) — a recently-used side spur -->
+          <circle cx="100" cy="46" r="1.2" opacity="0.22"/>
+          <circle cx="112" cy="46" r="1.2" opacity="0.22"/>
+          <circle cx="124" cy="46" r="1.2" opacity="0.22"/>
+          <circle cx="136" cy="46" r="1.2" opacity="0.22"/>
+          <circle cx="148" cy="46" r="1.2" opacity="0.22"/>
+          <circle cx="148" cy="58" r="1.2" opacity="0.22"/>
+          <circle cx="148" cy="70" r="1.2" opacity="0.22"/>
+          <circle cx="148" cy="82" r="1.2" opacity="0.22"/>
+
+          <!-- rocky hills — walked dots scattered (peer + own traffic) -->
+          <circle cx="252" cy="88"  r="1.2" opacity="0.28"/>
+          <circle cx="264" cy="88"  r="1.2" opacity="0.28"/>
+          <circle cx="276" cy="88"  r="1.2" opacity="0.32"/>
+          <circle cx="288" cy="88"  r="1.2" opacity="0.36"/>
+          <circle cx="300" cy="88"  r="1.3" opacity="0.45"/>
+          <circle cx="312" cy="88"  r="1.3" opacity="0.45"/>
+          <circle cx="324" cy="88"  r="1.3" opacity="0.45"/>
+          <circle cx="252" cy="100" r="1.2" opacity="0.22"/>
+          <circle cx="264" cy="100" r="1.2" opacity="0.22"/>
+          <circle cx="312" cy="100" r="1.2" opacity="0.32"/>
+          <circle cx="324" cy="100" r="1.2" opacity="0.32"/>
+        </g>
+
+        <!-- LIVE COURIER TRAIL (the existing fade trail) — fading behind courier -->
+        <g fill="#77bfcf">
+          <circle cx="200" cy="200" r="1.3" opacity="0.95"/> <!-- courier now -->
+          <circle cx="212" cy="200" r="1.3" opacity="0.80"/>
+          <circle cx="224" cy="200" r="1.3" opacity="0.65"/>
+          <circle cx="236" cy="212" r="1.3" opacity="0.50"/>
+          <circle cx="248" cy="212" r="1.3" opacity="0.35"/>
+          <circle cx="260" cy="224" r="1.3" opacity="0.20"/>
+          <circle cx="272" cy="224" r="1.3" opacity="0.10"/>
+        </g>
+        <!-- courier glyph -->
+        <text x="200" y="203" font-family="'Source Code Pro',monospace" font-size="11" text-anchor="middle" fill="#77bfcf" font-weight="700">@</text>
+
+        <!-- labels -->
+        <text x="200" y="20" font-family="'Source Code Pro',monospace" font-size="9" text-anchor="middle" fill="var(--text-dim)">MOUNTAIN &mdash; carved pass visible, spur faintly walked</text>
+        <text x="295" y="160" font-family="'Source Code Pro',monospace" font-size="9" text-anchor="middle" fill="var(--text-dim)">ROCKY HILLS &mdash; ongoing traffic</text>
+        <text x="200" y="272" font-family="'Source Code Pro',monospace" font-size="9" text-anchor="middle" fill="var(--text-dim)">courier &ldquo;@&rdquo; with live fade-trail behind</text>
+      </svg>
+      <div class="notes">
+        <strong>What you see:</strong> Persistent cyan dots at every trampled cell. Dense in the mountain pass (heavily carved, bright), lighter on the spur (recently walked, faint). Rocky hills show a busy area still building up. Courier's fade-trail uses the same dot visual but disappears over ~8s.<br>
+        <strong>Tradeoff:</strong> Simple rule, easy to read. But there's no visual distinction between "I walked here" vs "peer walked here" vs "I'm walking here now" &mdash; they all merge into one cyan dot layer.
+      </div>
+    </div>
+
+    <!-- ============ OPTION B ============ -->
+    <div class="panel">
+      <h2>Option B &mdash; trail dots fade to a trample floor</h2>
+      <p class="tag">Single mechanic. Courier drops trail dots as usual; instead of fading to zero, each dot's opacity floors at <code>trample[cell]</code>. No separate overlay layer.</p>
+      <svg viewBox="0 0 400 280" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="400" height="280" fill="#11171a"/>
+        <rect x="40" y="20" width="120" height="100" fill="var(--terrain-mtn)" fill-opacity="0.10"/>
+        <rect x="230" y="50" width="130" height="120" fill="var(--terrain-rock)" fill-opacity="0.10"/>
+
+        <!-- base terrain glyphs (same as A) -->
+        <g font-family="'Source Code Pro',monospace" font-size="6" text-anchor="middle" fill="var(--terrain-mtn)" opacity="0.40">
+          <text x="52" y="34">^</text><text x="64" y="34">^</text><text x="76" y="34">/</text><text x="88" y="34">^</text><text x="100" y="34">\</text><text x="112" y="34">^</text><text x="124" y="34">/</text><text x="136" y="34">^</text><text x="148" y="34">^</text>
+          <text x="52" y="46">/</text><text x="64" y="46">^</text><text x="76" y="46">^</text><text x="88" y="46">\</text><text x="100" y="46">^</text><text x="112" y="46">/</text><text x="124" y="46">^</text><text x="136" y="46">/</text><text x="148" y="46">^</text>
+          <text x="52" y="58">^</text><text x="64" y="58">\</text><text x="76" y="58">^</text><text x="88" y="58">^</text><text x="100" y="58">\</text><text x="112" y="58">^</text><text x="124" y="58">/</text><text x="136" y="58">^</text><text x="148" y="58">\</text>
+          <text x="52" y="70">/</text><text x="64" y="70">^</text><text x="76" y="70">/</text><text x="88" y="70">^</text><text x="100" y="70">^</text><text x="112" y="70">\</text><text x="124" y="70">^</text><text x="136" y="70">^</text><text x="148" y="70">/</text>
+          <text x="52" y="82">^</text><text x="64" y="82">^</text><text x="76" y="82">\</text><text x="88" y="82">/</text><text x="100" y="82">^</text><text x="112" y="82">^</text><text x="124" y="82">/</text><text x="136" y="82">\</text><text x="148" y="82">^</text>
+          <text x="52" y="94">\</text><text x="64" y="94">/</text><text x="76" y="94">^</text><text x="88" y="94">^</text><text x="100" y="94">\</text><text x="112" y="94">^</text><text x="124" y="94">^</text><text x="136" y="94">/</text><text x="148" y="94">^</text>
+          <text x="52" y="106">^</text><text x="64" y="106">^</text><text x="76" y="106">/</text><text x="88" y="106">\</text><text x="100" y="106">^</text><text x="112" y="106">/</text><text x="124" y="106">^</text><text x="136" y="106">^</text><text x="148" y="106">\</text>
+        </g>
+        <g font-family="'Source Code Pro',monospace" font-size="6" text-anchor="middle" fill="var(--terrain-rock)" opacity="0.45">
+          <text x="240" y="64">,</text><text x="252" y="64">.</text><text x="264" y="64">~</text><text x="276" y="64">,</text><text x="288" y="64">.</text><text x="300" y="64">`</text><text x="312" y="64">,</text><text x="324" y="64">~</text><text x="336" y="64">.</text><text x="348" y="64">,</text>
+          <text x="240" y="76">.</text><text x="252" y="76">~</text><text x="264" y="76">,</text><text x="276" y="76">.</text><text x="288" y="76">`</text><text x="300" y="76">,</text><text x="312" y="76">~</text><text x="324" y="76">,</text><text x="336" y="76">.</text><text x="348" y="76">~</text>
+          <text x="240" y="88">~</text><text x="252" y="88">.</text><text x="264" y="88">`</text><text x="276" y="88">,</text><text x="288" y="88">.</text><text x="300" y="88">~</text><text x="312" y="88">.</text><text x="324" y="88">,</text><text x="336" y="88">~</text><text x="348" y="88">.</text>
+          <text x="240" y="100">.</text><text x="252" y="100">,</text><text x="264" y="100">.</text><text x="276" y="100">~</text><text x="288" y="100">,</text><text x="300" y="100">.</text><text x="312" y="100">,</text><text x="324" y="100">~</text><text x="336" y="100">.</text><text x="348" y="100">`</text>
+          <text x="240" y="112">,</text><text x="252" y="112">~</text><text x="264" y="112">.</text><text x="276" y="112">,</text><text x="288" y="112">~</text><text x="300" y="112">.</text><text x="312" y="112">~</text><text x="324" y="112">,</text><text x="336" y="112">.</text><text x="348" y="112">~</text>
+          <text x="240" y="124">~</text><text x="252" y="124">.</text><text x="264" y="124">,</text><text x="276" y="124">.</text><text x="288" y="124">~</text><text x="300" y="124">,</text><text x="312" y="124">.</text><text x="324" y="124">`</text><text x="336" y="124">,</text><text x="348" y="124">.</text>
+          <text x="240" y="136">.</text><text x="252" y="136">~</text><text x="264" y="136">,</text><text x="276" y="136">.</text><text x="288" y="136">~</text><text x="300" y="136">,</text><text x="312" y="136">.</text><text x="324" y="136">~</text><text x="336" y="136">.</text><text x="348" y="136">,</text>
+        </g>
+
+        <!-- Option B: courier trail with floored fade — the SAME dots persist at a floor -->
+        <!-- Mountain pass: floor values high (carved) — dots stay bright after fade -->
+        <g fill="#77bfcf">
+          <!-- courier dropped these dots on prior laps; they faded DOWN to the trample floor -->
+          <!-- Heavy path (floor ~0.75) -->
+          <circle cx="52" cy="46"  r="1.3" opacity="0.75"/>
+          <circle cx="64" cy="58"  r="1.3" opacity="0.75"/>
+          <circle cx="76" cy="70"  r="1.3" opacity="0.75"/>
+          <circle cx="88" cy="82"  r="1.3" opacity="0.75"/>
+          <circle cx="100" cy="94" r="1.3" opacity="0.75"/>
+          <circle cx="112" cy="94" r="1.3" opacity="0.75"/>
+          <circle cx="124" cy="94" r="1.3" opacity="0.75"/>
+          <circle cx="136" cy="94" r="1.3" opacity="0.75"/>
+          <!-- Medium path (floor ~0.50) -->
+          <circle cx="52" cy="58"  r="1.3" opacity="0.50"/>
+          <circle cx="64" cy="70"  r="1.3" opacity="0.50"/>
+          <circle cx="76" cy="82"  r="1.3" opacity="0.50"/>
+          <circle cx="88" cy="94"  r="1.3" opacity="0.50"/>
+          <circle cx="148" cy="94" r="1.3" opacity="0.50"/>
+          <!-- Single-visit spur (floor ~0.05 — barely visible) -->
+          <circle cx="100" cy="46" r="1.3" opacity="0.06"/>
+          <circle cx="112" cy="46" r="1.3" opacity="0.06"/>
+          <circle cx="124" cy="46" r="1.3" opacity="0.06"/>
+          <circle cx="136" cy="46" r="1.3" opacity="0.06"/>
+          <circle cx="148" cy="46" r="1.3" opacity="0.06"/>
+          <circle cx="148" cy="58" r="1.3" opacity="0.08"/>
+          <circle cx="148" cy="70" r="1.3" opacity="0.08"/>
+          <circle cx="148" cy="82" r="1.3" opacity="0.08"/>
+
+          <!-- ROCKY HILLS — NONE visible, because the player hasn't walked this region -->
+          <!-- If a peer walked here, those peer-trample cells would also be invisible -->
+          <!-- until the player walks there, at which point a dot drops and fades to floor -->
+        </g>
+
+        <!-- live trail (currently falling from full → floor) — mid-fade -->
+        <g fill="#77bfcf">
+          <circle cx="200" cy="200" r="1.3" opacity="0.95"/> <!-- courier now -->
+          <circle cx="212" cy="200" r="1.3" opacity="0.80"/>
+          <circle cx="224" cy="200" r="1.3" opacity="0.65"/>
+          <circle cx="236" cy="212" r="1.3" opacity="0.50"/>
+          <circle cx="248" cy="212" r="1.3" opacity="0.35"/>
+          <circle cx="260" cy="224" r="1.3" opacity="0.20"/>
+          <circle cx="272" cy="224" r="1.3" opacity="0.10"/>
+        </g>
+        <text x="200" y="203" font-family="'Source Code Pro',monospace" font-size="11" text-anchor="middle" fill="#77bfcf" font-weight="700">@</text>
+
+        <text x="200" y="20" font-family="'Source Code Pro',monospace" font-size="9" text-anchor="middle" fill="var(--text-dim)">MOUNTAIN &mdash; I&rsquo;ve been here before; faded to floor</text>
+        <text x="295" y="160" font-family="'Source Code Pro',monospace" font-size="9" text-anchor="middle" fill="#da8bda" opacity="0.75">ROCKY HILLS &mdash; peer-tramped cells are INVISIBLE</text>
+        <text x="295" y="172" font-family="'Source Code Pro',monospace" font-size="9" text-anchor="middle" fill="#da8bda" opacity="0.75">until I&rsquo;ve walked here myself</text>
+        <text x="200" y="272" font-family="'Source Code Pro',monospace" font-size="9" text-anchor="middle" fill="var(--text-dim)">courier &ldquo;@&rdquo; with live fade-trail behind</text>
+      </svg>
+      <div class="notes">
+        <strong>What you see:</strong> Same cyan dots as A in the mountain area — but these are literally the courier's own trail dots that faded to their trample-floor instead of to zero. Heavy path cells look near-identical to A. Low-trample cells nearly-but-not-fully-faded. Rocky hills (peer-tramped but unvisited-by-me) render nothing.<br>
+        <strong>Tradeoff:</strong> Unifies mechanisms: one dot system, one trail logic. But peer trample is invisible until you visit. For a solo player that's fine; for the multiplayer &ldquo;someone paved a pass&rdquo; moment to land, Option A is stronger.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ CURRENT IMPL reference ============ -->
+  <div class="reference">
+    <h2>For reference &mdash; the current implementation</h2>
+    <p class="tag">Three distinct glyph tiers (<code>,</code> → <code>;</code> → <code>:</code>) replace the base terrain glyph. This is what feels busy.</p>
+    <svg viewBox="0 0 400 120" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="400" height="120" fill="#11171a"/>
+      <g font-family="'Source Code Pro',monospace" font-size="6" text-anchor="middle" fill="var(--terrain-mtn)" opacity="0.40">
+        <text x="40" y="34">^</text><text x="52" y="34">^</text><text x="64" y="34">/</text><text x="76" y="34">^</text><text x="88" y="34">\</text><text x="100" y="34">^</text><text x="112" y="34">/</text>
+      </g>
+      <!-- current: glyph SWAP at tier -->
+      <g font-family="'Source Code Pro',monospace" font-size="6" text-anchor="middle">
+        <text x="40" y="46" class="current-walked">,</text>
+        <text x="52" y="58" class="current-walked">,</text>
+        <text x="64" y="70" class="current-paved">;</text>
+        <text x="76" y="82" class="current-paved">;</text>
+        <text x="88" y="94" class="current-carved">:</text>
+        <text x="100" y="94" class="current-carved">:</text>
+        <text x="112" y="94" class="current-carved">:</text>
+      </g>
+      <text x="200" y="110" font-family="'Source Code Pro',monospace" font-size="9" text-anchor="middle" fill="var(--text-dim)">
+        existing: three punctuation tiers replace base glyph; reads as noise
+      </text>
+    </svg>
+  </div>
+
+  <!-- ============ SIDE-BY-SIDE ANALYSIS ============ -->
+  <div class="comparison">
+    <h2>Quick comparison</h2>
+    <ul>
+      <li><strong>Option A</strong> &mdash; separate persistent-dot layer. Peer trample shows up. Heavy visual consistency between "live trail" and "persistent trample." Two data sources (live trailCells + trample map) collapsed into one visual language.</li>
+      <li><strong>Option B</strong> &mdash; trail dots floor at trample. One mechanic, one layer. Peer trample is invisible until visited &mdash; so the multiplayer "paved it for you" feel is muted. Better for a solo feel.</li>
+      <li><strong>Both</strong> drop the <code>,</code> / <code>;</code> / <code>:</code> glyph-swap, which was the main busy-ness complaint.</li>
+      <li><strong>Both</strong> use the existing cyan <code>#77bfcf</code> &mdash; no new palette.</li>
+      <li><strong>Visibility floor</strong>: I've shown both with "any trample > 0 shows, just very faint" per your &ldquo;walking anywhere should leave a path&rdquo; call. Paving still takes real effort in either approach &mdash; it's the opacity that differentiates.</li>
+    </ul>
+  </div>
+
+</body>
+</html>

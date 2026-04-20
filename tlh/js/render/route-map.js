@@ -26,7 +26,10 @@ import {
   GEAR_GLYPH, gearWear, gearWearTier,
   cellKeyFromCoords, mesaOutcropAt,
 } from '../data/terrain.js';
-import { trampleTier } from '../trail.js';
+// v0.0.9.6.10.8 — trampleTier no longer consumed here (glyph-swap
+// dropped in favor of the persistent-dot layer). trampleAt is used
+// to floor the live trail's fade opacity.
+import { trampleAt } from '../trail.js';
 // v0.0.9.6.10.7 — use the density-filtered view of placed gear so
 // render matches placedGearAt() gameplay lookup. Full pool lives
 // on S.placedGear (persisted, broadcast-addressable); this is the
@@ -467,20 +470,15 @@ function drawInterior(svg, ns) {
       const kind  = terrainAt(xx, yy);
       const pool  = TERRAIN_GLYPHS[kind];
       const ch    = pool[Math.floor(rand() * pool.length)];
-      // v0.0.9.6 commit 6 — trample overlay. Walked/paved/carved
-      // cells shift glyph + color + opacity so the world shows
-      // where feet have gone. Fresh cells fall through to base
-      // terrain rendering below.
-      const trample = (S.interiorTrample && S.interiorTrample[cellKeyFromCoords(xx, yy)]) || 0;
-      const tier    = trampleTier(trample);
+      // v0.0.9.6.10.8 — trample glyph-swap removed. Trample now
+      // renders as a dedicated cyan dot layer (#routeTrample) that
+      // tracks live courier trail + persistent trample in one
+      // visual language. Base terrain glyph stays visible on all
+      // cells (fresh or trampled) so the biome identity doesn't get
+      // hidden once a cell is walked. topographicMap gate still
+      // applies for the unowned-map pre-reveal state.
       let ch2, fill, opacity;
-      if (tier === 'carved') {
-        ch2 = ':'; fill = '#6fd4c0'; opacity = 0.95;
-      } else if (tier === 'paved') {
-        ch2 = ';'; fill = '#8fc3b8'; opacity = 0.85;
-      } else if (tier === 'walked') {
-        ch2 = ','; fill = '#6a9d95'; opacity = 0.70;
-      } else if (!hasMap) {
+      if (!hasMap) {
         // Pre-topographicMap: uniform muted `.` — terrain is there,
         // but the player doesn't know which kind yet. A single color
         // that reads as "unmapped ground" without blending into the
@@ -518,6 +516,20 @@ export function drawRouteMap() {
   // v0.0.9.2 — interior texture plotted first so it renders behind
   // the ring and nodes.
   drawInterior(svg, ns);
+
+  // v0.0.9.6.10.8 — persistent trample layer. Same cyan dot visual
+  // as the live fade trail, but sourced from S.interiorTrample so
+  // worn-in cells keep a residual dot forever. Opacity scales with
+  // trample value so "walking anywhere leaves a path" (faint) while
+  // "paving it" reads as a visibly brighter trace. Renders first so
+  // the live trail layer paints on top.
+  const trampleG = document.createElementNS(ns, 'g');
+  trampleG.setAttribute('id', 'routeTrample');
+  svg.appendChild(trampleG);
+  // Initial paint — tickRouteInteractions repaints this every
+  // TRAMPLE_REPAINT_INTERVAL ticks, but we want it visible at
+  // drawRouteMap time (reload / topographicMap purchase redraw).
+  renderTrampleCells();
 
   // v0.0.9.3 — trail group (dotted fading path behind the courier on
   // shortcut segments) renders above interior, below ring + nodes.
@@ -1026,7 +1038,13 @@ function renderShortcutPathPreview() {
   g.appendChild(path);
 }
 
-/** Render the trail cells — small fading cyan dots dropped behind the courier. */
+/** Render the trail cells — small fading cyan dots dropped behind
+ *  the courier. v0.0.9.6.10.8: fade opacity now FLOORS at the
+ *  cell's trample value (×TRAMPLE_VISUAL_SCALE), so worn-in cells
+ *  keep a residual dot even after the fade window expires. Fresh
+ *  cells still fade to nothing. The persistent-trample layer
+ *  (#routeTrample) handles cells the courier hasn't revisited
+ *  recently enough to still have an active trail dot. */
 function renderTrailCells() {
   const g = document.getElementById('routeTrail');
   if (!g) return;
@@ -1035,11 +1053,63 @@ function renderTrailCells() {
   if (!trail || trail.length === 0) return;
   const ns = 'http://www.w3.org/2000/svg';
   for (const tc of trail) {
-    const opacity = Math.max(0, 1 - tc.age / C.TRAIL_FADE_TICKS);
-    if (opacity < 0.03) continue;
+    const fadeOpacity = Math.max(0, 1 - tc.age / C.TRAIL_FADE_TICKS);
+    if (fadeOpacity < 0.03) continue;
     const c = document.createElementNS(ns, 'circle');
     c.setAttribute('cx', tc.x);
     c.setAttribute('cy', tc.y);
+    c.setAttribute('r', '1.3');
+    c.setAttribute('fill', '#77bfcf');
+    c.setAttribute('opacity', fadeOpacity.toFixed(3));
+    g.appendChild(c);
+  }
+}
+
+// v0.0.9.6.10.8 — repaint cadence for the trample layer. Trample
+// advances at TRAMPLE_PER_STEP (0.005) per courier-tick; visual
+// deltas within ~10 ticks are imperceptible. Repainting every
+// 10 ticks cuts DOM churn ~10x on heavy saves (hundreds of
+// trampled cells) without any visible lag.
+const TRAMPLE_REPAINT_INTERVAL = 10;
+
+// v0.0.9.6.10.8 — visual scale for the trample-to-opacity mapping.
+// A cell at trample=1 (fully carved) renders at 0.9 opacity; trample
+// tiers below scale linearly. 0.9 rather than 1.0 so even a carved
+// cell still feels like a worn trace, not a filled dot.
+const TRAMPLE_VISUAL_SCALE = 0.9;
+// Below this trample value a cell doesn't render at all — avoids a
+// layer of near-invisible dots peppered across every cell the
+// courier has ever breathed near. TRAMPLE_PER_STEP = 0.005, so
+// ~1 visit puts a cell at 0.005 (invisible) and ~4 visits hit 0.02
+// (first faint appearance). Matches "walking anywhere leaves a
+// path" while still gating away single-step noise.
+const TRAMPLE_VISUAL_FLOOR = 0.02;
+
+/** Render the persistent trample layer. Iterates S.interiorTrample
+ *  and paints one cyan dot per cell, opacity proportional to trample
+ *  value. Cells under TRAMPLE_VISUAL_FLOOR skipped. Same dot size +
+ *  color as the live trail so the two layers read as one system. */
+function renderTrampleCells() {
+  const g = document.getElementById('routeTrample');
+  if (!g) return;
+  g.innerHTML = '';
+  const table = S.interiorTrample;
+  if (!table) return;
+  const ns = 'http://www.w3.org/2000/svg';
+  for (const key in table) {
+    const v = table[key];
+    if (!v || v < TRAMPLE_VISUAL_FLOOR) continue;
+    // Key is "x,y" — parse back out. cellKeyFromCoords produces this
+    // exact shape so splitting on comma + number-coerce is safe.
+    const ix = key.indexOf(',');
+    if (ix <= 0) continue;
+    const x = +key.slice(0, ix);
+    const y = +key.slice(ix + 1);
+    if (!isFinite(x) || !isFinite(y)) continue;
+    const opacity = Math.min(TRAMPLE_VISUAL_SCALE, v * TRAMPLE_VISUAL_SCALE);
+    const c = document.createElementNS(ns, 'circle');
+    c.setAttribute('cx', x);
+    c.setAttribute('cy', y);
     c.setAttribute('r', '1.3');
     c.setAttribute('fill', '#77bfcf');
     c.setAttribute('opacity', opacity.toFixed(3));
@@ -1068,6 +1138,13 @@ export function tickRouteInteractions() {
     while (trail.length > 0 && trail[0].age > C.TRAIL_FADE_TICKS) trail.shift();
     renderTrailCells();
   }
+
+  // v0.0.9.6.10.8 — persistent trample layer refresh. Repaints every
+  // TRAMPLE_REPAINT_INTERVAL ticks — not every tick, since trample
+  // increments are tiny (0.005/step) and the visual delta between
+  // ticks is imperceptible. Limits DOM churn on heavy saves where
+  // S.interiorTrample can have hundreds of entries.
+  if ((S.ticks % TRAMPLE_REPAINT_INTERVAL) === 0) renderTrampleCells();
 
   // Keep the shortcut-curve preview in sync while the segment advances.
   if (seg.type === 'shortcut') renderShortcutPathPreview();
