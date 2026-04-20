@@ -157,24 +157,33 @@ function dispatch(cmd, args) {
         return { ok };
       });
     }
-    // v0.0.9.6.10.10 — battery-economy scenario harness. Runs three
-    // arms back-to-back and prints a side-by-side comparison:
-    //   A) no upgrades             — baseline drain, no bonus regen
-    //   B) all drain consumers     — scanner + exo + carrier, both
-    //                                exo + carrier leveled up so the
-    //                                reduced-draw variant kicks in
-    //   C) drain + regen bonuses   — B plus solarPanel + rainfallTurbine
-    // Metrics: mean time at 0 charge, mean time at full, mean charge,
-    // delivered count. Args: { runs, loops, ticks }.
+    // v0.0.9.6.10.10 — battery-economy scenario harness.
+    // v0.0.9.6.10.11 — reshaped from 3-arm (A/B/C) to 5-stage
+    // accumulating timeline. A (no upgrades) dropped since it read
+    // 100% charge trivially (nothing draws). Stages simulate a
+    // realistic build order: scanner first (xi t20), then exo (pi
+    // t20/t40), then carrier (gamma t20/t40), then solar (delta
+    // t20), then rainfall turbine (delta t40). Each stage includes
+    // all prior upgrades, so diffs between rows are the marginal
+    // impact of adding the next upgrade to the pile.
+    // Metrics: mean time at 0 charge, mean time at full, mean
+    // charge, delivered, trips. Args: { runs, loops, ticks }.
     case 'batteryEconomy': {
       return import('./sim.js').then(async mod => {
         const runs  = (args && args.runs)  || 8;
         const loops = (args && args.loops) || 10;
         const ticks = (args && args.ticks) || 60000;
+        const scanner  = ['scannerT1', 'scannerT2'];
+        const exo      = scanner.concat(['exoskeleton1', 'exoskeleton2']);
+        const carrier  = exo.concat(['mobileCarrier1', 'mobileCarrier2']);
+        const solar    = carrier.concat(['solarPanel']);
+        const turbine  = solar.concat(['rainfallTurbine']);
         const scenarios = [
-          { name: 'A_no_upgrades',      preown: [] },
-          { name: 'B_drain_only',       preown: ['scannerT1', 'scannerT2', 'exoskeleton1', 'exoskeleton2', 'mobileCarrier1', 'mobileCarrier2'] },
-          { name: 'C_drain_plus_gain',  preown: ['scannerT1', 'scannerT2', 'exoskeleton1', 'exoskeleton2', 'mobileCarrier1', 'mobileCarrier2', 'solarPanel', 'rainfallTurbine'] },
+          { name: 'T1_scanner',        preown: scanner },
+          { name: 'T2_plus_exo',       preown: exo },
+          { name: 'T3_plus_carrier',   preown: carrier },
+          { name: 'T4_plus_solar',     preown: solar },
+          { name: 'T5_plus_turbine',   preown: turbine },
         ];
         addLog(`<span class="log-hi">battery economy scenarios</span>: ${runs}\u00d7${loops} loops, cap ${ticks} ticks each`);
         const results = [];
