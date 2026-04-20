@@ -20,7 +20,8 @@
 'use strict';
 
 import { S } from '../state.js';
-import { STATUS_COLORS } from '../data/glyphs.js';
+import { statusColor } from '../data/glyphs.js';
+import { tlhPalette } from '../palette.js';
 import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js';
 import { getDisplayLabel } from '../identification.js';
 import { bindCargoDragSource } from './drag.js';
@@ -82,7 +83,7 @@ export function updateHUD() {
   els.scrip.textContent     = S.scrip + '\u00a2';
   els.walked.textContent    = (Math.round(S.distKm * 10) / 10) + 'km';
   els.status.textContent    = S.status;
-  els.status.style.color    = STATUS_COLORS[S.status] || '#b1c9c3';
+  els.status.style.color    = statusColor(S.status) || tlhPalette().text;
   Upg.renderUpgrades();
 }
 
@@ -378,11 +379,13 @@ function escKg(s) {
 function buildCargoKgHTML() {
   const used = S.usedWeight || 0;
   const max  = S.maxWeight  || 0;
-  const loadPct = max > 0 ? (used / max) : 0;
-  // Echo the ribbon's own tone so the head reads the same way the bar does.
-  const headClass = loadPct <= 0.5 ? '' : loadPct <= 0.8 ? ' rich-tip-hot' : ' rich-tip-hot';
+  // Plain .rich-tip-head (cyan) — informational, not severity-coded.
+  // The ribbon underneath already carries the teal/purple/pink
+  // severity channel; repeating it in the head would be noise. The
+  // dedicated .rich-tip-head-strain class (v0.0.9.6.9.30) exists for
+  // tooltips where severity is the primary signal; kg isn't that.
   const lines = [];
-  lines.push(`<div class="rich-tip-head${headClass}">load ${used}/${max} kg</div>`);
+  lines.push(`<div class="rich-tip-head">load ${used}/${max} kg</div>`);
   if (!S.inventory || S.inventory.length === 0) {
     lines.push('<div class="rich-tip-dim">bag empty</div>');
     return lines.join('');

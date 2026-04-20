@@ -28,6 +28,8 @@ import {
 } from '../data/terrain.js';
 import { trampleTier } from '../trail.js';
 import { speedMultiplier } from '../stamina.js';
+import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js';
+import { tlhPalette } from '../palette.js';
 
 const els = S._transient.els;
 
@@ -572,11 +574,13 @@ export function drawRouteMap() {
     t.setAttribute('text-anchor', 'middle');
     t.setAttribute('font-family', "'Source Code Pro',monospace");
     t.setAttribute('font-size', '13'); t.setAttribute('font-weight', '700');
-    t.setAttribute('fill', isCurrent ? '#77bfcf'
-                          : stage >= 3 ? '#4a7a78'
-                          : stage >= 2 ? '#3a6a68'
-                          : stage >= 1 ? '#2a5c5a'
-                          : '#2a5c5a');
+    // v0.0.9.6.9.30 — node glyph fill via palette tokens.
+    const _p = tlhPalette();
+    t.setAttribute('fill', isCurrent ? _p.accent
+                          : stage >= 3 ? _p.textMid
+                          : stage >= 2 ? _p.textDim
+                          : stage >= 1 ? _p.textFaint
+                          : _p.textFaint);
     t.textContent = (stage >= 1 || n.id === '?') ? nodeGlyph(n.id) : '?';
 
     // v0.0.9.2 — labels always sit above (for upper-half nodes) or
@@ -592,10 +596,11 @@ export function drawRouteMap() {
     lbl.setAttribute('text-anchor', anchor);
     lbl.setAttribute('font-family', "'Source Code Pro',monospace");
     lbl.setAttribute('font-size', '11');
-    lbl.setAttribute('fill', isCurrent ? '#77bfcf'
-                            : stage >= 3 ? '#3a6a68'
-                            : stage >= 2 ? '#2a5c5a'
-                            : '#1e5554');
+    // v0.0.9.6.9.30 — node label fill via palette tokens.
+    lbl.setAttribute('fill', isCurrent ? _p.accent
+                            : stage >= 3 ? _p.textDim
+                            : stage >= 2 ? _p.textFaint
+                            : _p.rule);
     lbl.textContent = stage === 0 ? '' : getDisplayLabel(n.id);
 
     g.appendChild(c); g.appendChild(t); g.appendChild(lbl);
@@ -607,7 +612,9 @@ export function drawRouteMap() {
 
   const dot = document.createElementNS(ns, 'circle');
   dot.setAttribute('id', 'routeDot'); dot.setAttribute('r', '4.5');
-  dot.setAttribute('fill', '#e0eeec'); dot.setAttribute('stroke', '#77bfcf'); dot.setAttribute('stroke-width', '1.4');
+  // v0.0.9.6.9.30 — current-pos dot fill/stroke via palette tokens.
+  const _pdot = tlhPalette();
+  dot.setAttribute('fill', _pdot.textBright); dot.setAttribute('stroke', _pdot.accent); dot.setAttribute('stroke-width', '1.4');
   svg.appendChild(dot);
   updateRouteDot();
 
@@ -1029,14 +1036,26 @@ export function tickRouteInteractions() {
 // v0.0.9.3 — TOOLTIP + CLICK / HOVER WIRING
 // ============================================================
 
+// v0.0.9.6.9.30 — migrated from #routeTooltip to the unified
+// rich-tooltip system. Uses placement: 'cursor' so the tooltip
+// follows the mouse over node hit-targets, multiline for the
+// 220px wrap that the longer comparison body needs. Class names
+// re-mapped: tip-label → rich-tip-head, tip-row → rich-tip-line,
+// tip-cta → rich-tip-ok, tip-dim → rich-tip-dim.
 function renderRouteTooltip() {
-  const tip = document.getElementById('routeTooltip');
-  if (!tip) return;
   const id = S._transient.hoveredNodeId;
-  if (!id) { tip.classList.remove('on'); return; }
+  if (!id) { hideRichTooltip(); return; }
 
   const node = S.routeNodes.find(n => n.id === id);
-  if (!node) { tip.classList.remove('on'); return; }
+  if (!node) { hideRichTooltip(); return; }
+
+  // Find a stable target for showRichTooltip. The route-node-hit
+  // SVG element drives the hover; identity-tag by id keeps
+  // re-shows in cursor mode position-only (no flicker).
+  const svg = els.routeSvg;
+  const hit = svg ? svg.querySelector(`.route-node-hit[data-id="${id}"]`) : null;
+  if (!hit) { hideRichTooltip(); return; }
+
   const label = (getNodeStage(id) >= 1 || id === '?') ? nodeGlyph(id) : '?';
   const nameLine = (getNodeStage(id) >= 3)
     ? getDisplayLabel(id)
@@ -1044,35 +1063,35 @@ function renderRouteTooltip() {
 
   // v0.0.9.6.9.27 — each distance line now appends an ETA at the
   // courier's current speed-mult. Estimate, not promise — terrain /
-  // weather changes mid-route invalidate it. Falls back to '\u2014'
-  // when the courier isn't actually moving (no segment, sM = 0).
+  // weather changes mid-route invalidate it.
   const adj = adjacencyFromCurrent(id);
   let body;
   if (adj === 'target') {
     const r = liveRingDistance(id);
-    body = `<span class="tip-dim">current target · ${toKm(r)} · ${fmtEta(etaSecs(r))} to arrive</span>`;
+    body = `<span class="rich-tip-dim">current target · ${toKm(r)} · ${fmtEta(etaSecs(r))} to arrive</span>`;
   } else if (adj === 'adjacent') {
     const r = liveRingDistance(id);
-    body = `<span class="tip-dim">adjacent on ring · ${toKm(r)} · ${fmtEta(etaSecs(r))}</span>`;
+    body = `<span class="rich-tip-dim">adjacent on ring · ${toKm(r)} · ${fmtEta(etaSecs(r))}</span>`;
   } else {
     const r  = liveRingDistance(id);
     const sc = liveShortcutDistance(id);
     const saves = r - sc;
     const savesLine = saves > 0
-      ? `<span class="tip-cta">shortcut saves ${toKm(saves)} (${fmtEta(etaSecs(saves))}) · click to cut across</span>`
-      : `<span class="tip-dim">shortcut wouldn't save distance</span>`;
-    body = `
-      <span class="tip-row">via ring: ${toKm(r)} · ${fmtEta(etaSecs(r))}</span>
-      <span class="tip-row">via shortcut: ${toKm(sc)} · ${fmtEta(etaSecs(sc))}</span>
-      ${savesLine}
-    `;
+      ? `<span class="rich-tip-ok">shortcut saves ${toKm(saves)} (${fmtEta(etaSecs(saves))}) · click to cut across</span>`
+      : `<span class="rich-tip-dim">shortcut wouldn't save distance</span>`;
+    body = `<span class="rich-tip-line">via ring: ${toKm(r)} · ${fmtEta(etaSecs(r))}</span>` +
+           `<span class="rich-tip-line">via shortcut: ${toKm(sc)} · ${fmtEta(etaSecs(sc))}</span>` +
+           savesLine;
   }
 
-  tip.innerHTML = `<span class="tip-label">${label} · ${nameLine}</span>${body}`;
-  tip.classList.add('on');
+  const html = `<span class="rich-tip-head">${label} · ${nameLine}</span>${body}`;
   const { x, y } = S._transient.hoveredPx;
-  tip.style.left = (x + 12) + 'px';
-  tip.style.top  = (y + 12) + 'px';
+  showRichTooltip(hit, html, {
+    id: 'route',
+    placement: 'cursor',
+    cursor: { x, y },
+    multiline: true,
+  });
 }
 
 let routeInteractionsBound = false;

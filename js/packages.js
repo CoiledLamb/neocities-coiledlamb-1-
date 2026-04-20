@@ -153,7 +153,10 @@ function esc(s) {
 }
 export function formatPkgTooltipHTML(pkg) {
   const modTag = pkg.modifier ? ` (${esc(pkg.modifier)})` : '';
-  const lines = [`<div>[${esc(pkg.size)}] ${esc(pkg.label)}${modTag}</div>`];
+  // v0.0.9.6.9.30 — first line wrapped in .rich-tip-head so the
+  // pkg label lands cyan + bold (matching sandal/recovery/route
+  // tooltip heads).
+  const lines = [`<div class="rich-tip-head">[${esc(pkg.size)}] ${esc(pkg.label)}${modTag}</div>`];
   if (pkg.isRecovery && pkg.recoveryFromPorter) {
     lines.push(`<div>[recovery from ${esc(shortPorterId(pkg.recoveryFromPorter))}]</div>`);
   } else if (pkg.isLost) {
