@@ -132,6 +132,8 @@ function buildHTML() {
   if (factors.steadyFeetMult < 0.99)    mitigations.push(row('steady feet',   '', factors.steadyFeetMult));
   if (factors.scannerBuffMult < 0.99)   mitigations.push(row('scanner buff',  '', factors.scannerBuffMult));
   if (factors.exoMult && factors.exoMult < 0.99) mitigations.push(row('exoskeleton', '', factors.exoMult));
+  // v0.0.9.6.9.30.2 — theta's river waders (river cells only).
+  if (factors.waderMult && factors.waderMult < 0.99) mitigations.push(row('river waders', '', factors.waderMult));
   // v0.0.9.6.9.30l — smoke-sandalweed active-window mitigation. Shows
   // the equivalent multiplier + a countdown so the player sees the
   // window draining in real time.

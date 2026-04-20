@@ -386,6 +386,23 @@ export const EXO_SPEED_MULT      = 1.15;
 // don't have penalty mults to begin with.
 export const EXO_ALLTERRAIN_TARGETS = { mountain: true, rockyHills: true, river: true };
 
+// v0.0.9.6.9.30.2 — theta's river waders (t20). Applies on river
+// terrain only; stacks multiplicatively with exo all-terrain so
+// waders + exo on river = 0.80 * 0.80 = 0.64 of the base river
+// penalty. Kept at 0.80 (same shape as exo) so the trust-reward
+// chain reads as "matched mitigations that combine" rather than
+// one overpowered line.
+export const RIVER_WADERS_TRIP_MULT = 0.80;
+
+// v0.0.9.6.9.30.2 — lambda's improved tie-downs (t40). Hold-chance
+// applied INSIDE the existing tie-down-absorbs-trip branch: on a
+// successful absorb, roll this chance to keep the tie-down armed
+// instead of disarming it. 0.40 = roughly every 5th-of-3 absorbed
+// trip stays armed. Doesn't change the fundamental "must re-arm"
+// rhythm; just takes the edge off frequent re-arms during hairy
+// stretches.
+export const IMPROVED_TIE_DOWNS_HOLD_CHANCE = 0.40;
+
 // v0.0.9.6.9.30i — mobile carrier (gamma t20/t40).
 // Folded shape (main-cargo slot cost when stowed) + deployed
 // capacity + which terrains the cart can roll across per tier.

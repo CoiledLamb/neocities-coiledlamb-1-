@@ -433,6 +433,13 @@ function drawInterior(svg, ns) {
   g.setAttribute('class', 'route-interior');
   const rand = makeSeededRand(9111);
   const step = 12;
+  // v0.0.9.6.9.30.2 — psi's topographic map (t40) gates the terrain
+  // palette. Without it, non-trampled cells render as uniform muted
+  // dots so the interior reads as unknown-but-present. Trampled cells
+  // stay visible regardless — the courier's boots have "mapped" them
+  // through direct experience, which is a stronger cue than a surveyor's
+  // chart. Earning the map from psi lights the whole interior up.
+  const hasMap = !!(S.upgrades && S.upgrades.topographicMap);
   // v0.0.9.2 — ranges tuned for the 400×400 square viewBox.
   for (let yy = 50; yy <= 350; yy += step) {
     for (let xx = 50; xx <= 350; xx += step) {
@@ -453,6 +460,12 @@ function drawInterior(svg, ns) {
         ch2 = ';'; fill = '#8fc3b8'; opacity = 0.85;
       } else if (tier === 'walked') {
         ch2 = ','; fill = '#6a9d95'; opacity = 0.70;
+      } else if (!hasMap) {
+        // Pre-topographicMap: uniform muted `.` — terrain is there,
+        // but the player doesn't know which kind yet. A single color
+        // that reads as "unmapped ground" without blending into the
+        // ring edges.
+        ch2 = '.'; fill = '#3a4a52'; opacity = 0.45;
       } else {
         ch2 = ch; fill = TERRAIN_COLORS[kind]; opacity = TERRAIN_OPACITY[kind];
       }

@@ -208,6 +208,15 @@ export function tripChanceBreakdown() {
     exoMult = C.EXO_ALLTERRAIN_MULT;
     terrMult *= exoMult;
   }
+  // v0.0.9.6.9.30.2 — theta's river waders. River-only mitigation
+  // that stacks with exo on river cells (both trunk and tributaries —
+  // terrainAt classifies both as 'river'). Applied AFTER exo in the
+  // stack so both show up distinctly in telemetry / tooltip.
+  let waderMult = 1.0;
+  if (S.upgrades.riverWaders && terrain === 'river') {
+    waderMult = C.RIVER_WADERS_TRIP_MULT;
+    terrMult *= waderMult;
+  }
   chance *= terrMult;
   // v0.0.9.6.9.28 — weather now applies on BOTH ring and interior.
   // Previously gated on !onInterior, which made shortcut/river-drift
@@ -263,6 +272,7 @@ export function tripChanceBreakdown() {
       cargoLoadPct:  S.maxWeight > 0 ? Math.round(100 * S.usedWeight / (S.maxWeight || 1)) : 0,
       usingMakeshift: !!S.usingMakeshift,
       exoMult,       // v0.0.9.6.9.30h — exoskel all-terrain mitigation
+      waderMult,     // v0.0.9.6.9.30.2 — theta's river waders (river cells only)
       deadCartMult,  // v0.0.9.6.9.30k — dead-battery deployed cart drag
       smokeGraceBonus,  // v0.0.9.6.9.30l — active smoke-sandalweed cut (0 when inactive)
       smokeActive,      // explicit flag so strain-tip can render an active marker
@@ -514,8 +524,14 @@ function applySevereDamage(terrain) {
   // Per-terrain hit profile. Fragile always hit on mountain/river,
   // 50% on hills. Non-fragile: 60% mountain, 50% river, 0% hills.
   // River with ceramicWrap: fragile pkgs immune to water damage.
+  // v0.0.9.6.9.30.2 — ceramicWrap also grants a one-time absorb on
+  // non-water severe hits (mountain + rockyHills). The per-pkg
+  // `ceramicAbsorbed` flag flips on first save and persists with the
+  // pkg through save/load, so the cushion is truly "+1 hit per pkg,
+  // ever" rather than a per-trip reset.
   const waterDmg   = terrain === 'river';
   const waterSaves = waterDmg && !!S.upgrades.ceramicWrap;
+  const absorbDry  = !waterDmg && !!S.upgrades.ceramicWrap;
   let nonFragile, fragile;
   if (terrain === 'river')        { fragile = 1.00; nonFragile = 0.50; }
   else if (terrain === 'mountain'){ fragile = 1.00; nonFragile = 0.60; }
@@ -526,6 +542,11 @@ function applySevereDamage(terrain) {
     if (waterSaves && isFragile) continue;  // theta's ceramic wrap protects
     const hit = isFragile ? fragile : nonFragile;
     if (Math.random() >= hit) continue;
+    if (absorbDry && isFragile && !pkg.ceramicAbsorbed) {
+      pkg.ceramicAbsorbed = true;
+      addLog(`<span class="log-ok">ceramic wrap held</span> \u2014 <span class="log-hi">${pkg.label}</span> absorbed the hit`);
+      continue;
+    }
     const oldScrip = pkg.scrip;
     const newScrip = Math.max(1, Math.floor(oldScrip * 0.6));
     const lost = oldScrip - newScrip;
@@ -630,10 +651,19 @@ export function maybeTrip() {
   // Tie-down now absorbs drops AND damage. If armed with cargo, the
   // trip consumes it and skips the drop roll + damage fallback entirely.
   // Stumble (boot damage + tripped status) still fires.
+  // v0.0.9.6.9.30.2 — lambda's improvedTieDowns (t40) adds a hold-
+  // chance: on a successful absorb, roll IMPROVED_TIE_DOWNS_HOLD_CHANCE
+  // to keep the tie-down armed instead of disarming it. Doesn't change
+  // the "must re-arm" rhythm, just takes the edge off hot stretches.
   if (S.tieDownActive && S.inventory.length > 0) {
-    S.tieDownActive=false;
-    if (els.tieDownBtn) { els.tieDownBtn.textContent='tie-down: off'; els.tieDownBtn.classList.remove('on'); }
-    addLog('<span class="log-wn">tripped!</span> tie-down held \u2014 <span class="log-ok">cargo protected</span>. re-arm to use again');
+    const hold = !!S.upgrades.improvedTieDowns && Math.random() < C.IMPROVED_TIE_DOWNS_HOLD_CHANCE;
+    if (!hold) {
+      S.tieDownActive=false;
+      if (els.tieDownBtn) { els.tieDownBtn.textContent='tie-down: off'; els.tieDownBtn.classList.remove('on'); }
+      addLog('<span class="log-wn">tripped!</span> tie-down held \u2014 <span class="log-ok">cargo protected</span>. re-arm to use again');
+    } else {
+      addLog('<span class="log-wn">tripped!</span> tie-down held \u2014 <span class="log-ok">lashings still secure</span>');
+    }
     S.bootDurability=Math.max(0,S.bootDurability-5);
     S.status='tripped'; S.tripTimer=6;
     if (els.courierAt) { els.courierAt.className='tlh-at trip'; els.courierAt.style.animation='trip 0.4s ease 3'; }
