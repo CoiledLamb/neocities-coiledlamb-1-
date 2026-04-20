@@ -23,6 +23,7 @@ import * as C from './constants.js';
 import { fetchLostFromPeer } from './multiplayer.js';
 import { pickRandom } from './util.js';
 import { addLog } from './render/log.js';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
@@ -94,19 +95,37 @@ export function updatePorterStripBadges() {
     if (!badge) {
       badge = document.createElement('span');
       badge.id = 'recoveryBadge';
-      badge.className = 'tlh-porter-recovery has-tooltip';
+      // v0.0.9.6.9.30 — has-tooltip class dropped; tooltip now
+      // routed through the unified rich-tooltip system on hover.
+      badge.className = 'tlh-porter-recovery';
       const hint = els.porterStrip.querySelector('.tlh-porter-hint');
       if (hint) els.porterStrip.insertBefore(badge, hint);
       else      els.porterStrip.appendChild(badge);
     }
     badge.textContent = 'recovery \u00d7' + n;
-    // v0.0.7.19: data-tooltip + aria-label, no `title` (kills the duplicate
-    // browser-native overlay).
+    // aria-label preserved for screen readers; data-tooltip is the
+    // live source the hover handler reads.
     const tip = n + ' recovery cargo in the world\nfrom other porters\ndeliver for 1.5\u00d7 scrip';
     badge.setAttribute('data-tooltip', tip);
     badge.setAttribute('aria-label', tip);
     badge.removeAttribute('title');
     badge.style.display = 'inline';
+    if (!badge.__tipBound) {
+      badge.__tipBound = true;
+      // First line lands cyan via .rich-tip-head; built fresh on
+      // each hover so the count is always current.
+      badge.addEventListener('mouseenter', () => {
+        const cnt = S.activeRecoveryCount;
+        const html =
+          `<div class="rich-tip-head">${cnt} recovery cargo in the world</div>` +
+          'from other porters<br>' +
+          'deliver for 1.5\u00d7 scrip';
+        showRichTooltip(badge, html, { id: 'recovery', placement: 'above' });
+      });
+      badge.addEventListener('mouseleave', () => {
+        if (activeRichTooltipId() === 'recovery') hideRichTooltip();
+      });
+    }
   } else if (badge) {
     badge.style.display = 'none';
   }

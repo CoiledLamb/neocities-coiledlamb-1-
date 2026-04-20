@@ -31,6 +31,7 @@ import { S } from './state.js';
 import * as C from './constants.js';
 import { addLog } from './render/log.js';
 import { updateHUD } from './render/hud.js';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js';
 import { emit as tEmit, accum as tAccum } from './telemetry.js';
 
 // Local alias — live reference into S._transient. Never reassign.
@@ -184,7 +185,11 @@ export function renderBoots() {
     if (!sandalBadge && els.bootsGearBtn && els.bootsGearBtn.parentNode) {
       sandalBadge = document.createElement('span');
       sandalBadge.id = 'sandalBadge';
-      sandalBadge.className = 'clip-badge sandal-badge has-tooltip';
+      // v0.0.9.6.9.30 — has-tooltip class dropped; tooltip now
+      // routed through the unified rich-tooltip system on hover
+      // so it body-portals out of #gameShell's overflow:hidden
+      // (was clipping at the right shell edge).
+      sandalBadge.className = 'clip-badge sandal-badge';
       els.bootsGearBtn.parentNode.insertBefore(sandalBadge, els.bootsGearBtn.nextSibling);
     }
     if (sandalBadge) {
@@ -192,9 +197,8 @@ export function renderBoots() {
       const atCap = S.sandalweedCount >= cap;
       sandalBadge.textContent = '* ' + S.sandalweedCount + '/' + cap;
       sandalBadge.classList.toggle('at-cap', atCap);
-      // v0.0.7.19: data-tooltip drives the custom CSS overlay; aria-label
-      // preserves screen-reader behavior. No `title` attribute = no
-      // duplicate browser-native tooltip.
+      // aria-label still set for screen readers; data-tooltip kept as
+      // the live source the hover handler reads (re-set every render).
       const tip =
         'sandalweed: ' + S.sandalweedCount + '/' + cap +
         '\nmakeshift footwear' +
@@ -204,6 +208,26 @@ export function renderBoots() {
       sandalBadge.setAttribute('aria-label', tip);
       sandalBadge.removeAttribute('title');
       sandalBadge.style.display = 'inline';
+      // Bind hover handlers exactly once per badge instance.
+      // Builds HTML fresh on each hover so the count is always
+      // current; first line lands cyan via .rich-tip-head.
+      if (!sandalBadge.__tipBound) {
+        sandalBadge.__tipBound = true;
+        sandalBadge.addEventListener('mouseenter', () => {
+          const c    = S.sandalweedCount;
+          const cap2 = sandalCap();
+          const full = c >= cap2;
+          const html =
+            `<div class="rich-tip-head">sandalweed: ${c}/${cap2}</div>` +
+            'makeshift footwear<br>' +
+            'auto-equipped when boots fail (after clip)' +
+            (full ? '<br>[hoard full \u2014 leaving plants standing]' : '');
+          showRichTooltip(sandalBadge, html, { id: 'sandal', placement: 'above' });
+        });
+        sandalBadge.addEventListener('mouseleave', () => {
+          if (activeRichTooltipId() === 'sandal') hideRichTooltip();
+        });
+      }
     }
   } else if (sandalBadge) {
     sandalBadge.style.display = 'none';

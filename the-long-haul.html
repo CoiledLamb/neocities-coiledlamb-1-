@@ -26,7 +26,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.29</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.9.30</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -195,16 +195,13 @@
       </div>
   </div>
 
-  <!-- v0.0.9.3 — route-map hover tooltip (absolute positioned, driven by route-map.js) -->
-  <div id="routeTooltip" aria-hidden="true"></div>
-  <!-- v0.0.9.4.1 — ground pkg hover tooltip. Body-portal pattern: the
-       fieldstrip's ancestors (#viewport, #gameShell) have overflow:
-       hidden for the scrolling strip, which clips a pseudo-element
-       tooltip. Hosting the element at body level lets it escape. -->
-  <div id="pkgTooltip" aria-hidden="true"></div>
+  <!-- v0.0.9.6.9.30 — #routeTooltip + #pkgTooltip removed; both
+       collapsed into the unified #richTooltip element which is
+       lazily appended to <body> by js/render/rich-tooltip.js. -->
 
-  <script src="boot.js"></script>
-  <script type="module" src="js/main.js?v=096-9-30b"></script>
+
+  <script src="tlh-boot.js"></script>
+  <script type="module" src="js/main.js?v=096-9-30"></script>
   <script>
     document.addEventListener('keydown', e => {
       if (document.getElementById('boot').style.display !== 'none') dismissBoot();

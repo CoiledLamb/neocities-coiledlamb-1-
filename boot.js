@@ -158,6 +158,12 @@ function skipToSite() {
 async function runBoot() {
   bootAborted = false;
 
+  // Claim the session boot slot immediately so a peer page in the
+  // same session (e.g. TLH boot via tlh-boot.js) sees the flag and
+  // skips. Previously this set only on completion, so navigating
+  // mid-boot left the flag unset and the next page double-booted.
+  try { sessionStorage.setItem(BOOT_FLAG, '1'); } catch (_) {}
+
   const terminal  = q('boot-terminal');
   const welcomeEl = q('boot-welcome');
   terminal.innerHTML   = '';
@@ -263,8 +269,8 @@ async function runBoot() {
   await wait(1000);
   if (bootAborted) return;
 
-  // Mark session as booted — future page loads this session skip the sequence
-  try { sessionStorage.setItem(BOOT_FLAG, '1'); } catch (_) {}
+  // (BOOT_FLAG already set at start of runBoot; intentionally not
+  // re-setting here.)
 
   // Crossfade to site
   stopSweep();

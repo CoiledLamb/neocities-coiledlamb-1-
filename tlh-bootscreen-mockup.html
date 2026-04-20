@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tlh boot screen mockup — A phosphor-teal / C hybrid bone-on-teal</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page-bg: #041312;
+    --page-fg: #b1c9c3;
+  }
+  html, body {
+    margin: 0;
+    background: var(--page-bg);
+    color: var(--page-fg);
+    font-family: 'Source Code Pro', ui-monospace, monospace;
+    font-weight: 600;
+    min-height: 100vh;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+  h1 {
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    text-transform: lowercase;
+    margin: 0 0 4px;
+    opacity: 0.85;
+  }
+  h1 small {
+    opacity: 0.5;
+    font-weight: 500;
+    display: block;
+    font-size: 11px;
+    margin-top: 2px;
+  }
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 16px 0 24px;
+  }
+  .controls button {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: lowercase;
+    background: transparent;
+    color: var(--page-fg);
+    border: 1px solid #1e5554;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .controls button:hover {
+    background: #0b2e2d;
+    border-color: #77bfcf;
+    color: #77bfcf;
+  }
+  .controls button.active {
+    background: #0b2e2d;
+    border-color: #da8bda;
+    color: #da8bda;
+  }
+  .controls .sep {
+    width: 1px;
+    height: 18px;
+    background: #1e5554;
+    margin: 0 4px;
+  }
+  .controls span.lbl {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.5;
+  }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 1100px) {
+    .stage { grid-template-columns: 1fr; }
+  }
+
+  .variant-wrap {
+    display: flex;
+    flex-direction: column;
+  }
+  .variant-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.55;
+    margin: 0 0 8px;
+    padding: 0 4px;
+  }
+  .variant-label b { font-weight: 700; opacity: 1; letter-spacing: 0.08em; }
+
+  /* Shared boot shell ------------------------------------------ */
+  .boot {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    min-height: 540px;
+    border: 1px solid #1e5554;
+    overflow: hidden;
+    font-family: 'Source Code Pro', ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  /* scanlines - subtle */
+  .boot::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      to bottom, transparent 0px, transparent 2px,
+      rgba(0,0,0,0.055) 2px, rgba(0,0,0,0.055) 3px
+    );
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* vignette - faint glow pull toward edges */
+  .boot::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.35) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .boot-inner {
+    position: relative;
+    z-index: 3;
+    padding: 28px 34px 34px;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* banner row */
+  .banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule);
+    color: var(--banner-fg);
+  }
+  .banner .right { opacity: 0.55; letter-spacing: 0.12em; }
+
+  /* watermark */
+  .watermark {
+    position: absolute;
+    top: 14px;
+    right: 18px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    opacity: 0.35;
+    z-index: 4;
+    color: var(--dim);
+    pointer-events: none;
+  }
+
+  /* terminal body */
+  .term {
+    flex: 1;
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.72;
+    letter-spacing: 0.02em;
+  }
+  .sec-head {
+    color: var(--section);
+    font-weight: 700;
+    margin-top: 6px;
+  }
+  .sec-head:first-child { margin-top: 0; }
+
+  .bl {
+    display: flex;
+    align-items: baseline;
+    white-space: pre;
+    padding-left: 2px;
+  }
+  .bl .sub  { color: var(--dim); }
+  .bl .dots {
+    flex: 0 0 auto;
+    color: var(--dim);
+    opacity: 0.75;
+    white-space: pre;
+  }
+  .bl .val  { color: var(--ok);   padding-left: 4px; }
+  .bl .val.warn { color: var(--warn); }
+  .bl .val.crit { color: var(--crit); }
+  .bl .val.pending { color: var(--dim); opacity: 0.85; }
+
+  .cursor {
+    display: inline-block;
+    color: var(--ok);
+    animation: blink 0.85s steps(2, end) infinite;
+    margin-left: 1px;
+  }
+  @keyframes blink {
+    0%, 49%   { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+
+  /* Palette A - phosphor teal, purple sections, pink warn -------- */
+  .boot.pA {
+    background: #0b2e2d;
+    --rule:       #155352;
+    --banner-fg:  #77bfcf;
+    --section:    #9d78d4;  /* purple - matches // channels convention */
+    --dim:        #3a6a68;
+    --ok:         #77bfcf;
+    --warn:       #da8bda;  /* oil-pink - matches site's oil-slick palette */
+    --crit:       #c47fcd;
+  }
+
+  /* Palette C - hybrid bone-on-teal ------------------------------ */
+  .boot.pC {
+    background: #0b2e2d;
+    --rule:       #3a3428;
+    --banner-fg:  #d5cdbb;
+    --section:    #b4ac9a;
+    --dim:        #5e574a;
+    --ok:         #d5cdbb;
+    --warn:       #e99f10;
+    --crit:       #d88578;
+  }
+  .boot.pC .cursor { color: #d5cdbb; }
+
+  /* A small idle-ring glyph in top-right, Nier-nod */
+  .watermark .glyph {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-left: 6px;
+    position: relative;
+  }
+  .watermark .glyph::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    opacity: 0.6;
+  }
+</style>
+</head>
+<body>
+
+<h1>tlh boot screen — <span style="color:#77bfcf">variants a / c</span>
+  <small>a: phosphor-teal (native) · c: hybrid bone-on-teal · both run in sync · press replay to restart</small>
+</h1>
+
+<div class="controls">
+  <button id="replay" class="active">replay</button>
+  <div class="sep"></div>
+  <span class="lbl">state</span>
+  <button id="stateReturning" class="active">returning porter</button>
+  <button id="stateFirst">first boot</button>
+  <div class="sep"></div>
+  <span class="lbl">speed</span>
+  <button id="speedNormal" class="active">normal</button>
+  <button id="speedSlow">+20%</button>
+</div>
+
+<div class="stage">
+  <div class="variant-wrap">
+    <div class="variant-label"><b>a</b> &mdash; phosphor teal, purple sections, pink warn</div>
+    <div class="boot pA" id="bootA">
+      <div class="watermark">tlh<span class="glyph"></span></div>
+      <div class="boot-inner">
+        <div class="banner">
+          <span>dispatch terminal</span>
+          <span class="right">v0.9.29</span>
+        </div>
+        <div class="term" id="termA"></div>
+      </div>
+    </div>
+  </div>
+  <div class="variant-wrap">
+    <div class="variant-label"><b>c</b> &mdash; hybrid bone-on-teal (reference)</div>
+    <div class="boot pC" id="bootC">
+      <div class="watermark">tlh<span class="glyph"></span></div>
+      <div class="boot-inner">
+        <div class="banner">
+          <span>dispatch terminal</span>
+          <span class="right">v0.9.29</span>
+        </div>
+        <div class="term" id="termC"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ---- line data ---------------------------------------------------
+// { sub, val, sev, verify? }
+//   sub    : left column label
+//   val    : final right-column word/phrase
+//   sev    : 'ok' | 'warn' | 'crit'  (color class)
+//   verify : optional — shown first in right column, then replaced by val
+const RETURNING = [
+  { head: 'porter-init' },
+  { sub: 'dispatch handshake', val: 'ok',            sev: 'ok' },
+  { sub: 'porter id',          val: 'r7-qrtz',       sev: 'ok', verify: 'verifying' },
+  { sub: 'last log entry',     val: '2h 14m ago',    sev: 'ok', verify: 'reading'   },
+  { sub: 'regional atlas',     val: '384 nodes',     sev: 'ok', verify: 'loading'   },
+  { sub: 'locator lock',       val: 'x:207 y:143',   sev: 'ok', verify: 'acquiring' },
+
+  { head: 'subsystems' },
+  { sub: 'pedometer',          val: 'calibrated',    sev: 'ok' },
+  { sub: 'pack scale',         val: 'calibrated',    sev: 'ok' },
+  { sub: 'canteen sensor',     val: 'responding',    sev: 'ok' },
+  { sub: 'stamina monitor',    val: 'nominal',       sev: 'ok' },
+  { sub: 'boots sensor',       val: 'low',           sev: 'warn', verify: 'scanning' },
+  { sub: 'strain meter',       val: 'elevated',      sev: 'warn', verify: 'reading'  },
+  { sub: 'weather receiver',   val: 'drizzle',       sev: 'ok',   verify: 'tuning'   },
+  { sub: 'channel relay',      val: '3 peers',       sev: 'ok',   verify: 'connecting' },
+  { sub: 'hazard advisory',    val: 'storm inbound', sev: 'warn', verify: 'checking' },
+  { sub: 'trust ledger',       val: '8 entries',     sev: 'ok',   verify: 'synchronising' },
+
+  { head: 'session-recap' },
+  { sub: 'fetching save',      val: 'ok',            sev: 'ok' },
+  { sub: 'last position',      val: 'crater-9 approach', sev: 'ok' },
+  { sub: 'cargo in transit',   val: '4 parcels, 2 overdue', sev: 'warn' },
+  { sub: 'career distance',    val: '1,284.6 km',    sev: 'ok' },
+  { sub: 'career deliveries',  val: '47',            sev: 'ok' },
+
+  { head: 'ready-for-haul' },
+  { sub: 'status',             val: 'awaiting input', sev: 'ok', trailingCursor: true },
+];
+
+const FIRST_BOOT = [
+  { head: 'porter-init' },
+  { sub: 'dispatch handshake', val: 'ok',            sev: 'ok' },
+  { sub: 'porter id',          val: 'r7-qrtz (new)', sev: 'ok', verify: 'allocating' },
+  { sub: 'last log entry',     val: 'none on record',sev: 'ok', verify: 'reading'    },
+  { sub: 'regional atlas',     val: '384 nodes',     sev: 'ok', verify: 'loading'    },
+  { sub: 'locator lock',       val: 'x:000 y:000',   sev: 'ok', verify: 'acquiring'  },
+
+  { head: 'subsystems' },
+  { sub: 'pedometer',          val: 'zeroed',        sev: 'ok' },
+  { sub: 'pack scale',         val: 'calibrated',    sev: 'ok' },
+  { sub: 'canteen sensor',     val: 'responding',    sev: 'ok' },
+  { sub: 'stamina monitor',    val: 'nominal',       sev: 'ok' },
+  { sub: 'boots sensor',       val: 'responding',    sev: 'ok', verify: 'scanning' },
+  { sub: 'strain meter',       val: 'nominal',       sev: 'ok', verify: 'reading'  },
+  { sub: 'weather receiver',   val: 'clear',         sev: 'ok', verify: 'tuning'   },
+  { sub: 'channel relay',      val: 'online',        sev: 'ok', verify: 'connecting' },
+  { sub: 'hazard advisory',    val: 'clear',         sev: 'ok', verify: 'checking' },
+  { sub: 'trust ledger',       val: '0 entries',     sev: 'ok', verify: 'synchronising' },
+
+  { head: 'session-recap' },
+  { sub: 'fetching save',      val: 'no save on file', sev: 'ok' },
+
+  { head: 'ready-for-haul' },
+  { sub: 'status',             val: 'awaiting input', sev: 'ok', trailingCursor: true },
+];
+
+// ---- tunables (locked against our budget) -----------------------
+const TOTAL_COLS   = 38;  // monospace columns for leader alignment
+const SUBJECT_INDENT = '  ';
+const CHAR_MS      = 11;  // subject + value typing
+const VERIFY_MS    = 120; // hold on verify word before resolve
+const LINE_GAP_MS  = 22;  // tiny gap between lines
+const SECTION_GAP  = 120; // pause before a new "$ section" header
+const HEAD_MS      = 14;  // section header typing speed (slightly slower = weight)
+
+// ---- state ------------------------------------------------------
+let speedFactor = 1;
+let dataset     = RETURNING;
+let abortFlag   = null;
+
+function sleep(ms) {
+  return new Promise((res, rej) => {
+    const token = abortFlag;
+    setTimeout(() => {
+      if (token && token.cancelled) rej('cancel');
+      else res();
+    }, ms * speedFactor);
+  });
+}
+
+function makeDots(subLen, valLen) {
+  // leader fills between indent+subject and value
+  const filled = SUBJECT_INDENT.length + subLen + 1 + valLen + 1; // spaces on both sides
+  const dots = Math.max(3, TOTAL_COLS - SUBJECT_INDENT.length - subLen - valLen - 2);
+  return ' ' + '.'.repeat(dots) + ' ';
+}
+
+async function typeInto(el, text, perChar) {
+  for (const ch of text) {
+    if (abortFlag && abortFlag.cancelled) throw 'cancel';
+    el.textContent += ch;
+    await sleep(perChar);
+  }
+}
+
+async function renderHead(termEl, name) {
+  await sleep(SECTION_GAP);
+  const div = document.createElement('div');
+  div.className = 'sec-head';
+  termEl.appendChild(div);
+  await typeInto(div, '// ' + name, HEAD_MS);
+}
+
+async function renderLine(termEl, line) {
+  const row = document.createElement('div');
+  row.className = 'bl';
+  termEl.appendChild(row);
+
+  const subSpan  = document.createElement('span');
+  const dotSpan  = document.createElement('span');
+  const valSpan  = document.createElement('span');
+  subSpan.className = 'sub';
+  dotSpan.className = 'dots';
+  valSpan.className = 'val ' + (line.sev || 'ok');
+  row.appendChild(subSpan);
+  row.appendChild(dotSpan);
+  row.appendChild(valSpan);
+
+  // 1. type subject (fast)
+  await typeInto(subSpan, SUBJECT_INDENT + line.sub, CHAR_MS);
+
+  // 2. splat dots based on the *current* right-column word
+  const firstRight = line.verify || line.val;
+  dotSpan.textContent = makeDots(line.sub.length, firstRight.length);
+
+  // 3. type the verify word (if any) or the value
+  if (line.verify) {
+    valSpan.classList.add('pending');
+    await typeInto(valSpan, line.verify, CHAR_MS);
+    await sleep(VERIFY_MS);
+    // clear and re-fit dots to final value
+    valSpan.textContent = '';
+    valSpan.classList.remove('pending');
+    dotSpan.textContent = makeDots(line.sub.length, line.val.length);
+    await typeInto(valSpan, line.val, CHAR_MS);
+  } else {
+    await typeInto(valSpan, line.val, CHAR_MS);
+  }
+
+  if (line.trailingCursor) {
+    const cur = document.createElement('span');
+    cur.className = 'cursor';
+    cur.textContent = '\u2592';
+    valSpan.appendChild(cur);
+  }
+
+  await sleep(LINE_GAP_MS);
+}
+
+async function runBoot(termEl) {
+  termEl.innerHTML = '';
+  for (const entry of dataset) {
+    if (abortFlag && abortFlag.cancelled) return;
+    if (entry.head) await renderHead(termEl, entry.head);
+    else            await renderLine(termEl, entry);
+  }
+}
+
+function start() {
+  if (abortFlag) abortFlag.cancelled = true;
+  const token = { cancelled: false };
+  abortFlag = token;
+
+  const termA = document.getElementById('termA');
+  const termC = document.getElementById('termC');
+  termA.innerHTML = '';
+  termC.innerHTML = '';
+
+  // run both columns in parallel, identical timing → stays in sync
+  Promise.all([runBoot(termA), runBoot(termC)]).catch(() => {});
+}
+
+// ---- controls ---------------------------------------------------
+const $ = id => document.getElementById(id);
+
+function setActive(btn, group) {
+  group.forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+$('replay').addEventListener('click', start);
+
+const stateBtns = [$('stateReturning'), $('stateFirst')];
+$('stateReturning').addEventListener('click', e => {
+  setActive(e.currentTarget, stateBtns);
+  dataset = RETURNING; start();
+});
+$('stateFirst').addEventListener('click', e => {
+  setActive(e.currentTarget, stateBtns);
+  dataset = FIRST_BOOT; start();
+});
+
+const speedBtns = [$('speedNormal'), $('speedSlow')];
+$('speedNormal').addEventListener('click', e => {
+  setActive(e.currentTarget, speedBtns);
+  speedFactor = 1;
+});
+$('speedSlow').addEventListener('click', e => {
+  setActive(e.currentTarget, speedBtns);
+  speedFactor = 1.2;
+});
+
+// kick off on load
+window.addEventListener('load', start);
+</script>
+</body>
+</html>

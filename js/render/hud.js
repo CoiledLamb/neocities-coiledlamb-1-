@@ -20,7 +20,8 @@
 'use strict';
 
 import { S } from '../state.js';
-import { STATUS_COLORS } from '../data/glyphs.js';
+import { statusColor } from '../data/glyphs.js';
+import { tlhPalette } from '../palette.js';
 import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js';
 import { bindCargoDragSource } from './drag.js';
 import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js';
@@ -81,7 +82,7 @@ export function updateHUD() {
   els.scrip.textContent     = S.scrip + '\u00a2';
   els.walked.textContent    = (Math.round(S.distKm * 10) / 10) + 'km';
   els.status.textContent    = S.status;
-  els.status.style.color    = STATUS_COLORS[S.status] || '#b1c9c3';
+  els.status.style.color    = statusColor(S.status) || tlhPalette().text;
   Upg.renderUpgrades();
 }
 

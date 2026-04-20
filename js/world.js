@@ -27,8 +27,9 @@
 import { S } from './state.js';
 import * as C from './constants.js';
 import { ZONE_TYPES } from './data/zones.js';
-import { rollPkg, rollDestForSpawn, pickupRange, tryCursorPickup, formatPkgTooltip } from './packages.js';
+import { rollPkg, rollDestForSpawn, pickupRange, tryCursorPickup, formatPkgTooltip, formatPkgTooltipHTML } from './packages.js';
 import { isOnShortcut } from './render/route-map.js';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
@@ -194,9 +195,10 @@ export function renderFieldstrip() {
 // once at init after `els.fieldstrip` is bound. Event delegation —
 // tick re-renders of the strip's innerHTML don't detach this.
 //
-// Tooltip uses a body-level #pkgTooltip element (positioned by JS on
-// hover). CSS ::after can't escape #viewport's overflow:hidden nor
-// the strip's transform-containing-block, so we portal-host instead.
+// Tooltip uses the unified rich-tooltip system (body-portaled,
+// viewport-clamped). CSS ::after can't escape #viewport's overflow:
+// hidden nor the strip's transform-containing-block, so we portal-
+// host instead.
 export function bindFieldstripInteractions() {
   const strip = els.fieldstrip;
   if (!strip || strip.__fsBound) return;
@@ -255,23 +257,22 @@ export function refreshPkgTooltipAfterRender() {
   }
 }
 
+// v0.0.9.6.9.30 — migrated to the unified rich-tooltip system.
+// Looks up the live pkg from worldCells[ci] and uses the HTML
+// formatter so the first line lands in .rich-tip-head (cyan +
+// bold). data-tooltip attribute on the span is kept only as the
+// hover-handler trigger marker; its value is no longer read.
 function showPkgTooltip(targetEl) {
-  const tip = document.getElementById('pkgTooltip');
-  if (!tip) return;
-  tip.textContent = targetEl.getAttribute('data-tooltip') || '';
-  // Position below the pkg, roughly centered. Use page coordinates
-  // (client + scroll) so absolute positioning still works if the
-  // page scrolls. Center offset approximated because tooltip width
-  // varies with content.
-  const r = targetEl.getBoundingClientRect();
-  const x = r.left + r.width / 2 + window.scrollX;
-  const y = r.bottom + 5 + window.scrollY;
-  tip.style.left = (x - 60) + 'px';
-  tip.style.top  = y + 'px';
-  tip.classList.add('on');
+  const ci = parseInt(targetEl.getAttribute('data-ci'), 10);
+  if (Number.isNaN(ci)) return;
+  const cell = worldCells[ci];
+  if (!cell || !cell.pkg) return;
+  showRichTooltip(targetEl, formatPkgTooltipHTML(cell.pkg), {
+    id: 'pkg',
+    placement: 'below',
+  });
 }
 
 function hidePkgTooltip() {
-  const tip = document.getElementById('pkgTooltip');
-  if (tip) tip.classList.remove('on');
+  if (activeRichTooltipId() === 'pkg') hideRichTooltip();
 }
