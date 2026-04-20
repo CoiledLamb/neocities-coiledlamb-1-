@@ -42,7 +42,7 @@ function applyBuff(durationTicks, magnitude, source) {
   sc.buffRemaining = Math.max(sc.buffRemaining, durationTicks);
   sc.buffMagnitude = magnitude;
   if (source === 'manual') {
-    addLog(`<span class="log-hi">manual scan</span> \u2014 trip risk reduced`);
+    addLog(`<span class="log-hi">manual scan</span> \u2014 strain buildup slowed`);
   }
 }
 

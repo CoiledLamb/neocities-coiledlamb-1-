@@ -61,7 +61,7 @@ export const UPGRADE_DEFS = [
 
   // ----- traction -----
   // v0.0.9.5.3 — steadyFeet moved FROM tau t20 TO open shop.
-  { id:'steadyFeet',  name:'traction cleats',    desc:'-30% trip chance, +15% catch',  cost:120, requires:null,          apply:()=>{} },
+  { id:'steadyFeet',  name:'traction cleats',    desc:'-30% strain buildup, +15% catch', cost:120, requires:null,        apply:()=>{} },
 
   // ----- cargo slots -----
   { id:'cargoSling',  name:'cargo sling',        desc:'+2 carry slots',                cost:60,  requires:null,          apply:()=>{ S.maxSlots+=2; } },
@@ -109,7 +109,7 @@ export const UPGRADE_DEFS = [
   { id:'sandalEfficiency', name:'interwoven lashing',  desc:'sandalweed repair 30 \u2192 50 durability', cost:60, requires:null, trustReward: { npc:'B', tier:'t40' }, apply:()=>{} },
 
   // ----- theta (\u03b8) — riverbed kiln / potter -----
-  { id:'riverWaders', name:'river waders', desc:'reduced trip chance when wading',                                   cost:80,  requires:null, trustReward: { npc:'\u03b8', tier:'t20' }, apply:()=>{} },
+  { id:'riverWaders', name:'river waders', desc:'slows strain buildup when wading',                                  cost:80,  requires:null, trustReward: { npc:'\u03b8', tier:'t20' }, apply:()=>{} },
   { id:'ceramicWrap', name:'ceramic wrap', desc:'fragile pkgs absorb +1 hit + no water damage on crossings',         cost:100, requires:null, trustReward: { npc:'\u03b8', tier:'t40' }, apply:()=>{} },
 
   // ----- phi (?) — weather station -----
@@ -134,7 +134,7 @@ export const UPGRADE_DEFS = [
   } },
 
   // ----- xi (C) — ruins researcher -----
-  { id:'scannerT1', name:'terrain scanner', desc:'auto pings reduce trip chance, manual on 30s',           cost:100, requires:null,       trustReward: { npc:'C', tier:'t20' }, apply:()=>{ S.scanner.unlocked = true; S.scanner.level = 1; S.scanner.autoTimer = C.SCANNER_AUTO_INTERVAL_TICKS; } },
+  { id:'scannerT1', name:'terrain scanner', desc:'auto pings slow strain buildup, manual on 30s',          cost:100, requires:null,       trustReward: { npc:'C', tier:'t20' }, apply:()=>{ S.scanner.unlocked = true; S.scanner.level = 1; S.scanner.autoTimer = C.SCANNER_AUTO_INTERVAL_TICKS; } },
   { id:'scannerT2', name:'signal dish',     desc:'ping buff magnitude \u2191 + auto interval \u2193',      cost:120, requires:'scannerT1', trustReward: { npc:'C', tier:'t40' }, apply:()=>{ S.scanner.level = 2; } },
 
   // ----- delta (\u03b4) — reservoir engineer -----
@@ -156,6 +156,6 @@ export const UPGRADE_DEFS = [
   // ----- pi (\u03c0) — summit radio-tower researcher -----
   // Battery-gated. At 0 charge the bonus goes cold but the flag
   // stays set ("graceful off" — see trip.js + main.js speed advance).
-  { id:'exoskeleton1', name:'exoskeleton',          desc:'all-terrain \u2014 trip penalty \u00d70.80 on mountain / rocky hills / river; consumes battery',                 cost:150, requires:null,           trustReward: { npc:'\u03c0', tier:'t20' }, apply:()=>{ S.exoskeleton.unlocked = true; S.exoskeleton.level = 1; } },
+  { id:'exoskeleton1', name:'exoskeleton',          desc:'all-terrain \u2014 strain buildup \u00d70.80 on mountain / rocky hills / river; consumes battery',              cost:150, requires:null,           trustReward: { npc:'\u03c0', tier:'t20' }, apply:()=>{ S.exoskeleton.unlocked = true; S.exoskeleton.level = 1; } },
   { id:'exoskeleton2', name:'improved exoskeleton', desc:'+15% walk speed, extended battery life; lvl 1 mitigation retained',                                              cost:200, requires:'exoskeleton1', trustReward: { npc:'\u03c0', tier:'t40' }, apply:()=>{ S.exoskeleton.unlocked = true; S.exoskeleton.level = 2; } },
 ];
