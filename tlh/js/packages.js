@@ -4,9 +4,11 @@
    Four functions live here:
      rollPkg(destId, risky, forceLost)
                          — v0.0.8.1. Spawn roller. Rolls base
-                           size \u2192 modifier \u2192 label filtered by
-                           destination. Replaces world.js's
-                           old NPC_PKGS/LOST_PKGS table-pick.
+                           size \u2192 label filtered by destination
+                           \u2192 tags come from the label's authored
+                           `tags` field (v0.0.9.6.10.20 rework).
+                           Replaces world.js's old NPC_PKGS/
+                           LOST_PKGS table-pick.
      scanForPickup()     — proximity pickup scan (runs every
                            walking/carrying tick). Also handles
                            sandalweed harvest.
@@ -31,23 +33,23 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-19';
-import * as C from './constants.js?v=096-10-19';
-import { NPC_DEFS } from './data/npc-defs.js?v=096-10-19';
+import { S } from './state.js?v=096-10-20';
+import * as C from './constants.js?v=096-10-20';
+import { NPC_DEFS } from './data/npc-defs.js?v=096-10-20';
 import {
   PKG_BASES, PKG_SIZE_WEIGHTS, PKG_SIZE_WEIGHTS_RISKY,
-  PKG_MODIFIERS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
+  PKG_TAG_EFFECTS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
   PKG_LABELS_BY_TERRAIN_ORIGIN,
-} from './data/packages.js?v=096-10-19';
-import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js?v=096-10-19';
-import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js?v=096-10-19';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-19';
-import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js?v=096-10-19';
+} from './data/packages.js?v=096-10-20';
+import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js?v=096-10-20';
+import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js?v=096-10-20';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-20';
+import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js?v=096-10-20';
 // v0.0.9.6.9.30.4 — updatePorterStripBadges, computeTrustGain,
 // speakDelivery, recordDelivery, removeFromInventories moved to
 // packages-delivery.js with tryDeliver.
-import { addTrust } from './trust.js?v=096-10-19';
-import { cartFits, pushToCart } from './carrier.js?v=096-10-19';
+import { addTrust } from './trust.js?v=096-10-20';
+import { cartFits, pushToCart } from './carrier.js?v=096-10-20';
 
 // v0.0.9.6.9.30j — bucket-routing helper. All three pickup paths
 // (NPC dispatch, ring/ground, interior) funnel new pkgs through this
@@ -74,12 +76,12 @@ function cartOrMainFits(pkg) {
 }
 // v0.0.9.6.9.30.4 — getNodeStage / setNodeStage / drawRouteMap /
 // renderSettlements moved to packages-delivery.js.
-import { sandalCap, renderBoots } from './boots.js?v=096-10-19';
-import { addLog } from './render/log.js?v=096-10-19';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-19';
-import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js?v=096-10-19';
-import { weatherAtCourier } from './weather.js?v=096-10-19';
-import { getDisplayLabel } from './identification.js?v=096-10-19';
+import { sandalCap, renderBoots } from './boots.js?v=096-10-20';
+import { addLog } from './render/log.js?v=096-10-20';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-20';
+import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js?v=096-10-20';
+import { weatherAtCourier } from './weather.js?v=096-10-20';
+import { getDisplayLabel } from './identification.js?v=096-10-20';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -88,7 +90,7 @@ const worldCells = S._transient.worldCells;
 // v0.0.9.6.9.30.4 — tryDeliver + its broadcast throttle
 // (DELIVERY_BROADCAST_GATE_MS, lastDeliveryBroadcastTs) moved to
 // packages-delivery.js. tryDeliver is re-exported below so existing
-// `import * as Pkg from './packages.js?v=096-10-19'` consumers keep working.
+// `import * as Pkg from './packages.js?v=096-10-20'` consumers keep working.
 
 // v0.0.7.21 — sticky gun occupies one cargo slot unless holstered.
 // Every pkg slot accounting goes through this helper so cargo
@@ -166,7 +168,7 @@ function shouldEmitSkipFor(pkgKey) {
 //   → destination
 //   Xc
 export function formatPkgTooltip(pkg) {
-  const modTag = pkg.modifier ? ` (${pkg.modifier})` : '';
+  const modTag = (pkg.tags && pkg.tags.length) ? ` (${pkg.tags.join('+')})` : '';
   const lines = [`[${pkg.size}] ${pkg.label}${modTag}`];
   if (pkg.isRecovery && pkg.recoveryFromPorter) {
     lines.push(`[recovery from ${shortPorterId(pkg.recoveryFromPorter)}]`);
@@ -194,7 +196,7 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 export function formatPkgTooltipHTML(pkg) {
-  const modTag = pkg.modifier ? ` (${esc(pkg.modifier)})` : '';
+  const modTag = (pkg.tags && pkg.tags.length) ? ` (${esc(pkg.tags.join('+'))})` : '';
   // v0.0.9.6.9.30 — first line wrapped in .rich-tip-head so the
   // pkg label lands cyan + bold (matching sandal/recovery/route
   // tooltip heads).
@@ -264,6 +266,35 @@ function weightedArr(arr, getW) {
   return arr[0];
 }
 
+// v0.0.9.6.10.20 tag-shape — apply each tag's PKG_TAG_EFFECTS to a base
+// pkg shape (kg/slots/scrip). Stacking rules:
+//   scripMult — additive-excess across tags (fragile+heavy = 1.60, not 1.69)
+//   kgDelta   — heavy\u2295lightweight never co-occur at authoring, so
+//               only one applies; iteration order is irrelevant
+//   slotDelta — sum across tags (unwieldy is the only tag with slotDelta
+//               today; multi-tag stacks are theoretical)
+function applyTagsToBase(base, tags) {
+  let kg    = base.kg;
+  let slots = base.slots;
+  let scripExcess = 0;
+  for (const t of tags) {
+    const eff = PKG_TAG_EFFECTS[t];
+    if (!eff) continue;
+    if (eff.kgDelta === 'halve')   kg = Math.max(1, Math.floor(kg / 2));
+    if (eff.kgDelta === 'add1to3') kg = kg + 1 + Math.floor(Math.random() * 3);
+    if (eff.slotDelta)             slots += eff.slotDelta;
+    if (eff.scripMult)             scripExcess += (eff.scripMult - 1);
+  }
+  const scrip = Math.floor(base.scrip * (1 + scripExcess));
+  return { kg, slots, scrip };
+}
+
+// Safe tag check. Works on pkgs from rollPkg (tags array) and on old
+// saves post-migration. Returns false for plain pkgs.
+export function hasTag(pkg, tag) {
+  return !!(pkg && pkg.tags && pkg.tags.includes(tag));
+}
+
 // v0.0.9.4 — ring-distance-weighted destination picker. Replaces the
 // old edge-endpoint default (`destId = S.edges[edgeIdx][1]`). Picks a
 // clockwise offset 0..5 from the spawn edge's endpoint using the
@@ -295,45 +326,36 @@ export function rollDestForSpawn(spawnEdgeIdx) {
 //                v0.0.8.2 recovery pipeline inversion will own all
 //                isLost spawning.
 //
-// Returns a world-ready pkg object. Modifier effects (fragile damage
-// branch, HUD badges, cargoStraps) are inert in v0.0.8.1 — the
-// `modifier` field is set on the pkg but nothing reads it yet.
+// Returns a world-ready pkg object. Tags come from the label's authored
+// tags (v0.0.9.6.10.20 shape-rework); applied via applyTagsToBase for
+// scripMult/kgDelta/slotDelta. Fragile's damage/breakage behavior is
+// deferred to its own commit; today fragile just drives scripMult +
+// OUTBOUND_LOST_CHANCE scatter.
 export function rollPkg(destId, cellRisky, forceLost) {
   // 1. Size roll. Risky cells use the bumped xl table.
   const sizeWeights = cellRisky ? PKG_SIZE_WEIGHTS_RISKY : PKG_SIZE_WEIGHTS;
   const size = weightedKey(sizeWeights);
   const base = PKG_BASES[size];
 
-  // 2. Modifier roll (filtered by size incompatibility).
-  const validMods = PKG_MODIFIERS.filter(m => !m.incompat || !m.incompat.includes(size));
-  const mod = weightedArr(validMods, m => m.weight);
-
-  // 3. Apply modifier deltas to the base.
-  let kg    = base.kg;
-  let slots = base.slots;
-  let scrip = base.scrip;
-  if (mod.id) {
-    if (mod.kgDelta === 'halve')   kg = Math.max(1, Math.floor(kg / 2));
-    if (mod.kgDelta === 'add1to3') kg = kg + 1 + Math.floor(Math.random() * 3);
-    if (mod.slotDelta)             slots = slots + mod.slotDelta;
-    if (mod.scripMult)             scrip = Math.floor(scrip * mod.scripMult);
-  }
-
-  // 4. Label — filter the size's flat list by dest inclusion.
+  // 2. Label roll — filter the size's flat list by dest inclusion.
   // Fallback: if no label matches (shouldn't happen with the current
-  // pool but defensive), use a generic placeholder.
+  // pool but defensive), use a generic placeholder with no tags.
   const candidates = (PKG_LABELS_BY_SIZE[size] || []).filter(l => l.dests.includes(destId));
-  const label = candidates.length > 0
-    ? candidates[Math.floor(Math.random() * candidates.length)].label
-    : 'unmarked cargo';
+  const chosen = candidates.length > 0
+    ? candidates[Math.floor(Math.random() * candidates.length)]
+    : { label: 'unmarked cargo', tags: [] };
+  const tags = chosen.tags || [];
 
-  // 5. Lost flag + scrip bonus.
+  // 3. Apply tag effects to the base.
+  let { kg, slots, scrip } = applyTagsToBase(base, tags);
+
+  // 4. Lost flag + scrip bonus.
   if (forceLost) scrip = Math.floor(scrip * PKG_LOST_SCRIP_MULT);
 
   return {
-    size, label, kg, slots, scrip,
+    size, label: chosen.label, kg, slots, scrip,
     scripBase: scrip,  // v0.0.9.6.9.26 — original payout, preserved through damage so cargo tooltip can show "(was X¢)"
-    modifier: mod.id || null,
+    tags: tags.slice(),  // copy so pkg-level mutations don't leak into the label pool
     isLost: !!forceLost,
     destId,
     picked: false,
@@ -346,17 +368,14 @@ export function rollPkg(destId, cellRisky, forceLost) {
 // applies per-terrain reward biases:
 //   plateau    — normal roll, labels tagged mesa-salvage
 //   mountain   — xl bias 4x + scrip x1.3 (reward for harsh terrain)
-//   rockyHills — modifier-rate bump (fragile/heavy more common)
-// destId still uses the standard DEST_DIV_WEIGHTS curve seeded on a
-// "virtual edge" derived from the cell's position (nearest ring
-// node's edge). Result: plateau pkgs near xi naturally route to near-
-// start NPCs via forward-bias; mountain pkgs near pi similarly route
-// SW-locals.
+//   rockyHills — inherits whatever tag mix the labels carry
+// destId uses the standard DEST_DIV_WEIGHTS curve seeded on a "virtual
+// edge" derived from the cell's position (nearest ring node's edge).
+// v0.0.9.6.10.20 shape-rework: rockyHills "modifier-rate bump" dropped
+// — under authored tags, each terrain inherits its label pool's tag
+// mix. If rockyHills needs a heavier tag presence, author more tags on
+// its labels directly (flagged in the upcoming "big \u2260 dense" audit).
 export function rollInteriorPkg(terrainOrigin, cellX, cellY) {
-  // v0.0.9.6.9.3 — mesa outcrops (ring-placed teaching plateaus)
-  // detected early so size bias can favor small pkgs that fit
-  // when courier already has ring cargo. Reward should be
-  // claimable, not forced-drop.
   const outcrop = terrainOrigin === 'plateau' ? mesaOutcropAt(cellX, cellY) : null;
   // 1. Size roll with per-terrain bias.
   let sizeWeights = { ...PKG_SIZE_WEIGHTS };
@@ -371,58 +390,35 @@ export function rollInteriorPkg(terrainOrigin, cellX, cellY) {
   const size = weightedKey(sizeWeights);
   const base = PKG_BASES[size];
 
-  // 2. Modifier roll (with rockyHills bump).
-  let mods = PKG_MODIFIERS.filter(m => !m.incompat || !m.incompat.includes(size));
-  if (terrainOrigin === 'rockyHills') {
-    // Bump non-null modifier weights by INTERIOR_ROCKYHILLS_MOD_BIAS
-    mods = mods.map(m => m.id
-      ? { ...m, weight: m.weight * C.INTERIOR_ROCKYHILLS_MOD_BIAS }
-      : m);
-  }
-  const mod = weightedArr(mods, m => m.weight);
-
-  // 3. Apply modifier deltas to the base.
-  let kg    = base.kg;
-  let slots = base.slots;
-  let scrip = base.scrip;
-  if (mod.id) {
-    if (mod.kgDelta === 'halve')   kg = Math.max(1, Math.floor(kg / 2));
-    if (mod.kgDelta === 'add1to3') kg = kg + 1 + Math.floor(Math.random() * 3);
-    if (mod.slotDelta)             slots = slots + mod.slotDelta;
-    if (mod.scripMult)             scrip = Math.floor(scrip * mod.scripMult);
-  }
-
-  // 4. Mountain scrip reward bump (reward for traversal cost).
-  if (terrainOrigin === 'mountain') {
-    scrip = Math.floor(scrip * C.INTERIOR_MOUNTAIN_SCRIP_MULT);
-  }
-
-  // 5. Destination — mesa-outcrop plateaus (scattered along early
-  // route as teaching outcrops) restrict dests to the near-start
-  // NPC allowlist so rewards are fast + cashable. xi's corner
-  // plateau + other interior terrains use the standard forward-
-  // bias dest-weight curve. `outcrop` captured at function top.
+  // 2. Destination — mesa-outcrop plateaus restrict to near-start dests;
+  // other interior terrains use the forward-bias dest-weight curve.
   const MESA_NEAR_START_DESTS = ['A', 'B', 'H', '\u00b7', '\u03bd', '\u03b8'];
   let destId;
   if (outcrop) {
-    // Uniform pick from near-start dests for mesa-outcrop plateaus.
     destId = MESA_NEAR_START_DESTS[Math.floor(Math.random() * MESA_NEAR_START_DESTS.length)];
   } else {
     const nearestEdgeIdx = nearestEdgeToPoint(cellX, cellY);
     destId = rollDestForSpawn(nearestEdgeIdx);
   }
 
-  // 6. Label — terrain-origin pool, size-tier bucket. Filter by dest.
+  // 3. Label — terrain-origin pool, size-tier bucket. Filter by dest.
   const pool = (PKG_LABELS_BY_TERRAIN_ORIGIN[terrainOrigin] || {})[size] || [];
   const candidates = pool.filter(l => l.dests.includes(destId));
-  const label = candidates.length > 0
-    ? candidates[Math.floor(Math.random() * candidates.length)].label
-    : 'salvaged cargo';
+  const chosen = candidates.length > 0
+    ? candidates[Math.floor(Math.random() * candidates.length)]
+    : { label: 'salvaged cargo', tags: [] };
+  const tags = chosen.tags || [];
+
+  // 4. Apply tag effects + mountain scrip bump (reward for traversal cost).
+  let { kg, slots, scrip } = applyTagsToBase(base, tags);
+  if (terrainOrigin === 'mountain') {
+    scrip = Math.floor(scrip * C.INTERIOR_MOUNTAIN_SCRIP_MULT);
+  }
 
   return {
-    size, label, kg, slots, scrip,
+    size, label: chosen.label, kg, slots, scrip,
     scripBase: scrip,  // v0.0.9.6.9.26 — original payout for damaged-pkg tooltip
-    modifier: mod.id || null,
+    tags: tags.slice(),
     isLost: false,
     destId,
     terrainOrigin,  // v0.0.9.6 commit 5 — propagates through pickup/delivery
@@ -568,24 +564,17 @@ export function tryOutboundDispatch(originNodeId) {
     if (r <= 0) { destId = w.dest; break; }
   }
 
-  // Build the pkg. Size + label are fixed (our chosen), but modifier,
-  // kg/slots/scrip get re-rolled via the same PKG_BASES + PKG_MODIFIERS
-  // machinery as rollPkg so the pkg is internally consistent.
+  // Build the pkg. Size + label + tags come from the chosen label;
+  // kg/slots/scrip applied via the same PKG_TAG_EFFECTS machinery as
+  // rollPkg so the dispatched pkg is internally consistent.
   const base = PKG_BASES[size];
-  const validMods = PKG_MODIFIERS.filter(m => !m.incompat || !m.incompat.includes(size));
-  const mod = weightedArr(validMods, m => m.weight);
-  let kg = base.kg, slots = base.slots, scrip = base.scrip;
-  if (mod.id) {
-    if (mod.kgDelta === 'halve')   kg = Math.max(1, Math.floor(kg / 2));
-    if (mod.kgDelta === 'add1to3') kg = kg + 1 + Math.floor(Math.random() * 3);
-    if (mod.slotDelta)             slots = slots + mod.slotDelta;
-    if (mod.scripMult)             scrip = Math.floor(scrip * mod.scripMult);
-  }
+  const tags = chosen.tags || [];
+  let { kg, slots, scrip } = applyTagsToBase(base, tags);
 
   const pkg = {
     size, label: chosen.label, kg, slots, scrip,
     scripBase: scrip,  // v0.0.9.6.9.26 — original payout for damaged-pkg tooltip
-    modifier: mod.id || null,
+    tags: tags.slice(),
     isLost: false,
     destId,
     picked: false,
@@ -606,7 +595,7 @@ export function tryOutboundDispatch(originNodeId) {
   const carried = {
     size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
     scrip: pkg.scrip, isLost: false, destId: pkg.destId,
-    modifier: pkg.modifier || null,
+    tags: (pkg.tags || []).slice(),
     isRecovery: false,
     recoveryFromPorter: null,
     outboundFrom: originNodeId,    // carries through to tryDeliver
@@ -734,9 +723,12 @@ function trySwapForCloserPkg(newPkg) {
   let outcome = 'free';
   if (mode === 'realistic') {
     // Replicate ejectFromCargo's loss-roll without the UI chrome.
-    const chance = evictee.modifier && (evictee.modifier in OUTBOUND_LOST_CHANCE)
-      ? OUTBOUND_LOST_CHANCE[evictee.modifier]
-      : OUTBOUND_LOST_BASE;
+    // v0.0.9.6.10.20 tag-stack — take max scatter-chance across tags
+    // (fragile dominates at 0.30 when present). No tags falls to base.
+    const tagChances = (evictee.tags || [])
+      .filter(t => t in OUTBOUND_LOST_CHANCE)
+      .map(t => OUTBOUND_LOST_CHANCE[t]);
+    const chance = tagChances.length ? Math.max(...tagChances) : OUTBOUND_LOST_BASE;
     const lostRoll = Math.random() < chance;
     const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
     let dropCi = -1;
@@ -764,7 +756,7 @@ function trySwapForCloserPkg(newPkg) {
       worldCells[dropCi].pkg = {
         size: evictee.size, label: evictee.label, kg: evictee.kg, slots: evictee.slots,
         scrip: evictee.scrip,
-        modifier: evictee.modifier || null,
+        tags: (evictee.tags || []).slice(),
         isLost: !!evictee.isLost,
         destId: evictee.destId,
         isRecovery: !!evictee.isRecovery,
@@ -879,7 +871,7 @@ function acceptPickup(ci, offset) {
   const carried = {
     size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
     scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
-    modifier: pkg.modifier || null,
+    tags: (pkg.tags || []).slice(),
     isRecovery: !!pkg.isRecovery,
     recoveryFromPorter: pkg.recoveryFromPorter || null,
     _worldCell: ci,
@@ -1021,7 +1013,7 @@ function acceptInteriorPickup(entry) {
   const carried = {
     size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
     scrip: pkg.scrip, isLost: pkg.isLost, destId: pkg.destId,
-    modifier: pkg.modifier || null,
+    tags: (pkg.tags || []).slice(),
     terrainOrigin: entry.terrainOrigin,
     _interiorKey: cellKeyFromCoords(entry.x, entry.y),
     // v0.0.9.6.9.10 — cargo telemetry fields (see dispatch branch).
@@ -1164,9 +1156,12 @@ export function ejectFromCargo(invIdx) {
   const pkg = S.inventory[invIdx];
   if (!pkg) return;
 
-  const chance = pkg.modifier && (pkg.modifier in OUTBOUND_LOST_CHANCE)
-    ? OUTBOUND_LOST_CHANCE[pkg.modifier]
-    : OUTBOUND_LOST_BASE;
+  // v0.0.9.6.10.20 tag-stack — take max scatter-chance across tags
+  // (fragile dominates at 0.30 when present). No tags falls to base.
+  const tagChances = (pkg.tags || [])
+    .filter(t => t in OUTBOUND_LOST_CHANCE)
+    .map(t => OUTBOUND_LOST_CHANCE[t]);
+  const chance = tagChances.length ? Math.max(...tagChances) : OUTBOUND_LOST_BASE;
   const lostRoll = Math.random() < chance;
 
   // Try to find a world cell to drop into (for the kept branch, or
@@ -1215,7 +1210,7 @@ export function ejectFromCargo(invIdx) {
     const dropped = {
       size: pkg.size, label: pkg.label, kg: pkg.kg, slots: pkg.slots,
       scrip: pkg.scrip,
-      modifier: pkg.modifier || null,
+      tags: (pkg.tags || []).slice(),
       isLost: !!pkg.isLost,
       destId: pkg.destId,
       isRecovery: !!pkg.isRecovery,
@@ -1257,9 +1252,9 @@ export function ejectFromCargo(invIdx) {
 // ============================================================
 // PACKAGE DELIVERY — tryDeliver lives in ./packages-delivery.js
 // (extracted v0.0.9.6.9.30.4). Re-exported below so existing
-// `import * as Pkg from './packages.js?v=096-10-19'` consumers keep working.
+// `import * as Pkg from './packages.js?v=096-10-20'` consumers keep working.
 // ============================================================
-export { tryDeliver } from './packages-delivery.js?v=096-10-19';
+export { tryDeliver } from './packages-delivery.js?v=096-10-20';
 
 export function tickPkgRespawns() {
   for (let i = 0; i < C.TOTAL_CELLS; i++) {

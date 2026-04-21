@@ -30,8 +30,8 @@
    ============================================== */
 'use strict';
 
-import { S } from '../state.js?v=096-10-19';
-import { ejectFromCargo } from '../packages.js?v=096-10-19';
+import { S } from '../state.js?v=096-10-20';
+import { ejectFromCargo } from '../packages.js?v=096-10-20';
 
 // Pre-commit: mousedown recorded here but drag hasn't crossed the
 // 4px threshold yet. Cleared on mouseup. When a drag commits, this
@@ -74,7 +74,7 @@ export function bindDragGlobals() {
     // Commit drag — create ghost + move pending → S._transient.drag.
     const ghost = document.createElement('div');
     ghost.className = `drag-ghost cslot ${pending.pkg.size}` +
-      (pending.pkg.modifier ? ` mod-${pending.pkg.modifier}` : '');
+      ((pending.pkg.tags && pending.pkg.tags[0]) ? ` mod-${pending.pkg.tags[0]}` : '');
     ghost.textContent = pending.pkg.size;
     document.body.appendChild(ghost);
     // Ghost is in the DOM now — offsetWidth/Height are meaningful.

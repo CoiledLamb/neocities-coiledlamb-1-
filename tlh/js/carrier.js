@@ -29,10 +29,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-19';
-import * as C from './constants.js?v=096-10-19';
-import { addLog } from './render/log.js?v=096-10-19';
-import { emit as tEmit } from './telemetry.js?v=096-10-19';
+import { S } from './state.js?v=096-10-20';
+import * as C from './constants.js?v=096-10-20';
+import { addLog } from './render/log.js?v=096-10-20';
+import { emit as tEmit } from './telemetry.js?v=096-10-20';
 
 // Build the folded-carrier pseudo-pkg that sits in main cargo
 // when stowed. Treated like any other pkg by binPack (size

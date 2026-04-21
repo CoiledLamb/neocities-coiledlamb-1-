@@ -34,10 +34,27 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-19';
-import * as C from './constants.js?v=096-10-19';
-import { addLog } from './render/log.js?v=096-10-19';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-19';
+import { S } from './state.js?v=096-10-20';
+import * as C from './constants.js?v=096-10-20';
+import { addLog } from './render/log.js?v=096-10-20';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-20';
+
+// v0.0.9.6.10.20 tag-shape migration. Old saves carry `pkg.modifier`
+// (string or null) from the pre-tag shape; new saves carry `pkg.tags`
+// (string array). On load, convert the old field into the new one and
+// drop `modifier` so re-saving emits the new shape cleanly.
+function migratePkgTags(p) {
+  if (!p || typeof p !== 'object') return p;
+  // Already migrated or fresh — trust the tags array, drop any stale modifier.
+  if (Array.isArray(p.tags)) {
+    if ('modifier' in p) delete p.modifier;
+    return p;
+  }
+  // Old shape: hoist modifier → tags[0].
+  p.tags = (typeof p.modifier === 'string' && p.modifier) ? [p.modifier] : [];
+  if ('modifier' in p) delete p.modifier;
+  return p;
+}
 
 const els = S._transient.els;
 
@@ -278,7 +295,7 @@ function _applyValidated(data) {
     }
 
     if (Array.isArray(data.inventory)) {
-      S.inventory = data.inventory.map(p => ({ ...p }));
+      S.inventory = data.inventory.map(p => migratePkgTags({ ...p }));
       S.usedSlots  = S.inventory.reduce((sum, p) => sum + (p.slots || 0), 0);
       S.usedWeight = S.inventory.reduce((sum, p) => sum + (p.kg || 0), 0);
     }
@@ -438,7 +455,7 @@ function _applyValidated(data) {
           x: +e.x || 0,
           y: +e.y || 0,
           terrainOrigin: e.terrainOrigin,
-          pkg: e.pkg,
+          pkg: migratePkgTags({ ...e.pkg }),
           respawnIn: +e.respawnIn || 0,
           picked: !!e.picked,
         };
@@ -524,7 +541,7 @@ function _applyValidated(data) {
       if (typeof c.deployed === 'boolean')        S.carrier.deployed = c.deployed;
       if (typeof c.autoDeployArmed === 'boolean') S.carrier.autoDeployArmed = c.autoDeployArmed;
       if (typeof c.safeTerrainTicks === 'number') S.carrier.safeTerrainTicks = Math.max(0, c.safeTerrainTicks | 0);
-      if (Array.isArray(c.inventory))             S.carrier.inventory = c.inventory.slice();
+      if (Array.isArray(c.inventory))             S.carrier.inventory = c.inventory.map(p => migratePkgTags({ ...p }));
     }
     // Retro-grant: upgrade flag → state reconstruction. Default
     // deployed=true for the "new cart arrives rolling" UX (same as

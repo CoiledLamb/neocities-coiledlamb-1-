@@ -60,22 +60,22 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-19';
-import * as C from './constants.js?v=096-10-19';
-import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-19';
-import { NPC_LINES } from './data/npc-lines.js?v=096-10-19';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-19';
-import { postActivity } from './multiplayer.js?v=096-10-19';
-import { emit as tEmit, accum as tAccum, markFirst as tMarkFirst } from './telemetry.js?v=096-10-19';
-import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js?v=096-10-19';
-import { speak } from './channels.js?v=096-10-19';
-import { pickRandom } from './util.js?v=096-10-19';
-import { staminaSegCount, renderStamina } from './stamina.js?v=096-10-19';
-import { addLog } from './render/log.js?v=096-10-19';
-import { updateHUD } from './render/hud.js?v=096-10-19';
-import { drawRouteMap } from './render/route-map.js?v=096-10-19';
-import { renderSettlements } from './render/settlements.js?v=096-10-19';
-import { weatherAtCourier } from './weather.js?v=096-10-19';
+import { S } from './state.js?v=096-10-20';
+import * as C from './constants.js?v=096-10-20';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-20';
+import { NPC_LINES } from './data/npc-lines.js?v=096-10-20';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-20';
+import { postActivity } from './multiplayer.js?v=096-10-20';
+import { emit as tEmit, accum as tAccum, markFirst as tMarkFirst } from './telemetry.js?v=096-10-20';
+import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js?v=096-10-20';
+import { speak } from './channels.js?v=096-10-20';
+import { pickRandom } from './util.js?v=096-10-20';
+import { staminaSegCount, renderStamina } from './stamina.js?v=096-10-20';
+import { addLog } from './render/log.js?v=096-10-20';
+import { updateHUD } from './render/hud.js?v=096-10-20';
+import { drawRouteMap } from './render/route-map.js?v=096-10-20';
+import { renderSettlements } from './render/settlements.js?v=096-10-20';
+import { weatherAtCourier } from './weather.js?v=096-10-20';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
@@ -122,7 +122,7 @@ export function speakDelivery(arrivedNodeId, deliveredPkgs) {
   for (const pkg of deliveredPkgs) {
     if ((pkg.isLost || pkg.isRecovery) && del.lost && del.lost.length)                          { cat = 'lost';    break; }
     if (pkg.damaged && del.damaged && del.damaged.length)                                        { cat = 'damaged';  break; }
-    if (pkg.modifier === 'fragile' && !pkg.damaged && del.fragile && del.fragile.length)         { cat = 'fragile'; break; }
+    if (pkg.tags && pkg.tags.includes('fragile') && !pkg.damaged && del.fragile && del.fragile.length) { cat = 'fragile'; break; }
     if ((pkg.size === 'xl' || pkg.size === 'l') && del.heavy && del.heavy.length)                { cat = 'heavy';   break; }
   }
   const lines = del[cat] || del.normal || [];

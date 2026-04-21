@@ -19,15 +19,15 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=096-10-19';
-import { statusColor } from '../data/glyphs.js?v=096-10-19';
-import { tlhPalette } from '../palette.js?v=096-10-19';
-import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js?v=096-10-19';
-import { getDisplayLabel } from '../identification.js?v=096-10-19';
-import { bindCargoDragSource } from './drag.js?v=096-10-19';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=096-10-19';
-import * as Upg from '../upgrades.js?v=096-10-19';
-import { CARRIER_STATS } from '../constants.js?v=096-10-19';
+import { S } from '../state.js?v=096-10-20';
+import { statusColor } from '../data/glyphs.js?v=096-10-20';
+import { tlhPalette } from '../palette.js?v=096-10-20';
+import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js?v=096-10-20';
+import { getDisplayLabel } from '../identification.js?v=096-10-20';
+import { bindCargoDragSource } from './drag.js?v=096-10-20';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=096-10-20';
+import * as Upg from '../upgrades.js?v=096-10-20';
+import { CARRIER_STATS } from '../constants.js?v=096-10-20';
 
 const els = S._transient.els;
 
@@ -97,7 +97,7 @@ function cargoKey() {
   // inventory changes trigger a redraw (cart-bag visibility, folded
   // pkg in main, cart slot contents).
   const gunKey = S.stickyGun ? `${S.stickyGun.ammo}/${S.stickyGun.ammoMax}${S.stickyGun.holstered?'h':''}` : '-';
-  const mainKey = S.inventory.map(p => `${p.size}${p.destId||''}${p.scrip}${p.modifier||''}${p.kind||''}`).join('|');
+  const mainKey = S.inventory.map(p => `${p.size}${p.destId||''}${p.scrip}${(p.tags||[]).join(',')}${p.kind||''}`).join('|');
   const cart    = S.carrier || {};
   const cartInv = cart.inventory || [];
   const cartKey = cart.unlocked
@@ -135,7 +135,7 @@ const PKG_SHAPES = {
 // just follows the variant's w/h.
 function pkgFootprint(pkg) {
   const orientations = PKG_SHAPES[pkg.size] || PKG_SHAPES.s;
-  const hasTrail = pkg.modifier === 'unwieldy';
+  const hasTrail = !!(pkg.tags && pkg.tags.includes('unwieldy'));
   const variants = orientations.map(base => {
     const cells = [];
     for (let dy = 0; dy < base.h; dy++)
@@ -275,7 +275,7 @@ export function renderCargoSlots(force) {
     // any non-rich consumer.
     const tip = formatPkgTooltip(p.pkg);
     const tipHTML = formatPkgTooltipHTML(p.pkg);
-    const modClass = p.pkg.modifier ? ` mod-${p.pkg.modifier}` : '';
+    const modClass = (p.pkg.tags && p.pkg.tags[0]) ? ` mod-${p.pkg.tags[0]}` : '';
     // v0.0.9.4.1 commit 2: pkg's index in S.inventory — needed by the
     // drag layer to know which item to eject. Computed now (before
     // any splicing) so it stays stable through this render frame.
@@ -491,7 +491,7 @@ function renderCartGrid() {
     if (p.overflow) continue;
     const tip = formatPkgTooltip(p.pkg);
     const tipHTML = formatPkgTooltipHTML(p.pkg);
-    const modClass = p.pkg.modifier ? ` mod-${p.pkg.modifier}` : '';
+    const modClass = (p.pkg.tags && p.pkg.tags[0]) ? ` mod-${p.pkg.tags[0]}` : '';
     const main = document.createElement('div');
     main.className = `cslot ${p.pkg.size}${modClass} has-tooltip cargo-cslot cart-cslot`;
     main.style.gridColumn = `${p.x + 1} / span ${p.base.w}`;
@@ -596,7 +596,7 @@ function buildCargoKgHTML() {
   }
   lines.push('<div class="rich-tip-divider"></div>');
   for (const p of S.inventory) {
-    const mod = p.modifier ? ` <span class="rich-tip-dim">${escKg(p.modifier)}</span>` : '';
+    const mod = (p.tags && p.tags.length) ? ` <span class="rich-tip-dim">${escKg(p.tags.join('+'))}</span>` : '';
     const dest = p.destId ? ` <span class="rich-tip-dim">\u2192 ${escKg(getDisplayLabel(p.destId))}</span>` : '';
     lines.push(
       `<div class="rich-tip-row">` +

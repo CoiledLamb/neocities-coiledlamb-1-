@@ -57,20 +57,20 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-19';
-import * as C from './constants.js?v=096-10-19';
-import { postLostDrop } from './multiplayer.js?v=096-10-19';
-import { staminaSegCount } from './stamina.js?v=096-10-19';
-import { emit as tEmit } from './telemetry.js?v=096-10-19';
+import { S } from './state.js?v=096-10-20';
+import * as C from './constants.js?v=096-10-20';
+import { postLostDrop } from './multiplayer.js?v=096-10-20';
+import { staminaSegCount } from './stamina.js?v=096-10-20';
+import { emit as tEmit } from './telemetry.js?v=096-10-20';
 // v0.0.9.6.9.13 — trip-dropped cargo needs to hit the same bottleneck
 // edge-tracker used by normal pick/deliver paths. Without this, a
 // severe trip at full cargo can transition out of maxed without
 // emitting inventory.freed.
-import { onInventoryChange } from './packages.js?v=096-10-19';
-import { addLog } from './render/log.js?v=096-10-19';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-19';
-import { weatherAtCourier } from './weather.js?v=096-10-19';
-import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js?v=096-10-19';
+import { onInventoryChange } from './packages.js?v=096-10-20';
+import { addLog } from './render/log.js?v=096-10-20';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-20';
+import { weatherAtCourier } from './weather.js?v=096-10-20';
+import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js?v=096-10-20';
 import {
   TERRAIN_TRIP_MULT,
   TERRAIN_HAS_SEVERE,
@@ -80,9 +80,9 @@ import {
   GEAR_FOR_TERRAIN,
   GEAR_TRIP_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=096-10-19';
-import { placedGearAt } from './gear.js?v=096-10-19';
-import { trampleAt } from './trail.js?v=096-10-19';
+} from './data/terrain.js?v=096-10-20';
+import { placedGearAt } from './gear.js?v=096-10-20';
+import { trampleAt } from './trail.js?v=096-10-20';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -491,7 +491,7 @@ function dropTrippedPkg(target, invIdx) {
   worldCells[dropCi].pkg = {
     size: target.size, label: target.label, kg: target.kg, slots: target.slots,
     scrip: target.scrip,
-    modifier: target.modifier || null,
+    tags: (target.tags || []).slice(),
     isLost: false,
     destId: target.destId,
     isRecovery: !!target.isRecovery,
@@ -538,7 +538,7 @@ function applySevereDamage(terrain) {
   else                             { fragile = 0.50; nonFragile = 0.00; }  // rockyHills
   for (let i = S.inventory.length - 1; i >= 0; i--) {
     const pkg = S.inventory[i];
-    const isFragile = pkg.modifier === 'fragile';
+    const isFragile = !!(pkg.tags && pkg.tags.includes('fragile'));
     if (waterSaves && isFragile) continue;  // theta's ceramic wrap protects
     const hit = isFragile ? fragile : nonFragile;
     if (Math.random() >= hit) continue;
