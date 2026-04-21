@@ -75,65 +75,65 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-18';
-import * as C from './constants.js?v=096-10-18';
-import { NPC_LINES } from './data/npc-lines.js?v=096-10-18';
-import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-18';
-import { ZONE_TYPES } from './data/zones.js?v=096-10-18';
-import { NODE_GLYPHS } from './data/glyphs.js?v=096-10-18';
-import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=096-10-18';
+import { S } from './state.js?v=096-10-19';
+import * as C from './constants.js?v=096-10-19';
+import { NPC_LINES } from './data/npc-lines.js?v=096-10-19';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-19';
+import { ZONE_TYPES } from './data/zones.js?v=096-10-19';
+import { NODE_GLYPHS } from './data/glyphs.js?v=096-10-19';
+import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=096-10-19';
 import {
   getPorterId, getCachedPorterId, postActivity, postLostDrop,
   fetchLostFromPeer, startPolling, stopPolling,
   shortPorterId, checkDistMilestones, isSilent, setSilent,
-} from './multiplayer.js?v=096-10-18';
-import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=096-10-18';
+} from './multiplayer.js?v=096-10-19';
+import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=096-10-19';
 import {
   getNodeStage, setNodeStage, markEdgeAdjacent, getDisplayLabel,
-} from './identification.js?v=096-10-18';
+} from './identification.js?v=096-10-19';
 import {
   addTrust, tryWarning, tryPreview, tryRestPrompt,
-} from './trust.js?v=096-10-18';
-import { renderChannels, tickAmbientChatter } from './channels.js?v=096-10-18';
+} from './trust.js?v=096-10-19';
+import { renderChannels, tickAmbientChatter } from './channels.js?v=096-10-19';
 import {
   buildWorld, calcCellPxWidth, worldPosFromRoute, renderFieldstrip,
   bindFieldstripInteractions,
-} from './world.js?v=096-10-18';
-import * as Pkg from './packages.js?v=096-10-18';
-import * as Trip from './trip.js?v=096-10-18';
-import * as Boots from './boots.js?v=096-10-18';
-import * as Carrier from './carrier.js?v=096-10-18';
-import * as Stamina from './stamina.js?v=096-10-18';
-import * as Upg from './upgrades.js?v=096-10-18';
-import { tickScanner } from './scanner.js?v=096-10-18';
-import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=096-10-18';
-import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=096-10-18';
-import { renderKit } from './render/kit.js?v=096-10-18';
-import { initAdminChannel } from './admin-channel.js?v=096-10-18';
-import { initSaveIo } from './save-io.js?v=096-10-18';
-import { addLog, restoreLogFromSave } from './render/log.js?v=096-10-18';
+} from './world.js?v=096-10-19';
+import * as Pkg from './packages.js?v=096-10-19';
+import * as Trip from './trip.js?v=096-10-19';
+import * as Boots from './boots.js?v=096-10-19';
+import * as Carrier from './carrier.js?v=096-10-19';
+import * as Stamina from './stamina.js?v=096-10-19';
+import * as Upg from './upgrades.js?v=096-10-19';
+import { tickScanner } from './scanner.js?v=096-10-19';
+import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=096-10-19';
+import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=096-10-19';
+import { renderKit } from './render/kit.js?v=096-10-19';
+import { initAdminChannel } from './admin-channel.js?v=096-10-19';
+import { initSaveIo } from './save-io.js?v=096-10-19';
+import { addLog, restoreLogFromSave } from './render/log.js?v=096-10-19';
 import {
   updateHUD, renderCargoSlots, renderCourierStack,
-} from './render/hud.js?v=096-10-18';
-import { bindDragGlobals } from './render/drag.js?v=096-10-18';
+} from './render/hud.js?v=096-10-19';
+import { bindDragGlobals } from './render/drag.js?v=096-10-19';
 import {
   drawRouteMap, updateRouteDot, updateRouteHud, layoutRouteNodes, currentEdge,
   initSegment, advanceSegmentAfterArrival, bindRouteInteractions,
   tickRouteInteractions, isOnShortcut, courierTerrain,
-} from './render/route-map.js?v=096-10-18';
+} from './render/route-map.js?v=096-10-19';
 import {
   TERRAIN_STAMINA_MULT, TERRAIN_CANTEEN_DELTA, desertStaminaMult,
   GEAR_FOR_TERRAIN, GEAR_STAMINA_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=096-10-18';
+} from './data/terrain.js?v=096-10-19';
 import {
   autoPlaceForCell, placedGearAt, tickGearDecay, resetGearLogThrottles,
-} from './gear.js?v=096-10-18';
-import { addTrampleAt, trampleAt } from './trail.js?v=096-10-18';
-import { emit as tEmit } from './telemetry.js?v=096-10-18';
-import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=096-10-18';
-import { renderNetwork } from './render/network.js?v=096-10-18';
-import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=096-10-18';
+} from './gear.js?v=096-10-19';
+import { addTrampleAt, trampleAt } from './trail.js?v=096-10-19';
+import { emit as tEmit } from './telemetry.js?v=096-10-19';
+import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=096-10-19';
+import { renderNetwork } from './render/network.js?v=096-10-19';
+import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=096-10-19';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;

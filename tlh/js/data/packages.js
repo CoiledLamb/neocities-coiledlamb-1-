@@ -107,11 +107,11 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'flare cartridge',   dests: ['C']                 },
     { label: 'signal mirror',     dests: ['C']                 },
     { label: 'film canister',     dests: ['H']                 },
-    { label: 'pressed flowers',   dests: ['H','\u00b7']             },
+    { label: 'pressed flowers',   dests: ['H']                      },
     { label: 'beaded bracelet',   dests: ['\u00b7']                 },
     { label: 'carved charm',      dests: ['\u00b7']                 },
-    { label: 'knit cap',          dests: ['\u00b7','H']             },
-    { label: 'spare socks',       dests: ['\u00b7','H']         },
+    { label: 'knit cap',          dests: ['H']                      },
+    { label: 'spare socks',       dests: ['H']                  },
     { label: 'ammo packet',       dests: ['C']                 },
     { label: 'fertilizer packet', dests: ['B']                 },
     { label: 'cuttings',          dests: ['B','H']             },
@@ -153,7 +153,7 @@ export const PKG_LABELS_BY_SIZE = {
     // -- gamma (\u03b3) rocky hillside / workshop --
     { label: 'carabiner',             dests: ['\u03b3','\u03bb']              },
     { label: 'sparkplug',             dests: ['\u03b3','\u03b4']              },
-    { label: 'wire nut',              dests: ['\u03b3','\u03b4']              },
+    { label: 'wire nut',              dests: ['\u03b3']                       },
     { label: 'grease jar',            dests: ['\u03b3']                       },
     { label: 'stove cartridge',       dests: ['\u03b3']                       },
     // -- lambda (\u03bb) mountain / climbing --
@@ -173,7 +173,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'seal ring',             dests: ['\u03b4']                       },
     { label: 'gasket',                dests: ['\u03b4','\u03b3']              },
     { label: 'pressure dial',         dests: ['\u03b4','?']                   },
-    { label: 'coupling pin',          dests: ['\u03b4','\u03b3']              },
+    { label: 'coupling pin',          dests: ['\u03b3']                       },
     // -- iota (B) boost --
     { label: 'growing medium',        dests: ['B']                            },
     { label: 'pollen sample',         dests: ['B']                            },
@@ -189,7 +189,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'weathered signal flag', dests: ['\u03bd','A']                   },
     { label: 'trailhead scrap',       dests: ['\u00b7']                       },
     { label: 'wind-whipped charm',    dests: ['\u00b7']                       },
-    { label: 'plateau-top trinket',   dests: ['\u00b7','B']                   },
+    { label: 'plateau-top trinket',   dests: ['\u00b7']                       },
     { label: 'weathered seed envelope', dests: ['B']                          },
     { label: 'plateau pollen sample', dests: ['B','\u03b8']                   },
     { label: 'sun-baked pot shard',   dests: ['\u03b8']                       },
@@ -223,7 +223,7 @@ export const PKG_LABELS_BY_SIZE = {
     // -- gamma (\u03b3) fill --
     { label: 'hex keys',              dests: ['\u03b3']                       },
     { label: 'bearing pack',          dests: ['\u03b3']                       },
-    { label: 'copper shim',           dests: ['\u03b3','C']                   },
+    { label: 'copper shim',           dests: ['C']                            },
     // -- nu (\u03bd) fill --
     { label: 'sun-cracked goggles',   dests: ['\u03bd','\u00b7']              },
     { label: 'gourd stopper',         dests: ['\u03bd','\u03b8']              },
@@ -234,7 +234,16 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'firing schedule',       dests: ['\u03b8']                       },
     // -- delta (\u03b4) fill --
     { label: 'bypass valve',          dests: ['\u03b4']                       },
-    { label: 'sluice pin',            dests: ['\u03b4','\u03b3']              },
+    { label: 'sluice pin',            dests: ['\u03b4']                       },
+    // v0.0.9.6.10.19 pool-audit — thin-pool evening (C +5, pi +3, nu +2) +
+    // flavorful fill (A +2 depot internals, pi +2 electronics lightweight,
+    // lambda +2 climbing fragile). Untagged here; tagged in v0.0.9.6.10.20.
+    { label: 'dust sample',           dests: ['C']                            },
+    { label: 'ruin tag',              dests: ['C']                            },
+    { label: 'lens shard',            dests: ['C','\u03c0']                   },
+    { label: 'ferrite core',          dests: ['\u03c0']                       },
+    { label: 'frost-cracked lens',    dests: ['\u03bb']                       },
+    { label: 'oxygen vial',           dests: ['\u03bb']                       },
   ],
   m: [
     { label: 'tool roll',          dests: ['A','\u03b3']       },
@@ -246,7 +255,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'water filter',       dests: ['B','C','H']        },
     { label: 'salvage kit',        dests: ['C','A','B']        },
     { label: 'repair kit',         dests: ['\u03b3','\u03b4']  },
-    { label: 'rope coil',          dests: ['B','\u03bb','\u03b3'] },
+    { label: 'rope coil',          dests: ['\u03bb','\u03b3']     },
     { label: 'spare parts',        dests: ['A','\u03b3']       },
     { label: 'book bundle',        dests: ['H','?']            },
     { label: 'pantry crate',       dests: ['H','\u00b7']            },
@@ -285,7 +294,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'fired pot',             dests: ['\u03b8','H']                   },
     // -- gamma (\u03b3) --
     { label: 'coil of wire',          dests: ['\u03b3','\u03b4']              },
-    { label: 'climbing holds',        dests: ['\u03b3','\u03bb']              },
+    { label: 'climbing holds',        dests: ['\u03bb']                       },
     { label: 'forge kit',             dests: ['\u03b3']                       },
     { label: 'bellows patch',         dests: ['\u03b3']                       },
     // -- lambda (\u03bb) --
@@ -318,7 +327,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'old route marker',      dests: ['A','\u00b7']                   },
     { label: 'dust-buried cache',     dests: ['\u03bd','\u00b7']              },
     { label: 'sand-scoured satchel',  dests: ['\u03bd','A','\u00b7']          },
-    { label: 'mesa-edge cache',       dests: ['\u00b7','B']                   },
+    { label: 'mesa-edge cache',       dests: ['\u00b7']                       },
     { label: 'sun-faded field notes', dests: ['B']                            },
     { label: 'wind-blown sapling wrap', dests: ['B','\u03b8']                 },
     { label: 'wind-dried reed bundle', dests: ['\u03b8','B']                  },
@@ -329,7 +338,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'domestic mend kit',     dests: ['H','\u00b7']                   },
     { label: 'sluice wrench set',     dests: ['\u03b4','\u03b3']              },
     // -- first-aid family (ex-"first-aid kit") --
-    { label: 'blister kit',           dests: ['H','\u00b7']                   },
+    { label: 'blister kit',           dests: ['H']                            },
     { label: 'mountain trauma kit',   dests: ['\u03bb','C']                   },
     { label: 'heat-stroke kit',       dests: ['\u03bd','\u03b4']              },
     // -- battery family (ex-"battery pack") --
@@ -363,8 +372,16 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'kiln log',              dests: ['\u03b8']                       },
     { label: 'clay-stained rag roll', dests: ['\u03b8','\u00b7']              },
     // -- delta (\u03b4) fill --
-    { label: 'spillway chart',        dests: ['\u03b4','B']                   },
+    { label: 'spillway chart',        dests: ['\u03b4']                       },
     { label: 'maintenance ledger',    dests: ['\u03b4','A']                   },
+    // v0.0.9.6.10.19 pool-audit additions (see [s] block for scope).
+    { label: 'rubbing kit',           dests: ['C']                            },
+    { label: 'artifact wrap',         dests: ['C']                            },
+    { label: 'power bench kit',       dests: ['\u03c0']                       },
+    { label: 'salt jar',              dests: ['\u03bd']                       },
+    { label: 'machine bushings',      dests: ['A']                            },
+    { label: 'depot timing kit',      dests: ['A']                            },
+    { label: 'antistatic wrap',       dests: ['\u03c0']                       },
   ],
   l: [
     { label: 'parts crate',        dests: ['A','C']            },
@@ -445,6 +462,9 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'reed kiln screen',      dests: ['\u03b8','B']                   },
     // -- delta (\u03b4) --
     { label: 'spillway grate',        dests: ['\u03b4','\u03b3']              },
+    // v0.0.9.6.10.19 pool-audit additions (see [s] block for scope).
+    { label: 'sun umbrella',          dests: ['\u03bd']                       },
+    { label: 'cable spool bundle',    dests: ['\u03c0']                       },
   ],
   xl: [
     { label: 'reinforced crate',   dests: ['A']                },
@@ -456,7 +476,7 @@ export const PKG_LABELS_BY_SIZE = {
     { label: 'scrap hoard',        dests: ['C']                },
     { label: 'relay dish',         dests: ['C','\u00b7']            },
     { label: 'antenna mast',       dests: ['H','C','?']        },
-    { label: 'prefab panel',       dests: ['H','B']            },
+    { label: 'prefab panel',       dests: ['H']                },
     { label: 'household freight',  dests: ['H']                },
     { label: 'workshop frame',     dests: ['H','A']            },
     { label: 'shelter frame',      dests: ['\u00b7']                },
