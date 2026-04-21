@@ -16,12 +16,12 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-17';
-import * as C from './constants.js?v=096-10-17';
-import { NPC_DEFS } from './data/npc-defs.js?v=096-10-17';
-import { NPC_LINES } from './data/npc-lines.js?v=096-10-17';
-import { pickRandom } from './util.js?v=096-10-17';
-import { getNpc } from './trust.js?v=096-10-17';
+import { S } from './state.js?v=096-10-18';
+import * as C from './constants.js?v=096-10-18';
+import { NPC_DEFS } from './data/npc-defs.js?v=096-10-18';
+import { NPC_LINES } from './data/npc-lines.js?v=096-10-18';
+import { pickRandom } from './util.js?v=096-10-18';
+import { getNpc } from './trust.js?v=096-10-18';
 
 const els = S._transient.els;
 

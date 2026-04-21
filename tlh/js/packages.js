@@ -31,23 +31,23 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-17';
-import * as C from './constants.js?v=096-10-17';
-import { NPC_DEFS } from './data/npc-defs.js?v=096-10-17';
+import { S } from './state.js?v=096-10-18';
+import * as C from './constants.js?v=096-10-18';
+import { NPC_DEFS } from './data/npc-defs.js?v=096-10-18';
 import {
   PKG_BASES, PKG_SIZE_WEIGHTS, PKG_SIZE_WEIGHTS_RISKY,
   PKG_MODIFIERS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
   PKG_LABELS_BY_TERRAIN_ORIGIN,
-} from './data/packages.js?v=096-10-17';
-import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js?v=096-10-17';
-import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js?v=096-10-17';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-17';
-import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js?v=096-10-17';
+} from './data/packages.js?v=096-10-18';
+import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js?v=096-10-18';
+import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js?v=096-10-18';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-18';
+import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js?v=096-10-18';
 // v0.0.9.6.9.30.4 — updatePorterStripBadges, computeTrustGain,
 // speakDelivery, recordDelivery, removeFromInventories moved to
 // packages-delivery.js with tryDeliver.
-import { addTrust } from './trust.js?v=096-10-17';
-import { cartFits, pushToCart } from './carrier.js?v=096-10-17';
+import { addTrust } from './trust.js?v=096-10-18';
+import { cartFits, pushToCart } from './carrier.js?v=096-10-18';
 
 // v0.0.9.6.9.30j — bucket-routing helper. All three pickup paths
 // (NPC dispatch, ring/ground, interior) funnel new pkgs through this
@@ -74,12 +74,12 @@ function cartOrMainFits(pkg) {
 }
 // v0.0.9.6.9.30.4 — getNodeStage / setNodeStage / drawRouteMap /
 // renderSettlements moved to packages-delivery.js.
-import { sandalCap, renderBoots } from './boots.js?v=096-10-17';
-import { addLog } from './render/log.js?v=096-10-17';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-17';
-import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js?v=096-10-17';
-import { weatherAtCourier } from './weather.js?v=096-10-17';
-import { getDisplayLabel } from './identification.js?v=096-10-17';
+import { sandalCap, renderBoots } from './boots.js?v=096-10-18';
+import { addLog } from './render/log.js?v=096-10-18';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-18';
+import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js?v=096-10-18';
+import { weatherAtCourier } from './weather.js?v=096-10-18';
+import { getDisplayLabel } from './identification.js?v=096-10-18';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -88,7 +88,7 @@ const worldCells = S._transient.worldCells;
 // v0.0.9.6.9.30.4 — tryDeliver + its broadcast throttle
 // (DELIVERY_BROADCAST_GATE_MS, lastDeliveryBroadcastTs) moved to
 // packages-delivery.js. tryDeliver is re-exported below so existing
-// `import * as Pkg from './packages.js?v=096-10-17'` consumers keep working.
+// `import * as Pkg from './packages.js?v=096-10-18'` consumers keep working.
 
 // v0.0.7.21 — sticky gun occupies one cargo slot unless holstered.
 // Every pkg slot accounting goes through this helper so cargo
@@ -641,6 +641,167 @@ export function tryOutboundDispatch(originNodeId) {
 // ============================================================
 // PACKAGE PICKUP
 // ============================================================
+// v0.0.9.6.10.18 — opportunity-cost measurement scaffolding. When a
+// sim run (or eventual live opt-in) sets S._transient.pkgSwapPolicy to
+// 'prefer-closer', a would-skip pickup first attempts to evict a
+// worse-scrip/km carried pkg so the new pkg can fit. Eviction semantics
+// follow S._transient.pkgSwapEviction:
+//   'free'      — evictee vanishes silently (ceiling measurement).
+//   'realistic' — evictee goes through ejectFromCargo's loss-roll
+//                 (10-30% lost to recovery pipeline, else drop-to-trail).
+//
+// Metric: pkg.scrip / distanceKmToNode(pkg.destId). Higher = better
+// marginal value per remaining km. Swap fires only when the new pkg's
+// ratio strictly exceeds the worst carried-pkg ratio AND evicting that
+// single pkg frees enough slots + weight to fit the newcomer.
+//
+// Scope v1: main-bag inventory only. Cart pkgs (S.carrier.inventory)
+// are NOT considered for eviction — late-game concern, tracked for
+// follow-up. When the cart can absorb a pkg the main bag rejects,
+// cartOrMainFits already short-circuits the swap path.
+// Pure function — scored value for a swap candidate under a given
+// metric. Higher = more attractive to carry. Trust gain is the pkg-
+// only formula (profiles shelved in v0.0.9.6.10.17); includes the
+// lost-bonus so recovery pkgs score higher as intended.
+//
+// TRUST_WEIGHT is the scrip-equivalence of one trust point. Calibrated
+// from upgrade economics: most trust-gated upgrades cost 50-200 scrip
+// for +20 trust of progress, i.e. ~5-10 scrip per trust point toward
+// an unlock. Using 10 as a mid-band default; tunable via
+// S._transient.pkgSwapTrustWeight if the sim wants to sweep.
+const DEFAULT_TRUST_WEIGHT = 10;
+function swapScore(pkg, km, metric) {
+  if (metric === 'scrip-trust-per-km') {
+    const trustGain = 1 + Math.floor(pkg.slots / 2) + (pkg.isLost ? C.TRUST_GAIN_LOST_BONUS : 0);
+    const w = (typeof S._transient.pkgSwapTrustWeight === 'number')
+      ? S._transient.pkgSwapTrustWeight
+      : DEFAULT_TRUST_WEIGHT;
+    return (pkg.scrip + w * trustGain) / km;
+  }
+  // default: pure scrip/km
+  return pkg.scrip / km;
+}
+
+function trySwapForCloserPkg(newPkg) {
+  if (S._transient.pkgSwapPolicy !== 'prefer-closer') return false;
+  const newKm = distanceKmToNode(newPkg.destId);
+  if (typeof newKm !== 'number' || newKm <= 0) return false;
+  const metric   = S._transient.pkgSwapMetric || 'scrip-per-km';
+  const newRatio = swapScore(newPkg, newKm, metric);
+
+  // v0.0.9.6.10.18 — floor guard. New pkg's ratio must exceed
+  // evictee's ratio by at least this multiplier. Default 1.0 keeps
+  // the original "any improvement" behavior; >1.0 makes swaps more
+  // conservative (reduces thrash, fewer losses, smaller swap count).
+  const floor = (typeof S._transient.pkgSwapFloor === 'number' && S._transient.pkgSwapFloor > 0)
+    ? S._transient.pkgSwapFloor
+    : 1.0;
+
+  const freeSlots = effectiveMaxSlots() - S.usedSlots;
+  const freeKg    = S.maxWeight - S.usedWeight;
+
+  let bestIdx   = -1;
+  let bestRatio = Infinity;
+  for (let i = 0; i < S.inventory.length; i++) {
+    const carried = S.inventory[i];
+    const carriedKm = distanceKmToNode(carried.destId);
+    if (typeof carriedKm !== 'number' || carriedKm <= 0) continue;
+    const carriedRatio = swapScore(carried, carriedKm, metric);
+    // Floor applies here — new must be `floor` times better than this
+    // carried pkg to be considered as an eviction candidate.
+    if (newRatio < floor * carriedRatio) continue;
+    // Single-eviction fit check: removing this carried pkg alone must
+    // free enough slots + weight for the newcomer.
+    if (carried.slots + freeSlots < newPkg.slots) continue;
+    if (carried.kg    + freeKg    < newPkg.kg)    continue;
+    if (carriedRatio < bestRatio) {
+      bestRatio = carriedRatio;
+      bestIdx   = i;
+    }
+  }
+  if (bestIdx < 0) return false;
+
+  const evictee      = S.inventory[bestIdx];
+  const evicteeKm    = distanceKmToNode(evictee.destId);
+  const evicteeRatio = swapScore(evictee, evicteeKm, metric);
+
+  S.inventory.splice(bestIdx, 1);
+  S.usedSlots  = Math.max(0, S.usedSlots  - evictee.slots);
+  S.usedWeight = Math.max(0, S.usedWeight - evictee.kg);
+  onInventoryChange();
+
+  const mode = S._transient.pkgSwapEviction || 'free';
+  let outcome = 'free';
+  if (mode === 'realistic') {
+    // Replicate ejectFromCargo's loss-roll without the UI chrome.
+    const chance = evictee.modifier && (evictee.modifier in OUTBOUND_LOST_CHANCE)
+      ? OUTBOUND_LOST_CHANCE[evictee.modifier]
+      : OUTBOUND_LOST_BASE;
+    const lostRoll = Math.random() < chance;
+    const courierCell = Math.floor((S.edgeIdx * C.CELLS_PER_EDGE) + (S.dotT * C.CELLS_PER_EDGE));
+    let dropCi = -1;
+    const offsets = [0, 1, -1, 2, -2, 3, -3];
+    for (const off of offsets) {
+      const ci = (courierCell + off + C.TOTAL_CELLS) % C.TOTAL_CELLS;
+      const cell = worldCells[ci];
+      if (cell && !cell.pkg && !cell.sandal) { dropCi = ci; break; }
+    }
+    const forcedLost = dropCi < 0;
+    const wentLost   = lostRoll || forcedLost;
+    if (wentLost) {
+      outcome = 'lost';
+      tEmit('pkg.lost', {
+        size:              evictee.size,
+        destId:            evictee.destId,
+        scrip:             evictee.scrip,
+        carryDurationTicks: (typeof evictee.pickupTick === 'number') ? (S.ticks - evictee.pickupTick) : null,
+        srcEdgeIdx:        (typeof evictee.srcEdgeIdx === 'number') ? evictee.srcEdgeIdx : null,
+        reason:            forcedLost ? 'swap_forced' : 'swap_scatter',
+        terrainOrigin:     evictee.terrainOrigin || 'ring',
+      });
+    } else {
+      outcome = 'tossed';
+      worldCells[dropCi].pkg = {
+        size: evictee.size, label: evictee.label, kg: evictee.kg, slots: evictee.slots,
+        scrip: evictee.scrip,
+        modifier: evictee.modifier || null,
+        isLost: !!evictee.isLost,
+        destId: evictee.destId,
+        isRecovery: !!evictee.isRecovery,
+        recoveryFromPorter: evictee.recoveryFromPorter || null,
+        outboundFrom: evictee.outboundFrom,
+        picked: false,
+        respawnIn: 0,
+        tossedUntilTick: S.ticks + C.TOSS_COOLDOWN_TICKS,
+      };
+      tEmit('pkg.tossed', {
+        size:               evictee.size,
+        destId:             evictee.destId,
+        scrip:              evictee.scrip,
+        carryDurationTicks: (typeof evictee.pickupTick === 'number') ? (S.ticks - evictee.pickupTick) : null,
+        srcEdgeIdx:         (typeof evictee.srcEdgeIdx === 'number') ? evictee.srcEdgeIdx : null,
+        reason:             'swap',
+        terrainOrigin:      evictee.terrainOrigin || 'ring',
+      });
+    }
+  }
+
+  tEmit('pkg.swapped', {
+    newSize:       newPkg.size,
+    newDestId:     newPkg.destId,
+    newScrip:      newPkg.scrip,
+    newRatio:      +newRatio.toFixed(3),
+    newKm:         +newKm.toFixed(2),
+    evictedSize:   evictee.size,
+    evictedDestId: evictee.destId,
+    evictedScrip:  evictee.scrip,
+    evictedRatio:  +evicteeRatio.toFixed(3),
+    evictedKm:     +evicteeKm.toFixed(2),
+    eviction:      outcome,
+  });
+  return true;
+}
+
 // v0.0.9.4.1 — shared pickup-acceptance body. Both the auto-pickup
 // scan (scanForPickup) and the cursor-pickup click handler
 // (tryCursorPickup) funnel here. Returns true on success, false on
@@ -658,7 +819,15 @@ function acceptPickup(ci, offset) {
   // is what the player sees / decides around).
   const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
   const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
-  const fitsSomewhere = cartOrMainFits(pkg);
+  let fitsSomewhere = cartOrMainFits(pkg);
+  // v0.0.9.6.10.18 — swap policy opt-in. If pkg won't fit and the sim
+  // has enabled prefer-closer, try evicting a worse-scrip/km carried
+  // pkg to make room. See trySwapForCloserPkg above.
+  if (!fitsSomewhere && S._transient.pkgSwapPolicy === 'prefer-closer') {
+    if (trySwapForCloserPkg(pkg)) {
+      fitsSomewhere = cartOrMainFits(pkg);
+    }
+  }
   if (!fitsSomewhere) {
     // v0.0.9.5.1 — pickup-fail dedupe keyed by cargo state ONLY (was
     // ci:usedSlots:usedWeight). Old key alternated between two heavy
@@ -809,8 +978,15 @@ function acceptInteriorPickup(entry) {
   }
   const slotsShort  = pkg.slots > effectiveMaxSlots() - S.usedSlots;
   const weightShort = pkg.kg    > S.maxWeight - S.usedWeight;
+  let fitsSomewhere = cartOrMainFits(pkg);
+  // v0.0.9.6.10.18 — swap policy opt-in, interior path.
+  if (!fitsSomewhere && S._transient.pkgSwapPolicy === 'prefer-closer') {
+    if (trySwapForCloserPkg(pkg)) {
+      fitsSomewhere = cartOrMainFits(pkg);
+    }
+  }
   // v0.0.9.6.9.30j — skip only when neither bucket fits.
-  if (!cartOrMainFits(pkg)) {
+  if (!fitsSomewhere) {
     // v0.0.9.6.9.10 — enriched with size/destId/scrip so sim can diff
     // skipped-pkgs vs carried-pkgs.
     // v0.0.9.6.9.11 — cargo-pressure snapshot for consistency with ring
@@ -1081,9 +1257,9 @@ export function ejectFromCargo(invIdx) {
 // ============================================================
 // PACKAGE DELIVERY — tryDeliver lives in ./packages-delivery.js
 // (extracted v0.0.9.6.9.30.4). Re-exported below so existing
-// `import * as Pkg from './packages.js?v=096-10-17'` consumers keep working.
+// `import * as Pkg from './packages.js?v=096-10-18'` consumers keep working.
 // ============================================================
-export { tryDeliver } from './packages-delivery.js?v=096-10-17';
+export { tryDeliver } from './packages-delivery.js?v=096-10-18';
 
 export function tickPkgRespawns() {
   for (let i = 0; i < C.TOTAL_CELLS; i++) {

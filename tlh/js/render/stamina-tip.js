@@ -14,17 +14,17 @@
    =========================================================== */
 'use strict';
 
-import { S } from '../state.js?v=096-10-17';
-import * as C from '../constants.js?v=096-10-17';
+import { S } from '../state.js?v=096-10-18';
+import * as C from '../constants.js?v=096-10-18';
 import {
   TERRAIN_STAMINA_MULT, GEAR_FOR_TERRAIN, GEAR_STAMINA_MITIGATION,
   desertStaminaMult, reduceMultWithTrample,
-} from '../data/terrain.js?v=096-10-17';
-import { placedGearAt } from '../gear.js?v=096-10-17';
-import { trampleAt } from '../trail.js?v=096-10-17';
-import { courierTerrain } from './route-map.js?v=096-10-17';
-import { daylightOf, TICKS_PER_DAY } from './sky.js?v=096-10-17';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=096-10-17';
+} from '../data/terrain.js?v=096-10-18';
+import { placedGearAt } from '../gear.js?v=096-10-18';
+import { trampleAt } from '../trail.js?v=096-10-18';
+import { courierTerrain } from './route-map.js?v=096-10-18';
+import { daylightOf, TICKS_PER_DAY } from './sky.js?v=096-10-18';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=096-10-18';
 
 const ID = 'stamina';
 

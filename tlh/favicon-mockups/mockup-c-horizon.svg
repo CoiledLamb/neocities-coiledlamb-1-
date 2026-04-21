@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#40a4b9"/>
+      <stop offset="35%"  stop-color="#77bfcf"/>
+      <stop offset="65%"  stop-color="#9d78d4"/>
+      <stop offset="100%" stop-color="#da8bda"/>
+    </linearGradient>
+  </defs>
+  <!-- rounded tile instead of disc — reads as "horizon" -->
+  <rect width="32" height="32" rx="6" fill="#0f3b3a"/>
+  <!-- oilslick sky band -->
+  <rect x="0" y="12" width="32" height="6" fill="url(#sky)" opacity="0.9"/>
+  <!-- darker ground -->
+  <rect x="0" y="18" width="32" height="14" fill="#0a2a29"/>
+  <!-- courier on the horizon, ground-level -->
+  <text x="16" y="28" text-anchor="middle"
+        font-family="'Source Code Pro', ui-monospace, 'Courier New', monospace"
+        font-weight="700" font-size="14" fill="#e0eeec">@</text>
+</svg>

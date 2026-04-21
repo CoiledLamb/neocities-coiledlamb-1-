@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="oil" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#40a4b9"/>
+      <stop offset="25%"  stop-color="#77bfcf"/>
+      <stop offset="50%"  stop-color="#da8bda"/>
+      <stop offset="75%"  stop-color="#9d78d4"/>
+      <stop offset="100%" stop-color="#40a4b9"/>
+    </linearGradient>
+  </defs>
+  <!-- deep-teal disc, matches site favicon bg -->
+  <circle cx="16" cy="16" r="16" fill="#0f3b3a"/>
+  <!-- courier glyph, oilslick fill -->
+  <text x="16" y="23" text-anchor="middle"
+        font-family="'Source Code Pro', ui-monospace, 'Courier New', monospace"
+        font-weight="700" font-size="22" fill="url(#oil)">@</text>
+</svg>

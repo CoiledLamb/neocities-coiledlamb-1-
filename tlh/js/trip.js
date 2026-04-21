@@ -57,20 +57,20 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-17';
-import * as C from './constants.js?v=096-10-17';
-import { postLostDrop } from './multiplayer.js?v=096-10-17';
-import { staminaSegCount } from './stamina.js?v=096-10-17';
-import { emit as tEmit } from './telemetry.js?v=096-10-17';
+import { S } from './state.js?v=096-10-18';
+import * as C from './constants.js?v=096-10-18';
+import { postLostDrop } from './multiplayer.js?v=096-10-18';
+import { staminaSegCount } from './stamina.js?v=096-10-18';
+import { emit as tEmit } from './telemetry.js?v=096-10-18';
 // v0.0.9.6.9.13 — trip-dropped cargo needs to hit the same bottleneck
 // edge-tracker used by normal pick/deliver paths. Without this, a
 // severe trip at full cargo can transition out of maxed without
 // emitting inventory.freed.
-import { onInventoryChange } from './packages.js?v=096-10-17';
-import { addLog } from './render/log.js?v=096-10-17';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-17';
-import { weatherAtCourier } from './weather.js?v=096-10-17';
-import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js?v=096-10-17';
+import { onInventoryChange } from './packages.js?v=096-10-18';
+import { addLog } from './render/log.js?v=096-10-18';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-18';
+import { weatherAtCourier } from './weather.js?v=096-10-18';
+import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js?v=096-10-18';
 import {
   TERRAIN_TRIP_MULT,
   TERRAIN_HAS_SEVERE,
@@ -80,9 +80,9 @@ import {
   GEAR_FOR_TERRAIN,
   GEAR_TRIP_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=096-10-17';
-import { placedGearAt } from './gear.js?v=096-10-17';
-import { trampleAt } from './trail.js?v=096-10-17';
+} from './data/terrain.js?v=096-10-18';
+import { placedGearAt } from './gear.js?v=096-10-18';
+import { trampleAt } from './trail.js?v=096-10-18';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;

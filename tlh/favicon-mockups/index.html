@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TLH favicon mockups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #0f1f1f;
+      --panel:     #14302f;
+      --line:      #1e4544;
+      --text:      #b1c9c3;
+      --text-dim:  #4a7a78;
+      --text-br:   #e0eeec;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Source Code Pro', ui-monospace, monospace;
+      font-size: 13px;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 32px 24px 64px; }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--text-br);
+    }
+    .oil-text {
+      background: linear-gradient(90deg,
+        #40a4b9 0%, #77bfcf 18%, #9d78d4 38%,
+        #da8bda 54%, #9d78d4 70%, #77bfcf 85%, #40a4b9 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: oil 4s linear infinite;
+    }
+    @keyframes oil { to { background-position: 200% center; } }
+    .sub {
+      margin: 0 0 28px;
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.04em;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 14px;
+    }
+    .card-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .card-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-br);
+    }
+    .card-blurb {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .sizes {
+      display: flex;
+      align-items: flex-end;
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+    .size-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .size-cell img {
+      display: block;
+      image-rendering: -webkit-optimize-contrast;
+    }
+    .size-16  img { width: 16px;  height: 16px;  }
+    .size-32  img { width: 32px;  height: 32px;  }
+    .size-64  img { width: 64px;  height: 64px;  }
+    .size-128 img { width: 128px; height: 128px; }
+    .size-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+    }
+    .tab-sim {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px 5px 8px;
+      background: #081615;
+      border: 1px solid #1a2e2d;
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--text);
+    }
+    .tab-sim img { width: 16px; height: 16px; }
+    .tab-row {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px dashed var(--line);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .tab-row-label { min-width: 80px; }
+  </style>
+</head>
+<body>
+  <div class='wrap'>
+    <h1><span class='oil-text'>tlh favicon mockups</span></h1>
+    <p class='sub'>four directions, rendered at real tab-icon sizes &mdash; 16/32/64/128px</p>
+
+    <div class='card'>
+      <div class='card-head'>
+        <span class='card-name'>A &mdash; oilslick @</span>
+        <span class='card-blurb'>literal brief: bold @ in the full 5-stop oil gradient on the deep-teal disc</span>
+      </div>
+      <div class='sizes'>
+        <div class='size-cell size-16'><img src='mockup-a-oilslick-at.svg' alt='A 16px'><span class='size-label'>16</span></div>
+        <div class='size-cell size-32'><img src='mockup-a-oilslick-at.svg' alt='A 32px'><span class='size-label'>32</span></div>
+        <div class='size-cell size-64'><img src='mockup-a-oilslick-at.svg' alt='A 64px'><span class='size-label'>64</span></div>
+        <div class='size-cell size-128'><img src='mockup-a-oilslick-at.svg' alt='A 128px'><span class='size-label'>128</span></div>
+      </div>
+      <div class='tab-row'>
+        <span class='tab-row-label'>tab sim</span>
+        <span class='tab-sim'><img src='mockup-a-oilslick-at.svg' alt=''>the long haul &mdash; coiled lamb</span>
+      </div>
+    </div>
+
+    <div class='card'>
+      <div class='card-head'>
+        <span class='card-name'>B &mdash; carrier</span>
+        <span class='card-blurb'>@ in carry-state cyan, oilslick cargo block floating above</span>
+      </div>
+      <div class='sizes'>
+        <div class='size-cell size-16'><img src='mockup-b-carrier.svg' alt='B 16px'><span class='size-label'>16</span></div>
+        <div class='size-cell size-32'><img src='mockup-b-carrier.svg' alt='B 32px'><span class='size-label'>32</span></div>
+        <div class='size-cell size-64'><img src='mockup-b-carrier.svg' alt='B 64px'><span class='size-label'>64</span></div>
+        <div class='size-cell size-128'><img src='mockup-b-carrier.svg' alt='B 128px'><span class='size-label'>128</span></div>
+      </div>
+      <div class='tab-row'>
+        <span class='tab-row-label'>tab sim</span>
+        <span class='tab-sim'><img src='mockup-b-carrier.svg' alt=''>the long haul &mdash; coiled lamb</span>
+      </div>
+    </div>
+
+    <div class='card'>
+      <div class='card-head'>
+        <span class='card-name'>C &mdash; horizon</span>
+        <span class='card-blurb'>rounded tile, oilslick sky band, @ on the horizon line</span>
+      </div>
+      <div class='sizes'>
+        <div class='size-cell size-16'><img src='mockup-c-horizon.svg' alt='C 16px'><span class='size-label'>16</span></div>
+        <div class='size-cell size-32'><img src='mockup-c-horizon.svg' alt='C 32px'><span class='size-label'>32</span></div>
+        <div class='size-cell size-64'><img src='mockup-c-horizon.svg' alt='C 64px'><span class='size-label'>64</span></div>
+        <div class='size-cell size-128'><img src='mockup-c-horizon.svg' alt='C 128px'><span class='size-label'>128</span></div>
+      </div>
+      <div class='tab-row'>
+        <span class='tab-row-label'>tab sim</span>
+        <span class='tab-sim'><img src='mockup-c-horizon.svg' alt=''>the long haul &mdash; coiled lamb</span>
+      </div>
+    </div>
+
+    <div class='card'>
+      <div class='card-head'>
+        <span class='card-name'>D &mdash; bounce</span>
+        <span class='card-blurb'>@ mid-bounce with cyan ground shadow &mdash; nods to the walking animation</span>
+      </div>
+      <div class='sizes'>
+        <div class='size-cell size-16'><img src='mockup-d-bounce.svg' alt='D 16px'><span class='size-label'>16</span></div>
+        <div class='size-cell size-32'><img src='mockup-d-bounce.svg' alt='D 32px'><span class='size-label'>32</span></div>
+        <div class='size-cell size-64'><img src='mockup-d-bounce.svg' alt='D 64px'><span class='size-label'>64</span></div>
+        <div class='size-cell size-128'><img src='mockup-d-bounce.svg' alt='D 128px'><span class='size-label'>128</span></div>
+      </div>
+      <div class='tab-row'>
+        <span class='tab-row-label'>tab sim</span>
+        <span class='tab-sim'><img src='mockup-d-bounce.svg' alt=''>the long haul &mdash; coiled lamb</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

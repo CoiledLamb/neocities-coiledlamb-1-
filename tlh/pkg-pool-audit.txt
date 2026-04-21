@@ -1,0 +1,837 @@
+TLH PACKAGE POOL AUDIT — per-NPC label survey
+Generated from PKG_LABELS_BY_SIZE + PKG_LABELS_BY_TERRAIN_ORIGIN
+===============================================================
+
+Totals snapshot:
+
+  npc    callsign   ring  (excl/shared)   interior   grand
+  A      rho        35  (12/23)          21        56
+  B      iota       43  (17/26)           6        49
+  C      xi         30  (13/17)          18        48
+  H      tau        37  ( 8/29)           5        42
+  ?      phi        37  (19/18)           2        39
+  ·      psi        42  (16/26)          16        58
+  γ      gamma      41  (16/25)          17        58
+  δ      delta      40  (12/28)           4        44
+  θ      theta      36  (18/18)           3        39
+  λ      lambda     35  (17/18)          12        47
+  ν      nu         34  (12/22)           3        37
+  π      pi         31  (15/16)           5        36
+
+===============================================================
+
+===== A  (rho)  —  ring: 12 excl + 23 shrd = 35  |  interior: 21 =====
+
+  [s]
+    exclusive (4):
+      • dispatch packet
+      • dispatch ticket
+      • waybill
+      • weathered manifest
+    shared (6):
+      • sealed letter                      ↔ ·
+      • route card                         ↔ λ
+      • wind-blown dispatch                ↔ ·
+      • sun-bleached relic                 ↔ ν, ·
+      • weathered signal flag              ↔ ν
+      • dam log letter                     ↔ δ
+
+  [m]
+    exclusive (3):
+      • logbook bundle
+      • depot stamp kit
+      • abandoned ledger
+    shared (9):
+      • tool roll                          ↔ γ
+      • first-aid kit                      ↔ λ
+      • salvage kit                        ↔ C, B
+      • spare parts                        ↔ γ
+      • old route marker                   ↔ ·
+      • sand-scoured satchel               ↔ ν, ·
+      • generator battery                  ↔ δ
+      • depot ration box                   ↔ ?
+      • maintenance ledger                 ↔ δ
+
+  [l]
+    exclusive (4):
+      • equipment trunk
+      • freight pallet
+      • cache crate
+      • pallet jack wheels
+    shared (5):
+      • parts crate                        ↔ C
+      • lumber bundle                      ↔ θ
+      • salvage haul                       ↔ C, B
+      • scrap bundle                       ↔ C
+      • trailhead cache                    ↔ λ
+
+  [xl]
+    exclusive (1):
+      • reinforced crate
+    shared (3):
+      • generator frame                    ↔ H
+      • depot resupply                     ↔ C
+      • workshop frame                     ↔ H
+
+  interior:
+    plateau (9):
+      • [s] salvage envelope (↔ ·, ν, C)
+      • [s] weathered dispatch (↔ ·)
+      • [m] abandoned satchel (↔ ·, ν)
+      • [m] dust-choked ledger (↔ C, ·)
+      • [m] wind-stripped bag (↔ ·, B)
+      • [l] plateau cache crate (↔ ·, C)
+      • [l] sun-weathered trunk (↔ ·, H)
+      • [xl] mesa-top freight (↔ C)
+      • [xl] plateau cargo hoard (↔ C, ·)
+    mountain (3):
+      • [s] frozen dispatch (↔ λ, π)
+      • [l] expedition wreck cache (↔ λ, C)
+      • [xl] collapsed basecamp crate (↔ λ)
+    rockyHills (9):
+      • [s] scattered cargo (↔ γ, C)
+      • [s] spilled crate shard (↔ γ, B)
+      • [s] convoy remnant (↔ γ, δ)
+      • [m] wrecked wagon cache (↔ γ, B)
+      • [m] tumbled parts bundle (↔ γ, δ)
+      • [l] overturned freight (↔ γ, C)
+      • [l] rocky-draw cargo cache (↔ γ, δ)
+      • [xl] wreck-site haul (↔ γ)
+      • [xl] convoy-wreck frame (↔ γ, δ)
+
+===== B  (iota)  —  ring: 17 excl + 26 shrd = 43  |  interior: 6 =====
+
+  [s]
+    exclusive (5):
+      • fertilizer packet
+      • growing medium
+      • pollen sample
+      • sapling wrap
+      • weathered seed envelope
+    shared (9):
+      • medicine                           ↔ C
+      • seeds                              ↔ H, ·
+      • dried herbs                        ↔ C
+      • cuttings                           ↔ H
+      • cutting tray                       ↔ θ
+      • plateau-top trinket                ↔ ·
+      • plateau pollen sample              ↔ θ
+      • pressed-leaf note                  ↔ θ
+      • fever poultice                     ↔ θ
+
+  [m]
+    exclusive (6):
+      • surveyor kit
+      • nursery kit
+      • compost sacks
+      • seedling trays
+      • field soil kit
+      • sun-faded field notes
+    shared (11):
+      • field notes                        ↔ C
+      • water filter                       ↔ C, H
+      • salvage kit                        ↔ C, A
+      • rope coil                          ↔ λ, γ
+      • linen roll                         ↔ H
+      • reed mat                           ↔ θ
+      • mesa-edge cache                    ↔ ·
+      • wind-blown sapling wrap            ↔ θ
+      • wind-dried reed bundle             ↔ θ
+      • wood-patch kit                     ↔ H
+      • spillway chart                     ↔ δ
+
+  [l]
+    exclusive (4):
+      • planting stock
+      • irrigation coil
+      • greenhouse panel
+      • irrigation pipe
+    shared (4):
+      • reed bundle                        ↔ θ
+      • salvage haul                       ↔ C, A
+      • water drum                         ↔ ν, δ
+      • reed kiln screen                   ↔ θ
+
+  [xl]
+    exclusive (2):
+      • reed-thatch bale
+      • greenhouse frame
+    shared (2):
+      • prefab panel                       ↔ H
+      • clay pit basket                    ↔ θ
+
+  interior:
+    plateau (3):
+      • [s] mesa-top trinket (↔ ·, H)
+      • [m] wind-stripped bag (↔ ·, A)
+      • [l] mesa-edge bundle (↔ ·, θ)
+    mountain (1):
+      • [s] altitude-cracked vial (↔ C, θ)
+    rockyHills (2):
+      • [s] spilled crate shard (↔ γ, A)
+      • [m] wrecked wagon cache (↔ A, γ)
+
+===== C  (xi)  —  ring: 13 excl + 17 shrd = 30  |  interior: 18 =====
+
+  [s]
+    exclusive (5):
+      • flare cartridge
+      • signal mirror
+      • ammo packet
+      • specimen jar
+      • copper coil
+    shared (3):
+      • medicine                           ↔ B
+      • dried herbs                        ↔ B
+      • copper shim                        ↔ γ
+
+  [m]
+    exclusive (3):
+      • sealed reports
+      • map fragments
+      • cracked tile set
+    shared (6):
+      • field notes                        ↔ B
+      • water filter                       ↔ B, H
+      • salvage kit                        ↔ A, B
+      • mountain trauma kit                ↔ λ
+      • observatory cell                   ↔ π
+      • chip catalog                       ↔ π
+
+  [l]
+    exclusive (1):
+      • salvaged mechanism
+    shared (5):
+      • parts crate                        ↔ A
+      • salvage haul                       ↔ A, B
+      • fuel canister                      ↔ δ
+      • scrap bundle                       ↔ A
+      • generator core                     ↔ δ
+
+  [xl]
+    exclusive (4):
+      • bunker resupply
+      • scrap hoard
+      • crate of oddments
+      • archive crate
+    shared (3):
+      • depot resupply                     ↔ A
+      • relay dish                         ↔ ·
+      • antenna mast                       ↔ H, ?
+
+  interior:
+    plateau (10):
+      • [s] salvage envelope (↔ A, ·, ν)
+      • [s] cracked relic (↔ ·, θ)
+      • [s] fossil fragment (↔ π)
+      • [m] dust-choked ledger (↔ A, ·)
+      • [m] plateau-run survey (↔ π)
+      • [l] plateau cache crate (↔ A, ·)
+      • [l] collapsed-shelter find (↔ ·, H)
+      • [xl] mesa-top freight (↔ A)
+      • [xl] plateau cargo hoard (↔ ·, A)
+      • [xl] ruined-tower cache (↔ ·)
+    mountain (4):
+      • [s] altitude-cracked vial (↔ B, θ)
+      • [m] lost survey pack (↔ λ, π)
+      • [l] expedition wreck cache (↔ λ, A)
+      • [l] ice-bound crate (↔ λ)
+    rockyHills (4):
+      • [s] scattered cargo (↔ A, γ)
+      • [m] rocky-hills salvage kit (↔ γ)
+      • [l] overturned freight (↔ A, γ)
+      • [l] boulder-buried crate (↔ γ)
+
+===== H  (tau)  —  ring: 8 excl + 29 shrd = 37  |  interior: 5 =====
+
+  [s]
+    exclusive (3):
+      • film canister
+      • family letter
+      • knit gloves
+    shared (10):
+      • seeds                              ↔ B, ·
+      • pressed flowers                    ↔ ·
+      • knit cap                           ↔ ·
+      • spare socks                        ↔ ·
+      • cuttings                           ↔ B
+      • ink for charts                     ↔ ?
+      • waterskin                          ↔ ν
+      • tea leaves                         ↔ θ
+      • expedition letter home             ↔ λ
+      • tea bundle                         ↔ θ
+
+  [m]
+    exclusive (2):
+      • preserves jar
+      • family photos
+    shared (12):
+      • water filter                       ↔ B, C
+      • book bundle                        ↔ ?
+      • pantry crate                       ↔ ·
+      • linen roll                         ↔ B
+      • hearth kit                         ↔ ·
+      • memory box                         ↔ ·
+      • wet cloth roll                     ↔ ν
+      • fired pot                          ↔ θ
+      • domestic mend kit                  ↔ ·
+      • blister kit                        ↔ ·
+      • wood-patch kit                     ↔ B
+      • salt-water flask                   ↔ ν
+
+  [l]
+    exclusive (2):
+      • appliance crate
+      • heirloom chest
+    shared (3):
+      • winter kit                         ↔ ·
+      • firewood stack                     ↔ ·
+      • tea crate                          ↔ θ
+
+  [xl]
+    exclusive (1):
+      • household freight
+    shared (4):
+      • generator frame                    ↔ A
+      • antenna mast                       ↔ C, ?
+      • prefab panel                       ↔ B
+      • workshop frame                     ↔ A
+
+  interior:
+    plateau (4):
+      • [s] mesa-top trinket (↔ ·, B)
+      • [m] mesa-top kit (↔ ·, ν)
+      • [l] sun-weathered trunk (↔ A, ·)
+      • [l] collapsed-shelter find (↔ C, ·)
+    mountain (1):
+      • [m] frost-brittle bundle (↔ λ)
+
+===== ?  (phi)  —  ring: 19 excl + 18 shrd = 37  |  interior: 2 =====
+
+  [s]
+    exclusive (6):
+      • rain gauge
+      • barometer
+      • wind vane
+      • hygrometer
+      • humidity sensor
+      • gauge dial
+    shared (5):
+      • ink for charts                     ↔ H
+      • calibration disc                   ↔ π
+      • pressure dial                      ↔ δ
+      • weather-report letter              ↔ π
+      • signal reel                        ↔ π
+
+  [m]
+    exclusive (7):
+      • weather log bundle
+      • calibration weights
+      • storm journal
+      • antenna coil
+      • barograph
+      • lightning rod kit
+      • cloud log
+    shared (7):
+      • book bundle                        ↔ H
+      • signal flare box                   ↔ λ
+      • antenna kit                        ↔ π
+      • pressure gauge                     ↔ δ
+      • depot ration box                   ↔ A
+      • altimeter                          ↔ λ
+      • dust-sealed bundle                 ↔ ν
+
+  [l]
+    exclusive (4):
+      • weather balloon
+      • sensor stake set
+      • sounder rocket
+      • anemometer tripod
+    shared (3):
+      • tarp roll                          ↔ ·, ν
+      • antenna segment                    ↔ π
+      • repeater stack                     ↔ π
+
+  [xl]
+    exclusive (2):
+      • anemometer mast
+      • storm shelter frame
+    shared (3):
+      • antenna mast                       ↔ H, C
+      • large tarp                         ↔ ν
+      • dish reflector                     ↔ π
+
+  interior:
+    mountain (2):
+      • [s] abandoned beacon (↔ λ)
+      • [m] summit castoff (↔ λ, π)
+
+===== ·  (psi)  —  ring: 16 excl + 26 shrd = 42  |  interior: 16 =====
+
+  [s]
+    exclusive (7):
+      • beaded bracelet
+      • carved charm
+      • sealed pouch
+      • pocket cache
+      • polished scrap
+      • trailhead scrap
+      • wind-whipped charm
+    shared (10):
+      • sealed letter                      ↔ A
+      • seeds                              ↔ B, H
+      • pressed flowers                    ↔ H
+      • knit cap                           ↔ H
+      • spare socks                        ↔ H
+      • wind-blown dispatch                ↔ A
+      • sun-bleached relic                 ↔ ν, A
+      • plateau-top trinket                ↔ B
+      • sun-cracked goggles                ↔ ν
+      • sun charm                          ↔ ν
+
+  [m]
+    exclusive (3):
+      • patched coat
+      • wrapped offering
+      • rag-tied parcel
+    shared (11):
+      • pantry crate                       ↔ H
+      • hearth kit                         ↔ H
+      • memory box                         ↔ H
+      • old route marker                   ↔ A
+      • dust-buried cache                  ↔ ν
+      • sand-scoured satchel               ↔ ν, A
+      • mesa-edge cache                    ↔ B
+      • domestic mend kit                  ↔ H
+      • blister kit                        ↔ H
+      • desert ration pouch                ↔ ν
+      • clay-stained rag roll              ↔ θ
+
+  [l]
+    exclusive (2):
+      • relay stockpile
+      • forager's bag
+    shared (4):
+      • winter kit                         ↔ H
+      • firewood stack                     ↔ H
+      • tarp roll                          ↔ ?, ν
+      • sun-whitened tarp                  ↔ ν
+
+  [xl]
+    exclusive (4):
+      • shelter frame
+      • forwarded shipment
+      • trailside stockpile
+      • roped bundle
+    shared (1):
+      • relay dish                         ↔ C
+
+  interior:
+    plateau (14):
+      • [s] salvage envelope (↔ A, ν, C)
+      • [s] cracked relic (↔ C, θ)
+      • [s] mesa-top trinket (↔ H, B)
+      • [s] weathered dispatch (↔ A)
+      • [m] abandoned satchel (↔ A, ν)
+      • [m] dust-choked ledger (↔ A, C)
+      • [m] mesa-top kit (↔ H, ν)
+      • [m] wind-stripped bag (↔ A, B)
+      • [l] plateau cache crate (↔ A, C)
+      • [l] sun-weathered trunk (↔ A, H)
+      • [l] mesa-edge bundle (↔ B, θ)
+      • [l] collapsed-shelter find (↔ C, H)
+      • [xl] plateau cargo hoard (↔ C, A)
+      • [xl] ruined-tower cache (↔ C)
+    rockyHills (2):
+      • [s] rockfall find (↔ γ)
+      • [m] scree-bound satchel (↔ γ)
+
+===== γ  (gamma)  —  ring: 16 excl + 25 shrd = 41  |  interior: 17 =====
+
+  [s]
+    exclusive (4):
+      • grease jar
+      • stove cartridge
+      • hex keys
+      • bearing pack
+    shared (11):
+      • carabiner                          ↔ λ
+      • sparkplug                          ↔ δ
+      • wire nut                           ↔ δ
+      • gasket                             ↔ δ
+      • coupling pin                       ↔ δ
+      • glaze recipe letter                ↔ θ
+      • bone-mend splint                   ↔ λ
+      • multimeter probe                   ↔ π
+      • belay plate                        ↔ λ
+      • copper shim                        ↔ C
+      • sluice pin                         ↔ δ
+
+  [m]
+    exclusive (5):
+      • forge kit
+      • bellows patch
+      • bench vise
+      • fastener lot
+      • honing stones
+    shared (10):
+      • tool roll                          ↔ A
+      • repair kit                         ↔ δ
+      • rope coil                          ↔ B, λ
+      • spare parts                        ↔ A
+      • coil of wire                       ↔ δ
+      • climbing holds                     ↔ λ
+      • penstock bolt                      ↔ δ
+      • field toolkit                      ↔ λ
+      • sluice wrench set                  ↔ δ
+      • component tray                     ↔ π
+
+  [l]
+    exclusive (4):
+      • anvil stand
+      • gear cache
+      • forge bellows
+      • mill spindle
+    shared (3):
+      • expedition rope                    ↔ λ
+      • machine oil drum                   ↔ δ
+      • spillway grate                     ↔ δ
+
+  [xl]
+    exclusive (3):
+      • forge frame
+      • lathe bed
+      • drill press frame
+    shared (1):
+      • basecamp frame                     ↔ λ
+
+  interior:
+    mountain (4):
+      • [s] dropped carabiner (↔ λ)
+      • [m] climber's discarded kit (↔ λ)
+      • [l] frozen cargo drop (↔ λ)
+      • [xl] abandoned ascent rig (↔ λ)
+    rockyHills (13):
+      • [s] scattered cargo (↔ A, C)
+      • [s] spilled crate shard (↔ B, A)
+      • [s] rockfall find (↔ ·)
+      • [s] convoy remnant (↔ A, δ)
+      • [m] wrecked wagon cache (↔ A, B)
+      • [m] tumbled parts bundle (↔ δ, A)
+      • [m] rocky-hills salvage kit (↔ C)
+      • [m] scree-bound satchel (↔ ·)
+      • [l] overturned freight (↔ A, C)
+      • [l] rocky-draw cargo cache (↔ δ, A)
+      • [l] boulder-buried crate (↔ C)
+      • [xl] wreck-site haul (↔ A)
+      • [xl] convoy-wreck frame (↔ δ, A)
+
+===== δ  (delta)  —  ring: 12 excl + 28 shrd = 40  |  interior: 4 =====
+
+  [s]
+    exclusive (3):
+      • fuse pack
+      • seal ring
+      • bypass valve
+    shared (8):
+      • sparkplug                          ↔ γ
+      • wire nut                           ↔ γ
+      • solder spool                       ↔ π
+      • gasket                             ↔ γ
+      • pressure dial                      ↔ ?
+      • coupling pin                       ↔ γ
+      • dam log letter                     ↔ A
+      • sluice pin                         ↔ γ
+
+  [m]
+    exclusive (3):
+      • sluice valve
+      • turbine bearing
+      • generator brush
+    shared (11):
+      • battery pack                       ↔ π
+      • repair kit                         ↔ γ
+      • coil of wire                       ↔ γ
+      • pressure gauge                     ↔ ?
+      • penstock bolt                      ↔ γ
+      • sluice wrench set                  ↔ γ
+      • heat-stroke kit                    ↔ ν
+      • generator battery                  ↔ A
+      • cable splice kit                   ↔ π
+      • spillway chart                     ↔ B
+      • maintenance ledger                 ↔ A
+
+  [l]
+    exclusive (3):
+      • sluice gate
+      • turbine housing
+      • penstock pipe
+    shared (7):
+      • water drum                         ↔ B, ν
+      • fuel canister                      ↔ C
+      • generator core                     ↔ C
+      • power coupling                     ↔ π
+      • machine oil drum                   ↔ γ
+      • cistern lining                     ↔ ν
+      • spillway grate                     ↔ γ
+
+  [xl]
+    exclusive (3):
+      • turbine rotor
+      • dam gate section
+      • transformer core
+    shared (2):
+      • reservoir panel                    ↔ ν
+      • battery bank frame                 ↔ π
+
+  interior:
+    rockyHills (4):
+      • [s] convoy remnant (↔ A, γ)
+      • [m] tumbled parts bundle (↔ γ, A)
+      • [l] rocky-draw cargo cache (↔ γ, A)
+      • [xl] convoy-wreck frame (↔ γ, A)
+
+===== θ  (theta)  —  ring: 18 excl + 18 shrd = 36  |  interior: 3 =====
+
+  [s]
+    exclusive (8):
+      • pot shard
+      • glaze sample
+      • kiln ash
+      • clay scrap
+      • sun-baked pot shard
+      • glaze mineral sample
+      • slip cup
+      • firing schedule
+    shared (8):
+      • tea leaves                         ↔ H
+      • cutting tray                       ↔ B
+      • plateau pollen sample              ↔ B
+      • glaze recipe letter                ↔ γ
+      • pressed-leaf note                  ↔ B
+      • fever poultice                     ↔ B
+      • gourd stopper                      ↔ ν
+      • tea bundle                         ↔ H
+
+  [m]
+    exclusive (5):
+      • clay bundle
+      • kiln fuel
+      • glaze jar
+      • kiln-bound clay slab
+      • kiln log
+    shared (5):
+      • reed mat                           ↔ B
+      • fired pot                          ↔ H
+      • wind-blown sapling wrap            ↔ B
+      • wind-dried reed bundle             ↔ B
+      • clay-stained rag roll              ↔ ·
+
+  [l]
+    exclusive (3):
+      • clay brick stack
+      • glaze barrel
+      • kiln tile set
+    shared (4):
+      • lumber bundle                      ↔ A
+      • reed bundle                        ↔ B
+      • tea crate                          ↔ H
+      • reed kiln screen                   ↔ B
+
+  [xl]
+    exclusive (2):
+      • kiln brick pallet
+      • glaze crate
+    shared (1):
+      • clay pit basket                    ↔ B
+
+  interior:
+    plateau (2):
+      • [s] cracked relic (↔ C, ·)
+      • [l] mesa-edge bundle (↔ ·, B)
+    mountain (1):
+      • [s] altitude-cracked vial (↔ B, C)
+
+===== λ  (lambda)  —  ring: 17 excl + 18 shrd = 35  |  interior: 12 =====
+
+  [s]
+    exclusive (6):
+      • piton
+      • ice screw
+      • climbing chalk
+      • summit log
+      • trail marker stake
+      • avalanche beacon
+    shared (6):
+      • carabiner                          ↔ γ
+      • route card                         ↔ A
+      • expedition letter home             ↔ H
+      • sun salve                          ↔ ν
+      • bone-mend splint                   ↔ γ
+      • belay plate                        ↔ γ
+
+  [m]
+    exclusive (6):
+      • crampons
+      • helmet kit
+      • summit journal
+      • bivvy sack
+      • climbing harness
+      • approach gaiters
+    shared (8):
+      • first-aid kit                      ↔ A
+      • ration tin                         ↔ ν
+      • rope coil                          ↔ B, γ
+      • climbing holds                     ↔ γ
+      • signal flare box                   ↔ ?
+      • field toolkit                      ↔ γ
+      • mountain trauma kit                ↔ C
+      • altimeter                          ↔ ?
+
+  [l]
+    exclusive (3):
+      • cache pack
+      • tent kit
+      • glacier kit
+    shared (3):
+      • sand ladder                        ↔ ν
+      • expedition rope                    ↔ γ
+      • trailhead cache                    ↔ A
+
+  [xl]
+    exclusive (2):
+      • crampon rack
+      • winter bivvy
+    shared (1):
+      • basecamp frame                     ↔ γ
+
+  interior:
+    mountain (12):
+      • [s] frozen dispatch (↔ A, π)
+      • [s] abandoned beacon (↔ ?)
+      • [s] dropped carabiner (↔ γ)
+      • [m] lost survey pack (↔ C, π)
+      • [m] climber's discarded kit (↔ γ)
+      • [m] frost-brittle bundle (↔ H)
+      • [m] summit castoff (↔ π, ?)
+      • [l] expedition wreck cache (↔ A, C)
+      • [l] frozen cargo drop (↔ γ)
+      • [l] ice-bound crate (↔ C)
+      • [xl] abandoned ascent rig (↔ γ)
+      • [xl] collapsed basecamp crate (↔ A)
+
+===== ν  (nu)  —  ring: 12 excl + 22 shrd = 34  |  interior: 3 =====
+
+  [s]
+    exclusive (4):
+      • salt tabs
+      • sand goggles
+      • dust mask
+      • sun cream vial
+    shared (7):
+      • waterskin                          ↔ H
+      • sun-bleached relic                 ↔ A, ·
+      • weathered signal flag              ↔ A
+      • sun salve                          ↔ λ
+      • sun-cracked goggles                ↔ ·
+      • gourd stopper                      ↔ θ
+      • sun charm                          ↔ ·
+
+  [m]
+    exclusive (4):
+      • rationed gourd
+      • filter cartridge
+      • sun tarp
+      • shade pole kit
+    shared (8):
+      • ration tin                         ↔ λ
+      • wet cloth roll                     ↔ H
+      • dust-buried cache                  ↔ ·
+      • sand-scoured satchel               ↔ A, ·
+      • heat-stroke kit                    ↔ δ
+      • desert ration pouch                ↔ ·
+      • salt-water flask                   ↔ H
+      • dust-sealed bundle                 ↔ ?
+
+  [l]
+    exclusive (3):
+      • shade awning
+      • purifier coil
+      • salt block
+    shared (5):
+      • water drum                         ↔ B, δ
+      • tarp roll                          ↔ ?, ·
+      • sand ladder                        ↔ λ
+      • cistern lining                     ↔ δ
+      • sun-whitened tarp                  ↔ ·
+
+  [xl]
+    exclusive (1):
+      • water still
+    shared (2):
+      • reservoir panel                    ↔ δ
+      • large tarp                         ↔ ?
+
+  interior:
+    plateau (3):
+      • [s] salvage envelope (↔ A, ·, C)
+      • [m] abandoned satchel (↔ A, ·)
+      • [m] mesa-top kit (↔ ·, H)
+
+===== π  (pi)  —  ring: 15 excl + 16 shrd = 31  |  interior: 5 =====
+
+  [s]
+    exclusive (6):
+      • capacitor bag
+      • lab notes
+      • sensor chip
+      • radio crystal
+      • ferrite bead
+      • lab log
+    shared (5):
+      • solder spool                       ↔ δ
+      • calibration disc                   ↔ ?
+      • weather-report letter              ↔ ?
+      • signal reel                        ↔ ?
+      • multimeter probe                   ↔ γ
+
+  [m]
+    exclusive (5):
+      • oscilloscope probe
+      • sensor array
+      • solder kit
+      • scope analyzer
+      • signal processor
+    shared (6):
+      • battery pack                       ↔ δ
+      • antenna kit                        ↔ ?
+      • observatory cell                   ↔ C
+      • cable splice kit                   ↔ δ
+      • component tray                     ↔ γ
+      • chip catalog                       ↔ C
+
+  [l]
+    exclusive (2):
+      • rack assembly
+      • lab bench rig
+    shared (3):
+      • antenna segment                    ↔ ?
+      • power coupling                     ↔ δ
+      • repeater stack                     ↔ ?
+
+  [xl]
+    exclusive (2):
+      • server rack frame
+      • observatory tower frame
+    shared (2):
+      • dish reflector                     ↔ ?
+      • battery bank frame                 ↔ δ
+
+  interior:
+    plateau (2):
+      • [s] fossil fragment (↔ C)
+      • [m] plateau-run survey (↔ C)
+    mountain (3):
+      • [s] frozen dispatch (↔ λ, A)
+      • [m] lost survey pack (↔ λ, C)
+      • [m] summit castoff (↔ λ, ?)
