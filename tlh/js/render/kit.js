@@ -21,13 +21,13 @@
    ============================================== */
 'use strict';
 
-import { S } from './../state.js?v=096-10-16';
-import * as C from './../constants.js?v=096-10-16';
-import { manualPing } from './../scanner.js?v=096-10-16';
-import { GUN_WEB_SVG, LADDER_SVG, gunAmmoClass } from './hud.js?v=096-10-16';
-import { GEAR_PRICE } from './../data/terrain.js?v=096-10-16';
-import { buyGear } from './../gear.js?v=096-10-16';
-import { bindBatteryTooltip } from './battery-tip.js?v=096-10-16';
+import { S } from './../state.js?v=096-10-17';
+import * as C from './../constants.js?v=096-10-17';
+import { manualPing } from './../scanner.js?v=096-10-17';
+import { GUN_WEB_SVG, LADDER_SVG, gunAmmoClass } from './hud.js?v=096-10-17';
+import { GEAR_PRICE } from './../data/terrain.js?v=096-10-17';
+import { buyGear } from './../gear.js?v=096-10-17';
+import { bindBatteryTooltip } from './battery-tip.js?v=096-10-17';
 
 const els = S._transient.els;
 

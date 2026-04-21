@@ -49,31 +49,33 @@
      matched up with rewritten data templates. Third `reason` arg to
      speak() calls was always harmless but silently dropped here.
 
-     Also: computeTrustGain(pkg, depotId) dispatcher added. Reads
-     NPC_DEFS[id].trustProfile ('default' | 'careful' | 'scavenger')
-     and returns the per-profile trust amount. Discovery stays flat;
-     delivery/lost-delivery flows through the dispatcher from
-     packages.js callers. v0.0.8.5 will reshape the default base
-     from flat constants to (1 + floor(pkg.slots/2)).
+     Also: computeTrustGain(pkg, depotId) dispatcher added. Per-NPC
+     trustProfile selected the branch and returned the per-profile
+     trust amount. Discovery stays flat; delivery/lost-delivery flows
+     through the dispatcher from packages.js callers. v0.0.8.5
+     reshaped the default base to (1 + floor(pkg.slots/2)).
+
+     v0.0.9.6.10.17 — dispatcher removed. See the computeTrustGain
+     header below for the shelved-profile rationale.
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-16';
-import * as C from './constants.js?v=096-10-16';
-import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-16';
-import { NPC_LINES } from './data/npc-lines.js?v=096-10-16';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-16';
-import { postActivity } from './multiplayer.js?v=096-10-16';
-import { emit as tEmit, accum as tAccum, markFirst as tMarkFirst } from './telemetry.js?v=096-10-16';
-import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js?v=096-10-16';
-import { speak } from './channels.js?v=096-10-16';
-import { pickRandom } from './util.js?v=096-10-16';
-import { staminaSegCount, renderStamina } from './stamina.js?v=096-10-16';
-import { addLog } from './render/log.js?v=096-10-16';
-import { updateHUD } from './render/hud.js?v=096-10-16';
-import { drawRouteMap } from './render/route-map.js?v=096-10-16';
-import { renderSettlements } from './render/settlements.js?v=096-10-16';
-import { weatherAtCourier } from './weather.js?v=096-10-16';
+import { S } from './state.js?v=096-10-17';
+import * as C from './constants.js?v=096-10-17';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-17';
+import { NPC_LINES } from './data/npc-lines.js?v=096-10-17';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-17';
+import { postActivity } from './multiplayer.js?v=096-10-17';
+import { emit as tEmit, accum as tAccum, markFirst as tMarkFirst } from './telemetry.js?v=096-10-17';
+import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js?v=096-10-17';
+import { speak } from './channels.js?v=096-10-17';
+import { pickRandom } from './util.js?v=096-10-17';
+import { staminaSegCount, renderStamina } from './stamina.js?v=096-10-17';
+import { addLog } from './render/log.js?v=096-10-17';
+import { updateHUD } from './render/hud.js?v=096-10-17';
+import { drawRouteMap } from './render/route-map.js?v=096-10-17';
+import { renderSettlements } from './render/settlements.js?v=096-10-17';
+import { weatherAtCourier } from './weather.js?v=096-10-17';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
@@ -83,130 +85,28 @@ export function getNpc(depotId) {
   return S.npcs[depotId];
 }
 
-// v0.0.8.4: per-NPC trust gain dispatcher. NPC_DEFS[depotId].trustProfile
-// selects the branch.
-//
-// v0.0.8.5: base is now weight-scaled: 1 + floor(pkg.slots / 2).
+// v0.0.8.5: base trust is weight-scaled — 1 + floor(pkg.slots / 2).
 //   s(1 slot) → +1, m(2) → +2, l(4) → +3, xl(8) → +5.
 //   Lost/recovery adds TRUST_GAIN_LOST_BONUS (+1) on top.
-//   Profile multipliers apply after the base.
 //
-// v0.0.9.5 (commit 2): all 12 NPCs get character-expressive profiles.
-// Legacy 'default' / 'careful' / 'scavenger' retained as fallback but
-// no NPC points at them anymore.
+// v0.0.9.6.10.17 — per-NPC trust profiles removed. Prior versions
+// had a 12-case dispatch (veteran / wetland-path / homecoming /
+// stormwise / archivist / wayfinder / guardian / artisan / debt-
+// easer / adventurer / researcher / routine) that applied profile-
+// specific multipliers on top of base. Sim data showed several
+// profiles rarely triggered (wayfinder, stormwise), the low-yield
+// ones (veteran, wayfinder) dragged time-to-all-upgrades ~2-2.5h
+// in-game vs a flat-base baseline, and run-to-run variance from
+// the multipliers complicated balance tuning. System shelved
+// pending a redesign. See memory/project_tlh_trust_profiles_pr.md.
 //
-//   veteran      (rho)    — long-haul bonus (size-proxied until real
-//                           ring-distance tracking lands in a follow-up)
-//   wetland-path (iota)   — +25% if wetlandTicksSinceLastVisit ≥ threshold
-//   homecoming   (tau)    — ×(1 + min(km/60, 1.0)) × (pkg.damaged? 0.85 : 1.0)
-//                           distance since last tau visit; safety uses
-//                           pkg.damaged as a trip-proxy until the real
-//                           per-route trip counter lands.
-//   stormwise    (phi)    — +40% if courier is in storm weather at arrival
-//   archivist    (xi)     — size-scaled: s×1.0 / m×1.15 / l×1.3 / xl×1.6
-//   wayfinder    (psi)    — +50% on isLost deliveries
-//   guardian     (nu)     — +30% on undamaged deliveries (trip-free proxy)
-//   artisan      (theta)  — +50% on fragile-intact
-//   debt-easer   (gamma)  — base always (no pristine bonus, no damage
-//                           penalty amplification; damage scaling stays
-//                           wherever the base system applies it)
-//   adventurer   (lambda) — +30% on l/xl (mountain-gear proxy until .6)
-//   researcher   (pi)     — +40% on any modifier-flagged intact
-//   routine      (delta)  — +20% if ≥4 other NPCs visited since last delta
+// recordDelivery() and its per-NPC state fields
+// (wetlandTicksSinceLastVisit, kmAtLastVisit, visitedSinceLastDelta)
+// were removed as part of the same cleanup — they only existed to
+// feed the stateful profiles.
 export function computeTrustGain(pkg, depotId) {
-  const def = NPC_DEFS[depotId];
-  const profile = (def && def.trustProfile) || 'default';
-  const base = 1 + Math.floor(pkg.slots / 2) + (pkg.isLost ? C.TRUST_GAIN_LOST_BONUS : 0);
-  const npcState = (S.npcs && S.npcs[depotId]) || null;
-
-  switch (profile) {
-    case 'veteran': {
-      if (pkg.size === 'xl') return base * 1.5;
-      if (pkg.size === 'l')  return base * 1.25;
-      return base;
-    }
-    case 'wetland-path': {
-      const ticks = (npcState && npcState.wetlandTicksSinceLastVisit) || 0;
-      return ticks >= C.WETLAND_PATH_TICK_THRESHOLD ? base * 1.25 : base;
-    }
-    case 'homecoming': {
-      const kmSince     = Math.max(0, S.distKm - ((npcState && npcState.kmAtLastVisit) || 0));
-      const distFactor  = 1 + Math.min(kmSince / C.HOMECOMING_KM_FULL, 1.0);
-      const safetyFactor = pkg.damaged ? 0.85 : 1.0;
-      return base * distFactor * safetyFactor;
-    }
-    case 'stormwise': {
-      const w = weatherAtCourier();
-      const inStorm = w && w.intensity && w.intensity !== 'none';
-      return inStorm ? base * 1.4 : base;
-    }
-    case 'archivist': {
-      if (pkg.size === 'xl') return base * 1.6;
-      if (pkg.size === 'l')  return base * 1.3;
-      if (pkg.size === 'm')  return base * 1.15;
-      return base;
-    }
-    case 'wayfinder': {
-      return pkg.isLost ? base * 1.5 : base;
-    }
-    case 'guardian': {
-      return pkg.damaged ? base : base * 1.3;
-    }
-    case 'artisan': {
-      if (pkg.modifier === 'fragile' && !pkg.damaged) return base * 1.5;
-      return base;
-    }
-    case 'debt-easer': {
-      return base;
-    }
-    case 'adventurer': {
-      return (pkg.size === 'l' || pkg.size === 'xl') ? base * 1.3 : base;
-    }
-    case 'researcher': {
-      if (pkg.modifier && !pkg.damaged) return base * 1.4;
-      return base;
-    }
-    case 'routine': {
-      const visits = (npcState && npcState.visitedSinceLastDelta) || 0;
-      return visits >= C.ROUTINE_VISIT_THRESHOLD ? base * 1.2 : base;
-    }
-    // Legacy fallbacks (retained for save-compat — no NPC uses these after v0.0.9.5).
-    case 'scavenger': {
-      if (pkg.size === 's') return base * 2;
-      if (pkg.size === 'm') return base;
-      return base * 0.5;
-    }
-    case 'careful': {
-      const isCareful = (pkg.modifier === 'fragile' || pkg.size === 'xl');
-      return isCareful ? base : base * 0.5;
-    }
-    default:
-      return base;
-  }
-}
-
-// v0.0.9.5 (commit 2): state-update hook for stateful trust profiles.
-// Called once per delivery BATCH from packages.js after addTrust fires.
-// Resets per-NPC counters at the destination NPC; accrues at others.
-// Separate from computeTrustGain (which stays pure).
-export function recordDelivery(depotId) {
-  // tau (H) — homecoming: snapshot current km so future delta is (now - snapshot).
-  if (depotId === 'H' && S.npcs && S.npcs['H']) {
-    S.npcs['H'].kmAtLastVisit = S.distKm;
-  }
-  // iota (B) — wetland-path: reset tick counter.
-  if (depotId === 'B' && S.npcs && S.npcs['B']) {
-    S.npcs['B'].wetlandTicksSinceLastVisit = 0;
-  }
-  // delta (δ) — routine: any delivery to a NON-delta NPC accrues; delivery
-  // to delta itself resets the counter.
-  if (S.npcs && S.npcs['\u03b4']) {
-    if (depotId === '\u03b4') {
-      S.npcs['\u03b4'].visitedSinceLastDelta = 0;
-    } else if (NPC_DEFS[depotId]) {
-      S.npcs['\u03b4'].visitedSinceLastDelta = (S.npcs['\u03b4'].visitedSinceLastDelta || 0) + 1;
-    }
-  }
+  if (!NPC_DEFS[depotId]) return 0;
+  return 1 + Math.floor(pkg.slots / 2) + (pkg.isLost ? C.TRUST_GAIN_LOST_BONUS : 0);
 }
 
 // v0.0.8.4: delivery dialogue. Fires once per delivery batch (not per-pkg)

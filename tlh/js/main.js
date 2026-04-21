@@ -75,65 +75,65 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-16';
-import * as C from './constants.js?v=096-10-16';
-import { NPC_LINES } from './data/npc-lines.js?v=096-10-16';
-import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-16';
-import { ZONE_TYPES } from './data/zones.js?v=096-10-16';
-import { NODE_GLYPHS } from './data/glyphs.js?v=096-10-16';
-import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=096-10-16';
+import { S } from './state.js?v=096-10-17';
+import * as C from './constants.js?v=096-10-17';
+import { NPC_LINES } from './data/npc-lines.js?v=096-10-17';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-17';
+import { ZONE_TYPES } from './data/zones.js?v=096-10-17';
+import { NODE_GLYPHS } from './data/glyphs.js?v=096-10-17';
+import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=096-10-17';
 import {
   getPorterId, getCachedPorterId, postActivity, postLostDrop,
   fetchLostFromPeer, startPolling, stopPolling,
   shortPorterId, checkDistMilestones, isSilent, setSilent,
-} from './multiplayer.js?v=096-10-16';
-import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=096-10-16';
+} from './multiplayer.js?v=096-10-17';
+import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=096-10-17';
 import {
   getNodeStage, setNodeStage, markEdgeAdjacent, getDisplayLabel,
-} from './identification.js?v=096-10-16';
+} from './identification.js?v=096-10-17';
 import {
   addTrust, tryWarning, tryPreview, tryRestPrompt,
-} from './trust.js?v=096-10-16';
-import { renderChannels, tickAmbientChatter } from './channels.js?v=096-10-16';
+} from './trust.js?v=096-10-17';
+import { renderChannels, tickAmbientChatter } from './channels.js?v=096-10-17';
 import {
   buildWorld, calcCellPxWidth, worldPosFromRoute, renderFieldstrip,
   bindFieldstripInteractions,
-} from './world.js?v=096-10-16';
-import * as Pkg from './packages.js?v=096-10-16';
-import * as Trip from './trip.js?v=096-10-16';
-import * as Boots from './boots.js?v=096-10-16';
-import * as Carrier from './carrier.js?v=096-10-16';
-import * as Stamina from './stamina.js?v=096-10-16';
-import * as Upg from './upgrades.js?v=096-10-16';
-import { tickScanner } from './scanner.js?v=096-10-16';
-import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=096-10-16';
-import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=096-10-16';
-import { renderKit } from './render/kit.js?v=096-10-16';
-import { initAdminChannel } from './admin-channel.js?v=096-10-16';
-import { initSaveIo } from './save-io.js?v=096-10-16';
-import { addLog, restoreLogFromSave } from './render/log.js?v=096-10-16';
+} from './world.js?v=096-10-17';
+import * as Pkg from './packages.js?v=096-10-17';
+import * as Trip from './trip.js?v=096-10-17';
+import * as Boots from './boots.js?v=096-10-17';
+import * as Carrier from './carrier.js?v=096-10-17';
+import * as Stamina from './stamina.js?v=096-10-17';
+import * as Upg from './upgrades.js?v=096-10-17';
+import { tickScanner } from './scanner.js?v=096-10-17';
+import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=096-10-17';
+import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=096-10-17';
+import { renderKit } from './render/kit.js?v=096-10-17';
+import { initAdminChannel } from './admin-channel.js?v=096-10-17';
+import { initSaveIo } from './save-io.js?v=096-10-17';
+import { addLog, restoreLogFromSave } from './render/log.js?v=096-10-17';
 import {
   updateHUD, renderCargoSlots, renderCourierStack,
-} from './render/hud.js?v=096-10-16';
-import { bindDragGlobals } from './render/drag.js?v=096-10-16';
+} from './render/hud.js?v=096-10-17';
+import { bindDragGlobals } from './render/drag.js?v=096-10-17';
 import {
   drawRouteMap, updateRouteDot, updateRouteHud, layoutRouteNodes, currentEdge,
   initSegment, advanceSegmentAfterArrival, bindRouteInteractions,
   tickRouteInteractions, isOnShortcut, courierTerrain,
-} from './render/route-map.js?v=096-10-16';
+} from './render/route-map.js?v=096-10-17';
 import {
   TERRAIN_STAMINA_MULT, TERRAIN_CANTEEN_DELTA, desertStaminaMult,
   GEAR_FOR_TERRAIN, GEAR_STAMINA_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=096-10-16';
+} from './data/terrain.js?v=096-10-17';
 import {
   autoPlaceForCell, placedGearAt, tickGearDecay, resetGearLogThrottles,
-} from './gear.js?v=096-10-16';
-import { addTrampleAt, trampleAt } from './trail.js?v=096-10-16';
-import { emit as tEmit } from './telemetry.js?v=096-10-16';
-import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=096-10-16';
-import { renderNetwork } from './render/network.js?v=096-10-16';
-import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=096-10-16';
+} from './gear.js?v=096-10-17';
+import { addTrampleAt, trampleAt } from './trail.js?v=096-10-17';
+import { emit as tEmit } from './telemetry.js?v=096-10-17';
+import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=096-10-17';
+import { renderNetwork } from './render/network.js?v=096-10-17';
+import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=096-10-17';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -360,14 +360,10 @@ export function tick() {
     else if (!onInterior && S.inRiver)           S.canteen = Math.min(S.canteenMax, S.canteen + C.CANTEEN_RAIN);
     else if (!onInterior && currentCellIsWetland()) S.canteen = Math.min(S.canteenMax, S.canteen + C.WETLAND_CANTEEN_REFILL);
 
-    // Wetland tick counter stays ring-only (river interior cells feed
-    // the canteen but aren't "wetlands" narratively, so iota's trust
-    // profile rightly doesn't accrue from them).
-    if (!onInterior && currentCellIsWetland() && S.npcs && S.npcs['B']) {
-      S.npcs['B'].wetlandTicksSinceLastVisit = (S.npcs['B'].wetlandTicksSinceLastVisit || 0) + 1;
-    }
+    // v0.0.9.6.10.17 — wetland-tick accumulator removed along with
+    // iota's 'wetland-path' trust profile that consumed it.
 
-    // v0.0.9.5 commit 4: reservoirTank (nu t40) adds a slow passive fill
+// v0.0.9.5 commit 4: reservoirTank (nu t40) adds a slow passive fill
     // on top of whatever environmental refill is firing. Works on
     // interior too — it's a pack-carried cistern, not a location
     // mechanic.

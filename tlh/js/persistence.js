@@ -34,10 +34,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-16';
-import * as C from './constants.js?v=096-10-16';
-import { addLog } from './render/log.js?v=096-10-16';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-16';
+import { S } from './state.js?v=096-10-17';
+import * as C from './constants.js?v=096-10-17';
+import { addLog } from './render/log.js?v=096-10-17';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-17';
 
 const els = S._transient.els;
 
@@ -87,15 +87,11 @@ export function buildSavePayload() {
     },
     npcs: Object.keys(S.npcs).reduce((acc, k) => {
       const n = S.npcs[k];
-      // v0.0.9.5 (commit 2): profile state fields persisted alongside
-      // trust/unlocks. Only present on NPCs whose profile uses them;
-      // _applyValidated guards with typeof checks so missing fields on
-      // older saves fall through to state.js defaults.
-      const entry = { trust: n.trust, unlocks: { ...n.unlocks } };
-      if (typeof n.wetlandTicksSinceLastVisit === 'number') entry.wetlandTicksSinceLastVisit = n.wetlandTicksSinceLastVisit;
-      if (typeof n.kmAtLastVisit             === 'number') entry.kmAtLastVisit              = n.kmAtLastVisit;
-      if (typeof n.visitedSinceLastDelta     === 'number') entry.visitedSinceLastDelta      = n.visitedSinceLastDelta;
-      acc[k] = entry;
+      // v0.0.9.6.10.17 — profile-state fields
+      // (wetlandTicksSinceLastVisit / kmAtLastVisit / visitedSinceLastDelta)
+      // no longer serialized. They were tied to the removed trust-profile
+      // system; load-side guard kept for back-compat with pre-.17 saves.
+      acc[k] = { trust: n.trust, unlocks: { ...n.unlocks } };
       return acc;
     }, {}),
     // v0.0.7.21 (schema v6)
@@ -350,18 +346,13 @@ function _applyValidated(data) {
             S.npcs[k].unlocks[key] = true;
           }
         });
-        // v0.0.9.5 (commit 2): restore per-profile state fields for
-        // stateful trust profiles. Missing fields on older saves fall
-        // through to state.js defaults (0) — no retro-grant needed.
-        if (typeof n.wetlandTicksSinceLastVisit === 'number' && 'wetlandTicksSinceLastVisit' in S.npcs[k]) {
-          S.npcs[k].wetlandTicksSinceLastVisit = Math.max(0, Math.floor(n.wetlandTicksSinceLastVisit));
-        }
-        if (typeof n.kmAtLastVisit === 'number' && 'kmAtLastVisit' in S.npcs[k]) {
-          S.npcs[k].kmAtLastVisit = Math.max(0, n.kmAtLastVisit);
-        }
-        if (typeof n.visitedSinceLastDelta === 'number' && 'visitedSinceLastDelta' in S.npcs[k]) {
-          S.npcs[k].visitedSinceLastDelta = Math.max(0, Math.floor(n.visitedSinceLastDelta));
-        }
+        // v0.0.9.6.10.17 — per-profile state-field restore removed.
+        // Older saves may still carry wetlandTicksSinceLastVisit /
+        // kmAtLastVisit / visitedSinceLastDelta in their payload; those
+        // fields are silently ignored since the profile system is gone.
+        // Removing them explicitly isn't necessary — state.js no longer
+        // declares the fields, so they'd land on S.npcs[k] as orphan
+        // properties at most, with nothing reading them.
       });
     }
 

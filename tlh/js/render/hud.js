@@ -19,15 +19,15 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=096-10-16';
-import { statusColor } from '../data/glyphs.js?v=096-10-16';
-import { tlhPalette } from '../palette.js?v=096-10-16';
-import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js?v=096-10-16';
-import { getDisplayLabel } from '../identification.js?v=096-10-16';
-import { bindCargoDragSource } from './drag.js?v=096-10-16';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=096-10-16';
-import * as Upg from '../upgrades.js?v=096-10-16';
-import { CARRIER_STATS } from '../constants.js?v=096-10-16';
+import { S } from '../state.js?v=096-10-17';
+import { statusColor } from '../data/glyphs.js?v=096-10-17';
+import { tlhPalette } from '../palette.js?v=096-10-17';
+import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js?v=096-10-17';
+import { getDisplayLabel } from '../identification.js?v=096-10-17';
+import { bindCargoDragSource } from './drag.js?v=096-10-17';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=096-10-17';
+import * as Upg from '../upgrades.js?v=096-10-17';
+import { CARRIER_STATS } from '../constants.js?v=096-10-17';
 
 const els = S._transient.els;
 

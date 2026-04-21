@@ -48,22 +48,28 @@
    ============================================== */
 'use strict';
 
+// v0.0.9.6.10.17 — per-NPC trustProfile field removed. Profile
+// system shelved after sim data (v0.0.9.6.10.11-13) showed high
+// run-to-run variance, several profiles whose trigger conditions
+// rarely fired (wayfinder, stormwise), and ~2-2.5h in-game
+// completion-time drag vs a flat-base comparison. Keeping the
+// profile-less authorial identity per-NPC (callsign + depotLabel +
+// trust-tier dialogue) while trust gain returns to pure base from
+// computeTrustGain. Reinstating a profile system later would only
+// need a new field here + a dispatch path in trust.js.
 export const NPC_DEFS = {
-  // Existing 6 — area-name relabels applied. v0.0.9.5: all shift from
-  // default/careful/scavenger to character-expressive profiles.
-  'A':        { callsign: 'rho',    name: 'rho',    depotLabel: 'depot',               trustProfile: 'veteran'     },
-  'B':        { callsign: 'iota',   name: 'iota',   depotLabel: 'greenhouse',          trustProfile: 'wetland-path'},
-  'H':        { callsign: 'tau',    name: 'tau',    depotLabel: 'home',                trustProfile: 'homecoming'  },
-  '?':        { callsign: 'phi',    name: 'phi',    depotLabel: 'weather station',     trustProfile: 'stormwise'   },
-  'C':        { callsign: 'xi',     name: 'xi',     depotLabel: 'city ruins',          trustProfile: 'archivist'   },
-  '\u00b7':   { callsign: 'psi',    name: 'psi',    depotLabel: 'oasis',               trustProfile: 'wayfinder'   },
-  // v0.0.9.5 new 6 — dialogue + profiles authored 2026-04-17.
-  '\u03bd':   { callsign: 'nu',     name: 'nu',     depotLabel: 'treatment plant',     trustProfile: 'guardian'    },
-  '\u03b8':   { callsign: 'theta',  name: 'theta',  depotLabel: 'kiln',                trustProfile: 'artisan'     },
-  '\u03b3':   { callsign: 'gamma',  name: 'gamma',  depotLabel: 'workshop',            trustProfile: 'debt-easer'  },
-  '\u03bb':   { callsign: 'lambda', name: 'lambda', depotLabel: 'lodge',               trustProfile: 'adventurer'  },
-  '\u03c0':   { callsign: 'pi',     name: 'pi',     depotLabel: 'radio tower',         trustProfile: 'researcher'  },
-  '\u03b4':   { callsign: 'delta',  name: 'delta',  depotLabel: 'reservoir',           trustProfile: 'routine'     },
+  'A':        { callsign: 'rho',    name: 'rho',    depotLabel: 'depot'               },
+  'B':        { callsign: 'iota',   name: 'iota',   depotLabel: 'greenhouse'          },
+  'H':        { callsign: 'tau',    name: 'tau',    depotLabel: 'home'                },
+  '?':        { callsign: 'phi',    name: 'phi',    depotLabel: 'weather station'     },
+  'C':        { callsign: 'xi',     name: 'xi',     depotLabel: 'city ruins'          },
+  '\u00b7':   { callsign: 'psi',    name: 'psi',    depotLabel: 'oasis'               },
+  '\u03bd':   { callsign: 'nu',     name: 'nu',     depotLabel: 'treatment plant'     },
+  '\u03b8':   { callsign: 'theta',  name: 'theta',  depotLabel: 'kiln'                },
+  '\u03b3':   { callsign: 'gamma',  name: 'gamma',  depotLabel: 'workshop'            },
+  '\u03bb':   { callsign: 'lambda', name: 'lambda', depotLabel: 'lodge'               },
+  '\u03c0':   { callsign: 'pi',     name: 'pi',     depotLabel: 'radio tower'         },
+  '\u03b4':   { callsign: 'delta',  name: 'delta',  depotLabel: 'reservoir'           },
 };
 
 // v0.0.9.5: reveal chain through the 12-node rim. Existing trust

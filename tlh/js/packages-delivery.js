@@ -24,20 +24,20 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-16';
-import * as C from './constants.js?v=096-10-16';
-import { NPC_DEFS } from './data/npc-defs.js?v=096-10-16';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-16';
-import { postActivity, shortPorterId } from './multiplayer.js?v=096-10-16';
-import { updatePorterStripBadges } from './recovery.js?v=096-10-16';
-import { addTrust, computeTrustGain, speakDelivery, recordDelivery } from './trust.js?v=096-10-16';
-import { removeFromInventories } from './carrier.js?v=096-10-16';
-import { getNodeStage, setNodeStage } from './identification.js?v=096-10-16';
-import { addLog } from './render/log.js?v=096-10-16';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-16';
-import { drawRouteMap } from './render/route-map.js?v=096-10-16';
-import { renderSettlements } from './render/settlements.js?v=096-10-16';
-import { onInventoryChange } from './packages.js?v=096-10-16';
+import { S } from './state.js?v=096-10-17';
+import * as C from './constants.js?v=096-10-17';
+import { NPC_DEFS } from './data/npc-defs.js?v=096-10-17';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-17';
+import { postActivity, shortPorterId } from './multiplayer.js?v=096-10-17';
+import { updatePorterStripBadges } from './recovery.js?v=096-10-17';
+import { addTrust, computeTrustGain, speakDelivery } from './trust.js?v=096-10-17';
+import { removeFromInventories } from './carrier.js?v=096-10-17';
+import { getNodeStage, setNodeStage } from './identification.js?v=096-10-17';
+import { addLog } from './render/log.js?v=096-10-17';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-17';
+import { drawRouteMap } from './render/route-map.js?v=096-10-17';
+import { renderSettlements } from './render/settlements.js?v=096-10-17';
+import { onInventoryChange } from './packages.js?v=096-10-17';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els        = S._transient.els;
@@ -176,13 +176,11 @@ export function tryDeliver(arrivedNodeId) {
       addTrust(arrivedNodeId, totalGain, reason);
     }
   });
-  // v0.0.9.5 (commit 2): per-batch state update for stateful trust
-  // profiles (tau homecoming km snapshot, iota wetland-tick reset,
-  // delta routine-counter accrue/reset). Fires once per batch so a
-  // multi-pkg delivery to a non-delta NPC counts as a single "visit"
-  // for delta's routine profile. Safe to call before addTrust reads
-  // — computeTrustGain already ran earlier in the loop.
-  if (NPC_DEFS[arrivedNodeId]) recordDelivery(arrivedNodeId);
+  // v0.0.9.6.10.17 — recordDelivery call removed along with the
+  // per-NPC trust profiles. Previously updated tau's km snapshot,
+  // iota's wetland-tick reset, and delta's routine-visit counter
+  // for their respective profile multipliers.
+  //
   // v0.0.8.4: NPC reacts to the delivery — one line per batch, picking
   // the most interesting condition (lost > damaged > fragile > heavy > normal).
   speakDelivery(arrivedNodeId, toDeliver);
