@@ -34,10 +34,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-20';
-import * as C from './constants.js?v=096-10-20';
-import { addLog } from './render/log.js?v=096-10-20';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-20';
+import { S } from './state.js?v=096-10-21';
+import * as C from './constants.js?v=096-10-21';
+import { addLog } from './render/log.js?v=096-10-21';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-21';
 
 // v0.0.9.6.10.20 tag-shape migration. Old saves carry `pkg.modifier`
 // (string or null) from the pre-tag shape; new saves carry `pkg.tags`
@@ -84,6 +84,7 @@ export function buildSavePayload() {
       autobuyBoots:   S.autobuyBoots,
       autodrink:      S.autodrink,
       autoGrab:       S.autoGrab,
+      grabMode:       S.grabMode,
       strain:         S.strain,
     },
     position: { edgeIdx: S.edgeIdx, dotT: S.dotT },
@@ -275,6 +276,15 @@ function _applyValidated(data) {
     if (typeof p.autobuyBoots   === 'boolean') S.autobuyBoots   = p.autobuyBoots;
     if (typeof p.autodrink      === 'boolean') S.autodrink      = p.autodrink;
     if (typeof p.autoGrab       === 'boolean') S.autoGrab       = p.autoGrab;
+    // v0.0.9.6.10.21 — grabMode is the new 3-state source of truth.
+    // Migration: legacy saves only had autoGrab (boolean). Map
+    // true → 'auto', false → 'off'. Live applyGrabMode() call from
+    // main.js init re-syncs the pkgSwap* transients after loadGame.
+    if (typeof p.grabMode === 'string' && ['auto','logic','off'].includes(p.grabMode)) {
+      S.grabMode = p.grabMode;
+    } else if (typeof p.autoGrab === 'boolean') {
+      S.grabMode = p.autoGrab ? 'auto' : 'off';
+    }
     if (typeof p.strain         === 'number')  S.strain         = Math.max(0, Math.min(1, p.strain));
 
     const pos = data.position || {};

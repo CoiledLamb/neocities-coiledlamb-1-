@@ -75,65 +75,65 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-20';
-import * as C from './constants.js?v=096-10-20';
-import { NPC_LINES } from './data/npc-lines.js?v=096-10-20';
-import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-20';
-import { ZONE_TYPES } from './data/zones.js?v=096-10-20';
-import { NODE_GLYPHS } from './data/glyphs.js?v=096-10-20';
-import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=096-10-20';
+import { S } from './state.js?v=096-10-21';
+import * as C from './constants.js?v=096-10-21';
+import { NPC_LINES } from './data/npc-lines.js?v=096-10-21';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-21';
+import { ZONE_TYPES } from './data/zones.js?v=096-10-21';
+import { NODE_GLYPHS } from './data/glyphs.js?v=096-10-21';
+import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=096-10-21';
 import {
   getPorterId, getCachedPorterId, postActivity, postLostDrop,
   fetchLostFromPeer, startPolling, stopPolling,
   shortPorterId, checkDistMilestones, isSilent, setSilent,
-} from './multiplayer.js?v=096-10-20';
-import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=096-10-20';
+} from './multiplayer.js?v=096-10-21';
+import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=096-10-21';
 import {
   getNodeStage, setNodeStage, markEdgeAdjacent, getDisplayLabel,
-} from './identification.js?v=096-10-20';
+} from './identification.js?v=096-10-21';
 import {
   addTrust, tryWarning, tryPreview, tryRestPrompt,
-} from './trust.js?v=096-10-20';
-import { renderChannels, tickAmbientChatter } from './channels.js?v=096-10-20';
+} from './trust.js?v=096-10-21';
+import { renderChannels, tickAmbientChatter } from './channels.js?v=096-10-21';
 import {
   buildWorld, calcCellPxWidth, worldPosFromRoute, renderFieldstrip,
   bindFieldstripInteractions,
-} from './world.js?v=096-10-20';
-import * as Pkg from './packages.js?v=096-10-20';
-import * as Trip from './trip.js?v=096-10-20';
-import * as Boots from './boots.js?v=096-10-20';
-import * as Carrier from './carrier.js?v=096-10-20';
-import * as Stamina from './stamina.js?v=096-10-20';
-import * as Upg from './upgrades.js?v=096-10-20';
-import { tickScanner } from './scanner.js?v=096-10-20';
-import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=096-10-20';
-import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=096-10-20';
-import { renderKit } from './render/kit.js?v=096-10-20';
-import { initAdminChannel } from './admin-channel.js?v=096-10-20';
-import { initSaveIo } from './save-io.js?v=096-10-20';
-import { addLog, restoreLogFromSave } from './render/log.js?v=096-10-20';
+} from './world.js?v=096-10-21';
+import * as Pkg from './packages.js?v=096-10-21';
+import * as Trip from './trip.js?v=096-10-21';
+import * as Boots from './boots.js?v=096-10-21';
+import * as Carrier from './carrier.js?v=096-10-21';
+import * as Stamina from './stamina.js?v=096-10-21';
+import * as Upg from './upgrades.js?v=096-10-21';
+import { tickScanner } from './scanner.js?v=096-10-21';
+import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=096-10-21';
+import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=096-10-21';
+import { renderKit } from './render/kit.js?v=096-10-21';
+import { initAdminChannel } from './admin-channel.js?v=096-10-21';
+import { initSaveIo } from './save-io.js?v=096-10-21';
+import { addLog, restoreLogFromSave } from './render/log.js?v=096-10-21';
 import {
   updateHUD, renderCargoSlots, renderCourierStack,
-} from './render/hud.js?v=096-10-20';
-import { bindDragGlobals } from './render/drag.js?v=096-10-20';
+} from './render/hud.js?v=096-10-21';
+import { bindDragGlobals } from './render/drag.js?v=096-10-21';
 import {
   drawRouteMap, updateRouteDot, updateRouteHud, layoutRouteNodes, currentEdge,
   initSegment, advanceSegmentAfterArrival, bindRouteInteractions,
   tickRouteInteractions, isOnShortcut, courierTerrain,
-} from './render/route-map.js?v=096-10-20';
+} from './render/route-map.js?v=096-10-21';
 import {
   TERRAIN_STAMINA_MULT, TERRAIN_CANTEEN_DELTA, desertStaminaMult,
   GEAR_FOR_TERRAIN, GEAR_STAMINA_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=096-10-20';
+} from './data/terrain.js?v=096-10-21';
 import {
   autoPlaceForCell, placedGearAt, tickGearDecay, resetGearLogThrottles,
-} from './gear.js?v=096-10-20';
-import { addTrampleAt, trampleAt } from './trail.js?v=096-10-20';
-import { emit as tEmit } from './telemetry.js?v=096-10-20';
-import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=096-10-20';
-import { renderNetwork } from './render/network.js?v=096-10-20';
-import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=096-10-20';
+} from './gear.js?v=096-10-21';
+import { addTrampleAt, trampleAt } from './trail.js?v=096-10-21';
+import { emit as tEmit } from './telemetry.js?v=096-10-21';
+import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=096-10-21';
+import { renderNetwork } from './render/network.js?v=096-10-21';
+import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=096-10-21';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -661,6 +661,37 @@ function bindOverflowFade(el) {
   window.addEventListener('resize', update);
 }
 
+// v0.0.9.6.10.21 — grab: mode cycle. 3-state button:
+//   auto   — current behavior (fill any pkg that fits)
+//   logic  — prefer-closer swap (evicts worse scrip+trust/km pkgs for
+//            higher-ratio new pkgs; realistic toss-to-trail eviction)
+//   off    — no auto-pickup (manual cursor pickups only)
+// applyGrabMode is the single mutation point: sets S.grabMode,
+// keeps S.autoGrab in sync for existing scanForPickup/acceptPickup
+// gates, and flips the pkgSwap* transients that trySwapForCloserPkg
+// reads. Called from the button handler + loadGame.
+const GRAB_MODES = ['auto', 'logic', 'off'];
+export function applyGrabMode(mode) {
+  if (!GRAB_MODES.includes(mode)) mode = 'auto';
+  S.grabMode = mode;
+  S.autoGrab = (mode !== 'off');
+  if (mode === 'logic') {
+    S._transient.pkgSwapPolicy      = 'prefer-closer';
+    S._transient.pkgSwapEviction    = 'realistic';
+    S._transient.pkgSwapMetric      = 'scrip-trust-per-km';
+    S._transient.pkgSwapTrustWeight = 10;
+  } else {
+    S._transient.pkgSwapPolicy      = 'keep';
+    S._transient.pkgSwapEviction    = 'free';
+    S._transient.pkgSwapMetric      = 'scrip-per-km';
+    S._transient.pkgSwapTrustWeight = undefined;
+  }
+  if (els.autoGrabBtn) {
+    els.autoGrabBtn.textContent = 'grab: ' + mode;
+    els.autoGrabBtn.classList.toggle('on', mode !== 'off');
+  }
+}
+
 function init() {
   resolveEls();
   calcCellPxWidth();
@@ -761,13 +792,16 @@ function init() {
   });
   // v0.0.9.4.1 — `grab:` toggle mirrors the autodrink toggle pattern.
   // Controls pkg auto-pickup only (sandalweed still auto-harvests).
+  // v0.0.9.6.10.21 — expanded from 2-state (auto/off) to 3-state cycle
+  // (auto → logic → off). 'logic' flips on the prefer-closer swap
+  // policy with hybrid scrip+trust scoring; see applyGrabMode below.
   if (els.autoGrabBtn) {
-    els.autoGrabBtn.textContent = 'grab: ' + (S.autoGrab ? 'auto' : 'off');
-    els.autoGrabBtn.classList.toggle('on', S.autoGrab);
+    applyGrabMode(S.grabMode || 'auto');
     els.autoGrabBtn.addEventListener('click', () => {
-      S.autoGrab = !S.autoGrab;
-      els.autoGrabBtn.textContent = 'grab: ' + (S.autoGrab ? 'auto' : 'off');
-      els.autoGrabBtn.classList.toggle('on', S.autoGrab);
+      const cur = S.grabMode || 'auto';
+      const idx = GRAB_MODES.indexOf(cur);
+      const next = GRAB_MODES[(idx + 1) % GRAB_MODES.length];
+      applyGrabMode(next);
     });
   }
   if (els.tieDownBtn) els.tieDownBtn.addEventListener('click', Boots.toggleTieDown);

@@ -52,6 +52,14 @@ export const S = {
   // v0.0.9.4.1 — auto-pickup toggle. Default true ("idle game first";
   // player flips to false via the `grab:` button in the stamina row to
   // switch into cursor-only pickup mode).
+  // v0.0.9.6.10.21 — grab: logic mode lands as the 3rd button state.
+  // grabMode is the source of truth (auto|logic|off); autoGrab stays
+  // as the "is grab enabled at all" boolean (true iff mode !== 'off')
+  // so existing scanForPickup / acceptPickup gates keep working
+  // unchanged. applyGrabMode() in main.js keeps the two in sync and
+  // flips the pkgSwap* transients so trySwapForCloserPkg fires only
+  // when mode === 'logic'.
+  grabMode: 'auto',
   autoGrab: true,
   inRiver: false,  // stub for future river mechanic
 

@@ -12,23 +12,23 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-20';
-import * as C from './constants.js?v=096-10-20';
-import { tick } from './main.js?v=096-10-20';
-import { buildWorld } from './world.js?v=096-10-20';
-import { initWeather } from './weather.js?v=096-10-20';
-import { setSilent, isSilent } from './multiplayer.js?v=096-10-20';
+import { S } from './state.js?v=096-10-21';
+import * as C from './constants.js?v=096-10-21';
+import { tick } from './main.js?v=096-10-21';
+import { buildWorld } from './world.js?v=096-10-21';
+import { initWeather } from './weather.js?v=096-10-21';
+import { setSilent, isSilent } from './multiplayer.js?v=096-10-21';
 import {
   startCollection, stopCollection, emit, sample, series, accum, isActive as telemetryActive,
-} from './telemetry.js?v=096-10-20';
-import { aggregateReports } from './sim-stats.js?v=096-10-20';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-20';
-import * as Upg from './upgrades.js?v=096-10-20';
+} from './telemetry.js?v=096-10-21';
+import { aggregateReports } from './sim-stats.js?v=096-10-21';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-21';
+import * as Upg from './upgrades.js?v=096-10-21';
 // v0.0.9.6.9.12 — direct import so applyFreshState can synchronously
 // seed interior pkgs. world.js uses a dynamic .then() seeder to break
 // a module-load cycle in live; the sim's sync tick loop never lets
 // that promise resolve, leaving S.interiorPkgs = {} for the whole run.
-import { seedInteriorPkgs } from './packages.js?v=096-10-20';
+import { seedInteriorPkgs } from './packages.js?v=096-10-21';
 
 // ============================================================
 // SNAPSHOT / RESTORE
@@ -105,6 +105,9 @@ function applyFreshState() {
   S.autobuyBoots = true;
   S.autodrink    = true;
   S.autoGrab     = true;
+  // v0.0.9.6.10.21 — baseline sim uses 'auto' (current behavior);
+  // pkgSwapPolicy opt overrides drive 'logic'-equivalent arms.
+  S.grabMode     = 'auto';
   if (!S.kit) S.kit = { ladders: 0, anchors: 0, autoGear: true };
   else S.kit.autoGear = true;
   // Reset NPC trust — copy from defaults
@@ -489,9 +492,15 @@ export async function runBatch(opts) {
     for (let i = 0; i < runs; i++) {
       const r = runSimulation(runOpts);
       reports.push(r);
-      // yield to the event loop so long batches don't deadlock the
-      // browser UI
-      await new Promise(r => setTimeout(r, 0));
+      // v0.0.9.6.10.20.1 — yield every 10 runs instead of every run.
+      // Backgrounded tabs clamp setTimeout to 1000ms min; yielding per-
+      // run bloats wall time by ~1s × runs. 10-run chunks keep the UI
+      // responsive (per-run ~2-3s × 10 = ~20-30s worst-case hang) while
+      // cutting throttled-tab overhead by 10x. Final yield always fires
+      // so finally{} setSilent lands promptly.
+      if ((i + 1) % 10 === 0 || i === runs - 1) {
+        await new Promise(r => setTimeout(r, 0));
+      }
     }
   } finally {
     setSilent(wasSilentOuter);

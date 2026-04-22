@@ -60,22 +60,22 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-20';
-import * as C from './constants.js?v=096-10-20';
-import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-20';
-import { NPC_LINES } from './data/npc-lines.js?v=096-10-20';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-20';
-import { postActivity } from './multiplayer.js?v=096-10-20';
-import { emit as tEmit, accum as tAccum, markFirst as tMarkFirst } from './telemetry.js?v=096-10-20';
-import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js?v=096-10-20';
-import { speak } from './channels.js?v=096-10-20';
-import { pickRandom } from './util.js?v=096-10-20';
-import { staminaSegCount, renderStamina } from './stamina.js?v=096-10-20';
-import { addLog } from './render/log.js?v=096-10-20';
-import { updateHUD } from './render/hud.js?v=096-10-20';
-import { drawRouteMap } from './render/route-map.js?v=096-10-20';
-import { renderSettlements } from './render/settlements.js?v=096-10-20';
-import { weatherAtCourier } from './weather.js?v=096-10-20';
+import { S } from './state.js?v=096-10-21';
+import * as C from './constants.js?v=096-10-21';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-21';
+import { NPC_LINES } from './data/npc-lines.js?v=096-10-21';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-21';
+import { postActivity } from './multiplayer.js?v=096-10-21';
+import { emit as tEmit, accum as tAccum, markFirst as tMarkFirst } from './telemetry.js?v=096-10-21';
+import { getNodeStage, setNodeStage, getDisplayLabel } from './identification.js?v=096-10-21';
+import { speak } from './channels.js?v=096-10-21';
+import { pickRandom } from './util.js?v=096-10-21';
+import { staminaSegCount, renderStamina } from './stamina.js?v=096-10-21';
+import { addLog } from './render/log.js?v=096-10-21';
+import { updateHUD } from './render/hud.js?v=096-10-21';
+import { drawRouteMap } from './render/route-map.js?v=096-10-21';
+import { renderSettlements } from './render/settlements.js?v=096-10-21';
+import { weatherAtCourier } from './weather.js?v=096-10-21';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;
