@@ -5,33 +5,36 @@
 //   <script src="nav.js"></script>
 // ==============================================
 (function () {
+  // Absolute paths (leading `/`) so the nav resolves correctly from any
+  // depth — critical after TLH moved into /tlh/, where relative hrefs
+  // like `artwork.html` were being resolved to `/tlh/artwork.html`.
   const NAV = [
     {
       key: 'artwork',
       label: 'Artwork',
-      href: 'artwork.html',
+      href: '/artwork.html',
       children: [
-        { key: 'figures', label: 'Figures',  href: 'figures.html' },
-        { key: 'hands',   label: 'Hands',    href: 'hands.html'   },
-        { key: 'nsfw',    label: 'NSFW',     href: 'nsfw.html',   badge: '18+' },
+        { key: 'figures', label: 'Figures',  href: '/figures.html' },
+        { key: 'hands',   label: 'Hands',    href: '/hands.html'   },
+        { key: 'nsfw',    label: 'NSFW',     href: '/nsfw.html',   badge: '18+' },
       ]
     },
     {
       key: 'blog',
       label: 'Blog',
-      href: 'blog.html',
+      href: '/blog.html',
       children: [
-        { key: 'blog-posts', label: 'posts', href: 'blog.html?filter=post' },
-        { key: 'blog-notes', label: 'notes', href: 'blog.html?filter=note' },
+        { key: 'blog-posts', label: 'posts', href: '/blog.html?filter=post' },
+        { key: 'blog-notes', label: 'notes', href: '/blog.html?filter=note' },
       ]
     },
     {
       key: 'toys',
       label: 'Toys',
-      href: 'toys.html',
+      href: '/toys.html',
       children: [
-        { key: 'oilslick',      label: 'Oilslick Labs',  href: 'oilslick-lab.html'   },
-        { key: 'the-long-haul', label: 'The Long Haul',  href: 'tlh/the-long-haul.html'  },
+        { key: 'oilslick',      label: 'Oilslick Labs',  href: '/oilslick-lab.html'   },
+        { key: 'the-long-haul', label: 'The Long Haul',  href: '/tlh/the-long-haul.html'  },
       ]
     },
   ];
@@ -315,10 +318,10 @@
 
     const logo  = document.createElement('div');  logo.className  = 'nav-logo';
     const title = document.createElement('a');    title.className = 'nav-logo-title oil-text';
-    title.href = 'index.html'; title.textContent = 'coiled lamb';
+    title.href = '/index.html'; title.textContent = 'coiled lamb';
     logo.appendChild(title);
     const sub = document.createElement('a'); sub.className = 'nav-logo-sub';
-    sub.href = 'about.html'; sub.textContent = 'about';
+    sub.href = '/about.html'; sub.textContent = 'about';
     if (active === 'about') sub.style.color = '#e0eeec';
     logo.appendChild(sub);
     sidebar.appendChild(logo);
