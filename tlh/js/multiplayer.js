@@ -37,10 +37,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-22';
-import * as C from './constants.js?v=096-10-22';
-import { addLog } from './render/log.js?v=096-10-22';
-import { renderNetwork } from './render/network.js?v=096-10-22';
+import { S } from './state.js?v=096-10-23';
+import * as C from './constants.js?v=096-10-23';
+import { addLog } from './render/log.js?v=096-10-23';
+import { renderNetwork } from './render/network.js?v=096-10-23';
 
 export function getPorterId() {
   const LS_KEY = 'tlh-porter-id';
@@ -66,17 +66,29 @@ export function getCachedPorterId() {
 }
 
 // ============================================================
-// SILENT MODE (v0.0.7.31)
-// Appear-offline toggle. Reads/polls still run so the feed
-// stays visible; outbound /activity + /lost are suppressed.
-// Persisted in localStorage so testing sessions don't leak
-// dummy events after a reload.
+// SILENT MODE (v0.0.7.31, expanded v0.0.9.6.10.23)
+// Two stacked sources of "silent":
+//   1. userSilentPref()  — persisted appear-offline toggle
+//   2. forcedSilent flag — set when worker returns 429 (daily-quota
+//      exhaustion). Lives on _transient; never touches the user's
+//      persisted preference.
+// isSilent() ORs them. While forcedSilent is on, the network toggle
+// dims + becomes non-interactive; the slow-poll cadence keeps polling
+// alive (at POLL_MS_THROTTLED) so we detect when the throttle clears.
 // ============================================================
 const SILENT_LS_KEY = 'tlh-silent-mode';
 
-export function isSilent() {
+function userSilentPref() {
   try { return localStorage.getItem(SILENT_LS_KEY) === '1'; }
   catch (e) { return false; }
+}
+
+export function isSilent() {
+  return !!S._transient.forcedSilent || userSilentPref();
+}
+
+export function isForcedSilent() {
+  return !!S._transient.forcedSilent;
 }
 
 export function setSilent(on) {
@@ -124,18 +136,34 @@ function handleThrottle(res) {
       if (!isNaN(secs) && secs > 0) cooldownMs = secs * 1000;
     }
   } catch (e) {}
+  // v0.0.9.6.10.23 — defensive clamp. A misbehaving Retry-After or a
+  // forward clock-jump could otherwise strand the toggle for unbounded
+  // time; worker re-enforces server-side, so we cap aggressively.
+  if (cooldownMs > C.THROTTLE_MAX_MS) cooldownMs = C.THROTTLE_MAX_MS;
   const firstHit = !t.feedThrottled;
-  t.feedThrottled = true;
+  t.feedThrottled  = true;
+  t.forcedSilent   = true;
   t.throttledUntil = Date.now() + cooldownMs;
   if (firstHit) {
-    addLog('<span class="log-wn">feed throttled</span> \u2014 broadcasts paused (' + Math.round(cooldownMs/1000) + 's)');
+    const secs = Math.round(cooldownMs / 1000);
+    addLog('<span class="log-wn">feed throttled</span> \u2014 broadcasts paused (' + secs + 's)');
+    // v0.0.9.6.10.23 telemetry — surface to console so a future-dev
+    // tailing DevTools sees throttle events without scraping the
+    // dispatch log.
+    try { console.warn('[tlh] feed throttled \u2014 worker quota, retry in', secs, 's'); } catch (e) {}
     renderNetwork();
   }
 }
 
 function clearThrottle() {
-  S._transient.feedThrottled = false;
-  S._transient.throttledUntil = 0;
+  const t = S._transient;
+  const wasThrottled = t.feedThrottled;
+  t.feedThrottled  = false;
+  t.forcedSilent   = false;
+  t.throttledUntil = 0;
+  if (wasThrottled) {
+    try { console.info('[tlh] feed throttle cleared \u2014 broadcasts resuming'); } catch (e) {}
+  }
   renderNetwork();
 }
 
@@ -299,22 +327,37 @@ export async function fetchLostFromPeer(peerPorterId) {
 }
 
 export async function pollFeed() {
-  // v0.0.9.6.9.6 — respect silent mode (missing gate meant sim /
-  // user-silenced sessions still hit Cloudflare worker every POLL_MS).
-  // All outbound network calls in this module now check isSilent().
-  if (isSilent()) return;
+  // v0.0.9.6.10.23 — gate on user-pref directly (not isSilent), so a
+  // forced-silent throttle keeps polling at the slow cadence and we
+  // observe when the throttle clears. User-pref silent still skips
+  // polling entirely (matches v0.0.9.6.9.6 intent: sim / user-silenced
+  // sessions don't hit the worker).
+  if (userSilentPref()) return;
   try {
     const url = C.FEED_URL + '/feed' + (S.lastFeedTimestamp ? ('?since=' + S.lastFeedTimestamp) : '');
     const res = await fetch(url);
+    // v0.0.9.6.10.23 — surface /feed 429 (worker daily-quota exhaustion)
+    // into the same throttle path /activity uses. Previously swallowed.
+    if (res.status === 429) {
+      handleThrottle(res);
+      return;
+    }
     if (!res.ok) return;
+    // Successful poll while throttle was on → throttle has cleared.
+    if (S._transient.feedThrottled) clearThrottle();
     const data = await res.json();
     if (!data || !Array.isArray(data.events)) return;
 
     S.networkConnected = true;
-    S.networkCensus    = data.census || 0;
+    // v0.0.9.6.10.23 — worker now sends both `census` (number, back-compat)
+    // and `censusBreakdown` ({today, week, total}). Old worker only sends
+    // census; new client renders breakdown when present, falls through.
+    S.networkCensus          = data.census || 0;
+    S.networkCensusBreakdown = data.censusBreakdown || null;
 
     const myId = getCachedPorterId();
     const seen = new Set(S.networkFeed.map(e => `${e.timestamp}|${e.porterId}|${e.type}`));
+    const lastSeen = S._transient.porterLastSeen;
     const freshGearEvents = [];
     const freshTrampleEvents = [];
     data.events.forEach(e => {
@@ -323,6 +366,11 @@ export async function pollFeed() {
         S.networkFeed.push(e);
         seen.add(key);
         if (e.timestamp > S.lastFeedTimestamp) S.lastFeedTimestamp = e.timestamp;
+        // v0.0.9.6.10.23 — most-recent feed timestamp per porter, used
+        // for recovery-tooltip freshness suffix + long-quiet styling.
+        if (e.porterId && (!lastSeen[e.porterId] || lastSeen[e.porterId] < e.timestamp)) {
+          lastSeen[e.porterId] = e.timestamp;
+        }
         if (e.porterId && e.porterId !== myId) {
           if (!S.knownPeers.includes(e.porterId)) {
             S.knownPeers.push(e.porterId);
@@ -346,12 +394,12 @@ export async function pollFeed() {
       }
     });
     if (freshGearEvents.length) {
-      import('./gear.js?v=096-10-22').then((gearMod) => {
+      import('./gear.js?v=096-10-23').then((gearMod) => {
         freshGearEvents.forEach(data => gearMod.receiveGearPlacement(data));
       });
     }
     if (freshTrampleEvents.length) {
-      import('./trail.js?v=096-10-22').then((trailMod) => {
+      import('./trail.js?v=096-10-23').then((trailMod) => {
         freshTrampleEvents.forEach(data => trailMod.receiveTrampleMilestone(data));
       });
     }
@@ -365,15 +413,28 @@ export async function pollFeed() {
   } catch (e) {}
 }
 
+// v0.0.9.6.10.23 — recursive-setTimeout poll loop (was setInterval).
+// Lets each iteration pick its own cadence: POLL_MS normally,
+// POLL_MS_THROTTLED while forcedSilent. Stop semantics: stopPolling
+// nulls pollTimer; the in-flight callback checks pollTimer after the
+// fetch completes and skips re-arming if it was cleared mid-poll.
+function schedulePoll() {
+  const t = S._transient;
+  const interval = t.forcedSilent ? C.POLL_MS_THROTTLED : C.POLL_MS;
+  t.pollTimer = setTimeout(async () => {
+    await pollFeed();
+    if (t.pollTimer !== null) schedulePoll();
+  }, interval);
+}
+
 export function startPolling() {
   if (S._transient.pollTimer) return;
-  pollFeed();
-  S._transient.pollTimer = setInterval(pollFeed, C.POLL_MS);
+  pollFeed().then(schedulePoll);
 }
 
 export function stopPolling() {
-  if (S._transient.pollTimer) {
-    clearInterval(S._transient.pollTimer);
+  if (S._transient.pollTimer !== null) {
+    clearTimeout(S._transient.pollTimer);
     S._transient.pollTimer = null;
   }
 }
@@ -385,6 +446,26 @@ export function shortPorterId(id) {
     return parts[0] + '-' + parts[1].slice(0, 4);
   }
   return id;
+}
+
+// v0.0.9.6.10.23 — freshness suffix for porter-attributed UI (recovery
+// tooltips, etc). Reads S._transient.porterLastSeen, which is populated
+// by pollFeed from feed:recent. Returns '' when we have no data on
+// this porter (silence preferable to lying with "just now").
+export function formatPorterFreshness(porterId) {
+  if (!porterId) return '';
+  const lastSeen = S._transient.porterLastSeen;
+  const ts = lastSeen && lastSeen[porterId];
+  if (!ts) return '';
+  const ms   = Math.max(0, Date.now() - ts);
+  const days = Math.floor(ms / 86400000);
+  if (days >= 2)  return `(${days} days ago)`;
+  if (days === 1) return '(1 day ago)';
+  const hrs  = Math.floor(ms / 3600000);
+  if (hrs >= 1)   return `(${hrs}h ago)`;
+  const mins = Math.floor(ms / 60000);
+  if (mins >= 1)  return `(${mins}m ago)`;
+  return '(just now)';
 }
 
 export function checkDistMilestones() {

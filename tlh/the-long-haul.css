@@ -1687,6 +1687,9 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
 .net-ac { color: var(--tlh-accent); }
 .net-item.net-quiet { color: var(--tlh-text-faint); font-style: italic; }
 .net-item.net-census { color: var(--tlh-text-mid); font-size: 9px; padding-bottom: 4px; margin-bottom: 2px; border-bottom: 1px solid #1e5554; }
+/* v0.0.9.6.10.23 — porters whose most-recent feed event is more than
+   LONG_QUIET_MS (14d) old get a muted ID. Subtle archeology cue. */
+.net-hi.long-quiet { color: var(--tlh-text-mid); opacity: 0.7; }
 
 .chan-item {
   font-size: 9px;

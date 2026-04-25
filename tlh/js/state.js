@@ -317,6 +317,9 @@ export const S = {
 
   networkFeed: [],
   networkCensus: 0,
+  // v0.0.9.6.10.23 — three-bucket census from new worker (today / week /
+  // total). Stays null on legacy worker; renderer falls back to networkCensus.
+  networkCensusBreakdown: null,
   networkConnected: false,
   milestonesHit: [],
   lastFeedTimestamp: 0,
@@ -399,6 +402,19 @@ export const S = {
     flushTimer: null,
     feedThrottled: false,
     throttledUntil: 0,
+
+    // v0.0.9.6.10.23 — worker-quota forced-silent state.
+    // forcedSilent flips true on /feed or /activity 429 (worker daily KV
+    // quota exhausted). isSilent() ORs this with the user's persisted
+    // silent toggle so the UI reads "offline" without overwriting the
+    // user's preference. While forcedSilent is on, the network toggle
+    // is non-interactive and the tooltip explains. Cleared once
+    // throttledUntil elapses (timer or next successful poll).
+    // porterLastSeen maps porterId -> wallclock ms of last feed event,
+    // built from feed:recent on each poll. Substrate for freshness
+    // suffix on recovery tooltips + "long-quiet" feed styling.
+    forcedSilent:   false,
+    porterLastSeen: {},
 
     // v0.0.7.21 — admin auth. Flips true if URL hash #admin=<token>
     // matches the SHA in constants.js. Never persisted. Admin panel

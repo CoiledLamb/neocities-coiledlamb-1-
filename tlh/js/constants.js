@@ -2,7 +2,7 @@
    THE LONG HAUL — tuning constants (v0.0.7.18)
 
    All const tuning values live here. Balance passes are a single-file
-   edit. Import as `import * as C from './constants.js?v=096-10-22'` and reference
+   edit. Import as `import * as C from './constants.js?v=096-10-23'` and reference
    as `C.TICK_MS`, `C.TRIP_CHANCE_BASE`, etc.
 
    Excluded (lives elsewhere):
@@ -285,10 +285,24 @@ export const CHATTER_BASE_CHANCE        = 0.005;
 export const DEPOT_REST_BONUS_SCRIP = 10;
 
 // ----- multiplayer -----
-export const FEED_URL         = 'https://coiledlamb.tlh-feed.workers.dev';
-export const POLL_MS          = 60000;
-export const FEED_DISPLAY_CAP = 8;
-export const DIST_MILESTONES  = [10, 25, 50, 100, 250, 500, 1000];
+export const FEED_URL           = 'https://coiledlamb.tlh-feed.workers.dev';
+export const POLL_MS            = 60000;
+// v0.0.9.6.10.23 — slow-poll cadence while worker is forced-silent (429).
+// Keeps polling alive so we detect when the throttle clears, but at 1/5
+// the normal rate so an exhausted worker isn't getting hammered.
+export const POLL_MS_THROTTLED  = 300000;
+export const FEED_DISPLAY_CAP   = 8;
+export const DIST_MILESTONES    = [10, 25, 50, 100, 250, 500, 1000];
+
+// v0.0.9.6.10.23 — porters unseen this long get a "long-quiet" CSS class
+// in the network feed (subtle muted styling). Driven by porterLastSeen.
+export const LONG_QUIET_MS      = 14 * 24 * 60 * 60 * 1000;  // 14d
+
+// v0.0.9.6.10.23 — defensive cap on throttledUntil. A forward clock-jump
+// (timezone change, manual clock-set) could otherwise strand the toggle
+// in throttled state for unbounded time. Worker re-enforces server-side
+// regardless, so this is belt-and-suspenders.
+export const THROTTLE_MAX_MS    = 24 * 60 * 60 * 1000;  // 24h
 
 // ----- multiplayer rate limiting (v0.0.7.21) -----
 // KV free-tier is 1000 puts/day. Client-side rate limiting stops a single

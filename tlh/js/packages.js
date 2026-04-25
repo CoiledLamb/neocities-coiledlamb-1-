@@ -33,23 +33,23 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-22';
-import * as C from './constants.js?v=096-10-22';
-import { NPC_DEFS } from './data/npc-defs.js?v=096-10-22';
+import { S } from './state.js?v=096-10-23';
+import * as C from './constants.js?v=096-10-23';
+import { NPC_DEFS } from './data/npc-defs.js?v=096-10-23';
 import {
   PKG_BASES, PKG_SIZE_WEIGHTS, PKG_SIZE_WEIGHTS_RISKY,
   PKG_TAG_EFFECTS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
   PKG_LABELS_BY_TERRAIN_ORIGIN,
-} from './data/packages.js?v=096-10-22';
-import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js?v=096-10-22';
-import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js?v=096-10-22';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-22';
-import { postActivity, shortPorterId, postLostDrop } from './multiplayer.js?v=096-10-22';
+} from './data/packages.js?v=096-10-23';
+import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js?v=096-10-23';
+import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js?v=096-10-23';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-23';
+import { postActivity, shortPorterId, postLostDrop, formatPorterFreshness } from './multiplayer.js?v=096-10-23';
 // v0.0.9.6.9.30.4 — updatePorterStripBadges, computeTrustGain,
 // speakDelivery, recordDelivery, removeFromInventories moved to
 // packages-delivery.js with tryDeliver.
-import { addTrust } from './trust.js?v=096-10-22';
-import { cartFits, pushToCart } from './carrier.js?v=096-10-22';
+import { addTrust } from './trust.js?v=096-10-23';
+import { cartFits, pushToCart } from './carrier.js?v=096-10-23';
 
 // v0.0.9.6.9.30j — bucket-routing helper. All three pickup paths
 // (NPC dispatch, ring/ground, interior) funnel new pkgs through this
@@ -76,12 +76,12 @@ function cartOrMainFits(pkg) {
 }
 // v0.0.9.6.9.30.4 — getNodeStage / setNodeStage / drawRouteMap /
 // renderSettlements moved to packages-delivery.js.
-import { sandalCap, renderBoots } from './boots.js?v=096-10-22';
-import { addLog } from './render/log.js?v=096-10-22';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-22';
-import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js?v=096-10-22';
-import { weatherAtCourier } from './weather.js?v=096-10-22';
-import { getDisplayLabel } from './identification.js?v=096-10-22';
+import { sandalCap, renderBoots } from './boots.js?v=096-10-23';
+import { addLog } from './render/log.js?v=096-10-23';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-23';
+import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js?v=096-10-23';
+import { weatherAtCourier } from './weather.js?v=096-10-23';
+import { getDisplayLabel } from './identification.js?v=096-10-23';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -90,7 +90,7 @@ const worldCells = S._transient.worldCells;
 // v0.0.9.6.9.30.4 — tryDeliver + its broadcast throttle
 // (DELIVERY_BROADCAST_GATE_MS, lastDeliveryBroadcastTs) moved to
 // packages-delivery.js. tryDeliver is re-exported below so existing
-// `import * as Pkg from './packages.js?v=096-10-22'` consumers keep working.
+// `import * as Pkg from './packages.js?v=096-10-23'` consumers keep working.
 
 // v0.0.7.21 — sticky gun occupies one cargo slot unless holstered.
 // Every pkg slot accounting goes through this helper so cargo
@@ -171,7 +171,9 @@ export function formatPkgTooltip(pkg) {
   const modTag = (pkg.tags && pkg.tags.length) ? ` (${pkg.tags.join('+')})` : '';
   const lines = [`[${pkg.size}] ${pkg.label}${modTag}`];
   if (pkg.isRecovery && pkg.recoveryFromPorter) {
-    lines.push(`[recovery from ${shortPorterId(pkg.recoveryFromPorter)}]`);
+    // v0.0.9.6.10.23 — freshness suffix when porterLastSeen has data.
+    const fresh = formatPorterFreshness(pkg.recoveryFromPorter);
+    lines.push(`[recovery from ${shortPorterId(pkg.recoveryFromPorter)}${fresh ? ' ' + fresh : ''}]`);
   } else if (pkg.isLost) {
     lines.push(`[lost]`);
   }
@@ -202,7 +204,9 @@ export function formatPkgTooltipHTML(pkg) {
   // tooltip heads).
   const lines = [`<div class="rich-tip-head">[${esc(pkg.size)}] ${esc(pkg.label)}${modTag}</div>`];
   if (pkg.isRecovery && pkg.recoveryFromPorter) {
-    lines.push(`<div>[recovery from ${esc(shortPorterId(pkg.recoveryFromPorter))}]</div>`);
+    // v0.0.9.6.10.23 — freshness suffix when porterLastSeen has data.
+    const fresh = formatPorterFreshness(pkg.recoveryFromPorter);
+    lines.push(`<div>[recovery from ${esc(shortPorterId(pkg.recoveryFromPorter))}${fresh ? ' ' + esc(fresh) : ''}]</div>`);
   } else if (pkg.isLost) {
     lines.push(`<div>[lost]</div>`);
   }
@@ -1252,9 +1256,9 @@ export function ejectFromCargo(invIdx) {
 // ============================================================
 // PACKAGE DELIVERY — tryDeliver lives in ./packages-delivery.js
 // (extracted v0.0.9.6.9.30.4). Re-exported below so existing
-// `import * as Pkg from './packages.js?v=096-10-22'` consumers keep working.
+// `import * as Pkg from './packages.js?v=096-10-23'` consumers keep working.
 // ============================================================
-export { tryDeliver } from './packages-delivery.js?v=096-10-22';
+export { tryDeliver } from './packages-delivery.js?v=096-10-23';
 
 export function tickPkgRespawns() {
   for (let i = 0; i < C.TOTAL_CELLS; i++) {

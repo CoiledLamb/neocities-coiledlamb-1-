@@ -1,40 +1,45 @@
 /* ==============================================
    THE LONG HAUL — multiplayer feed worker
-   v0.0.7.1 (quota-aware)
+   v0.0.9.6.10.23 (sustainability pass)
    ==============================================
    Endpoints:
-     POST /activity     append event, rate-limited per porter
-     GET  /feed?since=  recent events + census count
-     POST /lost         register a lost-pkg drop
+     POST /activity        append event, rate-limited per porter
+     GET  /feed?since=     recent events + census breakdown
+     POST /lost            register a lost-pkg drop
      GET  /lost/:porterId  fetch a porter's lost-pkg registry
 
    KV bindings (configured in wrangler.toml):
-     FEED  — feed state (events, census, lost registries)
+     FEED  — feed state (events, lost registries)
 
    Storage keys:
-     feed:recent             JSON array, last 200 events, all porters
-     census:active           JSON object { porterId: lastSeenMs, ... }
-     lost:{porterId}         JSON array, last 20 lost-pkg drops by this porter
-     rate:{porterId}         counter string, 60s TTL, decremented client-side via expiry
+     feed:recent        JSON array, last 200 events, all porters (7d TTL, refreshed on write)
+     lost:{porterId}    JSON array, last 20 lost-pkg drops by this porter (21d TTL = FLOOR + DEAD_WEEK_GRACE)
+     rate:{porterId}    marker, 60s TTL, signals "porter has open rate window"
+
+   v0.0.9.6.10.23 sustainability pass — write-amp diet:
+     - census:active KV key retired; census now derived from feed:recent on read.
+     - Rate marker writes once per window (first event opens it; subsequent
+       in-window events allowed without writing). KV has no atomic increment,
+       so per-event counting required per-event writes — exactly the leak we
+       were patching. The 5-per-window cap is now soft + client-enforced; the
+       worker stops being a hard rate limiter, but the global daily quota
+       still backstops genuine flood traffic via the 429 path below.
+     - All KV puts now carry expirationTtl for storage hygiene.
+     - Event data payload guarded at 512 bytes max.
 
    Design notes:
      - Schema is generic: events are { type, porterId, timestamp, data }.
        New game systems just add new type strings; worker doesn't need updates.
-     - Rate limit is silent (returns ok:true even when dropped) — client
-       never sees the limit, never logs an error.
      - Feed cap of 200 events keeps payload small (~30KB max). Older events
        fall off the front.
-     - Census auto-prunes porters not seen in 24h on every read.
      - CORS: open. No auth needed.
 
-   Quota handling (v0.0.7.1):
+   Quota handling (v0.0.7.1, retained):
      Cloudflare KV free tier has a 1000 puts/day cap. When exceeded, KV.put()
      throws an Error containing "limit exceeded". The catch-all at the bottom
      classifies these as 429 Too Many Requests (Retry-After until UTC
-     midnight) instead of 500. The game-side fetch already swallows errors
-     silently, but the right status lets future client logic back off
-     gracefully and lets us add a "feed throttled" UI signal in a later
-     patch (see TLH-HANDOFF.md bug list).
+     midnight) instead of 500. The client uses this to enter a forced-silent
+     UI state (see multiplayer.js).
 */
 
 // ============================================================
@@ -42,9 +47,12 @@
 // ============================================================
 const FEED_CAP        = 200;          // max events kept in feed:recent
 const RATE_WINDOW_S   = 60;           // rate limit window (seconds)
-const RATE_MAX        = 5;            // max events per window per porter
-const CENSUS_TTL_MS   = 24 * 60 * 60 * 1000;  // 24 hours
+const CENSUS_TTL_MS   = 24 * 60 * 60 * 1000;       // 24h "active today" window
+const WEEK_TTL_MS     = 7  * 24 * 60 * 60 * 1000;  // 7d "this week" window
 const LOST_CAP        = 20;           // max lost-pkg drops kept per porter
+const FEED_TTL_S      = 7  * 24 * 60 * 60;   // 7d — feed:recent storage hygiene
+const LOST_TTL_S      = 21 * 24 * 60 * 60;   // 21d — FLOOR(14) + DEAD_WEEK_GRACE(7)
+const MAX_DATA_BYTES  = 512;          // event.data JSON byte cap
 
 const ALLOWED_TYPES = new Set([
   'delivery',
@@ -110,21 +118,28 @@ function validEvent(body) {
   if (!body || typeof body !== 'object') return false;
   if (!validPorterId(body.porterId)) return false;
   if (typeof body.type !== 'string' || !ALLOWED_TYPES.has(body.type)) return false;
-  if (body.data !== undefined && (typeof body.data !== 'object' || body.data === null)) return false;
+  if (body.data !== undefined) {
+    if (typeof body.data !== 'object' || body.data === null) return false;
+    if (JSON.stringify(body.data).length > MAX_DATA_BYTES) return false;
+  }
   return true;
 }
 
 // ============================================================
-// RATE LIMITING
+// RATE LIMITING — open-window marker, no per-event count
 // ============================================================
+// First event in a 60s window writes a marker key with TTL. Subsequent events
+// while the marker exists skip the write entirely. KV can't atomically
+// increment, so per-event counting would mean per-event writes — the exact
+// leak this patch is closing. The 5-per-window cap that used to live here is
+// now client-side (see multiplayer.js throttling); the global daily-quota
+// 429 below covers any pathological flood that gets past the client.
 async function checkRate(env, porterId) {
   const key = `rate:${porterId}`;
-  const raw = await env.FEED.get(key);
-  const count = raw ? parseInt(raw, 10) : 0;
-  if (count >= RATE_MAX) return false;
-  // Increment + reset TTL on every event in window
-  await env.FEED.put(key, String(count + 1), { expirationTtl: RATE_WINDOW_S });
-  return true;
+  const existing = await env.FEED.get(key);
+  if (existing) return true; // window already open, allow without writing
+  await env.FEED.put(key, '1', { expirationTtl: RATE_WINDOW_S });
+  return true; // first event opens the window
 }
 
 // ============================================================
@@ -136,7 +151,7 @@ async function appendEvent(env, event) {
   feed.push(event);
   // Trim to cap, keeping newest
   if (feed.length > FEED_CAP) feed.splice(0, feed.length - FEED_CAP);
-  await env.FEED.put('feed:recent', JSON.stringify(feed));
+  await env.FEED.put('feed:recent', JSON.stringify(feed), { expirationTtl: FEED_TTL_S });
 }
 
 async function readFeed(env, sinceTs) {
@@ -149,35 +164,27 @@ async function readFeed(env, sinceTs) {
 }
 
 // ============================================================
-// CENSUS
+// CENSUS — derived from feed:recent (no dedicated key, no writes)
 // ============================================================
-async function bumpCensus(env, porterId) {
-  const raw = await env.FEED.get('census:active');
-  const census = raw ? JSON.parse(raw) : {};
-  census[porterId] = Date.now();
-  await env.FEED.put('census:active', JSON.stringify(census));
-}
-
-async function readCensus(env) {
-  const raw = await env.FEED.get('census:active');
-  if (!raw) return 0;
-  const census = JSON.parse(raw);
-  const cutoff = Date.now() - CENSUS_TTL_MS;
-  let active = 0;
-  let mutated = false;
-  for (const id in census) {
-    if (census[id] < cutoff) {
-      delete census[id];
-      mutated = true;
-    } else {
-      active++;
-    }
+// Walks the feed once and buckets unique porterIds by recency. "total" is
+// the unique-porter count within FEED_CAP events; a true all-time count
+// would need a separate counter (out of scope here — see porter-profiles
+// follow-up in TLH-HANDOFF.md).
+async function deriveCensusBreakdown(env) {
+  const raw = await env.FEED.get('feed:recent');
+  if (!raw) return { today: 0, week: 0, total: 0 };
+  const feed   = JSON.parse(raw);
+  const now    = Date.now();
+  const today  = new Set();
+  const week   = new Set();
+  const total  = new Set();
+  for (const e of feed) {
+    if (!e || !e.porterId || typeof e.timestamp !== 'number') continue;
+    total.add(e.porterId);
+    if (now - e.timestamp <= WEEK_TTL_MS)   week.add(e.porterId);
+    if (now - e.timestamp <= CENSUS_TTL_MS) today.add(e.porterId);
   }
-  // Persist pruned census occasionally (avoids constant writes)
-  if (mutated && Math.random() < 0.1) {
-    await env.FEED.put('census:active', JSON.stringify(census));
-  }
-  return active;
+  return { today: today.size, week: week.size, total: total.size };
 }
 
 // ============================================================
@@ -195,7 +202,7 @@ async function registerLostPkg(env, porterId, pkg) {
   });
   // Trim to cap, FIFO
   if (list.length > LOST_CAP) list.splice(0, list.length - LOST_CAP);
-  await env.FEED.put(key, JSON.stringify(list));
+  await env.FEED.put(key, JSON.stringify(list), { expirationTtl: LOST_TTL_S });
 }
 
 async function readLostRegistry(env, porterId) {
@@ -225,11 +232,7 @@ export default {
         if (!validEvent(body)) return errorResponse('invalid_event', 400);
 
         const allowed = await checkRate(env, body.porterId);
-        if (!allowed) {
-          // Silent drop — bump census so they still count as online
-          await bumpCensus(env, body.porterId);
-          return jsonResponse({ ok: true });
-        }
+        if (!allowed) return jsonResponse({ ok: true }); // silent drop (currently unreachable; see checkRate)
 
         const event = {
           type:      body.type,
@@ -238,7 +241,6 @@ export default {
           data:      body.data || {},
         };
         await appendEvent(env, event);
-        await bumpCensus(env, body.porterId);
         return jsonResponse({ ok: true, timestamp: event.timestamp });
       }
 
@@ -246,9 +248,14 @@ export default {
       if (request.method === 'GET' && path === '/feed') {
         const sinceParam = url.searchParams.get('since');
         const since = sinceParam ? parseInt(sinceParam, 10) : 0;
-        const events = await readFeed(env, since);
-        const census = await readCensus(env);
-        return jsonResponse({ events, census, serverTime: Date.now() });
+        const events    = await readFeed(env, since);
+        const breakdown = await deriveCensusBreakdown(env);
+        return jsonResponse({
+          events,
+          census:          breakdown.today,  // back-compat: legacy clients read a number
+          censusBreakdown: breakdown,        // { today, week, total } for network panel
+          serverTime:      Date.now(),
+        });
       }
 
       // ---------- POST /lost ----------
@@ -261,10 +268,9 @@ export default {
         if (!body.label) return errorResponse('missing_label', 400);
 
         const allowed = await checkRate(env, body.porterId);
-        if (!allowed) return jsonResponse({ ok: true }); // silent drop
+        if (!allowed) return jsonResponse({ ok: true });
 
         await registerLostPkg(env, body.porterId, body);
-        await bumpCensus(env, body.porterId);
         return jsonResponse({ ok: true });
       }
 
@@ -280,7 +286,7 @@ export default {
       if (request.method === 'GET' && path === '/') {
         return jsonResponse({
           name:    'tlh-feed',
-          version: '0.0.7.1',
+          version: '0.0.9.6.10.23',
           endpoints: [
             'POST /activity',
             'GET  /feed?since=<timestamp>',
@@ -293,8 +299,7 @@ export default {
       return errorResponse('not_found', 404);
     } catch (err) {
       // KV daily-quota exhaustion → 429 with Retry-After until UTC midnight.
-      // Lets a future client back off gracefully instead of treating it as
-      // a generic crash. Falls through to 500 for any other unhandled error.
+      // Client uses this to enter forced-silent mode (see multiplayer.js).
       if (isKvQuotaError(err)) {
         const retryAfter = secondsUntilUtcMidnight();
         return errorResponse(

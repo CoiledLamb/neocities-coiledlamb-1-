@@ -15,29 +15,29 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=096-10-22';
-import * as C from '../constants.js?v=096-10-22';
-import { getNodeStage, getDisplayLabel } from '../identification.js?v=096-10-22';
-import { TICKS_PER_DAY } from './sky.js?v=096-10-22';
-import { NPC_DEFS } from '../data/npc-defs.js?v=096-10-22';
+import { S } from '../state.js?v=096-10-23';
+import * as C from '../constants.js?v=096-10-23';
+import { getNodeStage, getDisplayLabel } from '../identification.js?v=096-10-23';
+import { TICKS_PER_DAY } from './sky.js?v=096-10-23';
+import { NPC_DEFS } from '../data/npc-defs.js?v=096-10-23';
 import {
   terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY,
   projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength,
   GEAR_GLYPH, gearWear, gearWearTier,
   cellKeyFromCoords, mesaOutcropAt,
-} from '../data/terrain.js?v=096-10-22';
+} from '../data/terrain.js?v=096-10-23';
 // v0.0.9.6.10.8 — trampleTier no longer consumed here (glyph-swap
 // dropped in favor of the persistent-dot layer). trampleAt is used
 // to floor the live trail's fade opacity.
-import { trampleAt } from '../trail.js?v=096-10-22';
+import { trampleAt } from '../trail.js?v=096-10-23';
 // v0.0.9.6.10.7 — use the density-filtered view of placed gear so
 // render matches placedGearAt() gameplay lookup. Full pool lives
 // on S.placedGear (persisted, broadcast-addressable); this is the
 // curated subset that should be visible to the player.
-import { visiblePlacedGear } from '../gear.js?v=096-10-22';
-import { speedMultiplier } from '../stamina.js?v=096-10-22';
-import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=096-10-22';
-import { tlhPalette } from '../palette.js?v=096-10-22';
+import { visiblePlacedGear } from '../gear.js?v=096-10-23';
+import { speedMultiplier } from '../stamina.js?v=096-10-23';
+import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=096-10-23';
+import { tlhPalette } from '../palette.js?v=096-10-23';
 
 const els = S._transient.els;
 

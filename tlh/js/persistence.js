@@ -34,10 +34,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-22';
-import * as C from './constants.js?v=096-10-22';
-import { addLog } from './render/log.js?v=096-10-22';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-22';
+import { S } from './state.js?v=096-10-23';
+import * as C from './constants.js?v=096-10-23';
+import { addLog } from './render/log.js?v=096-10-23';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-23';
 
 // v0.0.9.6.10.20 tag-shape migration. Old saves carry `pkg.modifier`
 // (string or null) from the pre-tag shape; new saves carry `pkg.tags`
@@ -673,7 +673,9 @@ export function wipeSave() {
 
 function fmtAgo(ms) {
   if (!S._transient.lastSaveAt) return 'no save yet';
-  const secs = Math.floor((Date.now() - S._transient.lastSaveAt) / 1000);
+  // v0.0.9.6.10.23 — clamp delta non-negative so a clock-set-back doesn't
+  // surface "saved -42s ago" in the UI.
+  const secs = Math.max(0, Math.floor((Date.now() - S._transient.lastSaveAt) / 1000));
   if (secs < 5)   return 'just now';
   if (secs < 60)  return secs + 's ago';
   const mins = Math.floor(secs / 60);
