@@ -48,6 +48,105 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 
 **Resume next session**: v0.0.9.5 is shipped on the `claude/amazing-hermann` branch (5 scope commits + 1 design-lock docs commit + 1 ship-log docs commit). Merged to main. Next patch is **v0.0.9.6 — world patch: terrain bones + gear + world-overlay + trails** (consolidates the old .5 + .6 into a coherent world-mechanics patch; design fully refined 2026-04-17 during the .5 lockdown). **Idle-game-first philosophy locked**: no hard gates on traversal — gear is efficiency, never requirement. Every cell is crossable gear-less, just with higher penalty. Scope: terrain types anchored at v0.0.9.5 corner NPCs — rivers (theta NE source, flow diagonally SW, clay beds in `#98875f` / `#a64a2e`); mountain massifs at SW corner (pi's summit + lambda's slope), severe penalty but always traversable; **plateau / mesa country** (east side) as gear-teaching rung — visual obstacles with walkable paths carved between, plateau tops gated by placed ladder for pkg-top rewards (dests restricted to near-start NPC allowlist per v0.0.9.5 label lock), placed anchor for controlled descent else fall-as-guaranteed-trip; rocky hills as connective tissue; desert at nu's NW with day-scaled stamina drain. Rivers classified creek/river/wide with fall-and-ride-downstream failure mode (courier swept downstream ~5-10 ticks, catches themselves, pathfinding auto-reroutes). Shortcut rewrite: flat SHORTCUT multipliers retire in favor of per-cell terrain effects. Interior brought on-grid (weather + scanner + river-refill + terrain effects active during shortcut; pkg pickup in interior stays off pending .7+, except plateau tops). Ladder + anchor as kit-bar gear (1×1 slots each, bundled 1-5/6-10/11-20 = s/m/l slot; 5c each; 12h wall-clock base durability, lambda's mountain gear ×2 → 24h; spatial storm-at-gear-cell decay ×3). **All gear is placed** (no held/in-use model) — anchor at shore creates rope spanning river (up to 2 cells per anchor), chained ladders share one decay clock as atomic multi-cell infrastructure. Placement consumes inventory + creates world-overlay structure usable by others. Trails land with shared world-overlay data plumbing (per-cell trample, multiplayer-synced, emergent social paving). Mountain-pass carving as natural extension. Storms sweep across 2D interior (not just ring). **Ceramic wrap (theta t40, shipped v0.0.9.5)** waterproofs fragile cargo during river crossings + fall-downstream incidents — cross-patch synergy already wired. 9 flag-only upgrades from v0.0.9.5 (riverWaders, ceramicWrap, mobileCarrier1/2, mountainGear, improvedTieDowns, exoskeleton1/2, topographicMap) get their real effect code wired this patch. See [v0.0.9.6 implementation plan](#v0096-implementation-plan). Dispatch log virt still benched at **v0.0.9.8**; see [its plan](#v0098-implementation-plan).
 
+## next patch — v0.0.9.6.10.23 — worker integration sustainability + porter presence groundwork
+
+🟢 designed and ready to build.
+
+### what this is
+
+Stops the KV write-amplification bleed that triggered the 2026-04-20 quota alert, and lays the groundwork (`porterLastSeen`) for porter-presence UI features. Stays on KV — no Durable Objects migration. Single sub-version.
+
+### the leak
+
+KV free tier is 1k writes/day. Current architecture writes ~290/day per active porter. Three amplifiers:
+
+- **Census prune-write on every `/feed` poll** (10% probability per read) — dominant leak, written by passive polling not user actions
+- **Rate-counter rewrite on every event POST** (even when allowed/dropped, just to refresh TTL)
+- **Triple-write per allowed event** — rate + census + feed
+
+At ~10 concurrent active porters that's ~2,900 writes/day, ~3× over the cap.
+
+### worker-side changes ([tlh/worker/index.js](tlh/worker/index.js))
+
+1. **Drop `census:active` key entirely.** Derive census by walking `feed:recent` and counting unique porterIds in the last 24h. Zero writes from polling. Single biggest win.
+2. **Drop `bumpCensus()` from event POST paths.** Subsumed by #1.
+3. **Rate-counter writes once per window, not per event.** First event in a 60s window: `put` with TTL. Subsequent in-window reads see the counter, skip the write.
+4. **`expirationTtl` on every put** for storage hygiene:
+   - `feed:recent` → 7d
+   - `lost:{porterId}` → 21d (FLOOR + DEAD_WEEK_GRACE = 14 + 7; see below)
+   - `rate:{porterId}` → already has 60s
+5. **Slim event payloads** — quick audit pass.
+
+### lost-pkg pool — floor + dead-week-grace
+
+The recovery loop needs an ambient pool of dropped packages. A flat 7d TTL would over-prune the pool during low-activity stretches.
+
+```
+TTL on every put = FLOOR + DEAD_WEEK_GRACE = 14 + 7 = 21 days
+```
+
+- Drop-and-vanish porter: list lives 21d. Pool stays populated through their absence.
+- Weekly-active porter: each new drop refreshes the window. List effectively immortal.
+- Porter silent 21d after last drop: list expires. The dead week killed it after the floor.
+
+### client-side changes ([tlh/js/multiplayer.js](tlh/js/multiplayer.js))
+
+6. **`/feed` 429 handling** + **forced-silent UI state**. Currently `/feed` 429s are silently swallowed. Patch: on any 429 (worker quota exhausted — only 429 source, since per-porter rate limits return `ok:true` with silent drop), set a new `S._transient.forcedSilent` flag, force the network-panel online/offline toggle to off, disable interaction until Retry-After elapses. `isSilent()` returns `forcedSilent || userPref` so the user's persisted preference is never overwritten. Toggle tooltip explains: "feed throttled — resumes [UTC time]." When the throttle clears, `forcedSilent = false`, toggle re-interactive, prior preference governs.
+7. **Slow-poll while throttled** — 60s → 300s.
+
+### porter presence groundwork
+
+All free off the same data the patch already derives:
+
+8. **`porterLastSeen` map** built client-side from `feed:recent` events.
+9. **Recovered-lost-cargo tooltip enrichment** — existing "last seen with PTR-XXXX" gets a freshness suffix: "(10 days ago)."
+10. **"Long-quiet" CSS class** on porter IDs unseen for 14d+. Subtle muted styling in feed.
+11. **Census breakdown** in network panel — "active today: 37 / this week: 89 / known total: 412" instead of a single number.
+
+### time / clock defensive pass
+
+Audit pass: most consumers are already safe (`terrain.js:441` already clamps `Math.max(0, now - placedWallClock)` for gear decay; battery + sky are tick-based, not wall-clock). Two small fixes:
+
+12. **`persistence.js fmtAgo`** — clamp delta to non-negative so a clock-set-back doesn't display "saved -42s ago." One-line `Math.max(0, ...)`.
+13. **Throttle checks in `multiplayer.js`** — already belt-and-suspenders since the worker re-enforces server-side, but defensively cap `t.throttledUntil` to a sane window (e.g., min(throttledUntil, Date.now() + 24h)) so a forward clock-jump doesn't strand the toggle.
+
+### telemetry
+
+14. **Log throttle events** to console + dispatch log so future-dev sees when limits get close. No analytics endpoint — that'd be another write.
+
+### explicitly out of scope (deferred)
+
+- **Durable Objects migration** — paid plan, separate decision.
+- **Per-event feed-write coalescing via cron** — complexity not justified at current scale.
+- **Memorial events** (90d pink-tint state on lost cargo + unrepaired structures from long-dormant porters) — dormant under current architecture (nothing survives 90d); lights up when long-lived structures ship.
+- **Porter profiles card** — its own follow-up patch (UI + stats-broadcast + profile cache). `porterLastSeen` from this patch is the substrate.
+- **Daily delivery boards** — out.
+
+### risks / trade-offs
+
+- Census shifts to "porters who succeeded posting in 24h" vs current "porters who attempted in 24h." Silent-dropped porters fall off — negligible difference.
+- Rate-limit window anchors on first event vs each event. Functionally identical.
+- Throttle recovery takes up to 5min — fine for an idle game.
+
+### impact estimate
+
+| | today | after |
+|---|---|---|
+| writes/porter/day (active) | ~290 | ~30 |
+| writes/day @ 10 active | ~2,900 (over cap) | ~300 (comfortable) |
+
+### ship criteria
+
+- [ ] No console errors from `/feed` or `/activity` flow
+- [ ] Existing exported saves still import (no schema change, but verify)
+- [ ] Forced-silent UI state shows up correctly when 429s are forced in dev; toggle re-interacts after clear
+- [ ] `porterLastSeen` populates on first feed poll
+- [ ] Recovered-lost-cargo tooltip shows freshness suffix
+- [ ] Network-panel census breakdown renders
+- [ ] `fmtAgo` doesn't render negative durations after a simulated clock skew
+
+---
+
 ## planned but not built (as of v0.0.8.3)
 
 Captured from design conversations and UX feedback. Not yet spec-locked — revisit each before building.
