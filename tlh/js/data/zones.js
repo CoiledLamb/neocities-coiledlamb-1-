@@ -17,7 +17,7 @@
    ============================================== */
 'use strict';
 
-import * as C from '../constants.js?v=096-10-21';
+import * as C from '../constants.js?v=096-10-22';
 
 export const ZONE_TYPES = {
   road: {

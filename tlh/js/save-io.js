@@ -2,7 +2,7 @@
    THE LONG HAUL — save export / import (v0.0.7.21)
 
    Envelope format (locked, schema-version-agnostic):
-     TLH-SAVE:<base64(JSON.stringify(payload))>
+     TLH-SAVE:<base64(gzip(JSON.stringify(payload)))>
    Where payload is:
      { v: <schemaVersion>, ts: <exportMs>, porterId: <opt-in|null>, save: <buildSavePayload> }
 
@@ -10,6 +10,13 @@
    don't break old export keys — schema version lives inside the
    payload (`v:`) and migration on import flows through loadGame's
    existing v1→v6 ratchet via applySavePayload().
+
+   v0.0.9.6.10.22: payload is gzip-compressed before base64. Cuts
+   export-string length ~6× on a real save (40k chars → ~6.7k).
+   Pre-.22 exports (raw-JSON-then-base64) still import: the decode
+   path branches on the leading bytes of the b64 body — gzipped
+   streams begin "H4sI" (magic 0x1f 0x8b), legacy JSON begins "eyJ"
+   (since '{' = 0x7b). No prefix change, no schema bump.
 
    Porter identity opt-in:
      Checkbox on export (default OFF). When OFF, porterId is null
@@ -24,38 +31,70 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-21';
-import * as C from './constants.js?v=096-10-21';
-import { buildSavePayload, saveGame, applySavePayload } from './persistence.js?v=096-10-21';
-import { addLog } from './render/log.js?v=096-10-21';
-import { updateHUD, renderCargoSlots, renderCourierStack } from './render/hud.js?v=096-10-21';
-import { drawRouteMap } from './render/route-map.js?v=096-10-21';
-import { renderSettlements } from './render/settlements.js?v=096-10-21';
-import * as Boots from './boots.js?v=096-10-21';
-import * as Stamina from './stamina.js?v=096-10-21';
+import { S } from './state.js?v=096-10-22';
+import * as C from './constants.js?v=096-10-22';
+import { buildSavePayload, saveGame, applySavePayload } from './persistence.js?v=096-10-22';
+import { addLog } from './render/log.js?v=096-10-22';
+import { updateHUD, renderCargoSlots, renderCourierStack } from './render/hud.js?v=096-10-22';
+import { drawRouteMap } from './render/route-map.js?v=096-10-22';
+import { renderSettlements } from './render/settlements.js?v=096-10-22';
+import * as Boots from './boots.js?v=096-10-22';
+import * as Stamina from './stamina.js?v=096-10-22';
 
-const PREFIX = 'TLH-SAVE:';
+const PREFIX          = 'TLH-SAVE:';
+const GZIP_B64_PREFIX = 'H4sI';
 
-function encodeEnvelope(includePorter) {
-  const payload = {
-    v: C.SAVE_VERSION,
-    ts: Date.now(),
-    porterId: includePorter ? (localStorage.getItem('tlh-porter-id') || null) : null,
-    save: buildSavePayload(),
-  };
-  const json = JSON.stringify(payload);
-  // btoa is byte-safe for JSON since JSON is ASCII-safe here (no unicode
-  // beyond the occasional \uXXXX escape, which is ASCII in source form).
-  return PREFIX + btoa(unescape(encodeURIComponent(json)));
+// Gzip a string, return base64. Stream API ships in every modern
+// browser since 2023; we don't ship a polyfill — pre-.22 exports
+// stay readable through the legacy decode branch below.
+async function gzipToB64(str) {
+  const bytes  = new TextEncoder().encode(str);
+  const cs     = new CompressionStream('gzip');
+  const writer = cs.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  const buf = await new Response(cs.readable).arrayBuffer();
+  const u8  = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
+  return btoa(bin);
 }
 
-function decodeEnvelope(str) {
+async function b64ToGunzipString(b64) {
+  const bin = atob(b64);
+  const u8  = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const ds     = new DecompressionStream('gzip');
+  const writer = ds.writable.getWriter();
+  writer.write(u8);
+  writer.close();
+  return await new Response(ds.readable).text();
+}
+
+async function encodeEnvelope(includePorter) {
+  const payload = {
+    v:        C.SAVE_VERSION,
+    ts:       Date.now(),
+    porterId: includePorter ? (localStorage.getItem('tlh-porter-id') || null) : null,
+    save:     buildSavePayload(),
+  };
+  const json = JSON.stringify(payload);
+  return PREFIX + await gzipToB64(json);
+}
+
+async function decodeEnvelope(str) {
   const s = String(str || '').trim();
   if (!s.startsWith(PREFIX)) throw new Error('not a TLH-SAVE key');
   const b64 = s.slice(PREFIX.length);
   let json;
   try {
-    json = decodeURIComponent(escape(atob(b64)));
+    if (b64.startsWith(GZIP_B64_PREFIX)) {
+      // v0.0.9.6.10.22+ gzip-compressed envelope.
+      json = await b64ToGunzipString(b64);
+    } else {
+      // Legacy: raw JSON, encodeURIComponent dance for any unicode.
+      json = decodeURIComponent(escape(atob(b64)));
+    }
   } catch (e) {
     throw new Error('corrupt base64');
   }
@@ -126,9 +165,9 @@ function makeModal() {
   const impTxt = modal.querySelector('#saveIoImportTxt');
   const msgEl = modal.querySelector('#saveIoMsg');
 
-  function refreshExport() {
+  async function refreshExport() {
     try {
-      expTxt.value = encodeEnvelope(!!incChk.checked);
+      expTxt.value = await encodeEnvelope(!!incChk.checked);
     } catch (e) {
       expTxt.value = '(error generating save — ' + (e.message || 'unknown') + ')';
     }
@@ -167,10 +206,10 @@ function makeModal() {
   return modal;
 }
 
-function handleImport(raw, msgEl) {
+async function handleImport(raw, msgEl) {
   let env;
   try {
-    env = decodeEnvelope(raw);
+    env = await decodeEnvelope(raw);
   } catch (e) {
     msgEl.textContent = 'invalid save: ' + (e.message || 'unknown');
     msgEl.className = 'tlh-modal-msg wn';

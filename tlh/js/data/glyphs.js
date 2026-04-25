@@ -13,7 +13,7 @@
    ============================================== */
 'use strict';
 
-import { tlhPalette } from '../palette.js?v=096-10-21';
+import { tlhPalette } from '../palette.js?v=096-10-22';
 
 export const NODE_GLYPHS = {
   'A':       '/--\\\n[_A_]',

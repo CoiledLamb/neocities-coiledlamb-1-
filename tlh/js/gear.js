@@ -27,17 +27,17 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-21';
-import * as C from './constants.js?v=096-10-21';
+import { S } from './state.js?v=096-10-22';
+import * as C from './constants.js?v=096-10-22';
 import {
   GEAR_FOR_TERRAIN,
   GEAR_LIFETIME_BASE_MS, GEAR_LIFETIME_EXTENDED_MS,
   GEAR_PRICE, gearWear,
   cellKeyFromCoords, snapInteriorCell,
-} from './data/terrain.js?v=096-10-21';
-import { addLog } from './render/log.js?v=096-10-21';
-import { getCachedPorterId, broadcastGearPlacement } from './multiplayer.js?v=096-10-21';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-21';
+} from './data/terrain.js?v=096-10-22';
+import { addLog } from './render/log.js?v=096-10-22';
+import { getCachedPorterId, broadcastGearPlacement } from './multiplayer.js?v=096-10-22';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-22';
 
 // Cell-snap grid for placement lookup. Matches the 12-
 // unit step used by drawInterior / terrain classifier.

@@ -76,7 +76,7 @@ A 400×400 SVG viewport. The ring road forms a rounded square connecting 12 node
 | π (pi) | pi | radio tower | researcher, reclusive summit antisocial | exoskeleton 1 | exoskeleton 2 |
 | δ (delta) | delta | reservoir | routine, tired-hopeful dam restorer | solar panel | rainfall turbine |
 
-All NPCs are nonbinary/agender. Trust threshold tiers: 20 / 40 / 60 / 80.
+All NPCs are nonbinary/agender. Trust threshold tiers: 20 / 40 / 60 / 80 / 100.
 - t60: battery charging at trusted destinations
 - t80: free rest (stamina + canteen, no scrip)
 

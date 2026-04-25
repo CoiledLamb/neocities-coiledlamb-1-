@@ -37,10 +37,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-21';
-import * as C from './constants.js?v=096-10-21';
-import { addLog } from './render/log.js?v=096-10-21';
-import { renderNetwork } from './render/network.js?v=096-10-21';
+import { S } from './state.js?v=096-10-22';
+import * as C from './constants.js?v=096-10-22';
+import { addLog } from './render/log.js?v=096-10-22';
+import { renderNetwork } from './render/network.js?v=096-10-22';
 
 export function getPorterId() {
   const LS_KEY = 'tlh-porter-id';
@@ -346,12 +346,12 @@ export async function pollFeed() {
       }
     });
     if (freshGearEvents.length) {
-      import('./gear.js?v=096-10-21').then((gearMod) => {
+      import('./gear.js?v=096-10-22').then((gearMod) => {
         freshGearEvents.forEach(data => gearMod.receiveGearPlacement(data));
       });
     }
     if (freshTrampleEvents.length) {
-      import('./trail.js?v=096-10-21').then((trailMod) => {
+      import('./trail.js?v=096-10-22').then((trailMod) => {
         freshTrampleEvents.forEach(data => trailMod.receiveTrampleMilestone(data));
       });
     }
