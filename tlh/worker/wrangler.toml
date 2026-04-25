@@ -1,15 +1,21 @@
 # wrangler.toml — Cloudflare Worker config for tlh-feed
 #
-# Before deploying, run:
-#   wrangler kv:namespace create FEED
-# Then paste the printed `id` into the [[kv_namespaces]] block below.
+# Worker is deployed live at https://coiledlamb.tlh-feed.workers.dev.
+# `name` matches the production worker; KV namespace id below points
+# at the production FEED namespace. Both are safe to commit — KV ids
+# are identifiers, not secrets, and a deploy still requires an
+# authenticated `wrangler login` against the owning account.
+#
+# To deploy:
+#   cd tlh/worker && wrangler deploy
+#
+# First-time setup on a different account: see README.md for the
+# `wrangler kv namespace create FEED` workflow.
 
-name = "tlh-feed"
+name = "coiledlamb"
 main = "index.js"
 compatibility_date = "2025-01-01"
 
-# Replace the placeholder id below with the one printed by:
-#   wrangler kv:namespace create FEED
 [[kv_namespaces]]
 binding = "FEED"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "c7bdbec95cd6476f9c87abf55c03fdcb"

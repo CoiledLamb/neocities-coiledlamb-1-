@@ -2,30 +2,44 @@
 
 Cloudflare Worker that backs The Long Haul's network panel: activity feed, porter census, and lost-cargo registry.
 
+Live at **https://coiledlamb.tlh-feed.workers.dev**.
+
 ## prerequisites
 
 - A Cloudflare account (free tier is fine — no credit card needed).
 - Node.js installed locally.
 - `wrangler` CLI: `npm install -g wrangler`
 
-## first-time deploy
+## deploy (existing account)
 
-From this `worker/` directory:
+The committed `wrangler.toml` already points at the live worker (`name = "coiledlamb"`) and the production KV namespace id. Routine deploys just need:
 
 ```bash
-# 1. Log in to Cloudflare (opens browser).
+cd tlh/worker
+wrangler login        # one-time, opens browser
+wrangler deploy       # ships index.js to the live worker
+```
+
+Confirm with `curl https://coiledlamb.tlh-feed.workers.dev/` — the `version` field should match the new code.
+
+## first-time deploy on a different account
+
+If you're forking this onto your own Cloudflare account, you'll need to create a fresh KV namespace and update `wrangler.toml`:
+
+```bash
+# 1. Log in.
 wrangler login
 
-# 2. Create the KV namespace that backs the feed.
+# 2. Create the KV namespace.
 wrangler kv namespace create FEED
 ```
 
 > Note: older wrangler docs use `wrangler kv:namespace create FEED` (with a colon). Recent wrangler versions use a space. If one syntax errors with "Unknown arguments", try the other.
 
-The second command will print something like:
+The second command will print:
 
 ```
-🌀 Creating namespace with title "tlh-feed-FEED"
+🌀 Creating namespace with title "<your-worker>-FEED"
 ✨ Success!
 Add the following to your configuration file in your kv_namespaces array:
 [[kv_namespaces]]
@@ -33,21 +47,20 @@ binding = "FEED"
 id = "abc123def456..."
 ```
 
-Copy the `id` value and paste it into `wrangler.toml`, replacing `REPLACE_WITH_KV_NAMESPACE_ID`.
+In `wrangler.toml`, replace the existing `id` with that new value, and (if you want a different worker name) change `name = "coiledlamb"`. Then:
 
 ```bash
-# 3. Deploy.
 wrangler deploy
 ```
 
-Wrangler will print the live URL, something like:
+Wrangler will print the live URL:
 
 ```
-Published tlh-feed
-  https://tlh-feed.your-subdomain.workers.dev
+Deployed <name>
+  https://<name>.<your-subdomain>.workers.dev
 ```
 
-That's the URL to give Claude — it'll be hardcoded into `the-long-haul.js` so the game knows where to fetch the feed from.
+Update `tlh/js/constants.js` `FEED_URL` to that URL so the game points at your worker instead of the live one.
 
 ## verify it works
 
