@@ -24,20 +24,20 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-23';
-import * as C from './constants.js?v=096-10-23';
-import { NPC_DEFS } from './data/npc-defs.js?v=096-10-23';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-23';
-import { postActivity, shortPorterId } from './multiplayer.js?v=096-10-23';
-import { updatePorterStripBadges } from './recovery.js?v=096-10-23';
-import { addTrust, computeTrustGain, speakDelivery } from './trust.js?v=096-10-23';
-import { removeFromInventories } from './carrier.js?v=096-10-23';
-import { getNodeStage, setNodeStage } from './identification.js?v=096-10-23';
-import { addLog } from './render/log.js?v=096-10-23';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-23';
-import { drawRouteMap } from './render/route-map.js?v=096-10-23';
-import { renderSettlements } from './render/settlements.js?v=096-10-23';
-import { onInventoryChange } from './packages.js?v=096-10-23';
+import { S } from './state.js?v=096-10-24';
+import * as C from './constants.js?v=096-10-24';
+import { NPC_DEFS } from './data/npc-defs.js?v=096-10-24';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=096-10-24';
+import { postActivity, shortPorterId } from './multiplayer.js?v=096-10-24';
+import { updatePorterStripBadges } from './recovery.js?v=096-10-24';
+import { addTrust, computeTrustGain, speakDelivery } from './trust.js?v=096-10-24';
+import { removeFromInventories } from './carrier.js?v=096-10-24';
+import { getNodeStage, setNodeStage } from './identification.js?v=096-10-24';
+import { addLog } from './render/log.js?v=096-10-24';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=096-10-24';
+import { drawRouteMap } from './render/route-map.js?v=096-10-24';
+import { renderSettlements } from './render/settlements.js?v=096-10-24';
+import { onInventoryChange } from './packages.js?v=096-10-24';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els        = S._transient.els;

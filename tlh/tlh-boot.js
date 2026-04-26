@@ -579,6 +579,10 @@ window.startBoot = function (force) {
         skipToSite();
         return;
       }
+      if (new URLSearchParams(location.search).get('skipBoot') === '1') {
+        skipToSite();
+        return;
+      }
     } catch (_) {}
   }
 

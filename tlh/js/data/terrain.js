@@ -420,7 +420,7 @@ export const GEAR_GLYPH = {
 // brand ramp and resolved lazily from the CSS palette so a
 // future bone-theme switch picks up automatically. tier.color
 // is a getter — call sites stay unchanged.
-import { tlhPalette as _gearPalette } from '../palette.js?v=096-10-23';
+import { tlhPalette as _gearPalette } from '../palette.js?v=096-10-24';
 export const GEAR_WEAR_TIERS = [
   { max: 0.35, name: 'fresh',     get color() { return _gearPalette().accent; } },
   { max: 0.70, name: 'weathered', get color() { return _gearPalette().warn;   } },

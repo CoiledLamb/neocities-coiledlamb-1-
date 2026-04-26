@@ -37,16 +37,16 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-23';
-import * as C from './constants.js?v=096-10-23';
-import { addLog } from './render/log.js?v=096-10-23';
-import { updateHUD, renderCargoSlots, renderCourierStack } from './render/hud.js?v=096-10-23';
-import { renderSettlements } from './render/settlements.js?v=096-10-23';
-import { drawRouteMap, updateRouteDot } from './render/route-map.js?v=096-10-23';
-import { renderNetwork } from './render/network.js?v=096-10-23';
-import * as Boots from './boots.js?v=096-10-23';
-import * as Stamina from './stamina.js?v=096-10-23';
-import { adminToggleStorm, weatherAtCourier } from './weather.js?v=096-10-23';
+import { S } from './state.js?v=096-10-24';
+import * as C from './constants.js?v=096-10-24';
+import { addLog } from './render/log.js?v=096-10-24';
+import { updateHUD, renderCargoSlots, renderCourierStack } from './render/hud.js?v=096-10-24';
+import { renderSettlements } from './render/settlements.js?v=096-10-24';
+import { drawRouteMap, updateRouteDot } from './render/route-map.js?v=096-10-24';
+import { renderNetwork } from './render/network.js?v=096-10-24';
+import * as Boots from './boots.js?v=096-10-24';
+import * as Stamina from './stamina.js?v=096-10-24';
+import { adminToggleStorm, weatherAtCourier } from './weather.js?v=096-10-24';
 
 async function sha256Hex(text) {
   const buf = new TextEncoder().encode(text);
@@ -128,7 +128,7 @@ function dispatch(cmd, args) {
     // v0.0.9.6.9 — sim harness admin hooks
     case 'sim': {
       // eslint-disable-next-line no-console
-      return import('./sim.js?v=096-10-23').then(mod => {
+      return import('./sim.js?v=096-10-24').then(mod => {
         const ticks = (args && args.n) || 50000;
         const report = mod.runSimulation({ ticks });
         addLog(`<span class="log-hi">sim complete</span>: ${ticks} ticks in ${report.meta.duration_real_ms}ms`);
@@ -139,7 +139,7 @@ function dispatch(cmd, args) {
       });
     }
     case 'simBatch': {
-      return import('./sim.js?v=096-10-23').then(async mod => {
+      return import('./sim.js?v=096-10-24').then(async mod => {
         const runs  = (args && args.runs) || 20;
         const ticks = (args && args.n) || 50000;
         addLog(`<span class="log-hi">sim batch starting</span>: ${runs} runs × ${ticks} ticks…`);
@@ -152,7 +152,7 @@ function dispatch(cmd, args) {
       });
     }
     case 'simDownload': {
-      return import('./sim.js?v=096-10-23').then(mod => {
+      return import('./sim.js?v=096-10-24').then(mod => {
         const ok = mod.downloadLastBatch();
         return { ok };
       });
@@ -169,7 +169,7 @@ function dispatch(cmd, args) {
     // Metrics: mean time at 0 charge, mean time at full, mean
     // charge, delivered, trips. Args: { runs, loops, ticks }.
     case 'batteryEconomy': {
-      return import('./sim.js?v=096-10-23').then(async mod => {
+      return import('./sim.js?v=096-10-24').then(async mod => {
         const runs  = (args && args.runs)  || 8;
         const loops = (args && args.loops) || 10;
         const ticks = (args && args.ticks) || 60000;
