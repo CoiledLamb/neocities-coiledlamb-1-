@@ -15,30 +15,30 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-6';
-import * as C from '../constants.js?v=097-0-6';
-import { getNodeStage, getDisplayLabel } from '../identification.js?v=097-0-6';
-import { TICKS_PER_DAY } from './sky.js?v=097-0-6';
-import { NPC_DEFS } from '../data/npc-defs.js?v=097-0-6';
+import { S } from '../state.js?v=097-0-7';
+import * as C from '../constants.js?v=097-0-7';
+import { getNodeStage, getDisplayLabel } from '../identification.js?v=097-0-7';
+import { TICKS_PER_DAY } from './sky.js?v=097-0-7';
+import { NPC_DEFS } from '../data/npc-defs.js?v=097-0-7';
 import {
   terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY,
   projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength,
   GEAR_GLYPH, gearWear, gearWearTier,
   cellKeyFromCoords, mesaOutcropAt,
-} from '../data/terrain.js?v=097-0-6';
+} from '../data/terrain.js?v=097-0-7';
 // v0.0.9.6.10.8 — trampleTier no longer consumed here (glyph-swap
 // dropped in favor of the persistent-dot layer). trampleAt is used
 // to floor the live trail's fade opacity.
-import { trampleAt } from '../trail.js?v=097-0-6';
+import { trampleAt } from '../trail.js?v=097-0-7';
 // v0.0.9.6.10.7 — use the density-filtered view of placed gear so
 // render matches placedGearAt() gameplay lookup. Full pool lives
 // on S.placedGear (persisted, broadcast-addressable); this is the
 // curated subset that should be visible to the player.
-import { visiblePlacedGear } from '../gear.js?v=097-0-6';
-import { speedMultiplier } from '../stamina.js?v=097-0-6';
-import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=097-0-6';
-import { tlhPalette } from '../palette.js?v=097-0-6';
-import { bakeSteppedHypsoPng } from '../data/topo-map.js?v=097-0-6';
+import { visiblePlacedGear } from '../gear.js?v=097-0-7';
+import { speedMultiplier } from '../stamina.js?v=097-0-7';
+import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=097-0-7';
+import { tlhPalette } from '../palette.js?v=097-0-7';
+import { bakeSteppedHypsoPng } from '../data/topo-map.js?v=097-0-7';
 
 const els = S._transient.els;
 
@@ -551,6 +551,86 @@ export function drawRouteMap() {
   if (hasTopoMap) drawTopoTerrain(svg, ns);
   else            drawInterior(svg, ns);
 
+  // v0.0.9.7.7 — defs + outside-ring framing layers per the design
+  // handoff at tlh/.handoff-topo/. Defs hold the outside-ring clip
+  // path (full rect minus ring polygon, even-odd), the radial
+  // vignette gradient, and the diagonal hatch pattern that overlays
+  // the dim. Built fresh each draw — cheap; the SVG is wiped via
+  // innerHTML='' above so persisting defs across draws would orphan.
+  const ringPts   = S.routeNodes.map(n => `${n.x},${n.y}`).join(' ');
+  const ringPathD = 'M' + S.routeNodes.map(n => `${n.x},${n.y}`).join(' L') + ' Z';
+
+  const defs = document.createElementNS(ns, 'defs');
+
+  const clipOutside = document.createElementNS(ns, 'clipPath');
+  clipOutside.setAttribute('id', 'ringClipOutside');
+  clipOutside.setAttribute('clipPathUnits', 'userSpaceOnUse');
+  const clipOutPath = document.createElementNS(ns, 'path');
+  clipOutPath.setAttribute('clip-rule', 'evenodd');
+  clipOutPath.setAttribute('d', `M0,0 H400 V400 H0 Z ${ringPathD}`);
+  clipOutside.appendChild(clipOutPath);
+  defs.appendChild(clipOutside);
+
+  const vGrad = document.createElementNS(ns, 'radialGradient');
+  vGrad.setAttribute('id', 'ringVignette');
+  vGrad.setAttribute('cx', '50%');
+  vGrad.setAttribute('cy', '50%');
+  vGrad.setAttribute('r',  '55%');
+  [['70%', '#000', '0'], ['100%', '#000', '0.35']].forEach(([off, col, op]) => {
+    const s = document.createElementNS(ns, 'stop');
+    s.setAttribute('offset',       off);
+    s.setAttribute('stop-color',   col);
+    s.setAttribute('stop-opacity', op);
+    vGrad.appendChild(s);
+  });
+  defs.appendChild(vGrad);
+
+  const hatch = document.createElementNS(ns, 'pattern');
+  hatch.setAttribute('id',                'ringHatch');
+  hatch.setAttribute('width',             '6');
+  hatch.setAttribute('height',            '6');
+  hatch.setAttribute('patternUnits',      'userSpaceOnUse');
+  hatch.setAttribute('patternTransform',  'rotate(35)');
+  const hatchLine = document.createElementNS(ns, 'line');
+  hatchLine.setAttribute('x1',           '0');
+  hatchLine.setAttribute('y1',           '0');
+  hatchLine.setAttribute('x2',           '0');
+  hatchLine.setAttribute('y2',           '6');
+  hatchLine.setAttribute('stroke',       '#2a5c5a');
+  hatchLine.setAttribute('stroke-width', '0.35');
+  hatch.appendChild(hatchLine);
+  defs.appendChild(hatch);
+
+  svg.appendChild(defs);
+
+  // Outside-ring dim — gated on topographicMap. Without the colored
+  // raster, the muted-dots layer is already self-contained inside
+  // the ring polygon (drawInterior tests pointInRing per cell), so
+  // dimming the corners further would just look murky. With the
+  // raster the heightmap fills the whole 400×400 viewBox, so the
+  // dim + hatch frame the playable ring as the focal area.
+  if (hasTopoMap) {
+    const dimRect = document.createElementNS(ns, 'rect');
+    dimRect.setAttribute('x',         '0');
+    dimRect.setAttribute('y',         '0');
+    dimRect.setAttribute('width',     '400');
+    dimRect.setAttribute('height',    '400');
+    dimRect.setAttribute('fill',      '#081f1e');
+    dimRect.setAttribute('opacity',   '0.45');
+    dimRect.setAttribute('clip-path', 'url(#ringClipOutside)');
+    svg.appendChild(dimRect);
+
+    const hatchRect = document.createElementNS(ns, 'rect');
+    hatchRect.setAttribute('x',         '0');
+    hatchRect.setAttribute('y',         '0');
+    hatchRect.setAttribute('width',     '400');
+    hatchRect.setAttribute('height',    '400');
+    hatchRect.setAttribute('fill',      'url(#ringHatch)');
+    hatchRect.setAttribute('opacity',   '0.18');
+    hatchRect.setAttribute('clip-path', 'url(#ringClipOutside)');
+    svg.appendChild(hatchRect);
+  }
+
   // v0.0.9.6.10.8 — persistent trample layer. Same cyan dot visual
   // as the live fade trail, but sourced from S.interiorTrample so
   // worn-in cells keep a residual dot forever. Opacity scales with
@@ -605,6 +685,29 @@ export function drawRouteMap() {
   }
   svg.appendChild(gearG);
 
+  // v0.0.9.7.7 — vignette + ring polygon outline. Vignette is gated
+  // on topographicMap (the corners darkening is meaningful only over
+  // the colored raster); the dashed outline always renders, framing
+  // the ring as a closed loop on top of the per-segment edge lines.
+  if (hasTopoMap) {
+    const vRect = document.createElementNS(ns, 'rect');
+    vRect.setAttribute('x',      '0');
+    vRect.setAttribute('y',      '0');
+    vRect.setAttribute('width',  '400');
+    vRect.setAttribute('height', '400');
+    vRect.setAttribute('fill',   'url(#ringVignette)');
+    svg.appendChild(vRect);
+  }
+
+  const outline = document.createElementNS(ns, 'polygon');
+  outline.setAttribute('points',           ringPts);
+  outline.setAttribute('fill',             'none');
+  outline.setAttribute('stroke',           '#7aa8a6');
+  outline.setAttribute('stroke-width',     '0.7');
+  outline.setAttribute('stroke-opacity',   '0.55');
+  outline.setAttribute('stroke-dasharray', '3 3');
+  svg.appendChild(outline);
+
   // v0.0.9.6.9.1 — interior pkg markers removed from the route map
   // per user call: pkgs are meant to surface on the side-view
   // playfield, not as free "loot map" markers on the route panel.
@@ -632,7 +735,13 @@ export function drawRouteMap() {
     line.setAttribute('stroke', stroke);
     // v0.0.9.2 — solid line, slightly wider. Literal ASCII road glyphs
     // land with the structures patch; this is the interim.
-    line.setAttribute('stroke-width', '1.5');
+    // v0.0.9.7.7 — width bumped 1.5 → 1.6 + .route-edge class adds a
+    // soft black drop-shadow so segments lift off the contour-tinted
+    // ground when the topo raster is on. Stage tinting (3-tier color
+    // by minStage) preserved per session call — the cue carries
+    // discovered-vs-unvisited info worth keeping.
+    line.setAttribute('class', 'route-edge');
+    line.setAttribute('stroke-width', '1.6');
     line.setAttribute('stroke-linecap', 'round');
     svg.appendChild(line);
   });
@@ -646,7 +755,13 @@ export function drawRouteMap() {
     g.setAttribute('data-id', n.id);
     g.setAttribute('title', getDisplayLabel(n.id));
 
+    // v0.0.9.7.7 — stage-3 fill swaps to panelDarker (#081f1e) when
+    // topographicMap is owned. Spec calls this the "well cut into the
+    // contour ground" effect — without the topo raster underneath, a
+    // dark fill would just look muddy, so the swap is gated. Other
+    // stages keep their existing fills regardless of map ownership.
     const fill = isCurrent ? '#0b2e2d'
+               : (hasTopoMap && stage >= 3) ? '#081f1e'
                : stage >= 3 ? '#1e5554'
                : stage >= 2 ? '#1a3f3e'
                : stage >= 1 ? '#142e2d'

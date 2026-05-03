@@ -23,10 +23,10 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-6';
-import { NPC_DEFS, NPC_VISIT_ORDER } from '../data/npc-defs.js?v=097-0-6';
-import { getNodeStage } from '../identification.js?v=097-0-6';
-import { getNpc } from '../trust.js?v=097-0-6';
+import { S } from '../state.js?v=097-0-7';
+import { NPC_DEFS, NPC_VISIT_ORDER } from '../data/npc-defs.js?v=097-0-7';
+import { getNodeStage } from '../identification.js?v=097-0-7';
+import { getNpc } from '../trust.js?v=097-0-7';
 
 const els = S._transient.els;
 

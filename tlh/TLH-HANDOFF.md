@@ -1,11 +1,11 @@
 # the long haul — game handoff doc
-_last updated: 2026-05-03 (**v0.0.9.7.6 shipped on branch** — log dedup extension: inline `<span class="log-count">…</span>` spans are now stripped from the dedup match key, and `bumpCount` rebuilds from the new event so the latest count is preserved on the surviving line. Sandalweed harvest + lash messages updated to use the new span. Cache-bust 097-0-6. .7.5 (kit-bar / route-map polish) and .7.3 / .7.4 (cargo log polish + mute toggle) also live. Next: .7.7 topo follow-ups to close out v0.0.9.7. See [just shipped](#just-shipped--v00976--log-dedup-inline-counts-no-longer-break-n-collapse) section below.)_
+_last updated: 2026-05-03 (**v0.0.9.7.7 shipped on branch — v0.0.9.7 CLOSED.** Topo follow-ups landed per the .handoff-topo spec: outside-ring dim + diagonal hatch (gated on topographicMap), vignette (gated), ring polygon dashed outline (always), ring road drop-shadow + 1.5 → 1.6px stroke (always; stage tinting kept), node circle stage-3 fill swap to panelDarker for the "well cut into ground" effect (gated). Cache-bust 097-0-7. v0.0.9.7.1 → .7.7 are all live. Next: v0.0.9.8 — the kitchen (cooking system). See [just shipped](#just-shipped--v00977--topo-follow-ups--v0097-closed) section below.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.9.7.6 shipped on branch (kit-bar / route-map polish: ladder route-map glyph swapped to `Ħ`, gear glyphs fs 9 → 8 + drop-shadow gated to `.gear-rotting`; queue closeout pass for items 1+4 which already shipped during the .6.9.x cycle). v0.0.9.7.6 added log-dedup compression (closes queue item 5): inline `<span class="log-count">…</span>` spans now strip from dedup match keys so messages like `harvested sandalweed (3/5)` collapse with later `(4/5)` events into one line whose visible count tracks the latest event while `×N` tracks repetition. v0.0.9.7.1 → .7.6 are all live: .7.1 cargo log skeleton + topo map raster begins; .7.2 cargo log relocated into a slide-in drawer; .7.3 oilslick pending border + clearer filter labels; .7.4 cargo log per-player notification mute toggle (+ fixup); .7.5 closes the kit-bar / map-polish queue. **Plan to close v0.0.9.7**: .7.7 = topo follow-ups (outside-ring dim + hatch, vignette, ring polygon dashed outline, ring road restyle, node "well" treatment) per [.handoff-topo](tlh/.handoff-topo/) spec, mostly gated on `topographicMap`. Climbing animations + thick side-view rendering defer out of .7 (paired with parked destDrift rework). v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
+## ✅ CURRENT STATE: v0.0.9.7.7 shipped on branch — v0.0.9.7 CLOSED (kit-bar / route-map polish: ladder route-map glyph swapped to `Ħ`, gear glyphs fs 9 → 8 + drop-shadow gated to `.gear-rotting`; queue closeout pass for items 1+4 which already shipped during the .6.9.x cycle). v0.0.9.7.6 added log-dedup compression (closes queue item 5): inline `<span class="log-count">…</span>` spans now strip from dedup match keys so messages like `harvested sandalweed (3/5)` collapse with later `(4/5)` events into one line whose visible count tracks the latest event while `×N` tracks repetition. v0.0.9.7.7 landed the topo follow-ups: outside-ring dim + hatch (gated on `topographicMap`), vignette (gated), ring polygon dashed outline (always), ring road drop-shadow + 1.5 → 1.6px stroke (always; stage tinting preserved), node stage-3 fill swap to panelDarker for the "well cut into the contour ground" effect (gated). v0.0.9.7.1 → .7.7 are all live: .7.1 cargo log skeleton + topo map raster begins; .7.2 cargo log relocated into a slide-in drawer; .7.3 oilslick pending border + clearer filter labels; .7.4 cargo log per-player notification mute toggle (+ fixup); .7.5 closes the kit-bar / map-polish queue. **v0.0.9.7 CLOSED at .7.7**. Climbing animations + thick side-view rendering deferred out of .7 (paired with the parked destDrift / scene-backdrop rework). Next patch: **v0.0.9.8 — the kitchen** (cooking system implementation) (outside-ring dim + hatch, vignette, ring polygon dashed outline, ring road restyle, node "well" treatment) per [.handoff-topo](tlh/.handoff-topo/) spec, mostly gated on `topographicMap`. Climbing animations + thick side-view rendering defer out of .7 (paired with parked destDrift rework). v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
 
 Game is at `v0.0.9.5` on the `claude/amazing-hermann` branch (merged to main on completion). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches, a micro-polish, dest-div + outbound dispatch, cursor-based cargo UX, and the biggest single-arc expansion so far — NPC doubling + battery baseline + full trust-gift wiring:
 
@@ -47,6 +47,64 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
 **Resume next session**: v0.0.9.5 is shipped on the `claude/amazing-hermann` branch (5 scope commits + 1 design-lock docs commit + 1 ship-log docs commit). Merged to main. Next patch is **v0.0.9.6 — world patch: terrain bones + gear + world-overlay + trails** (consolidates the old .5 + .6 into a coherent world-mechanics patch; design fully refined 2026-04-17 during the .5 lockdown). **Idle-game-first philosophy locked**: no hard gates on traversal — gear is efficiency, never requirement. Every cell is crossable gear-less, just with higher penalty. Scope: terrain types anchored at v0.0.9.5 corner NPCs — rivers (theta NE source, flow diagonally SW, clay beds in `#98875f` / `#a64a2e`); mountain massifs at SW corner (pi's summit + lambda's slope), severe penalty but always traversable; **plateau / mesa country** (east side) as gear-teaching rung — visual obstacles with walkable paths carved between, plateau tops gated by placed ladder for pkg-top rewards (dests restricted to near-start NPC allowlist per v0.0.9.5 label lock), placed anchor for controlled descent else fall-as-guaranteed-trip; rocky hills as connective tissue; desert at nu's NW with day-scaled stamina drain. Rivers classified creek/river/wide with fall-and-ride-downstream failure mode (courier swept downstream ~5-10 ticks, catches themselves, pathfinding auto-reroutes). Shortcut rewrite: flat SHORTCUT multipliers retire in favor of per-cell terrain effects. Interior brought on-grid (weather + scanner + river-refill + terrain effects active during shortcut; pkg pickup in interior stays off pending .7+, except plateau tops). Ladder + anchor as kit-bar gear (1×1 slots each, bundled 1-5/6-10/11-20 = s/m/l slot; 5c each; 12h wall-clock base durability, lambda's mountain gear ×2 → 24h; spatial storm-at-gear-cell decay ×3). **All gear is placed** (no held/in-use model) — anchor at shore creates rope spanning river (up to 2 cells per anchor), chained ladders share one decay clock as atomic multi-cell infrastructure. Placement consumes inventory + creates world-overlay structure usable by others. Trails land with shared world-overlay data plumbing (per-cell trample, multiplayer-synced, emergent social paving). Mountain-pass carving as natural extension. Storms sweep across 2D interior (not just ring). **Ceramic wrap (theta t40, shipped v0.0.9.5)** waterproofs fragile cargo during river crossings + fall-downstream incidents — cross-patch synergy already wired. 9 flag-only upgrades from v0.0.9.5 (riverWaders, ceramicWrap, mobileCarrier1/2, mountainGear, improvedTieDowns, exoskeleton1/2, topographicMap) get their real effect code wired this patch. See [v0.0.9.6 implementation plan](#v0096-implementation-plan). Dispatch log virt still benched at **v0.0.9.8**; see [its plan](#v0098-implementation-plan).
+
+## just shipped — v0.0.9.7.7 — topo follow-ups + v0.0.9.7 closed
+
+Seventh and final commit of v0.0.9.7. Lands the deferred topo-map polish from the v0.0.9.7.1 design handoff (kept alongside in [tlh/.handoff-topo/](tlh/.handoff-topo/)). Cache-bust 097-0-6 → 097-0-7 across 43 files; subtitle now reads `v0.0.9.7.7`.
+
+### what shipped
+
+Five new visual layers in [tlh/js/render/route-map.js](tlh/js/render/route-map.js)'s `drawRouteMap`, slotted into the spec's render order. Three are gated on the `topographicMap` upgrade (psi t40), two render unconditionally:
+
+1. **Outside-ring dim + diagonal hatch** (gated). Two stacked rects clipped to the inverse of the ring polygon — `panelDarker #081f1e @ 0.45` opacity for the dim, plus a 6×6 diagonal hatch pattern (rotated 35°, single line in `textFaint #2a5c5a` @ 0.18) on top. Frames the ring as the focal area against the heightmap raster which fills the full 400×400 viewBox. Without the upgrade, `drawInterior`'s muted dots are already self-contained inside the ring polygon (pointInRing per cell) — dimming corners further would just look murky, so the gate.
+2. **Vignette** (gated). Single radial gradient `<rect>` covering the full viewBox: transparent at 70% radius, fading to `#000 @ 0.35` at the corners. Subtle pull-eye-central effect that softens the rectangular viewBox edges. Same gating logic as #1.
+3. **Ring polygon dashed outline** (always). `<polygon>` with `S.routeNodes` as vertices (which is already in clockwise polygon traversal order — used by pointInRing's ray-casting test). `textSec #7aa8a6` stroke, 0.7px, dasharray `3 3`, opacity 0.55. Sits on top of the existing solid edge segments — the segments are the *road*, the dashed outline is the *ring boundary as a closed loop*. Renders even pre-`topographicMap` so the ring shape reads regardless of map ownership.
+4. **Ring road segments — drop-shadow + width bump** (always). `route-edge` class added to the line elements; CSS at [tlh/the-long-haul.css](tlh/the-long-haul.css) applies `filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.55))`. `stroke-width` bumped 1.5 → 1.6 inline. Lifts the segments off the contour-tinted ground when the topo raster is on; subtle even without it. Stage-tier stroke colors (3-tier `min(stage(a), stage(b))`) kept per session call — the cue carries discovered-vs-unvisited info worth preserving.
+5. **Node circle stage-3 fill — "well" effect** (gated). When `topographicMap` is owned, stage-3 nodes swap fill from the existing `#1e5554` to `panelDarker #081f1e`. The handoff calls this the "well cut into the contour ground" effect — without the topo raster underneath, a dark fill would just look muddy, so the swap is gated. Other stages keep their existing fills regardless. Glyph (`textMid`) and label (`textDim`) colors were already at the spec values from prior work; no change needed.
+
+### explicit non-scope (decisions logged)
+
+- **Courier marker — sonar pulse + r/stroke tweak** — both cut as gilding per session call. The mockup's static position dot (r=3.4, textBright fill, accent stroke 1.3) maps to the existing `#routeDot` ([route-map.js:738](tlh/js/render/route-map.js:738)) which already paints a moving dot at the courier's interpolated position (`seg.pathFn(S.dotT)`) — only the size/stroke values differed. With the sonar pulse cut, the additional r/stroke tweak became too small to bother with; current courier rendering preserved verbatim.
+- **Ring road uniform color** — mockup spec called for flat `#2a5c5a` regardless of stage; rejected. The existing 3-tier stage tinting is meaningful information (which segments are visited / discovered / unknown); flattening would drop a useful cue for the sake of a marginal aesthetic uniformity.
+- **Desert dot-hatch** — spec listed it as ON for the chosen variant; cut here because v0.0.9.7.1 already decided against it ("rendered, tried, cut visually"). No regression.
+- **Hydrography overlays** — spec already had these OFF (the heightmap depression reads as the channel/lake without redundant blue lines). No change needed.
+
+### file map
+
+**New (none — all reuse).**
+
+**Modified:**
+- [tlh/js/render/route-map.js](tlh/js/render/route-map.js) — defs block (clipPath + radialGradient + pattern) added to `drawRouteMap`; outside-ring dim + hatch rects (gated); vignette rect (gated); ring polygon dashed outline (always); `route-edge` class on edges + 1.5 → 1.6 stroke width; node stage-3 fill conditional on `hasTopoMap`
+- [tlh/the-long-haul.css](tlh/the-long-haul.css) — `.route-edge` rule with `filter: drop-shadow(0 0 2px rgba(0,0,0,0.55))`
+- [tlh/the-long-haul.html](tlh/the-long-haul.html) — subtitle bump `.7.6` → `.7.7`
+- 43 files — cache-bust query strings via `bash tlh/scripts/bump-version.sh 097-0-7`
+
+### v0.0.9.7 closed — recap of what shipped across the patch
+
+- **.7.1** — cargo log skeleton + topo map raster begins (372-entry encyclopedia + stepped-hypso heightmap)
+- **.7.2** — cargo log relocated from dispatch sub-tab into a slide-in drawer
+- **.7.3** — cargo log polish: oilslick pending border + clearer filter labels
+- **.7.4** — cargo log per-player notification mute toggle (+ fixup)
+- **.7.5** — kit-bar / route-map polish: ladder route-map glyph swap to `Ħ`, gear glyphs fs 9 → 8 + drop-shadow gated to `.gear-rotting`. Queue closeout pass for items 1+4 (already shipped at .6.9.x)
+- **.7.6** — log dedup extension: inline `log-count` spans strip from dedup match keys; bumpCount rebuilds from new html so latest count survives
+- **.7.7** — topo follow-ups: outside-ring dim + hatch (gated), vignette (gated), ring polygon dashed outline (always), ring road drop-shadow + width bump (always), node stage-3 well-effect fill (gated)
+
+Two queue items deferred out of v0.0.9.7:
+- **Climbing animations** (vertical `@` ascent, ladder rungs, rope render, fall on plateau-descent without anchor) — explicitly paired with the parked destDrift / scene-backdrop rework. Lands when destDrift moves.
+
+### what's next
+
+**v0.0.9.8 — the kitchen** (cooking system implementation per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)):
+- Two-plant combo cooking
+- Picker UI, meal slot, overwrite warning
+- Field cooking (water cost) + depot cooking (trust-gated)
+- 9 plants implemented across existing biomes
+- Cargo log updated to support plants (stubs already in from .7.1)
+- Depot stoves per NPC reflecting terrain
+
+The cargo log's plant section (`notePlantFound` / `notePlantCookedRole` hooks at [tlh/js/render/cargo-log.js](tlh/js/render/cargo-log.js)) is wired and waiting; v0.0.9.8 populates `PLANTS` and starts firing the hooks.
+
+---
 
 ## just shipped — v0.0.9.7.6 — log dedup: inline counts no longer break ×N collapse
 

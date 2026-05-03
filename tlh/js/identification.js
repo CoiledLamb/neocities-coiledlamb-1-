@@ -18,7 +18,7 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-6';
+import { S } from './state.js?v=097-0-7';
 
 export function getNodeStage(id) {
   return (S.nodeStages && typeof S.nodeStages[id] === 'number') ? S.nodeStages[id] : 0;

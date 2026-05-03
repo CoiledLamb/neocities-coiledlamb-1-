@@ -1284,6 +1284,14 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
    auto-gear) packs tight against the right edge. With auto-margin
    on both, flex split the slack and centered the gear pair. */
 
+/* v0.0.9.7.7 — ring road segments. Soft black drop-shadow lifts the
+   segments off the topo-tinted ground so the rim path stays legible
+   over the colored heightmap. Stage-tier stroke colors are still set
+   inline in route-map.js (3-tier discovered/visited/unvisited cue). */
+.route-edge {
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.55));
+}
+
 /* v0.0.9.6 commit 4 — placed gear glyphs on the route map. Wear
    color comes from the inline fill in route-map.js.
    v0.0.9.7.5 — drop-shadow gated to .gear-rotting (was always-on).

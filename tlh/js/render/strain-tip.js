@@ -13,10 +13,10 @@
    =========================================================== */
 'use strict';
 
-import { S } from '../state.js?v=097-0-6';
-import { tripChanceBreakdown } from '../trip.js?v=097-0-6';
-import * as C from '../constants.js?v=097-0-6';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=097-0-6';
+import { S } from '../state.js?v=097-0-7';
+import { tripChanceBreakdown } from '../trip.js?v=097-0-7';
+import * as C from '../constants.js?v=097-0-7';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=097-0-7';
 
 const ID = 'strain';
 
