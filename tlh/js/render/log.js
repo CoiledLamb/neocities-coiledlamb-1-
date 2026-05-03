@@ -28,9 +28,8 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-1';
-import * as C from '../constants.js?v=097-0-1';
-import { renderCargoLog } from './cargo-log.js?v=097-0-1';
+import { S } from '../state.js?v=097-0-2';
+import * as C from '../constants.js?v=097-0-2';
 
 const els = S._transient.els;
 
@@ -138,36 +137,3 @@ export function restoreLogFromSave() {
   }
 }
 
-// ----- v0.0.9.7 — panel tab toggle (dispatch | cargo) -----
-//
-// The dispatch panel hosts two sub-modes: dispatch log (the existing
-// scrolling event feed) and cargo log (discovery / encyclopedia view).
-// Tab state is session-only — re-opens default to 'dispatch' so a
-// returning player lands in the active feed, not an old browse view.
-//
-// Same shape will host upgrades + structures in v0.0.9.10. Same CSS
-// classes (.tlh-ptabs / .tlh-ptab / .is-active) reuse there.
-
-let activeTab = 'dispatch';  // 'dispatch' | 'cargo'
-
-export function getActiveTab() { return activeTab; }
-
-export function setLogTab(next) {
-  if (next !== 'dispatch' && next !== 'cargo') return;
-  if (next === activeTab) return;
-  activeTab = next;
-  if (els.logEl)        els.logEl.hidden        = (next !== 'dispatch');
-  if (els.cargoLogEl)   els.cargoLogEl.hidden   = (next !== 'cargo');
-  if (els.cargoFilters) els.cargoFilters.hidden = (next !== 'cargo');
-  // Update tab button visuals.
-  if (Array.isArray(els.logTabBtns)) {
-    for (const btn of els.logTabBtns) {
-      const on = btn.dataset.tab === next;
-      btn.classList.toggle('is-active', on);
-      btn.setAttribute('aria-selected', on ? 'true' : 'false');
-    }
-  }
-  // Re-render cargo on entry — cheap and idempotent. Keeps counts /
-  // newly-discovered items current without an event-driven re-render.
-  if (next === 'cargo') renderCargoLog();
-}

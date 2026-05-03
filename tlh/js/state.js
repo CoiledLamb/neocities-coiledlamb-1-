@@ -365,9 +365,17 @@ export const S = {
   // counters and per-field reveal flags. See render/cargo-log.js
   // and TLH-1.0.md cargo-log section for state machine + reveal
   // contract. Sparse: missing keys imply 'undiscovered'.
+  //
+  // v0.0.9.7.2 — `pending` flips true on meaningful state transitions
+  // (undiscovered→found, found→delivered) and is cleared when the
+  // player opens the cargo drawer. Drives the accent dot on the
+  // #cargoToggleBtn so discoveries don't go silently uncelebrated
+  // when the codex is closed (which is the common case). Persisted
+  // so a quit-mid-discovery shows the dot on return.
   cargoLog: {
-    items:  {},  // [label]:    { state, foundCount, deliveredCount }
-    plants: {},  // [plantId]:  { state, foundCount, triggerRevealed, conditionalRevealed }
+    items:   {},     // [label]:    { state, foundCount, deliveredCount }
+    plants:  {},     // [plantId]:  { state, foundCount, triggerRevealed, conditionalRevealed }
+    pending: false,
   },
 
   // v0.0.7 commit 5: lost cargo recovery loop. Transient — not persisted.

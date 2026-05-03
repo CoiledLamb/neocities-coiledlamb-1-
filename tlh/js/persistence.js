@@ -34,10 +34,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-1';
-import * as C from './constants.js?v=097-0-1';
-import { addLog } from './render/log.js?v=097-0-1';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=097-0-1';
+import { S } from './state.js?v=097-0-2';
+import * as C from './constants.js?v=097-0-2';
+import { addLog } from './render/log.js?v=097-0-2';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=097-0-2';
 
 // v0.0.9.6.10.20 tag-shape migration. Old saves carry `pkg.modifier`
 // (string or null) from the pre-tag shape; new saves carry `pkg.tags`
@@ -192,9 +192,12 @@ export function buildSavePayload() {
     // plant ids that have been touched (state \u2260 undiscovered or
     // any reveal flag flipped) appear. Inner entries are flat objects;
     // shallow spread is enough since JSON.stringify recurses anyway.
+    // v0.0.9.7.2 \u2014 `pending` carries the cargo-toggle dot state across
+    // reloads so a quit-mid-discovery still surfaces the dot on return.
     cargoLog: {
-      items:  (S.cargoLog && S.cargoLog.items)  ? { ...S.cargoLog.items }  : {},
-      plants: (S.cargoLog && S.cargoLog.plants) ? { ...S.cargoLog.plants } : {},
+      items:   (S.cargoLog && S.cargoLog.items)  ? { ...S.cargoLog.items }  : {},
+      plants:  (S.cargoLog && S.cargoLog.plants) ? { ...S.cargoLog.plants } : {},
+      pending: !!(S.cargoLog && S.cargoLog.pending),
     },
   };
 }
@@ -643,8 +646,9 @@ function _applyValidated(data) {
     // wrap missing branches so a pre-v0.0.9.7 save loads cleanly. Renderer
     // tolerates entries with missing fields via its `|| { ... }` fallback.
     S.cargoLog = {
-      items:  (data.cargoLog && typeof data.cargoLog.items  === 'object' && data.cargoLog.items)  ? { ...data.cargoLog.items }  : {},
-      plants: (data.cargoLog && typeof data.cargoLog.plants === 'object' && data.cargoLog.plants) ? { ...data.cargoLog.plants } : {},
+      items:   (data.cargoLog && typeof data.cargoLog.items  === 'object' && data.cargoLog.items)  ? { ...data.cargoLog.items }  : {},
+      plants:  (data.cargoLog && typeof data.cargoLog.plants === 'object' && data.cargoLog.plants) ? { ...data.cargoLog.plants } : {},
+      pending: !!(data.cargoLog && data.cargoLog.pending),
     };
 
     S._transient.lastSaveAt = data.savedAt || 0;

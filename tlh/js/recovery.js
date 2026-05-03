@@ -18,12 +18,12 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-1';
-import * as C from './constants.js?v=097-0-1';
-import { fetchLostFromPeer } from './multiplayer.js?v=097-0-1';
-import { pickRandom } from './util.js?v=097-0-1';
-import { addLog } from './render/log.js?v=097-0-1';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js?v=097-0-1';
+import { S } from './state.js?v=097-0-2';
+import * as C from './constants.js?v=097-0-2';
+import { fetchLostFromPeer } from './multiplayer.js?v=097-0-2';
+import { pickRandom } from './util.js?v=097-0-2';
+import { addLog } from './render/log.js?v=097-0-2';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js?v=097-0-2';
 
 const els = S._transient.els;
 const worldCells = S._transient.worldCells;

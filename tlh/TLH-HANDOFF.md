@@ -1,11 +1,11 @@
 # the long haul — game handoff doc
-_last updated: 2026-05-01 (**v0.0.9.7.1 shipped on branch** — first commit of v0.0.9.7 "the log & lift"; cargo log skeleton + topo map presentation rework begins. UI facelift moved out of v0.0.9.7; first-run onboarding deferred. Cache-bust 097-0-1. See [just shipped](#just-shipped--v00971--cargo-log-skeleton--topo-map-rework-begins) section below.)_
+_last updated: 2026-05-03 (**v0.0.9.7.2 shipped on branch** — cargo log relocated from a dispatch-panel sub-tab into a slide-in-from-right drawer over the upgrades + settlements region; pending-discovery dot added on the toggle button. v0.0.9.7.1 design preserved below for context. Cache-bust 097-0-2. See [just shipped](#just-shipped--v00972--cargo-log-becomes-a-drawer) section below.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.9.7.1 shipped on branch (cargo log skeleton + topo map rework begins). UI facelift moved out of v0.0.9.7 (no longer fits the patch); first-run onboarding deferred (systems still molten). Open question on session resume: continue v0.0.9.7 with topo follow-ups (vignette, outside-ring dim, ring polygon outline, node restyle) and a small wrap, or call v0.0.9.7 done at .1 and roll v0.0.9.8 (the kitchen) next. v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
+## ✅ CURRENT STATE: v0.0.9.7.2 shipped on branch (cargo log relocated from dispatch sub-tab into a slide-in-from-right drawer over the upgrades + settlements region; pending-discovery dot added). The v0.0.9.7.1 sub-tab implementation is the design that .7.2 reworked — read .7.1's section below for the original tab approach + why it was swapped. UI facelift moved out of v0.0.9.7 (no longer fits the patch); first-run onboarding deferred (systems still molten). Open question on session resume: continue v0.0.9.7 with topo follow-ups (vignette, outside-ring dim, ring polygon outline, node restyle) and a small wrap, or call v0.0.9.7 done at .2 and roll v0.0.9.8 (the kitchen) next. v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
 
 Game is at `v0.0.9.5` on the `claude/amazing-hermann` branch (merged to main on completion). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches, a micro-polish, dest-div + outbound dispatch, cursor-based cargo UX, and the biggest single-arc expansion so far — NPC doubling + battery baseline + full trust-gift wiring:
 
@@ -47,6 +47,68 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
 **Resume next session**: v0.0.9.5 is shipped on the `claude/amazing-hermann` branch (5 scope commits + 1 design-lock docs commit + 1 ship-log docs commit). Merged to main. Next patch is **v0.0.9.6 — world patch: terrain bones + gear + world-overlay + trails** (consolidates the old .5 + .6 into a coherent world-mechanics patch; design fully refined 2026-04-17 during the .5 lockdown). **Idle-game-first philosophy locked**: no hard gates on traversal — gear is efficiency, never requirement. Every cell is crossable gear-less, just with higher penalty. Scope: terrain types anchored at v0.0.9.5 corner NPCs — rivers (theta NE source, flow diagonally SW, clay beds in `#98875f` / `#a64a2e`); mountain massifs at SW corner (pi's summit + lambda's slope), severe penalty but always traversable; **plateau / mesa country** (east side) as gear-teaching rung — visual obstacles with walkable paths carved between, plateau tops gated by placed ladder for pkg-top rewards (dests restricted to near-start NPC allowlist per v0.0.9.5 label lock), placed anchor for controlled descent else fall-as-guaranteed-trip; rocky hills as connective tissue; desert at nu's NW with day-scaled stamina drain. Rivers classified creek/river/wide with fall-and-ride-downstream failure mode (courier swept downstream ~5-10 ticks, catches themselves, pathfinding auto-reroutes). Shortcut rewrite: flat SHORTCUT multipliers retire in favor of per-cell terrain effects. Interior brought on-grid (weather + scanner + river-refill + terrain effects active during shortcut; pkg pickup in interior stays off pending .7+, except plateau tops). Ladder + anchor as kit-bar gear (1×1 slots each, bundled 1-5/6-10/11-20 = s/m/l slot; 5c each; 12h wall-clock base durability, lambda's mountain gear ×2 → 24h; spatial storm-at-gear-cell decay ×3). **All gear is placed** (no held/in-use model) — anchor at shore creates rope spanning river (up to 2 cells per anchor), chained ladders share one decay clock as atomic multi-cell infrastructure. Placement consumes inventory + creates world-overlay structure usable by others. Trails land with shared world-overlay data plumbing (per-cell trample, multiplayer-synced, emergent social paving). Mountain-pass carving as natural extension. Storms sweep across 2D interior (not just ring). **Ceramic wrap (theta t40, shipped v0.0.9.5)** waterproofs fragile cargo during river crossings + fall-downstream incidents — cross-patch synergy already wired. 9 flag-only upgrades from v0.0.9.5 (riverWaders, ceramicWrap, mobileCarrier1/2, mountainGear, improvedTieDowns, exoskeleton1/2, topographicMap) get their real effect code wired this patch. See [v0.0.9.6 implementation plan](#v0096-implementation-plan). Dispatch log virt still benched at **v0.0.9.8**; see [its plan](#v0098-implementation-plan).
+
+## just shipped — v0.0.9.7.2 — cargo log becomes a drawer
+
+Second commit of v0.0.9.7. Reworks the cargo log's home from a dispatch-panel sub-tab into a slide-in-from-right drawer overlaying the upgrades + settlements region. v0.0.9.7.1's tab implementation never reached live; this is what ships when v0.0.9.7 lands. Cache-bust bumped 097-0-1 → 097-0-2 across 43 files via [tlh/scripts/bump-version.sh](tlh/scripts/bump-version.sh); subtitle now reads `v0.0.9.7.2`.
+
+### why the rework
+
+The .7.1 tab fought with the dispatch log on two axes:
+
+- **Read pattern.** Dispatch log is a *glance-and-scroll* live feed; cargo log is a *search-and-explore* codex (with a search box and hide-toggles). Tabbing them forced an either/or — every second browsing 372 cards was a second the player wasn't seeing live events scroll past, and the search box itself signaled "you came here on purpose," exactly when you don't want to lose the ambient feed.
+- **Shape.** The dispatch slot is a tall narrow column (`flex:1.5`), tuned for vertical text. Cargo wants `auto-fit minmax(170px, 1fr)` — it *wants* horizontal width and falls back to 1 column in that slot. A grid being squeezed into a column.
+
+### what the drawer does
+
+`#cargoDrawer` is a child of `.tlh-panels` (absolutely positioned), overlaying the upgrades + settlements span. Position + width are JS-measured by `sizeCargoDrawer()` in main.js using the upgrades and settlements panel rects — `.tlh-panel` uses `box-sizing: content-box`, so a pure flex-ratio CSS calc would over-shoot by per-panel padding+border. ResizeObserver keeps the sizing in sync on window resize. Drawer itself is `box-sizing: border-box` so the inline width matches the rendered width exactly. Dispatch log on the left stays visible — live feed never displaces. Drawer header carries `// cargo` ptitle + the filter strip; body is `#cargoLogEl` (same render module as before, no changes to `cargo-log.js`'s render core).
+
+Toggle button `#cargoToggleBtn` lives in the settlements panel's ptitle, right-aligned via the new `.settlements-ptitle` flex rule (mirrors the existing `.route-ptitle` clock placement). Toggle is lifted above the drawer via `z-index: 6` so it stays clickable as the close affordance when the drawer is open. Esc + click-outside also close. Slide transition is `transform: translateX(100%) → 0` over 180ms with opacity ramp — drawer enters from the panels-parent's right edge. `.tlh-panels` gets `overflow: hidden` so the drawer doesn't briefly bleed into the right column (route / channels / network) during the slide. `[hidden]` attribute is the closed-state contract for screen readers, but CSS overrides `[hidden]`'s `display: none` so the slide-out animation can finish before JS re-applies the attribute.
+
+### pending-discovery dot
+
+The drawer is closed by default, so a player picking up their first `[s] sun-baked pot shard` would otherwise have no signal that anything new is in the codex. New `S.cargoLog.pending` bool flips true on meaningful state transitions (`undiscovered → found`, `found → delivered`, plant role reveal) and clears on drawer open. The button mirrors the bit via a `.has-pending::after` pseudo-element — small accent dot trailing the label. One dot covers any number of accumulated discoveries; one open clears them all.
+
+`pending` is persisted (one bool added to the cargoLog save shape) so a quit-mid-discovery still surfaces the dot on return.
+
+### what's gone
+
+- `setLogTab` in [tlh/js/render/log.js](tlh/js/render/log.js) — deleted. log.js no longer imports `renderCargoLog` (decoupled).
+- `.tlh-ptabs` strip from the dispatch panel HTML; `// dispatch log` ptitle restored.
+- `logTabBtns` from main.js's els bag.
+- `.cargo-filters[hidden]` CSS override — no longer needed (filters are always visible inside the drawer).
+
+### what's preserved
+
+- `.tlh-ptabs` / `.tlh-ptab` CSS chrome stays intact for v0.0.9.10 (upgrades + structures will use the same primary/secondary tab convention).
+- Cargo render module (`renderCargoLog`, `noteFound`, `noteDelivered`, `notePlantFound`, `notePlantCookedRole`, filter setters) — unchanged callsites; only the host element location changed.
+- Filter values stick across drawer open/close (session-only; reset on reload).
+
+### file map
+
+**New (none — all reuse).**
+
+**Modified:**
+- [tlh/js/state.js](tlh/js/state.js) — `cargoLog.pending: false` slot
+- [tlh/js/persistence.js](tlh/js/persistence.js) — persist `pending`
+- [tlh/js/render/cargo-log.js](tlh/js/render/cargo-log.js) — `markPending()` helper called from each `note*` mutator on meaningful transitions
+- [tlh/js/render/log.js](tlh/js/render/log.js) — `setLogTab` deleted; `renderCargoLog` import removed
+- [tlh/js/main.js](tlh/js/main.js) — `cargoToggleBtn` + `cargoDrawer` els refs; `openCargoDrawer` / `closeCargoDrawer` / `toggleCargoDrawer` + Esc + click-outside handlers; pending-dot seed at init
+- [tlh/the-long-haul.html](tlh/the-long-haul.html) — drawer container, settlements-ptitle toggle button, dispatch ptitle restored
+- [tlh/the-long-haul.css](tlh/the-long-haul.css) — `.tlh-panels { position: relative }`, `.cargo-drawer`, `.cargo-drawer-header`, `.cargo-toggle-btn`, `.cargo-toggle-btn.has-pending::after`, `.tlh-ptitle.settlements-ptitle`; `.cargo-filters[hidden]` override removed; `.tlh-panel > #cargoLogEl` selectors retargeted to `.cargo-drawer > #cargoLogEl`
+
+### explicit non-scope (decisions logged)
+
+- **Backdrop / dim under drawer** — skipped. Drawer reads as a sibling panel sliding in (drop-shadow only), not a modal that takes over the viewport. Preserves the dashboard feel.
+- **Bracketed `[cargo]` styling on toggle button** — initially considered (mirroring the secondary-tab convention) but dropped to keep the disclosure button distinct from tabs and avoid pseudo-element conflicts with the pending dot. Color change (dim → accent) + `aria-expanded` carries the open state.
+- **Per-card "seen" flag** — out of scope; one bool covers all pending discoveries. Reopening clears them all in one go.
+- **Drawer width via JS-measured panel widths** — `calc(100% * 1.5 / 3.7)` in CSS is exact under `box-sizing: border-box`. JS fallback only needed if the panel flex ratios change.
+
+### what's next
+
+Same as .7.1's "what's next" — open. The remaining v0.0.9.7 named items (UI facelift, onboarding) both moved out. Either continue v0.0.9.7 with the topo follow-ups, or call .7 done at .2 and roll .8.
+
+---
 
 ## just shipped — v0.0.9.7.1 — cargo log skeleton + topo map rework begins
 
