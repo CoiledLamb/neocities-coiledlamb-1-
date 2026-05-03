@@ -1398,12 +1398,162 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   flex-shrink: 0;
 }
 
+/* v0.0.9.7 — panel sub-tabs (dispatch / cargo today; upgrades / structures
+   in v0.0.9.10). Sub-tabs replace .tlh-ptitle when a panel hosts multiple
+   sub-modes. Convention:
+     - First tab (primary) always wears the panel-title `//` prefix
+       regardless of active state — that's the panel's identity.
+     - Subsequent tabs (secondary) get bracketed `[label]` when active;
+       inactive tabs reserve the same width with transparent placeholders
+       so toggling doesn't shift layout.
+     - Active tab is full opacity; inactive tabs dim to 0.5; hover at 0.8. */
+.tlh-ptabs {
+  display: flex;
+  gap: 10px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  margin-bottom: 5px;
+  font-family: 'Source Code Pro', monospace;
+  flex-shrink: 0;
+}
+.tlh-ptab {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--tlh-text-dim);
+  opacity: 0.5;
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.tlh-ptab:hover { opacity: 0.8; }
+.tlh-ptab.is-active { opacity: 1; }
+/* primary (first) tab: always `// ` prefix */
+.tlh-ptab:first-child::before { content: '// '; }
+/* secondary tabs: bracketed when active, transparent placeholder when not */
+.tlh-ptab:not(:first-child)::before { content: '['; color: transparent; margin-right: 1px; }
+.tlh-ptab:not(:first-child)::after  { content: ']'; color: transparent; margin-left: 1px;  }
+.tlh-ptab:not(:first-child).is-active::before,
+.tlh-ptab:not(:first-child).is-active::after { color: var(--tlh-text-dim); }
+
 .tlh-panel > #logEl,
+.tlh-panel > #cargoLogEl,
 .tlh-panel > #upgradesEl,
 .tlh-panel > #settlementsEl {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+}
+
+/* v0.0.9.7 — cargo log body. Tier A scroll treatment (mask-fade,
+   hidden scrollbar) shared with upgrades/settlements/channels —
+   added to the matching block below. Card visual is intentionally
+   minimal at skeleton stage; richer per-card layout lands when
+   lore density warrants. */
+.cargo-section {
+  margin-bottom: 10px;
+}
+.cargo-section-title {
+  font-size: 9px;
+  color: var(--tlh-text-dim);
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  margin: 4px 0 4px;
+  font-family: 'Source Code Pro', monospace;
+}
+.cargo-empty {
+  font-size: 10px;
+  color: var(--tlh-text-dim);
+  font-style: italic;
+  padding: 4px 0;
+}
+/* v0.0.9.7 — cargo filter strip. Visible only when cargo tab is active
+   (toggled via `hidden` attribute from setLogTab). Single button toggle
+   for hide-undiscovered + a search input. Search filters labels by
+   case-insensitive substring; both filters compose. */
+.cargo-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 5px;
+  font-family: 'Source Code Pro', monospace;
+  flex-shrink: 0;
+}
+/* `display: flex` overrides the default `display: none` from the [hidden]
+   attribute, so the strip leaks onto the dispatch tab. Force-restore the
+   hidden contract here. */
+.cargo-filters[hidden] { display: none; }
+.cargo-filter-btn {
+  background: none;
+  border: 1px solid var(--tlh-text-dim);
+  color: var(--tlh-text-dim);
+  padding: 2px 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+.cargo-filter-btn:hover { color: var(--tlh-text-mid); border-color: var(--tlh-text-mid); }
+.cargo-filter-btn.is-active {
+  color: var(--tlh-accent);
+  border-color: var(--tlh-accent);
+}
+.cargo-filter-search {
+  background: #0b2e2d;
+  border: 1px solid var(--tlh-text-dim);
+  color: var(--tlh-text-mid);
+  padding: 2px 6px;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  flex: 1;
+  min-width: 60px;
+  outline: none;
+}
+.cargo-filter-search:focus { border-color: var(--tlh-accent); color: var(--tlh-accent); }
+.cargo-filter-search::placeholder {
+  color: var(--tlh-text-dim);
+  opacity: 0.7;
+}
+/* v0.0.9.7 — card grid. auto-fit + minmax flows cards into 2+ columns
+   when the panel is wide enough, falling back to 1 column on narrow
+   screens. ~170px is the floor for a card to read cleanly without
+   wrap-thrashing the wanted-by line. */
+.cargo-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 4px;
+}
+.cargo-card {
+  border: 1px solid #1e5554;
+  padding: 6px 8px;
+  font-size: 10px;
+  font-family: 'Source Code Pro', monospace;
+  line-height: 1.35;
+}
+.cargo-card-undiscovered { opacity: 0.55; }
+.cargo-card-name {
+  color: var(--tlh-accent);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.cargo-card-undiscovered .cargo-card-name { color: var(--tlh-text-dim); }
+.cargo-card-meta,
+.cargo-card-stats,
+.cargo-card-cook {
+  color: var(--tlh-text-mid);
+  font-size: 9px;
+}
+.cargo-card-lore {
+  color: var(--tlh-text-dim);
+  font-style: italic;
+  margin-top: 2px;
+  font-size: 9px;
 }
 
 /* v0.0.9.5.1 — no max/min height cap on the panel scroll children;
@@ -1420,14 +1570,19 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
    Tier B (visible teal scrollbar): dispatch log (#logEl) only.
      - Log aids searchability; the scrollbar thumb is a position indicator
      - Keep the existing teal thumb styling. */
-.tlh-panel > #logEl {
+.tlh-panel > #logEl,
+.tlh-panel > #cargoLogEl {
   scrollbar-width: thin;
   scrollbar-color: #2a5c5a #0b2e2d;
 }
-.tlh-panel > #logEl::-webkit-scrollbar { width: 6px; }
-.tlh-panel > #logEl::-webkit-scrollbar-track { background: #0b2e2d; }
-.tlh-panel > #logEl::-webkit-scrollbar-thumb { background: #2a5c5a; border-radius: 3px; }
-.tlh-panel > #logEl::-webkit-scrollbar-thumb:hover { background: #3a6a68; }
+.tlh-panel > #logEl::-webkit-scrollbar,
+.tlh-panel > #cargoLogEl::-webkit-scrollbar { width: 6px; }
+.tlh-panel > #logEl::-webkit-scrollbar-track,
+.tlh-panel > #cargoLogEl::-webkit-scrollbar-track { background: #0b2e2d; }
+.tlh-panel > #logEl::-webkit-scrollbar-thumb,
+.tlh-panel > #cargoLogEl::-webkit-scrollbar-thumb { background: #2a5c5a; border-radius: 3px; }
+.tlh-panel > #logEl::-webkit-scrollbar-thumb:hover,
+.tlh-panel > #cargoLogEl::-webkit-scrollbar-thumb:hover { background: #3a6a68; }
 
 /* Tier A — mask-fade + hidden scrollbar. Shared by the three list
    panels that refresh often. The mask is gated on a `.has-overflow`

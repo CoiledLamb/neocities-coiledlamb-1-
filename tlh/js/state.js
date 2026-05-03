@@ -360,6 +360,16 @@ export const S = {
   // entries × ~150 bytes ≈ 15KB of the ~50KB typical save payload.
   log: [],
 
+  // v0.0.9.7 — cargo log discovery state. Per-save record of which
+  // package labels (items) and plant ids have been encountered, with
+  // counters and per-field reveal flags. See render/cargo-log.js
+  // and TLH-1.0.md cargo-log section for state machine + reveal
+  // contract. Sparse: missing keys imply 'undiscovered'.
+  cargoLog: {
+    items:  {},  // [label]:    { state, foundCount, deliveredCount }
+    plants: {},  // [plantId]:  { state, foundCount, triggerRevealed, conditionalRevealed }
+  },
+
   // v0.0.7 commit 5: lost cargo recovery loop. Transient — not persisted.
   // These live on S root rather than _transient because they have semantic
   // meaning ("how much recovery cargo is live") rather than being pure

@@ -43,7 +43,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.10.24</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.7.1</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -160,8 +160,17 @@
 
             <div class="tlh-panels">
               <div class="tlh-panel" style="flex:1.5">
-                <div class="tlh-ptitle">// dispatch log</div>
+                <div class="tlh-ptabs" role="tablist">
+                  <button class="tlh-ptab is-active" data-tab="dispatch" role="tab" aria-selected="true">dispatch</button>
+                  <button class="tlh-ptab"           data-tab="cargo"    role="tab" aria-selected="false">cargo</button>
+                </div>
+                <div class="cargo-filters" id="cargoFilters" hidden>
+                  <button class="cargo-filter-btn" id="cargoFilterHideUndiscovered" type="button" aria-pressed="false">hide ???</button>
+                  <button class="cargo-filter-btn" id="cargoFilterHideCargo"        type="button" aria-pressed="false">hide items</button>
+                  <input class="cargo-filter-search" id="cargoFilterSearch" type="text" placeholder="search…" aria-label="search cargo log" />
+                </div>
                 <div id="logEl"></div>
+                <div id="cargoLogEl" hidden></div>
               </div>
               <div class="tlh-panel" style="flex:1.2">
                 <div class="tlh-ptitle">// upgrades</div>
@@ -243,8 +252,8 @@
        lazily appended to <body> by js/render/rich-tooltip.js. -->
 
 
-  <script src="tlh-boot.js?v=096-10-24"></script>
-  <script type="module" src="js/main.js?v=096-10-24"></script>
+  <script src="tlh-boot.js?v=097-0-1"></script>
+  <script type="module" src="js/main.js?v=097-0-1"></script>
   <script>
     document.addEventListener('keydown', e => {
       if (document.getElementById('boot').style.display !== 'none') dismissBoot();

@@ -15,29 +15,30 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=096-10-24';
-import * as C from '../constants.js?v=096-10-24';
-import { getNodeStage, getDisplayLabel } from '../identification.js?v=096-10-24';
-import { TICKS_PER_DAY } from './sky.js?v=096-10-24';
-import { NPC_DEFS } from '../data/npc-defs.js?v=096-10-24';
+import { S } from '../state.js?v=097-0-1';
+import * as C from '../constants.js?v=097-0-1';
+import { getNodeStage, getDisplayLabel } from '../identification.js?v=097-0-1';
+import { TICKS_PER_DAY } from './sky.js?v=097-0-1';
+import { NPC_DEFS } from '../data/npc-defs.js?v=097-0-1';
 import {
   terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY,
   projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength,
   GEAR_GLYPH, gearWear, gearWearTier,
   cellKeyFromCoords, mesaOutcropAt,
-} from '../data/terrain.js?v=096-10-24';
+} from '../data/terrain.js?v=097-0-1';
 // v0.0.9.6.10.8 — trampleTier no longer consumed here (glyph-swap
 // dropped in favor of the persistent-dot layer). trampleAt is used
 // to floor the live trail's fade opacity.
-import { trampleAt } from '../trail.js?v=096-10-24';
+import { trampleAt } from '../trail.js?v=097-0-1';
 // v0.0.9.6.10.7 — use the density-filtered view of placed gear so
 // render matches placedGearAt() gameplay lookup. Full pool lives
 // on S.placedGear (persisted, broadcast-addressable); this is the
 // curated subset that should be visible to the player.
-import { visiblePlacedGear } from '../gear.js?v=096-10-24';
-import { speedMultiplier } from '../stamina.js?v=096-10-24';
-import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=096-10-24';
-import { tlhPalette } from '../palette.js?v=096-10-24';
+import { visiblePlacedGear } from '../gear.js?v=097-0-1';
+import { speedMultiplier } from '../stamina.js?v=097-0-1';
+import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=097-0-1';
+import { tlhPalette } from '../palette.js?v=097-0-1';
+import { bakeSteppedHypsoPng } from '../data/topo-map.js?v=097-0-1';
 
 const els = S._transient.els;
 
@@ -444,6 +445,29 @@ function makeSeededRand(seed) {
   return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
 }
 
+// v0.0.9.7 — topographic terrain raster.
+//
+// Replaces the per-cell glyph + biome-color terrain when the
+// topographicMap upgrade is owned. Bakes the 200\u00d7200 stepped-hypso
+// heightmap from data/topo-map.js to a PNG data URL on first call
+// (cached after that), then drops a single <image> element covering
+// the 400\u00d7400 viewBox. Renders behind everything else (trample,
+// trail, gear, ring, nodes, courier).
+//
+// Without the topographicMap upgrade we still call drawInterior
+// below, which paints the muted "unmapped ground" dots.
+function drawTopoTerrain(svg, ns) {
+  const img = document.createElementNS(ns, 'image');
+  img.setAttribute('class', 'route-topo');
+  img.setAttribute('x', '0');
+  img.setAttribute('y', '0');
+  img.setAttribute('width',  '400');
+  img.setAttribute('height', '400');
+  img.setAttribute('preserveAspectRatio', 'none');
+  img.setAttribute('href', bakeSteppedHypsoPng());
+  svg.appendChild(img);
+}
+
 // Interior terrain texture — per-cell glyph + color
 // keyed on biome type from data/terrain.js (v0.0.9.6
 // commit 1). Classifier is deterministic on (x, y)
@@ -451,6 +475,11 @@ function makeSeededRand(seed) {
 // convergent across players. Glyph-within-type still
 // uses the session-seeded RNG so texture reads alive
 // rather than perfectly tiled.
+//
+// v0.0.9.7 — topographicMap branch was promoted to drawTopoTerrain
+// (stepped-hypso raster). drawInterior is now only called for the
+// pre-upgrade muted-dots state; the hasMap branch below is dead but
+// kept for safety so a stale call still works.
 function drawInterior(svg, ns) {
   const g = document.createElementNS(ns, 'g');
   g.setAttribute('class', 'route-interior');
@@ -515,7 +544,12 @@ export function drawRouteMap() {
 
   // v0.0.9.2 — interior texture plotted first so it renders behind
   // the ring and nodes.
-  drawInterior(svg, ns);
+  // v0.0.9.7 — topographicMap upgrade now reveals the stepped-hypso
+  // raster (drawTopoTerrain) instead of the colored terrain glyphs.
+  // Pre-upgrade still falls back to drawInterior's muted dots.
+  const hasTopoMap = !!(S.upgrades && S.upgrades.topographicMap);
+  if (hasTopoMap) drawTopoTerrain(svg, ns);
+  else            drawInterior(svg, ns);
 
   // v0.0.9.6.10.8 — persistent trample layer. Same cyan dot visual
   // as the live fade trail, but sourced from S.interiorTrample so

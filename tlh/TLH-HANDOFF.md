@@ -1,11 +1,11 @@
 # the long haul — game handoff doc
-_last updated: 2026-04-18 (**v0.0.9.6 commits 1-2 landed** on branch, plus two polish sub-versions shipped parallel: commit 1 terrain bones + plan corrections; .6.1 sticky gun web icon + ammo 3-band colors; .6.2 mobile playability pass; commit 2 v0.0.9.6.3 label-pool normalization + terrain-origin pool. Commit 2 dropped the dest-weight retune (shipped earlier in v0.0.9.5 commit 1) and instead normalized per-NPC label counts from 15-50 down to 30-43, with generic multi-dest labels (sealed letter / medicine / tool roll / first-aid kit / battery pack / ration tin / repair kit) narrowed to 2-dest niche pairings and ~20 flavored-variant companions authored (weather-report letter, glaze recipe letter, sun salve, bone-mend splint, field toolkit, blister kit, etc). ~51 unique new-cast fill labels pull pi / lambda / gamma / nu / theta / delta all above 30. New `PKG_LABELS_BY_TERRAIN_ORIGIN` export (43 labels across plateau/mountain/rockyHills × 4 sizes) ready for commit 5 interior spawning to consume. Remaining v0.0.9.6 commits: 3 shortcut rewrite + interior on-grid + pickup scanning active, 4 ladder + anchor gear, 5 world-overlay + pkg-origin schema + interior spawns, 6 placement + trails + pass carving, 7 storm sweep + multi-concurrent. See [v0.0.9.6 implementation plan](#v0096-implementation-plan).)_
+_last updated: 2026-05-01 (**v0.0.9.7.1 shipped on branch** — first commit of v0.0.9.7 "the log & lift"; cargo log skeleton + topo map presentation rework begins. UI facelift moved out of v0.0.9.7; first-run onboarding deferred. Cache-bust 097-0-1. See [just shipped](#just-shipped--v00971--cargo-log-skeleton--topo-map-rework-begins) section below.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.9.6 arc COMPLETE (commits 1-7 shipped) + v0.0.9.6.9 sim harness shipped. First 20-run batch produced actionable balance data (canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven). Next up: v0.0.9.7 polish pass informed by sim findings.
+## ✅ CURRENT STATE: v0.0.9.7.1 shipped on branch (cargo log skeleton + topo map rework begins). UI facelift moved out of v0.0.9.7 (no longer fits the patch); first-run onboarding deferred (systems still molten). Open question on session resume: continue v0.0.9.7 with topo follow-ups (vignette, outside-ring dim, ring polygon outline, node restyle) and a small wrap, or call v0.0.9.7 done at .1 and roll v0.0.9.8 (the kitchen) next. v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
 
 Game is at `v0.0.9.5` on the `claude/amazing-hermann` branch (merged to main on completion). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches, a micro-polish, dest-div + outbound dispatch, cursor-based cargo UX, and the biggest single-arc expansion so far — NPC doubling + battery baseline + full trust-gift wiring:
 
@@ -48,102 +48,132 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 
 **Resume next session**: v0.0.9.5 is shipped on the `claude/amazing-hermann` branch (5 scope commits + 1 design-lock docs commit + 1 ship-log docs commit). Merged to main. Next patch is **v0.0.9.6 — world patch: terrain bones + gear + world-overlay + trails** (consolidates the old .5 + .6 into a coherent world-mechanics patch; design fully refined 2026-04-17 during the .5 lockdown). **Idle-game-first philosophy locked**: no hard gates on traversal — gear is efficiency, never requirement. Every cell is crossable gear-less, just with higher penalty. Scope: terrain types anchored at v0.0.9.5 corner NPCs — rivers (theta NE source, flow diagonally SW, clay beds in `#98875f` / `#a64a2e`); mountain massifs at SW corner (pi's summit + lambda's slope), severe penalty but always traversable; **plateau / mesa country** (east side) as gear-teaching rung — visual obstacles with walkable paths carved between, plateau tops gated by placed ladder for pkg-top rewards (dests restricted to near-start NPC allowlist per v0.0.9.5 label lock), placed anchor for controlled descent else fall-as-guaranteed-trip; rocky hills as connective tissue; desert at nu's NW with day-scaled stamina drain. Rivers classified creek/river/wide with fall-and-ride-downstream failure mode (courier swept downstream ~5-10 ticks, catches themselves, pathfinding auto-reroutes). Shortcut rewrite: flat SHORTCUT multipliers retire in favor of per-cell terrain effects. Interior brought on-grid (weather + scanner + river-refill + terrain effects active during shortcut; pkg pickup in interior stays off pending .7+, except plateau tops). Ladder + anchor as kit-bar gear (1×1 slots each, bundled 1-5/6-10/11-20 = s/m/l slot; 5c each; 12h wall-clock base durability, lambda's mountain gear ×2 → 24h; spatial storm-at-gear-cell decay ×3). **All gear is placed** (no held/in-use model) — anchor at shore creates rope spanning river (up to 2 cells per anchor), chained ladders share one decay clock as atomic multi-cell infrastructure. Placement consumes inventory + creates world-overlay structure usable by others. Trails land with shared world-overlay data plumbing (per-cell trample, multiplayer-synced, emergent social paving). Mountain-pass carving as natural extension. Storms sweep across 2D interior (not just ring). **Ceramic wrap (theta t40, shipped v0.0.9.5)** waterproofs fragile cargo during river crossings + fall-downstream incidents — cross-patch synergy already wired. 9 flag-only upgrades from v0.0.9.5 (riverWaders, ceramicWrap, mobileCarrier1/2, mountainGear, improvedTieDowns, exoskeleton1/2, topographicMap) get their real effect code wired this patch. See [v0.0.9.6 implementation plan](#v0096-implementation-plan). Dispatch log virt still benched at **v0.0.9.8**; see [its plan](#v0098-implementation-plan).
 
-## next patch — v0.0.9.6.10.23 — worker integration sustainability + porter presence groundwork
+## just shipped — v0.0.9.7.1 — cargo log skeleton + topo map rework begins
 
-🟢 designed and ready to build.
+First commit of v0.0.9.7. UI facelift was moved out of v0.0.9.7 entirely (per session call); first-run onboarding deferred (systems still molten). Cache-bust bumped 096-10-24 → 097-0-1 across 43 files via [tlh/scripts/bump-version.sh](tlh/scripts/bump-version.sh); subtitle now reads `v0.0.9.7.1`.
 
-### what this is
+### cargo log skeleton
 
-Stops the KV write-amplification bleed that triggered the 2026-04-20 quota alert, and lays the groundwork (`porterLastSeen`) for porter-presence UI features. Stays on KV — no Durable Objects migration. Single sub-version.
+New "cargo" sub-tab inside the dispatch panel. Encyclopedia of every package label the player can encounter — 372 entries unioned across `PKG_LABELS_BY_SIZE` + `PKG_LABELS_BY_TERRAIN_ORIGIN` + `PKG_LOST_LABELS` (one cross-table dupe — `salvage kit` — merges to a single entry).
 
-### the leak
+Three-state machine per item: `undiscovered` (`???` placeholder card) → `found` (name + wanted-by + counts visible; lore still hidden) → `delivered` (1-2 line lore unlocks). Plant entries follow a parallel state machine — `undiscovered` → `found` (name + biome + lore visible) — plus two independent reveal flags (`triggerRevealed`, `conditionalRevealed`) that the v0.0.9.8 cooking system flips per plant per role-in-dish. Plants design contract: each plant has fixed `trigger` and `conditional` properties; cooking with that plant in a dish reveals only the role it played (encourages diverse experimentation, removes need for an external wiki). See [tlh/TLH-1.0.md](tlh/TLH-1.0.md) cargo-log section for the full reveal contract.
 
-KV free tier is 1k writes/day. Current architecture writes ~290/day per active porter. Three amplifiers:
+Wanted-by is **derived** from `PKG_LABELS_BY_SIZE.dests` mapped through `NPC_DEFS[destId].callsign` — single source of truth in [tlh/js/data/packages.js](tlh/js/data/packages.js), not duplicated. Lore lives in a separate `CARGO_LORE` table ([tlh/js/data/cargo-lore.js](tlh/js/data/cargo-lore.js)) keyed by label string, currently empty (entries author over time per the user-authored player-copy convention).
 
-- **Census prune-write on every `/feed` poll** (10% probability per read) — dominant leak, written by passive polling not user actions
-- **Rate-counter rewrite on every event POST** (even when allowed/dropped, just to refresh TTL)
-- **Triple-write per allowed event** — rate + census + feed
+### tab + filter chrome (generalizable)
 
-At ~10 concurrent active porters that's ~2,900 writes/day, ~3× over the cap.
+Dispatch panel header was a single `// dispatch log` title; now it's a tab pair:
 
-### worker-side changes ([tlh/worker/index.js](tlh/worker/index.js))
+- **First (primary) tab** always wears the panel-title `// ` prefix at full opacity when active. Inactive tabs reserve the same prefix width with a transparent placeholder so toggling doesn't shift layout. Inactive opacity 0.5 / hover 0.8 / active 1.0.
+- **Subsequent (secondary) tabs** get bracketed `[label]` when active; transparent bracket placeholders when inactive (same no-jump trick).
 
-1. **Drop `census:active` key entirely.** Derive census by walking `feed:recent` and counting unique porterIds in the last 24h. Zero writes from polling. Single biggest win.
-2. **Drop `bumpCensus()` from event POST paths.** Subsumed by #1.
-3. **Rate-counter writes once per window, not per event.** First event in a 60s window: `put` with TTL. Subsequent in-window reads see the counter, skip the write.
-4. **`expirationTtl` on every put** for storage hygiene:
-   - `feed:recent` → 7d
-   - `lost:{porterId}` → 21d (FLOOR + DEAD_WEEK_GRACE = 14 + 7; see below)
-   - `rate:{porterId}` → already has 60s
-5. **Slim event payloads** — quick audit pass.
+Generalized via `:first-child` / `:not(:first-child)` so v0.0.9.10's upgrades+structures will pick the same convention up automatically — same CSS classes (`.tlh-ptabs` / `.tlh-ptab` / `.is-active`).
 
-### lost-pkg pool — floor + dead-week-grace
+Filter strip below the tab row, **cargo-only** (`hidden` attribute toggled by `setLogTab`; `.cargo-filters[hidden] { display: none }` explicit override since `display: flex` would otherwise leak the strip onto the dispatch tab):
 
-The recovery loop needs an ambient pool of dropped packages. A flat 7d TTL would over-prune the pool during low-activity stretches.
+- `hide ???` — toggle (was longer "hide undiscovered"; tightened for scrollbar space).
+- `hide items` — toggle (was "hide cargo"; "items" is more accurate to what's hidden). Drops the items section entirely so the plants section is reachable without a 372-card scroll.
+- `search…` — case-insensitive substring on item label / plant name. Live, no debounce (cheap re-render at 372 cards).
+
+Filters compose. Session-only state — re-opens default to "show all, no search."
+
+### card grid
+
+`.cargo-cards` uses `grid-template-columns: repeat(auto-fit, minmax(170px, 1fr))` so cards flow into 2+ columns on wider panels (~365px slot → 2 cols, ~520px → 3 cols). 170px floor keeps the wanted-by line from wrap-thrashing.
+
+Card visual is intentionally minimal at skeleton stage — name (cyan when discovered), wanted-by, found/delivered counts, 1-line lore. Click-to-expand for richer view is the planned escape hatch when individual entries earn deeper lore (currently no items do).
+
+### topographic map rework — begins
+
+New module [tlh/js/data/topo-map.js](tlh/js/data/topo-map.js) is the production port of the design handoff (kept alongside in [tlh/.handoff-topo/](tlh/.handoff-topo/) for reference until the rework wraps; safe to delete then).
+
+200×200 normalized heightmap built once at module load:
+
+- Domain-warped fbm base drift (`0.36 ± 0.10`)
+- SW mountain massif along `NAT_MOUNTAIN_RIDGE` polyline + 4 named radial gaussian peaks (π summit tallest at `h: 0.36`)
+- East rolling hills band centered south of γ workshop
+- City-ruins mesa stamp (sharp-shouldered, low exponent on smoothstep)
+- 3 stepped mesas NW from τ home into the desert
+- NW desert basin (slight depression + dune noise)
+- River carve along Catmull-Rom spline through `RIVER_CTRL` (-0.32 with banks)
+- 5 stream carves (-0.18 each)
+- SW reservoir lake basin (flatten cells inside oval `LAKE_SHORE` polygon to elevation 0.04)
+- Hi-frequency surface texture (0.07 × fbm at freq 0.13)
+
+Then `bakeSteppedHypsoPng()` quantizes each cell into one of 8 elevation bands and looks up the band-center color from a 9-stop hypsometric ramp (`#0b2e2d` deepest → `#77bfcf` summit). Result is a PNG dataURL (cached after first call).
+
+New `drawTopoTerrain` in [tlh/js/render/route-map.js](tlh/js/render/route-map.js) drops a single `<image class="route-topo">` covering the 400×400 viewBox.
+
+**Gated by the existing `topographicMap` upgrade** (psi t40 unlock) — without it, `drawInterior` keeps painting the muted "unmapped ground" `.` dots. With it, the colored terrain glyph layer is replaced by the hypso raster (the upgrade's reveal got an upgrade).
+
+Non-scope (deferred to later v0.0.9.7 commits per the design handoff render order):
+- Outside-ring dim (panelDarker @ 0.45 + diagonal hatch @ 0.18, masked outside ring polygon)
+- Vignette (radial gradient transparent center → black 0.35 at corners)
+- Ring polygon dashed outline
+- Ring road segment + node + courier restyle
+
+Hydrography overlays (river/stream/lake polygon) stay OFF per the chosen design variant — heightmap depression itself reads as the channel/lake. Desert dot-hatch from the handoff was tried and cut (didn't read well visually).
+
+### state schema additions
 
 ```
-TTL on every put = FLOOR + DEAD_WEEK_GRACE = 14 + 7 = 21 days
+S.cargoLog = {
+  items:  { [label]:    { state, foundCount, deliveredCount, lastTouchedAt } },
+  plants: { [plantId]:  { state, foundCount, triggerRevealed, conditionalRevealed, lastTouchedAt } },
+}
 ```
 
-- Drop-and-vanish porter: list lives 21d. Pool stays populated through their absence.
-- Weekly-active porter: each new drop refreshes the window. List effectively immortal.
-- Porter silent 21d after last drop: list expires. The dead week killed it after the floor.
+Sparse — only labels/plants the player has touched persist. Missing keys imply `undiscovered`. Renderer tolerates absence via `|| { ... }` fallback.
 
-### client-side changes ([tlh/js/multiplayer.js](tlh/js/multiplayer.js))
+`lastTouchedAt` exists but is currently unwired to UI. It powers a recency-sort surface that was added then cut for placement reasons; data tracking + `setSortMode` export retained in [tlh/js/render/cargo-log.js](tlh/js/render/cargo-log.js) so the UI can be re-enabled trivially when there's a good place for it.
 
-6. **`/feed` 429 handling** + **forced-silent UI state**. Currently `/feed` 429s are silently swallowed. Patch: on any 429 (worker quota exhausted — only 429 source, since per-porter rate limits return `ok:true` with silent drop), set a new `S._transient.forcedSilent` flag, force the network-panel online/offline toggle to off, disable interaction until Retry-After elapses. `isSilent()` returns `forcedSilent || userPref` so the user's persisted preference is never overwritten. Toggle tooltip explains: "feed throttled — resumes [UTC time]." When the throttle clears, `forcedSilent = false`, toggle re-interactive, prior preference governs.
-7. **Slow-poll while throttled** — 60s → 300s.
+### hooks added
 
-### porter presence groundwork
+- [packages.js `acceptPickup`](tlh/js/packages.js) (ring) → `noteFound(pkg.label)`
+- [packages.js `acceptInteriorPickup`](tlh/js/packages.js) → `noteFound(pkg.label)`
+- [packages-delivery.js `tryDeliver`](tlh/js/packages-delivery.js) per-pkg → `noteDelivered(pkg.label)`
+- v0.0.9.8 cooking will call `notePlantFound(id)` / `notePlantCookedRole(id, role)` (stubs in place; no-ops until `PLANTS` populates).
 
-All free off the same data the patch already derives:
+### file map
 
-8. **`porterLastSeen` map** built client-side from `feed:recent` events.
-9. **Recovered-lost-cargo tooltip enrichment** — existing "last seen with PTR-XXXX" gets a freshness suffix: "(10 days ago)."
-10. **"Long-quiet" CSS class** on porter IDs unseen for 14d+. Subtle muted styling in feed.
-11. **Census breakdown** in network panel — "active today: 37 / this week: 89 / known total: 412" instead of a single number.
+**New:**
+- [tlh/js/data/cargo-lore.js](tlh/js/data/cargo-lore.js) — empty `CARGO_LORE` map (lore strings author over time)
+- [tlh/js/data/plants.js](tlh/js/data/plants.js) — empty `PLANTS` map (lands in v0.0.9.8)
+- [tlh/js/data/cargo-index.js](tlh/js/data/cargo-index.js) — unifies the three label sources into `{ [label]: { sizes, dests, tags, sources } }` for cargo log render
+- [tlh/js/render/cargo-log.js](tlh/js/render/cargo-log.js) — cards + filters + state mutators + sort logic
+- [tlh/js/data/topo-map.js](tlh/js/data/topo-map.js) — heightmap builder + hypso palette + bake function
 
-### time / clock defensive pass
+**Modified:**
+- [tlh/js/state.js](tlh/js/state.js) — `cargoLog` state slot
+- [tlh/js/persistence.js](tlh/js/persistence.js) — save/restore `cargoLog` (shallow spread; sparse)
+- [tlh/js/render/log.js](tlh/js/render/log.js) — `setLogTab` panel toggle owner; imports `renderCargoLog` (no circular — cargo-log.js doesn't import log.js)
+- [tlh/js/render/route-map.js](tlh/js/render/route-map.js) — `drawTopoTerrain` + gated dispatch in `drawRouteMap`
+- [tlh/js/packages.js](tlh/js/packages.js) — pickup hooks (ring + interior)
+- [tlh/js/packages-delivery.js](tlh/js/packages-delivery.js) — delivery hook
+- [tlh/js/main.js](tlh/js/main.js) — register cargo els, bind tab + filter handlers (`bindToggle` helper)
+- [tlh/the-long-haul.html](tlh/the-long-haul.html) — tab strip + filter strip + `cargoLogEl` + subtitle bump
+- [tlh/the-long-haul.css](tlh/the-long-haul.css) — `.tlh-ptabs` / `.tlh-ptab`, cargo card grid, filter strip styles, `.cargo-filters[hidden]` override
 
-Audit pass: most consumers are already safe (`terrain.js:441` already clamps `Math.max(0, now - placedWallClock)` for gear decay; battery + sky are tick-based, not wall-clock). Two small fixes:
+### explicit non-scope (decisions logged)
 
-12. **`persistence.js fmtAgo`** — clamp delta to non-negative so a clock-set-back doesn't display "saved -42s ago." One-line `Math.max(0, ...)`.
-13. **Throttle checks in `multiplayer.js`** — already belt-and-suspenders since the worker re-enforces server-side, but defensively cap `t.throttledUntil` to a sane window (e.g., min(throttledUntil, Date.now() + 24h)) so a forward clock-jump doesn't strand the toggle.
+- **Desert dot-hatch** from the handoff was rendered, tried, cut visually.
+- **Sortable by recently found** UI cut for placement reasons; `lastTouchedAt` tracking + `setSortMode` export retained.
+- **Hide-cargo** toggle added at user request to make plants section easy to jump to.
+- **Salvage tab** in cargo log not needed inherently (per session) — covered when salvage system itself lands in v0.0.9.9.
+- **Structures tab** in cargo log not needed inherently (per session) — covered by v0.0.9.10's upgrades-tab pattern (same chrome as cargo's tab pattern).
+- **UI facelift** moved out of v0.0.9.7 entirely (per user — implementation already happened).
+- **First-run onboarding** deferred (systems still molten — wait for stable surface).
+- **Sticky-set-both-`href`-and-`xlink:href`** dropped — modern browsers prefer plain `href` and the dual-set was making the headless screenshot tool hang on serialization.
 
-### telemetry
+### what's next
 
-14. **Log throttle events** to console + dispatch log so future-dev sees when limits get close. No analytics endpoint — that'd be another write.
+Open. The remaining named v0.0.9.7 items (UI facelift, onboarding) both moved out. Two reasonable directions on session resume:
 
-### explicitly out of scope (deferred)
+(a) **Continue v0.0.9.7** with the topo follow-ups the design handoff specifies but this commit deferred — outside-ring dim + diagonal hatch overlay, vignette, ring polygon dashed outline, node circle restyle. Smallest-blast-radius option.
 
-- **Durable Objects migration** — paid plan, separate decision.
-- **Per-event feed-write coalescing via cron** — complexity not justified at current scale.
-- **Memorial events** (90d pink-tint state on lost cargo + unrepaired structures from long-dormant porters) — dormant under current architecture (nothing survives 90d); lights up when long-lived structures ship.
-- **Porter profiles card** — its own follow-up patch (UI + stats-broadcast + profile cache). `porterLastSeen` from this patch is the substrate.
-- **Daily delivery boards** — out.
+(b) **Call v0.0.9.7 done at .1** and roll **v0.0.9.8 — the kitchen** (the next named patch in [tlh/TLH-1.0.md](tlh/TLH-1.0.md)). Bigger commit; multiple coupled subsystems (two-plant combo cooking, picker UI, field + depot cooking, 9 plants authored, depot stoves, cargo log plants section starts populating).
 
-### risks / trade-offs
-
-- Census shifts to "porters who succeeded posting in 24h" vs current "porters who attempted in 24h." Silent-dropped porters fall off — negligible difference.
-- Rate-limit window anchors on first event vs each event. Functionally identical.
-- Throttle recovery takes up to 5min — fine for an idle game.
-
-### impact estimate
-
-| | today | after |
-|---|---|---|
-| writes/porter/day (active) | ~290 | ~30 |
-| writes/day @ 10 active | ~2,900 (over cap) | ~300 (comfortable) |
-
-### ship criteria
-
-- [ ] No console errors from `/feed` or `/activity` flow
-- [ ] Existing exported saves still import (no schema change, but verify)
-- [ ] Forced-silent UI state shows up correctly when 429s are forced in dev; toggle re-interacts after clear
-- [ ] `porterLastSeen` populates on first feed poll
-- [ ] Recovered-lost-cargo tooltip shows freshness suffix
-- [ ] Network-panel census breakdown renders
-- [ ] `fmtAgo` doesn't render negative durations after a simulated clock skew
+User to decide on resume.
 
 ---
 

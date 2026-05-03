@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(awk '$1 > 1')",
+      "Read(//c/Users/venob/Downloads/**)",
+      "Bash(unzip -l \"/c/Users/venob/Downloads/the long haul.zip\")",
+      "Bash(mkdir -p /tmp/tlh-topo)",
+      "Bash(unzip -o \"/c/Users/venob/Downloads/the long haul.zip\" -d /tmp/tlh-topo)",
+      "Read(//tmp/tlh-topo/**)",
+      "Bash(bash tlh/scripts/bump-version.sh 097-0-1)"
     ]
   }
 }
