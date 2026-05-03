@@ -1,11 +1,11 @@
 # the long haul — game handoff doc
-_last updated: 2026-05-03 (**v0.0.9.7.2 shipped on branch** — cargo log relocated from a dispatch-panel sub-tab into a slide-in-from-right drawer over the upgrades + settlements region; pending-discovery dot added on the toggle button. v0.0.9.7.1 design preserved below for context. Cache-bust 097-0-2. See [just shipped](#just-shipped--v00972--cargo-log-becomes-a-drawer) section below.)_
+_last updated: 2026-05-03 (**v0.0.9.7.5 shipped on branch** — kit-bar / route-map polish: ladder route-map glyph swapped from `‐‐` (HYPHEN x 2) to `Ħ` (H WITH STROKE — rails + crossbar), gear glyphs shrunk fs 9 → 8 + drop-shadow gated to `.gear-rotting` only, queue closeout pass for items 1+4 already shipped at .6.9.x. Cache-bust 097-0-5. v0.0.9.7.3 + .7.4 also live (cargo-log oilslick polish + per-player notification mute toggle). Next: .7.6 log dedup + .7.7 topo follow-ups to close out v0.0.9.7. See [just shipped](#just-shipped--v00975--kit-bar--route-map-polish--queue-closeout) section below.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.9.7.2 shipped on branch (cargo log relocated from dispatch sub-tab into a slide-in-from-right drawer over the upgrades + settlements region; pending-discovery dot added). The v0.0.9.7.1 sub-tab implementation is the design that .7.2 reworked — read .7.1's section below for the original tab approach + why it was swapped. UI facelift moved out of v0.0.9.7 (no longer fits the patch); first-run onboarding deferred (systems still molten). Open question on session resume: continue v0.0.9.7 with topo follow-ups (vignette, outside-ring dim, ring polygon outline, node restyle) and a small wrap, or call v0.0.9.7 done at .2 and roll v0.0.9.8 (the kitchen) next. v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
+## ✅ CURRENT STATE: v0.0.9.7.5 shipped on branch (kit-bar / route-map polish: ladder route-map glyph swapped to `Ħ`, gear glyphs fs 9 → 8 + drop-shadow gated to `.gear-rotting`; queue closeout pass for items 1+4 which already shipped during the .6.9.x cycle). v0.0.9.7.1 → .7.5 are all live: .7.1 cargo log skeleton + topo map raster begins; .7.2 cargo log relocated into a slide-in drawer; .7.3 oilslick pending border + clearer filter labels; .7.4 cargo log per-player notification mute toggle (+ fixup); .7.5 closes the kit-bar / map-polish queue. **Plan to close v0.0.9.7**: .7.6 = repeated-message log dedup (sandalweed harvest etc — pull inline counts out of dedup keys); .7.7 = topo follow-ups (outside-ring dim + hatch, vignette, ring polygon dashed outline, ring road restyle, node "well" treatment) per [.handoff-topo](tlh/.handoff-topo/) spec, mostly gated on `topographicMap`. Climbing animations + thick side-view rendering defer out of .7 (paired with parked destDrift rework). v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
 
 Game is at `v0.0.9.5` on the `claude/amazing-hermann` branch (merged to main on completion). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches, a micro-polish, dest-div + outbound dispatch, cursor-based cargo UX, and the biggest single-arc expansion so far — NPC doubling + battery baseline + full trust-gift wiring:
 
@@ -47,6 +47,85 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
 **Resume next session**: v0.0.9.5 is shipped on the `claude/amazing-hermann` branch (5 scope commits + 1 design-lock docs commit + 1 ship-log docs commit). Merged to main. Next patch is **v0.0.9.6 — world patch: terrain bones + gear + world-overlay + trails** (consolidates the old .5 + .6 into a coherent world-mechanics patch; design fully refined 2026-04-17 during the .5 lockdown). **Idle-game-first philosophy locked**: no hard gates on traversal — gear is efficiency, never requirement. Every cell is crossable gear-less, just with higher penalty. Scope: terrain types anchored at v0.0.9.5 corner NPCs — rivers (theta NE source, flow diagonally SW, clay beds in `#98875f` / `#a64a2e`); mountain massifs at SW corner (pi's summit + lambda's slope), severe penalty but always traversable; **plateau / mesa country** (east side) as gear-teaching rung — visual obstacles with walkable paths carved between, plateau tops gated by placed ladder for pkg-top rewards (dests restricted to near-start NPC allowlist per v0.0.9.5 label lock), placed anchor for controlled descent else fall-as-guaranteed-trip; rocky hills as connective tissue; desert at nu's NW with day-scaled stamina drain. Rivers classified creek/river/wide with fall-and-ride-downstream failure mode (courier swept downstream ~5-10 ticks, catches themselves, pathfinding auto-reroutes). Shortcut rewrite: flat SHORTCUT multipliers retire in favor of per-cell terrain effects. Interior brought on-grid (weather + scanner + river-refill + terrain effects active during shortcut; pkg pickup in interior stays off pending .7+, except plateau tops). Ladder + anchor as kit-bar gear (1×1 slots each, bundled 1-5/6-10/11-20 = s/m/l slot; 5c each; 12h wall-clock base durability, lambda's mountain gear ×2 → 24h; spatial storm-at-gear-cell decay ×3). **All gear is placed** (no held/in-use model) — anchor at shore creates rope spanning river (up to 2 cells per anchor), chained ladders share one decay clock as atomic multi-cell infrastructure. Placement consumes inventory + creates world-overlay structure usable by others. Trails land with shared world-overlay data plumbing (per-cell trample, multiplayer-synced, emergent social paving). Mountain-pass carving as natural extension. Storms sweep across 2D interior (not just ring). **Ceramic wrap (theta t40, shipped v0.0.9.5)** waterproofs fragile cargo during river crossings + fall-downstream incidents — cross-patch synergy already wired. 9 flag-only upgrades from v0.0.9.5 (riverWaders, ceramicWrap, mobileCarrier1/2, mountainGear, improvedTieDowns, exoskeleton1/2, topographicMap) get their real effect code wired this patch. See [v0.0.9.6 implementation plan](#v0096-implementation-plan). Dispatch log virt still benched at **v0.0.9.8**; see [its plan](#v0098-implementation-plan).
+
+## just shipped — v0.0.9.7.5 — kit-bar / route-map polish + queue closeout
+
+Fifth commit of v0.0.9.7. Closes out four of the six items from the .6.5 review queue: items 1+4 already shipped during the .6.9.x cycle, items 2+3 ship here. Cache-bust bumped 097-0-4 → 097-0-5 across 43 files via [tlh/scripts/bump-version.sh](tlh/scripts/bump-version.sh); subtitle now reads `v0.0.9.7.5`.
+
+### queue closeout
+
+Four-item pass on the v0.0.9.7 polish queue (locked 2026-04-18 in the .6.5 review):
+
+- ✅ **Kit-bar reorder** — shipped at v0.0.9.6.9.9 + .6.9.25 (gear group clustered with auto-gear at the right edge). Sticky-gun-to-front sub-item closed without action this session: current order (scanner → gun → exo → gear cluster → auto-gear) reads fine post-.6.x.
+- ✅ **Ladder glyph rework** — kit-bar capsule swapped to inline `LADDER_SVG` at v0.0.9.6.9.25; route-map glyph swapped here. See below.
+- ✅ **Map structure sizing** — fs 9 → 8 + drop-shadow gated. See below.
+- ✅ **Auto-button visual consistency** — shipped at v0.0.9.6.9.9 (`.kit-auto-btn` migrated to `.boots-auto` matching autobuy / autodrink / auto-grab). Per-function split (`auto-ladder` / `auto-anchor`) closed without action this session: ladder + anchor placement decisions are usually paired in practice; revisit only if a player flags it.
+
+Items 5 (log dedup) and 6 (climbing animations) remain. .7.6 lands log dedup; climbing animations defer out of .7 (paired with parked destDrift / scene-backdrop rework — both touch the side-view motion model).
+
+### ladder glyph rework (route-map half)
+
+Route-map placed-ladder glyph at [tlh/js/data/terrain.js:GEAR_GLYPH](tlh/js/data/terrain.js) swapped from `‐‐` (HYPHEN × 2) — which read as a single dash at fs 8, exactly the complaint that put the item in the queue — to `Ħ` (H WITH STROKE: rails + crossbar). Pairs symmetrically with the dagger anchor: ladder spans + crosses, anchor strikes + grounds.
+
+Live-iteration during the build:
+
+1. First swap to `≡` (IDENTICAL TO, three rungs). Visually faithful to "rungs" but at fs 8 without a drop-shadow halo, the three thin bars compressed into a near-illegible smear.
+2. Tried adding the always-on drop-shadow back to compensate. Worked but undermined the parallel "drop the heaviness" goal of the sizing change.
+3. Swapped to `Ħ`. Reads cleanly at fs 8 without the halo.
+
+Trade-off chosen: a less-literal "rungs" shape (Ħ has one crossbar, not three) for legibility at the new size. The "minor placed structure" reading wins; literal rung-count loses.
+
+Considered + ruled out (with measurement data via canvas font-fallback width comparison at fs 8 in the Source Code Pro stack, M-width = 4.78px reference):
+- `≡` IDENTICAL TO (4.40px) — too thin without halo
+- `㆔` IDEOGRAPHIC TALLY 3 (8.00px, 1.67× M) — most literal rungs but CJK font fallback renders fullwidth, disrupting layout density on the route map
+- `☰` TRIGRAM HEAVEN (7.18px, 1.5× M) — same CJK fallback issue
+- `𝝣` MATH BOLD ITALIC XI (4.68px) — measures in-font but renders nearly invisible; font-coverage hole in Source Code Pro for the supplementary plane
+- `Ⲷ` COPTIC HEI (4.86px) — close call; structurally similar to Ħ but Coptic block coverage less universal across systems
+- `Ξ` GREEK XI uppercase (4.80px) — namespace risk vs lowercase `ξ` (xi NPC's rim callsign)
+- `H` plain ASCII (4.80px) — Latin-clean but symmetric; doesn't pair as cleanly with the asymmetric dagger anchor
+
+### map structure sizing
+
+Route-map placed gear (ladder + anchor) on the route map:
+
+- `font-size` `9` → `8` at [tlh/js/render/route-map.js](tlh/js/render/route-map.js) (placed-gear render branch)
+- always-on `filter: drop-shadow(0 0 1.5px currentColor)` on `.route-gear` → gated to `.route-gear.gear-rotting` only (alongside the existing rot-pulse keyframe)
+
+Healthy gear now renders as flat text — sits as a minor mark on the map vs the NPC nodes (fs 13, r=8/10) and the rim road segments (1.5px stroke). Only ailing infrastructure glows + pulses, which doubles as a "needs attention" signal. The font-size drop alone wasn't enough to drop the visual weight; the always-on shadow was carrying about half of the heaviness. Together they bring placed gear visibly under the node hierarchy without losing legibility on the new `Ħ` glyph.
+
+### file map
+
+**New (none — all reuse).**
+
+**Modified:**
+- [tlh/js/data/terrain.js](tlh/js/data/terrain.js) — `GEAR_GLYPH.ladder` `'\u2010\u2010'` → `'\u0126'` (Ħ); leading comment block rewritten with the iteration story
+- [tlh/js/render/route-map.js](tlh/js/render/route-map.js) — placed-gear `font-size` `'9'` → `'8'`, comment added explaining the change
+- [tlh/the-long-haul.css](tlh/the-long-haul.css) — `.route-gear` loses the always-on `filter: drop-shadow`; moved into `.route-gear.gear-rotting` alongside the existing pulse keyframe
+- [tlh/the-long-haul.html](tlh/the-long-haul.html) — subtitle bump `.7.4` → `.7.5`
+- 43 files — cache-bust query strings via `bash tlh/scripts/bump-version.sh 097-0-5`
+
+### explicit non-scope (decisions logged)
+
+- **Sticky-gun-to-front kit-bar reorder** — closed without action. The original "tactile-vs-electronic" framing from the .6.5 queue didn't survive the .6.9.x reorder cleanly; current order reads fine.
+- **Per-function auto-toggle split** (`auto-ladder` / `auto-anchor`) — closed without action; ladder + anchor are usually placed in tandem.
+- **Always-on drop-shadow** — tried mid-build, kept briefly (so `≡` would read), then reverted when the glyph swapped to `Ħ` which reads without the halo.
+- **Layout-disruptive glyph candidates** (`㆔`, `☰`) — ruled out via canvas font-fallback width measurement at fs 8 (~1.5-1.7× M-width due to CJK fallback). Visually striking but would render fullwidth on the route map and crowd adjacent gear.
+
+### what's next
+
+**.7.6 — repeated-message log compression.** Sandalweed-harvest style messages with inline counts (`(3/5)` → `(4/5)`) break the existing `×N` dedup key; rework to pull the variable count out of the dedup-checked text so repeats collapse. Small, isolated.
+
+**.7.7 — topo follow-ups** per [tlh/.handoff-topo/README.md](tlh/.handoff-topo/README.md) spec, scope locked this session:
+- Outside-ring dim + diagonal hatch (gated on `topographicMap`)
+- Vignette (gated on `topographicMap`)
+- Ring polygon dashed outline, `3 3` dasharray, opacity 0.55 (always — sits on top of existing solid edge segments; adds a clear ring boundary)
+- Ring road: drop-shadow `0 0 2px rgba(0,0,0,0.55)` + 1.5 → 1.6px stroke (keep existing 3-tier stage tinting per session call — flattening to uniform `#2a5c5a` would drop a meaningful "discovered vs unvisited" cue)
+- Node circles: panelDarker `#081f1e` stage-3 fill + textMid `#4a7a78` glyph + textDim `#3a6a68` label weight 400 — the "well cut into the contour ground" effect from the spec (gated on `topographicMap`; without the topo raster the panelDarker fill would read as muddy)
+- Courier: unchanged (mockup's sonar pulse + r=4.5 → r=3.4 / stroke 1.4 → 1.3 tweak both cut as gilding; the existing moving `#routeDot` already does the static-position-dot job the spec wants)
+
+After .7.7 closes, v0.0.9.7 wraps; v0.0.9.8 (the kitchen — cooking system) opens.
+
+---
 
 ## just shipped — v0.0.9.7.2 — cargo log becomes a drawer
 
@@ -485,13 +564,13 @@ Bottom rim reads as a **descent through human eras** — pi's contemporary resea
 5. ✅ **v0.0.9.4.1** — cursor pickup + drag-drop + ground tooltips + eject-from-cargo. Two scope commits + bugfix cascade. Tooltips via body-portal (#pkgTooltip escapes fieldstrip clipping), in-range cursor-pointer + click-to-pickup + `grab: auto|off` toggle, drag-to-toss with modifier-scaled lost chance, kept pkgs drop at courier cell ±3 (cooldown so auto doesn't re-grab), lost pkgs route through postLostDrop recovery pipeline. Bidirectional cursor pickup, sticky-tooltip reconciliation, button stacking fixes rolled in. See [v0.0.9.4.1 implementation plan](#v00941-implementation-plan).
 6. ✅ **v0.0.9.5 — NPC expansion + battery baseline**. Five-commit patch shipped 2026-04-17. (1) Rim reshape + save migration v7→v8: 12-node rounded-square rim with 25px corner arcs, player start at tau, edge-index mapping via snap-to-tau for old saves, Greek-letter nodeIds for the new 6, dest-weight curve extended to 12. (2) 6 new NPCs with ~280 lines of authored dialogue (nu/theta/gamma/lambda/pi/delta) + character-expressive trust profiles for all 12 (veteran/wetland-path/homecoming/stormwise/archivist/wayfinder/guardian/artisan/debt-easer/adventurer/researcher/routine) retiring the default/careful/scavenger generics. Per-NPC state fields persisted for stateful profiles. (3) Battery baseline: innate solar trickle regen peaking at midday, full-idle-day 0→~95 charge; stickyGun decoupled from drain; daylightOf + TICKS_PER_DAY exported as shared source of truth. (4) 13 new trust-reward upgrades across the 6 new NPCs + xi scannerT2 + psi topographicMap; `efficientConsumption` migrated scrip → nu t20 as drip-feed integration with inverse retro-grant for pre-.5 saves; gear-shaped rename pass (6 id-stable display-name changes); real mechanics wired for reservoirTank/solarPanel/rainfallTurbine/scannerT2; flag-only stubs for 9 upgrades gated on v0.0.9.6 terrain/gear. (5) Label pool expansion to 232 labels (from ~110) with fresh 15-23-label pools per new NPC + iota/phi boost + 20 plateau-top-eligible cross-tagged labels restricted to near-start NPC allowlist. See [v0.0.9.5 implementation plan](#v0095-implementation-plan).
 7. **v0.0.9.6** — **world patch: terrain bones + gear + world-overlay + trails** (merged from old .5 + .6; design refined 2026-04-17). **Idle-game-first philosophy: no hard gates on traversal — gear is efficiency, never requirement.** Terrain types anchored at v0.0.9.5 corner NPCs: rivers (theta NE source, flow diagonally SW, clay beds in `#98875f` / `#a64a2e`); mountain massifs at SW corner (pi's summit area + lambda's slope), severe penalty but always traversable, some "steep pitch" cells tagged for 2-chained-ladder coverage; **plateau / mesa country** (east side between theta and xi) — visual obstacles with walkable paths carved between, plateau tops gated by placed ladder for pkg-top rewards, placed anchor for controlled descent else fall-as-guaranteed-trip; rocky hills as connective tissue between SW mountains and east mesas (through gamma's right-rim); desert at nu's NW with day-scaled stamina drain. Rivers classified creek (1 cell, ladder-bridgeable or anchor-crossable) / river (1-2 cell, both options) / wide river (3+ cell, ladder bridge only); **failed no-gear crossings trigger fall-and-ride-downstream failure mode** — courier swept downstream ~5-10 ticks, catches themselves, pathfinding auto-reroutes to original destination. Shortcut mechanic rewrite: flat SHORTCUT_STAMINA_MULT / SHORTCUT_TRIP_MULT retired in favor of per-cell terrain effects. Interior brought on-grid (weather + scanner + river-refill + terrain effects active during shortcut; pkg pickup in interior stays off pending .7+, except plateau tops). Ladder + anchor as kit-bar gear (1×1 slots each, bundled 1-5/6-10/11-20 = s/m/l slot; 5c each; ~12h wall-clock base durability, lambda's mountain gear ×2 → 24h; spatial storm-at-gear-cell decay ×3; visible wear states). Mountain penalty: 2.0× trip / 1.5× stamina base; placed ladder reduces ascent-cell penalty toward 1.5×/1.25×; placed anchor reduces descent-cell penalty same. **All gear is placed** (no held/in-use model) — anchor at shore creates rope spanning river (up to 2 cells per anchor; wider requires bridge); rope retracts to anchor after each crossing; chained ladders share one decay clock as atomic multi-cell infrastructure. Placement consumes inventory + creates world-overlay structure usable by others. Trails land with shared world-overlay data plumbing — per-cell trample value, save-stored + multiplayer-synced, virgin terrain costs more than walked-in paths, emergent social paving. Mountain-pass carving as natural extension. Storms sweep across 2D interior (not just ring); spawn frequency 2×; multiple concurrent storms; combine/intersect logic stubbed for future. Ceramic wrap (theta t40 from v0.0.9.5) waterproofs fragile cargo during river crossings + fall-downstream incidents. See [v0.0.9.6 implementation plan](#v0096-implementation-plan).
-8. **v0.0.9.7** — polish slot. Queued items (locked 2026-04-18 during v0.0.9.6.5 review):
-   - **Kit-bar reorder.** Move ladder + anchor capsules next to the auto-gear toggle (gear + its toggle clustered together). Move sticky gun to the front of the bar — it's a tactile tool, not an electronic one, so it reads better alongside battery.
-   - **Ladder glyph rework.** `‐‐` reads as a dash more than rungs; need a better glyph for "ladder" that isn't already used.
-   - **Map structure sizing.** Ladders + anchors render too large on the route map for "minor placed structures" — they should be visibly smaller than NPC nodes / ring segments.
-   - **Auto-button visual consistency.** Pattern is dashed cyan when on, faded when off; current `.kit-auto-btn` has it inverted (dashed when off). Align with `grab: auto` / `drink: auto` styling. Rename `auto-gear: on` to split into per-function toggles if needed (user flagged `autodrink: on` as the clearer pattern — `auto-gear` / `auto-drink` / `auto-grab` etc).
+8. **v0.0.9.7** — polish slot. Queue review (locked 2026-04-18 during v0.0.9.6.5 review; closeout pass 2026-05-03 during v0.0.9.7.5):
+   - ✅ **Kit-bar reorder** — gear group (ladder + anchor + auto-gear) clustered at the right edge; scanner / gun lead. Shipped at v0.0.9.6.9.9 + .6.9.25 ahead of schedule. Sticky-gun-to-front sub-item explicitly closed without action during .7.5 review (current order reads fine post-.6.x).
+   - ✅ **Ladder glyph rework** — kit-bar capsule swapped to inline `LADDER_SVG` at v0.0.9.6.9.25; route-map glyph swapped from `‐‐` (HYPHEN × 2, read as a single dash at 8px) to `≡` (IDENTICAL TO, three rungs) at v0.0.9.7.5. Pairs with the dagger anchor — anchor strikes vertical, ladder spans horizontal.
+   - ✅ **Map structure sizing** — gear glyphs dropped from font-size 9 → 8 and the always-on drop-shadow gated to `.gear-rotting` only, so healthy gear renders flat and only ailing infrastructure glows + pulses. Shipped at v0.0.9.7.5.
+   - ✅ **Auto-button visual consistency** — `.kit-auto-btn` migrated to `.boots-auto` matching autobuy / autodrink / auto-grab. Shipped at v0.0.9.6.9.9. Per-function split (auto-ladder / auto-anchor) closed without action during .7.5 review — ladder + anchor decisions are usually paired in practice; revisit only if a player flags it.
    - **Repeated-message log compression.** Log already has `×N` repeat collapsing for identical messages. Some event messages (sandalweed harvest especially) include inline counts that break the dedup key — `"harvested sandalweed (3/5)"` never matches `(4/5)` so they don't compress. Rework those messages to move the variable count out of the dedup-checked text so repeats collapse.
-   - **Ground-strip thick climbing animations** (from commit 3 deferrals). Vertical `@` baseline shift on mountain ascent, ladder rung overlays, rope render for anchor-descent, fall animation on plateau-descent without anchor. Pairs with the parked destDrift / scene-backdrop rework since both touch the side-view motion model.
+   - **Ground-strip thick climbing animations** (from commit 3 deferrals). Vertical `@` baseline shift on mountain ascent, ladder rung overlays, rope render for anchor-descent, fall animation on plateau-descent without anchor. Pairs with the parked destDrift / scene-backdrop rework since both touch the side-view motion model — likely defers out of .7 since destDrift isn't moving.
 9. **v0.0.9.8** — dispatch log virtualization + significance-tagged persistence (benched here during .3.1 planning). Windowed DOM render backed by an unbounded `_transient.logHistory`; significant events (deliveries, trust unlocks, discoveries, milestones, trip losses, in-progress pickups, etc.) tagged at `addLog` time and persisted into `S.log` so a player can scroll back through a courier's journey across sessions. Slotted after NPC + world work so the significance taxonomy can fold in the .4-.6 event vocabulary (new NPC dialogue, terrain-specific events, new trust gifts) before the journal starts persisting — bigger patch when picked up, much richer persistent journal. All .3.1 design decisions (window sizing, scroll-pinning, persisted cap, pickup-on-inventory, prior-session separator) remain locked; only the taxonomy list needs an audit-and-expand pass before building. See [v0.0.9.8 implementation plan](#v0098-implementation-plan).
 10. **v0.0.9.9+** — balance, dialogue polish, mountain-pass-carving tuning, deferred tail. Final polish pass across the whole v0.0.9 arc.
 

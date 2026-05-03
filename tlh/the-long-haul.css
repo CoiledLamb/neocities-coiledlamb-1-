@@ -1285,15 +1285,17 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
    on both, flex split the slack and centered the gear pair. */
 
 /* v0.0.9.6 commit 4 — placed gear glyphs on the route map. Wear
-   color comes from the inline fill in route-map.js; this just
-   applies the drop-shadow pulse so infrastructure reads as placed,
-   not painted. */
+   color comes from the inline fill in route-map.js.
+   v0.0.9.7.5 — drop-shadow gated to .gear-rotting (was always-on).
+   Healthy gear now renders as flat text so it sits as a minor mark
+   on the map; only ailing infrastructure glows + pulses, which
+   doubles as a "needs attention" signal. */
 .route-gear {
   font-weight: 700;
-  filter: drop-shadow(0 0 1.5px currentColor);
 }
 .route-gear.gear-rotting {
   animation: gear-rot-pulse 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 1.5px currentColor);
 }
 @keyframes gear-rot-pulse {
   0%, 100% { opacity: 1; }

@@ -408,19 +408,23 @@ export const GEAR_STORM_DECAY_PER_TICK_MS = 0;  // commit 7 will set real value
 export const GEAR_PRICE = 5;
 
 // Glyphs + colors per wear tier for the on-map render.
-// Ladder uses diagonal bars for rung flavor; anchor uses
-// DAGGER unicode for the "stabbed into the earth" shape
-// user called out.
+// v0.0.9.7.5 — Ladder uses H WITH STROKE (rails + crossbar);
+// anchor uses DAGGER ("stabbed into the earth"). The pair
+// reads symmetrically: ladder spans + crosses, anchor strikes
+// + grounds. Previous ladder was HYPHEN x 2 (read as a single
+// dash at fs 8); IDENTICAL TO (≡) was tried during .7.5 build
+// but rails + crossbar (Ħ) read more clearly without the
+// drop-shadow halo (which is gated to gear-rotting).
 export const GEAR_GLYPH = {
-  ladder: '\u2010\u2010',  // '‐‐' — rungs
-  anchor: '\u2020',        // '†'  — dagger
+  ladder: '\u0126',        // Ħ  — rails + crossbar
+  anchor: '\u2020',        // †  — dagger
 };
 
 // v0.0.9.6.9.30 — tier colors remapped to the cyan/warn/crit
 // brand ramp and resolved lazily from the CSS palette so a
 // future bone-theme switch picks up automatically. tier.color
 // is a getter — call sites stay unchanged.
-import { tlhPalette as _gearPalette } from '../palette.js?v=097-0-4';
+import { tlhPalette as _gearPalette } from '../palette.js?v=097-0-5';
 export const GEAR_WEAR_TIERS = [
   { max: 0.35, name: 'fresh',     get color() { return _gearPalette().accent; } },
   { max: 0.70, name: 'weathered', get color() { return _gearPalette().warn;   } },

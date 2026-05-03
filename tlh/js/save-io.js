@@ -31,15 +31,15 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-4';
-import * as C from './constants.js?v=097-0-4';
-import { buildSavePayload, saveGame, applySavePayload } from './persistence.js?v=097-0-4';
-import { addLog } from './render/log.js?v=097-0-4';
-import { updateHUD, renderCargoSlots, renderCourierStack } from './render/hud.js?v=097-0-4';
-import { drawRouteMap } from './render/route-map.js?v=097-0-4';
-import { renderSettlements } from './render/settlements.js?v=097-0-4';
-import * as Boots from './boots.js?v=097-0-4';
-import * as Stamina from './stamina.js?v=097-0-4';
+import { S } from './state.js?v=097-0-5';
+import * as C from './constants.js?v=097-0-5';
+import { buildSavePayload, saveGame, applySavePayload } from './persistence.js?v=097-0-5';
+import { addLog } from './render/log.js?v=097-0-5';
+import { updateHUD, renderCargoSlots, renderCourierStack } from './render/hud.js?v=097-0-5';
+import { drawRouteMap } from './render/route-map.js?v=097-0-5';
+import { renderSettlements } from './render/settlements.js?v=097-0-5';
+import * as Boots from './boots.js?v=097-0-5';
+import * as Stamina from './stamina.js?v=097-0-5';
 
 const PREFIX          = 'TLH-SAVE:';
 const GZIP_B64_PREFIX = 'H4sI';

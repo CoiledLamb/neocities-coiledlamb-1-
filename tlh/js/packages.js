@@ -33,23 +33,23 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-4';
-import * as C from './constants.js?v=097-0-4';
-import { NPC_DEFS } from './data/npc-defs.js?v=097-0-4';
+import { S } from './state.js?v=097-0-5';
+import * as C from './constants.js?v=097-0-5';
+import { NPC_DEFS } from './data/npc-defs.js?v=097-0-5';
 import {
   PKG_BASES, PKG_SIZE_WEIGHTS, PKG_SIZE_WEIGHTS_RISKY,
   PKG_TAG_EFFECTS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
   PKG_LABELS_BY_TERRAIN_ORIGIN,
-} from './data/packages.js?v=097-0-4';
-import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js?v=097-0-4';
-import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js?v=097-0-4';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-4';
-import { postActivity, shortPorterId, postLostDrop, formatPorterFreshness } from './multiplayer.js?v=097-0-4';
+} from './data/packages.js?v=097-0-5';
+import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js?v=097-0-5';
+import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js?v=097-0-5';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-5';
+import { postActivity, shortPorterId, postLostDrop, formatPorterFreshness } from './multiplayer.js?v=097-0-5';
 // v0.0.9.6.9.30.4 — updatePorterStripBadges, computeTrustGain,
 // speakDelivery, recordDelivery, removeFromInventories moved to
 // packages-delivery.js with tryDeliver.
-import { addTrust } from './trust.js?v=097-0-4';
-import { cartFits, pushToCart } from './carrier.js?v=097-0-4';
+import { addTrust } from './trust.js?v=097-0-5';
+import { cartFits, pushToCart } from './carrier.js?v=097-0-5';
 
 // v0.0.9.6.9.30j — bucket-routing helper. All three pickup paths
 // (NPC dispatch, ring/ground, interior) funnel new pkgs through this
@@ -76,13 +76,13 @@ function cartOrMainFits(pkg) {
 }
 // v0.0.9.6.9.30.4 — getNodeStage / setNodeStage / drawRouteMap /
 // renderSettlements moved to packages-delivery.js.
-import { sandalCap, renderBoots } from './boots.js?v=097-0-4';
-import { addLog } from './render/log.js?v=097-0-4';
-import { noteFound as cargoNoteFound } from './render/cargo-log.js?v=097-0-4';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-4';
-import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js?v=097-0-4';
-import { weatherAtCourier } from './weather.js?v=097-0-4';
-import { getDisplayLabel } from './identification.js?v=097-0-4';
+import { sandalCap, renderBoots } from './boots.js?v=097-0-5';
+import { addLog } from './render/log.js?v=097-0-5';
+import { noteFound as cargoNoteFound } from './render/cargo-log.js?v=097-0-5';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-5';
+import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js?v=097-0-5';
+import { weatherAtCourier } from './weather.js?v=097-0-5';
+import { getDisplayLabel } from './identification.js?v=097-0-5';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -91,7 +91,7 @@ const worldCells = S._transient.worldCells;
 // v0.0.9.6.9.30.4 — tryDeliver + its broadcast throttle
 // (DELIVERY_BROADCAST_GATE_MS, lastDeliveryBroadcastTs) moved to
 // packages-delivery.js. tryDeliver is re-exported below so existing
-// `import * as Pkg from './packages.js?v=097-0-4'` consumers keep working.
+// `import * as Pkg from './packages.js?v=097-0-5'` consumers keep working.
 
 // v0.0.7.21 — sticky gun occupies one cargo slot unless holstered.
 // Every pkg slot accounting goes through this helper so cargo
@@ -1259,9 +1259,9 @@ export function ejectFromCargo(invIdx) {
 // ============================================================
 // PACKAGE DELIVERY — tryDeliver lives in ./packages-delivery.js
 // (extracted v0.0.9.6.9.30.4). Re-exported below so existing
-// `import * as Pkg from './packages.js?v=097-0-4'` consumers keep working.
+// `import * as Pkg from './packages.js?v=097-0-5'` consumers keep working.
 // ============================================================
-export { tryDeliver } from './packages-delivery.js?v=097-0-4';
+export { tryDeliver } from './packages-delivery.js?v=097-0-5';
 
 export function tickPkgRespawns() {
   for (let i = 0; i < C.TOTAL_CELLS; i++) {

@@ -15,30 +15,30 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-4';
-import * as C from '../constants.js?v=097-0-4';
-import { getNodeStage, getDisplayLabel } from '../identification.js?v=097-0-4';
-import { TICKS_PER_DAY } from './sky.js?v=097-0-4';
-import { NPC_DEFS } from '../data/npc-defs.js?v=097-0-4';
+import { S } from '../state.js?v=097-0-5';
+import * as C from '../constants.js?v=097-0-5';
+import { getNodeStage, getDisplayLabel } from '../identification.js?v=097-0-5';
+import { TICKS_PER_DAY } from './sky.js?v=097-0-5';
+import { NPC_DEFS } from '../data/npc-defs.js?v=097-0-5';
 import {
   terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY,
   projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength,
   GEAR_GLYPH, gearWear, gearWearTier,
   cellKeyFromCoords, mesaOutcropAt,
-} from '../data/terrain.js?v=097-0-4';
+} from '../data/terrain.js?v=097-0-5';
 // v0.0.9.6.10.8 — trampleTier no longer consumed here (glyph-swap
 // dropped in favor of the persistent-dot layer). trampleAt is used
 // to floor the live trail's fade opacity.
-import { trampleAt } from '../trail.js?v=097-0-4';
+import { trampleAt } from '../trail.js?v=097-0-5';
 // v0.0.9.6.10.7 — use the density-filtered view of placed gear so
 // render matches placedGearAt() gameplay lookup. Full pool lives
 // on S.placedGear (persisted, broadcast-addressable); this is the
 // curated subset that should be visible to the player.
-import { visiblePlacedGear } from '../gear.js?v=097-0-4';
-import { speedMultiplier } from '../stamina.js?v=097-0-4';
-import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=097-0-4';
-import { tlhPalette } from '../palette.js?v=097-0-4';
-import { bakeSteppedHypsoPng } from '../data/topo-map.js?v=097-0-4';
+import { visiblePlacedGear } from '../gear.js?v=097-0-5';
+import { speedMultiplier } from '../stamina.js?v=097-0-5';
+import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=097-0-5';
+import { tlhPalette } from '../palette.js?v=097-0-5';
+import { bakeSteppedHypsoPng } from '../data/topo-map.js?v=097-0-5';
 
 const els = S._transient.els;
 
@@ -588,7 +588,12 @@ export function drawRouteMap() {
     t.setAttribute('x', entry.x);
     t.setAttribute('y', entry.y + 2);
     t.setAttribute('font-family', "'Source Code Pro',monospace");
-    t.setAttribute('font-size', '9');
+    // v0.0.9.7.5 — gear glyphs shrunk 9 -> 8 so placed
+    // infrastructure reads as minor marks beside NPC nodes
+    // (which stay at fs 13 + r=8/10). Pairs with the css
+    // change that gates the drop-shadow on .gear-rotting only,
+    // so healthy gear renders flat and only ailing gear glows.
+    t.setAttribute('font-size', '8');
     t.setAttribute('fill', tier.color);
     t.setAttribute('text-anchor', 'middle');
     t.setAttribute('class', `route-gear gear-${entry.type} gear-${tier.name}`);
