@@ -12,23 +12,23 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-23';
-import * as C from './constants.js?v=096-10-23';
-import { tick } from './main.js?v=096-10-23';
-import { buildWorld } from './world.js?v=096-10-23';
-import { initWeather } from './weather.js?v=096-10-23';
-import { setSilent, isSilent } from './multiplayer.js?v=096-10-23';
+import { S } from './state.js?v=097-0-4';
+import * as C from './constants.js?v=097-0-4';
+import { tick } from './main.js?v=097-0-4';
+import { buildWorld } from './world.js?v=097-0-4';
+import { initWeather } from './weather.js?v=097-0-4';
+import { setSilent, isSilent } from './multiplayer.js?v=097-0-4';
 import {
   startCollection, stopCollection, emit, sample, series, accum, isActive as telemetryActive,
-} from './telemetry.js?v=096-10-23';
-import { aggregateReports } from './sim-stats.js?v=096-10-23';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-23';
-import * as Upg from './upgrades.js?v=096-10-23';
+} from './telemetry.js?v=097-0-4';
+import { aggregateReports } from './sim-stats.js?v=097-0-4';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=097-0-4';
+import * as Upg from './upgrades.js?v=097-0-4';
 // v0.0.9.6.9.12 — direct import so applyFreshState can synchronously
 // seed interior pkgs. world.js uses a dynamic .then() seeder to break
 // a module-load cycle in live; the sim's sync tick loop never lets
 // that promise resolve, leaving S.interiorPkgs = {} for the whole run.
-import { seedInteriorPkgs } from './packages.js?v=096-10-23';
+import { seedInteriorPkgs } from './packages.js?v=097-0-4';
 
 // ============================================================
 // SNAPSHOT / RESTORE

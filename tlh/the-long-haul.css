@@ -1378,6 +1378,12 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   display: flex;
   min-height: 120px;
   flex: 1;
+  /* v0.0.9.7.2 — positioning context for the cargo drawer overlay,
+     and clip the drawer during slide so it doesn't briefly overlap the
+     right column (route / channels / network). Rich tooltips append to
+     body, not inside the panels, so clipping is safe here. */
+  position: relative;
+  overflow: hidden;
 }
 .tlh-panel {
   flex: 1;
@@ -1398,12 +1404,313 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   flex-shrink: 0;
 }
 
+/* v0.0.9.7 — panel sub-tabs (dispatch / cargo today; upgrades / structures
+   in v0.0.9.10). Sub-tabs replace .tlh-ptitle when a panel hosts multiple
+   sub-modes. Convention:
+     - First tab (primary) always wears the panel-title `//` prefix
+       regardless of active state — that's the panel's identity.
+     - Subsequent tabs (secondary) get bracketed `[label]` when active;
+       inactive tabs reserve the same width with transparent placeholders
+       so toggling doesn't shift layout.
+     - Active tab is full opacity; inactive tabs dim to 0.5; hover at 0.8. */
+.tlh-ptabs {
+  display: flex;
+  gap: 10px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  margin-bottom: 5px;
+  font-family: 'Source Code Pro', monospace;
+  flex-shrink: 0;
+}
+.tlh-ptab {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--tlh-text-dim);
+  opacity: 0.5;
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.tlh-ptab:hover { opacity: 0.8; }
+.tlh-ptab.is-active { opacity: 1; }
+/* primary (first) tab: always `// ` prefix */
+.tlh-ptab:first-child::before { content: '// '; }
+/* secondary tabs: bracketed when active, transparent placeholder when not */
+.tlh-ptab:not(:first-child)::before { content: '['; color: transparent; margin-right: 1px; }
+.tlh-ptab:not(:first-child)::after  { content: ']'; color: transparent; margin-left: 1px;  }
+.tlh-ptab:not(:first-child).is-active::before,
+.tlh-ptab:not(:first-child).is-active::after { color: var(--tlh-text-dim); }
+
 .tlh-panel > #logEl,
+.cargo-drawer > #cargoLogEl,
 .tlh-panel > #upgradesEl,
 .tlh-panel > #settlementsEl {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+}
+
+/* v0.0.9.7 — cargo log body. Tier A scroll treatment (mask-fade,
+   hidden scrollbar) shared with upgrades/settlements/channels —
+   added to the matching block below. Card visual is intentionally
+   minimal at skeleton stage; richer per-card layout lands when
+   lore density warrants. */
+.cargo-section {
+  margin-bottom: 10px;
+}
+.cargo-section-title {
+  font-size: 9px;
+  color: var(--tlh-text-dim);
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  margin: 4px 0 4px;
+  font-family: 'Source Code Pro', monospace;
+}
+.cargo-empty {
+  font-size: 10px;
+  color: var(--tlh-text-dim);
+  font-style: italic;
+  padding: 4px 0;
+}
+/* v0.0.9.7 — cargo filter strip. Lives inside the cargo drawer header
+   alongside the `// cargo` ptitle. Single button toggles for
+   hide-undiscovered + hide-cargo, plus a search input. Filters compose;
+   session-only state (filter values stick across drawer open/close but
+   reset on reload). */
+.cargo-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-family: 'Source Code Pro', monospace;
+  flex-shrink: 0;
+}
+.cargo-filter-btn {
+  background: none;
+  border: 1px solid var(--tlh-text-dim);
+  color: var(--tlh-text-dim);
+  padding: 2px 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+.cargo-filter-btn:hover { color: var(--tlh-text-mid); border-color: var(--tlh-text-mid); }
+.cargo-filter-btn.is-active {
+  color: var(--tlh-accent);
+  border-color: var(--tlh-accent);
+}
+.cargo-filter-search {
+  background: #0b2e2d;
+  border: 1px solid var(--tlh-text-dim);
+  color: var(--tlh-text-mid);
+  padding: 2px 6px;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  flex: 1;
+  min-width: 60px;
+  outline: none;
+}
+.cargo-filter-search:focus { border-color: var(--tlh-accent); color: var(--tlh-accent); }
+.cargo-filter-search::placeholder {
+  color: var(--tlh-text-dim);
+  opacity: 0.7;
+}
+/* v0.0.9.7 — card grid. auto-fit + minmax flows cards into 2+ columns
+   when the panel is wide enough, falling back to 1 column on narrow
+   screens. ~170px is the floor for a card to read cleanly without
+   wrap-thrashing the wanted-by line. */
+.cargo-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 4px;
+}
+.cargo-card {
+  border: 1px solid #1e5554;
+  padding: 6px 8px;
+  font-size: 10px;
+  font-family: 'Source Code Pro', monospace;
+  line-height: 1.35;
+}
+.cargo-card-undiscovered { opacity: 0.55; }
+.cargo-card-name {
+  color: var(--tlh-accent);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.cargo-card-undiscovered .cargo-card-name { color: var(--tlh-text-dim); }
+.cargo-card-meta,
+.cargo-card-stats,
+.cargo-card-cook {
+  color: var(--tlh-text-mid);
+  font-size: 9px;
+}
+.cargo-card-lore {
+  color: var(--tlh-text-dim);
+  font-style: italic;
+  margin-top: 2px;
+  font-size: 9px;
+}
+
+/* v0.0.9.7.2 — settlements ptitle becomes a flex row so the cargo
+   toggle button right-aligns alongside the title. Mirrors the
+   .route-ptitle pattern (clock right of "// route"). */
+.tlh-ptitle.settlements-ptitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+/* v0.0.9.7.2 — cargo drawer toggle. Plain dim "cargo" by default;
+   accent when the drawer is open (via aria-expanded). The
+   .has-pending state appends a small accent dot signaling that one
+   or more cards transitioned (undiscovered→found or found→delivered)
+   while the drawer was closed. JS clears it on drawer open. */
+.cargo-toggle-btn {
+  /* Bordered chip — mirrors .drink-btn (smoke / drink) so the cargo
+     toggle reads as a real button rather than fading into the panel
+     ptitle row. Transparent fill + thin teal rule + secondary text;
+     hover and open states light up to match the `.on` smoke style. */
+  background: transparent;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  padding: 2px 7px;
+  cursor: pointer;
+  color: var(--tlh-text-secondary);
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: lowercase;
+  transition: border-color 0.12s, color 0.12s;
+  flex-shrink: 0;
+  /* Float above the drawer so the same button doubles as the close
+     affordance when the drawer is open. The drawer (z-index 5) covers
+     the settlements ptitle; without this lift the button would be
+     buried and Esc / click-outside would be the only ways to close. */
+  position: relative;
+  z-index: 6;
+}
+.cargo-toggle-btn:hover { border-color: #40a4b9; color: var(--tlh-text); }
+.cargo-toggle-btn[aria-expanded="true"] {
+  color: var(--tlh-accent);
+  border-color: #40a4b9;
+}
+/* v0.0.9.7.3 — pending-discovery state. Replaces the earlier accent
+   dot pseudo-element with the site-wide oilslick border animation
+   (defined in boot.css as @keyframes oil-border + .oil-border-active).
+   Cycles border-color through the teal/cyan/violet/pink palette over
+   4s — eyecatching without movement. Animations override the static
+   border-color from the base rule, so no specificity gymnastics. */
+.cargo-toggle-btn.has-pending {
+  animation: oil-border 4s linear infinite;
+}
+
+/* v0.0.9.7.2 — cargo drawer overlay. Slides down over the upgrades +
+   settlements region so the dispatch log on the left stays visible and
+   the live event feed isn't displaced. Toggled by #cargoToggleBtn in
+   the settlements ptitle; Esc and click-outside also close it.
+
+   `left` and `width` are set inline by sizeCargoDrawer() in main.js by
+   measuring the upgrades + settlements panel rects — the .tlh-panel
+   children use box-sizing: content-box, so a pure-CSS flex-ratio calc
+   (1.5/3.7 etc.) over-shoots by the per-panel padding+border. Inline
+   measurement is robust to that and to future flex-ratio changes.
+   ResizeObserver keeps it in sync with window resize.
+
+   The drawer keeps the [hidden] attribute as the closed-state contract
+   for screen readers; we override [hidden]'s display: none so the
+   slide-out transition can play to completion before the attribute
+   reasserts in JS. */
+.cargo-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* Match the inline width set by sizeCargoDrawer() exactly. The
+     panels in this row use content-box (legacy), so box-sizing here
+     would otherwise add padding+border on top of the measured width
+     and overflow the parent by ~22px. */
+  box-sizing: border-box;
+  background: #0d3533;  /* panel — hardcoded across the file (no --tlh-panel var) */
+  border: 1px solid #1e5554;
+  padding: 7px 10px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  /* v0.0.9.7.2 — slides in from the right edge of the panels parent
+     (translateX(100%) puts the drawer's left edge just past the parent's
+     right edge). Ends in the upgrades+settlements span. */
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.18s ease, opacity 0.12s ease;
+  box-shadow: -6px 0 12px rgba(0, 0, 0, 0.35);
+}
+.cargo-drawer[hidden] { display: flex; }
+.cargo-drawer.is-open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+.cargo-drawer-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-bottom: 5px;
+}
+/* v0.0.9.7.4 — settlements ptitle right-side action group. The cargo
+   drawer toggle is the only flow child; the notify-mute toggle is
+   absolutely positioned to the LEFT of it so revealing the mute
+   button doesn't shift the cargo button's position when the drawer
+   opens. Mute is hidden by default and revealed while the drawer is
+   open (via body.cargo-drawer-open class set by openCargoDrawer in
+   main.js). The setting itself persists regardless of visibility —
+   hiding the button just keeps the closed-state ptitle uncluttered. */
+.settlements-ptitle-actions {
+  display: flex;
+  align-items: baseline;
+  position: relative;  /* containing block for absolute mute button */
+}
+/* v0.0.9.7.4 — notify-mute toggle. Same bordered-chip style as
+   .cargo-toggle-btn / .drink-btn. When pressed (muted), color flips to
+   accent — visually consistent with other "active" toggle states. */
+.cargo-mute-btn {
+  display: none;  /* revealed when body.cargo-drawer-open */
+  background: transparent;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  padding: 2px 7px;
+  cursor: pointer;
+  color: var(--tlh-text-secondary);
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: lowercase;
+  transition: border-color 0.12s, color 0.12s;
+  /* Sit to the left of the cargo toggle button without taking flow
+     space. right: 100% puts the mute's right edge at the parent's
+     left edge (= cargo button's left edge); +6px adds a visual gap.
+     Top: 0 baseline-aligns with the cargo button. */
+  position: absolute;
+  right: calc(100% + 6px);
+  top: 0;
+  white-space: nowrap;
+  /* Float above the drawer (z-index: 5) the same way .cargo-toggle-btn
+     does — without this lift the button would be buried by the drawer
+     overlay and unclickable. */
+  z-index: 6;
+}
+body.cargo-drawer-open .cargo-mute-btn { display: inline-block; }
+.cargo-mute-btn:hover { border-color: #40a4b9; color: var(--tlh-text); }
+.cargo-mute-btn[aria-pressed="true"] {
+  color: var(--tlh-accent);
+  border-color: #40a4b9;
 }
 
 /* v0.0.9.5.1 — no max/min height cap on the panel scroll children;
@@ -1420,14 +1727,19 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
    Tier B (visible teal scrollbar): dispatch log (#logEl) only.
      - Log aids searchability; the scrollbar thumb is a position indicator
      - Keep the existing teal thumb styling. */
-.tlh-panel > #logEl {
+.tlh-panel > #logEl,
+.cargo-drawer > #cargoLogEl {
   scrollbar-width: thin;
   scrollbar-color: #2a5c5a #0b2e2d;
 }
-.tlh-panel > #logEl::-webkit-scrollbar { width: 6px; }
-.tlh-panel > #logEl::-webkit-scrollbar-track { background: #0b2e2d; }
-.tlh-panel > #logEl::-webkit-scrollbar-thumb { background: #2a5c5a; border-radius: 3px; }
-.tlh-panel > #logEl::-webkit-scrollbar-thumb:hover { background: #3a6a68; }
+.tlh-panel > #logEl::-webkit-scrollbar,
+.cargo-drawer > #cargoLogEl::-webkit-scrollbar { width: 6px; }
+.tlh-panel > #logEl::-webkit-scrollbar-track,
+.cargo-drawer > #cargoLogEl::-webkit-scrollbar-track { background: #0b2e2d; }
+.tlh-panel > #logEl::-webkit-scrollbar-thumb,
+.cargo-drawer > #cargoLogEl::-webkit-scrollbar-thumb { background: #2a5c5a; border-radius: 3px; }
+.tlh-panel > #logEl::-webkit-scrollbar-thumb:hover,
+.cargo-drawer > #cargoLogEl::-webkit-scrollbar-thumb:hover { background: #3a6a68; }
 
 /* Tier A — mask-fade + hidden scrollbar. Shared by the three list
    panels that refresh often. The mask is gated on a `.has-overflow`

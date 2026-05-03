@@ -75,65 +75,71 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-23';
-import * as C from './constants.js?v=096-10-23';
-import { NPC_LINES } from './data/npc-lines.js?v=096-10-23';
-import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=096-10-23';
-import { ZONE_TYPES } from './data/zones.js?v=096-10-23';
-import { NODE_GLYPHS } from './data/glyphs.js?v=096-10-23';
-import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=096-10-23';
+import { S } from './state.js?v=097-0-4';
+import * as C from './constants.js?v=097-0-4';
+import { NPC_LINES } from './data/npc-lines.js?v=097-0-4';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=097-0-4';
+import { ZONE_TYPES } from './data/zones.js?v=097-0-4';
+import { NODE_GLYPHS } from './data/glyphs.js?v=097-0-4';
+import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=097-0-4';
 import {
   getPorterId, getCachedPorterId, postActivity, postLostDrop,
   fetchLostFromPeer, startPolling, stopPolling,
   shortPorterId, checkDistMilestones, isSilent, setSilent,
-} from './multiplayer.js?v=096-10-23';
-import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=096-10-23';
+} from './multiplayer.js?v=097-0-4';
+import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=097-0-4';
 import {
   getNodeStage, setNodeStage, markEdgeAdjacent, getDisplayLabel,
-} from './identification.js?v=096-10-23';
+} from './identification.js?v=097-0-4';
 import {
   addTrust, tryWarning, tryPreview, tryRestPrompt,
-} from './trust.js?v=096-10-23';
-import { renderChannels, tickAmbientChatter } from './channels.js?v=096-10-23';
+} from './trust.js?v=097-0-4';
+import { renderChannels, tickAmbientChatter } from './channels.js?v=097-0-4';
 import {
   buildWorld, calcCellPxWidth, worldPosFromRoute, renderFieldstrip,
   bindFieldstripInteractions,
-} from './world.js?v=096-10-23';
-import * as Pkg from './packages.js?v=096-10-23';
-import * as Trip from './trip.js?v=096-10-23';
-import * as Boots from './boots.js?v=096-10-23';
-import * as Carrier from './carrier.js?v=096-10-23';
-import * as Stamina from './stamina.js?v=096-10-23';
-import * as Upg from './upgrades.js?v=096-10-23';
-import { tickScanner } from './scanner.js?v=096-10-23';
-import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=096-10-23';
-import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=096-10-23';
-import { renderKit } from './render/kit.js?v=096-10-23';
-import { initAdminChannel } from './admin-channel.js?v=096-10-23';
-import { initSaveIo } from './save-io.js?v=096-10-23';
-import { addLog, restoreLogFromSave } from './render/log.js?v=096-10-23';
+} from './world.js?v=097-0-4';
+import * as Pkg from './packages.js?v=097-0-4';
+import * as Trip from './trip.js?v=097-0-4';
+import * as Boots from './boots.js?v=097-0-4';
+import * as Carrier from './carrier.js?v=097-0-4';
+import * as Stamina from './stamina.js?v=097-0-4';
+import * as Upg from './upgrades.js?v=097-0-4';
+import { tickScanner } from './scanner.js?v=097-0-4';
+import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=097-0-4';
+import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=097-0-4';
+import { renderKit } from './render/kit.js?v=097-0-4';
+import { initAdminChannel } from './admin-channel.js?v=097-0-4';
+import { initSaveIo } from './save-io.js?v=097-0-4';
+import { addLog, restoreLogFromSave } from './render/log.js?v=097-0-4';
+import {
+  setHideUndiscovered as cargoSetHideUndiscovered,
+  setHideCargo        as cargoSetHideCargo,
+  setSearchQuery      as cargoSetSearchQuery,
+  renderCargoLog,
+} from './render/cargo-log.js?v=097-0-4';
 import {
   updateHUD, renderCargoSlots, renderCourierStack,
-} from './render/hud.js?v=096-10-23';
-import { bindDragGlobals } from './render/drag.js?v=096-10-23';
+} from './render/hud.js?v=097-0-4';
+import { bindDragGlobals } from './render/drag.js?v=097-0-4';
 import {
   drawRouteMap, updateRouteDot, updateRouteHud, layoutRouteNodes, currentEdge,
   initSegment, advanceSegmentAfterArrival, bindRouteInteractions,
   tickRouteInteractions, isOnShortcut, courierTerrain,
-} from './render/route-map.js?v=096-10-23';
+} from './render/route-map.js?v=097-0-4';
 import {
   TERRAIN_STAMINA_MULT, TERRAIN_CANTEEN_DELTA, desertStaminaMult,
   GEAR_FOR_TERRAIN, GEAR_STAMINA_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=096-10-23';
+} from './data/terrain.js?v=097-0-4';
 import {
   autoPlaceForCell, placedGearAt, tickGearDecay, resetGearLogThrottles,
-} from './gear.js?v=096-10-23';
-import { addTrampleAt, trampleAt } from './trail.js?v=096-10-23';
-import { emit as tEmit } from './telemetry.js?v=096-10-23';
-import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=096-10-23';
-import { renderNetwork } from './render/network.js?v=096-10-23';
-import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=096-10-23';
+} from './gear.js?v=097-0-4';
+import { addTrampleAt, trampleAt } from './trail.js?v=097-0-4';
+import { emit as tEmit } from './telemetry.js?v=097-0-4';
+import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=097-0-4';
+import { renderNetwork } from './render/network.js?v=097-0-4';
+import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=097-0-4';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -209,6 +215,14 @@ function resolveEls() {
     canteenBar:   $('canteenBar'),
     tieDownBtn:   $('tieDownBtn'),
     logEl:        $('logEl'),
+    cargoLogEl:     $('cargoLogEl'),
+    cargoDrawer:    $('cargoDrawer'),
+    cargoToggleBtn: $('cargoToggleBtn'),
+    cargoMuteBtn:   $('cargoMuteBtn'),
+    cargoFilters:   $('cargoFilters'),
+    cargoFilterHideUndiscovered: $('cargoFilterHideUndiscovered'),
+    cargoFilterHideCargo:        $('cargoFilterHideCargo'),
+    cargoFilterSearch:           $('cargoFilterSearch'),
     upgradesEl:   $('upgradesEl'),
     settlementsEl:$('settlementsEl'),
     routeSvg:     $('routeSvg'),
@@ -717,6 +731,156 @@ function init() {
   bindOverflowFade(document.getElementById('upgradesEl'));
   bindOverflowFade(document.getElementById('settlementsEl'));
   bindOverflowFade(document.getElementById('channelsEl'));
+  // cargoLogEl uses Tier B (visible teal scrollbar like dispatch log) —
+  // no fade-mask binding needed.
+
+  // v0.0.9.7.2 — cargo drawer toggle. Drawer overlays the upgrades +
+  // settlements region; dispatch log on the left stays visible so the
+  // live event feed isn't displaced. Toggle button lives in the
+  // settlements ptitle; Esc and click-outside also close. Opening
+  // clears the .has-pending dot + S.cargoLog.pending (one visit covers
+  // any number of accumulated discoveries).
+  //
+  // The drawer keeps the [hidden] attribute as the closed-state contract
+  // for screen readers + tab navigation. CSS overrides [hidden]'s
+  // display: none so the slide-out transition can play; we re-add the
+  // attribute after the transition completes.
+  //
+  // Width/left are JS-measured rather than CSS-calc'd because .tlh-panel
+  // uses content-box sizing: a pure flex-ratio calc over-shoots by per-
+  // panel padding+border. Measuring the upgrades + settlements rect
+  // span is robust to that and to future flex-ratio changes.
+  const DRAWER_TRANSITION_MS = 200;
+  function sizeCargoDrawer() {
+    if (!els.cargoDrawer) return;
+    const upgrades    = els.upgradesEl    && els.upgradesEl.parentElement;
+    const settlements = els.settlementsEl && els.settlementsEl.parentElement;
+    const parent      = els.cargoDrawer.parentElement;
+    if (!upgrades || !settlements || !parent) return;
+    const parentLeft = parent.getBoundingClientRect().left;
+    const upRect     = upgrades.getBoundingClientRect();
+    const stRect     = settlements.getBoundingClientRect();
+    const leftPx     = upRect.left  - parentLeft;
+    const widthPx    = stRect.right - upRect.left;
+    els.cargoDrawer.style.left  = leftPx  + 'px';
+    els.cargoDrawer.style.width = widthPx + 'px';
+  }
+  sizeCargoDrawer();
+  if (typeof ResizeObserver === 'function' && els.cargoDrawer) {
+    const ro = new ResizeObserver(sizeCargoDrawer);
+    if (els.cargoDrawer.parentElement) ro.observe(els.cargoDrawer.parentElement);
+  }
+  function openCargoDrawer() {
+    if (!els.cargoDrawer || !els.cargoToggleBtn) return;
+    els.cargoDrawer.removeAttribute('hidden');
+    els.cargoDrawer.setAttribute('aria-hidden', 'false');
+    // Force a layout flush so the transition plays from the
+    // translateX(100%) starting state rather than skipping straight
+    // to translateX(0).
+    void els.cargoDrawer.offsetWidth;
+    els.cargoDrawer.classList.add('is-open');
+    els.cargoToggleBtn.setAttribute('aria-expanded', 'true');
+    // v0.0.9.7.4 — body class drives .cargo-mute-btn visibility (CSS).
+    document.body.classList.add('cargo-drawer-open');
+    if (S.cargoLog && S.cargoLog.pending) {
+      S.cargoLog.pending = false;
+      els.cargoToggleBtn.classList.remove('has-pending');
+    }
+    renderCargoLog();
+  }
+  function closeCargoDrawer() {
+    if (!els.cargoDrawer || !els.cargoToggleBtn) return;
+    if (!els.cargoDrawer.classList.contains('is-open')) return;
+    els.cargoDrawer.classList.remove('is-open');
+    els.cargoDrawer.setAttribute('aria-hidden', 'true');
+    els.cargoToggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('cargo-drawer-open');
+    setTimeout(() => {
+      if (els.cargoDrawer && !els.cargoDrawer.classList.contains('is-open')) {
+        els.cargoDrawer.setAttribute('hidden', '');
+      }
+    }, DRAWER_TRANSITION_MS);
+  }
+  function toggleCargoDrawer() {
+    if (els.cargoDrawer && els.cargoDrawer.classList.contains('is-open')) {
+      closeCargoDrawer();
+    } else {
+      openCargoDrawer();
+    }
+  }
+  if (els.cargoToggleBtn) {
+    els.cargoToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleCargoDrawer();
+    });
+    // Seed the pending notification from save state (covers
+    // reload-mid-discovery). Mute setting suppresses the visual; the
+    // pending bit remains true so un-muting will re-surface it.
+    if (S.cargoLog && S.cargoLog.pending && !S.cargoLog.notifyMuted) {
+      els.cargoToggleBtn.classList.add('has-pending');
+    }
+  }
+  // v0.0.9.7.4 — notify-mute toggle. Visual-only mute: pending bit
+  // stays accurate so un-muting reveals accumulated state. Click
+  // stops propagation so the drawer's click-outside handler doesn't
+  // close the drawer when the player toggles mute mid-browse.
+  if (els.cargoMuteBtn) {
+    const seedMuted = !!(S.cargoLog && S.cargoLog.notifyMuted);
+    els.cargoMuteBtn.setAttribute('aria-pressed', seedMuted ? 'true' : 'false');
+    els.cargoMuteBtn.textContent = `notify: ${seedMuted ? 'off' : 'on'}`;
+    els.cargoMuteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const muted = !S.cargoLog.notifyMuted;
+      S.cargoLog.notifyMuted = muted;
+      els.cargoMuteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      els.cargoMuteBtn.textContent = `notify: ${muted ? 'off' : 'on'}`;
+      // Sync the visual: kill the oilslick if muting, restore it if
+      // un-muting and there's still a pending discovery.
+      if (muted) {
+        els.cargoToggleBtn.classList.remove('has-pending');
+      } else if (S.cargoLog.pending) {
+        els.cargoToggleBtn.classList.add('has-pending');
+      }
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && els.cargoDrawer && els.cargoDrawer.classList.contains('is-open')) {
+      closeCargoDrawer();
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (!els.cargoDrawer || !els.cargoDrawer.classList.contains('is-open')) return;
+    if (els.cargoDrawer.contains(e.target)) return;
+    if (els.cargoToggleBtn && els.cargoToggleBtn.contains(e.target)) return;
+    closeCargoDrawer();
+  });
+
+  // v0.0.9.7 — cargo filter handlers. All toggles share the same shape:
+  // toggle is-active class + aria-pressed, then call into cargo-log to
+  // mutate filter state and re-render. Filters compose.
+  function bindToggle(btn, onChange) {
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const on = !btn.classList.contains('is-active');
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      // v0.0.9.7.3 — verb-flip the label so "hide pkgs" reads as
+      // "show pkgs" while the filter is active. Opt-in via data-noun
+      // on the button; toggles without that attribute keep their
+      // static label.
+      if (btn.dataset.noun) {
+        btn.textContent = (on ? 'show ' : 'hide ') + btn.dataset.noun;
+      }
+      onChange(on);
+    });
+  }
+  bindToggle(els.cargoFilterHideUndiscovered, cargoSetHideUndiscovered);
+  bindToggle(els.cargoFilterHideCargo,        cargoSetHideCargo);
+  if (els.cargoFilterSearch) {
+    els.cargoFilterSearch.addEventListener('input', () => {
+      cargoSetSearchQuery(els.cargoFilterSearch.value || '');
+    });
+  }
 
   const [curFrom, curTo] = S.edges[S.edgeIdx];
   markEdgeAdjacent(curFrom, curTo);

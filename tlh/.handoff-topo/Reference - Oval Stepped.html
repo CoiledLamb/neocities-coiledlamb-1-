@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>route map — oval stepped (handoff reference)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #155352; }
+  body { font-family: 'Source Code Pro', ui-monospace, monospace; color: #b1c9c3;
+         display: grid; place-items: center; }
+  .frame { width: 460px; height: 500px; }
+  .label { position: fixed; left: 20px; top: 16px; font-size: 11px;
+           color: #7aa8a6; letter-spacing: 0.06em; }
+</style>
+</head>
+<body>
+<div class="label">// route map — oval stepped (chosen variant)</div>
+<div class="frame" id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="src/map-data.jsx"></script>
+<script type="text/babel" src="src/topo-shared.jsx"></script>
+<script type="text/babel" src="src/topo-variations.jsx"></script>
+<script type="text/babel" src="src/map-card.jsx"></script>
+
+<script type="text/babel">
+  // CHOSEN VARIANT: oval lake shape, stepped (banded) hypsometric tint,
+  // paper hydro palette, no hydro line overlays, no lake polygon overlay
+  // (the elevation depression alone communicates the lake).
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <MapCard
+      hydroPalette="paper"
+      desertHatch={true}
+      lakeShape="oval"
+      hydroLines={false}
+      showLake={false}
+      terrain={<TerrainStepped bands={8}/>}
+    />
+  );
+</script>
+</body>
+</html>

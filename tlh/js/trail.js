@@ -31,12 +31,12 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-23';
+import { S } from './state.js?v=097-0-4';
 import {
   cellKeyFromCoords,
   TRAMPLE_PER_STEP,
   TRAMPLE_PASS_THRESHOLD,
-} from './data/terrain.js?v=096-10-23';
+} from './data/terrain.js?v=097-0-4';
 
 /** Read trample at the snapped cell. Returns 0 for untracked cells
  *  (the sparse table keeps save payloads small — cells with zero
@@ -69,7 +69,7 @@ export function addTrampleAt(x, y, amount) {
     // TRAMPLE_PER_STEP is small vs threshold gaps.
     for (const th of TRAMPLE_MILESTONES) {
       if (current < th && next >= th) {
-        import('./multiplayer.js?v=096-10-23').then(m => {
+        import('./multiplayer.js?v=097-0-4').then(m => {
           if (typeof m.broadcastTrampleMilestone === 'function') {
             m.broadcastTrampleMilestone(key, next);
           }
@@ -96,7 +96,7 @@ export function receiveTrampleMilestone(payload) {
     // cell to pass-carve level — meaningful shared event). Lower
     // tiers stay silent to avoid channel spam.
     if (value >= TRAMPLE_PASS_THRESHOLD && current < TRAMPLE_PASS_THRESHOLD) {
-      import('./channels.js?v=096-10-23').then(ch => {
+      import('./channels.js?v=097-0-4').then(ch => {
         if (typeof ch.postTrampleChannelMsg === 'function') {
           ch.postTrampleChannelMsg(payload.placerId || '');
         }

@@ -4,13 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Long Haul — Coiled Lamb</title>
+
+  <!-- discoverability surfaces — content + image authored at 1.0 launch -->
+  <meta name="description" content="" />
+  <link rel="canonical" href="" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:site_name" content="Coiled Lamb" />
+  <meta property="og:title" content="" />
+  <meta property="og:description" content="" />
+  <meta property="og:url" content="" />
+  <meta property="og:image" content="" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="" />
+  <meta name="twitter:description" content="" />
+  <meta name="twitter:image" content="" />
+
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="../boot.css" />
   <link rel="stylesheet" href="../nav.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="the-long-haul.css" />
+  <link rel="stylesheet" href="the-long-haul.css?v=097-0-4" />
 </head>
 <body>
   <div id="scanlines"></div>
@@ -27,7 +43,7 @@
 
         <div class="tlh-header">
           <h1 class="tlh-title">the long haul</h1>
-          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.6.10.23</span></span></p>
+          <p class="tlh-subtitle">post-post apocalypse idle courier &mdash; <span class="oil-text">v0.0.9<span style="opacity:0.6">.7.4</span></span></p>
         </div>
 
         <div class="tlh-layout">
@@ -152,8 +168,31 @@
                 <div id="upgradesEl"></div>
               </div>
               <div class="tlh-panel" style="flex:1">
-                <div class="tlh-ptitle">// settlements</div>
+                <div class="tlh-ptitle settlements-ptitle">
+                  <span>// settlements</span>
+                  <span class="settlements-ptitle-actions">
+                    <button class="cargo-mute-btn" id="cargoMuteBtn" type="button" aria-pressed="false" aria-label="toggle new-cargo notifications">notify: on</button>
+                    <button class="cargo-toggle-btn" id="cargoToggleBtn" type="button" aria-expanded="false" aria-controls="cargoDrawer">cargo</button>
+                  </span>
+                </div>
                 <div id="settlementsEl"></div>
+              </div>
+              <!-- v0.0.9.7.2 — cargo drawer. Slides down over the
+                   upgrades + settlements region; dispatch log stays
+                   visible on the left so the live feed isn't displaced
+                   while the codex is open. Toggled by #cargoToggleBtn
+                   in the settlements ptitle (mirrors route-panel clock
+                   placement). Esc + click-outside close it. -->
+              <div class="cargo-drawer" id="cargoDrawer" hidden aria-hidden="true">
+                <div class="cargo-drawer-header">
+                  <div class="tlh-ptitle">// cargo log</div>
+                  <div class="cargo-filters" id="cargoFilters">
+                    <button class="cargo-filter-btn" id="cargoFilterHideUndiscovered" type="button" aria-pressed="false" data-noun="unknown">hide unknown</button>
+                    <button class="cargo-filter-btn" id="cargoFilterHideCargo"        type="button" aria-pressed="false" data-noun="pkgs">hide pkgs</button>
+                    <input class="cargo-filter-search" id="cargoFilterSearch" type="text" placeholder="search…" aria-label="search cargo log" />
+                  </div>
+                </div>
+                <div id="cargoLogEl"></div>
               </div>
             </div>
 
@@ -227,8 +266,8 @@
        lazily appended to <body> by js/render/rich-tooltip.js. -->
 
 
-  <script src="tlh-boot.js?v=096-10-23"></script>
-  <script type="module" src="js/main.js?v=096-10-23"></script>
+  <script src="tlh-boot.js?v=097-0-4"></script>
+  <script type="module" src="js/main.js?v=097-0-4"></script>
   <script>
     document.addEventListener('keydown', e => {
       if (document.getElementById('boot').style.display !== 'none') dismissBoot();

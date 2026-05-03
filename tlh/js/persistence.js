@@ -34,10 +34,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=096-10-23';
-import * as C from './constants.js?v=096-10-23';
-import { addLog } from './render/log.js?v=096-10-23';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=096-10-23';
+import { S } from './state.js?v=097-0-4';
+import * as C from './constants.js?v=097-0-4';
+import { addLog } from './render/log.js?v=097-0-4';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=097-0-4';
 
 // v0.0.9.6.10.20 tag-shape migration. Old saves carry `pkg.modifier`
 // (string or null) from the pre-tag shape; new saves carry `pkg.tags`
@@ -188,6 +188,18 @@ export function buildSavePayload() {
     // lines). HTML includes timestamps baked in. Restored into the
     // in-session logHistory + DOM via restoreLogFromSave on load.
     log: Array.isArray(S.log) ? [...S.log] : [],
+    // v0.0.9.7 — cargo log discovery state. Sparse: only labels /
+    // plant ids that have been touched (state \u2260 undiscovered or
+    // any reveal flag flipped) appear. Inner entries are flat objects;
+    // shallow spread is enough since JSON.stringify recurses anyway.
+    // v0.0.9.7.2 \u2014 `pending` carries the cargo-toggle dot state across
+    // reloads so a quit-mid-discovery still surfaces the dot on return.
+    cargoLog: {
+      items:       (S.cargoLog && S.cargoLog.items)  ? { ...S.cargoLog.items }  : {},
+      plants:      (S.cargoLog && S.cargoLog.plants) ? { ...S.cargoLog.plants } : {},
+      pending:     !!(S.cargoLog && S.cargoLog.pending),
+      notifyMuted: !!(S.cargoLog && S.cargoLog.notifyMuted),
+    },
   };
 }
 
@@ -630,6 +642,16 @@ function _applyValidated(data) {
     } else {
       S.log = [];
     }
+
+    // v0.0.9.7 — cargo log restore. Accept the saved sparse map; defensively
+    // wrap missing branches so a pre-v0.0.9.7 save loads cleanly. Renderer
+    // tolerates entries with missing fields via its `|| { ... }` fallback.
+    S.cargoLog = {
+      items:       (data.cargoLog && typeof data.cargoLog.items  === 'object' && data.cargoLog.items)  ? { ...data.cargoLog.items }  : {},
+      plants:      (data.cargoLog && typeof data.cargoLog.plants === 'object' && data.cargoLog.plants) ? { ...data.cargoLog.plants } : {},
+      pending:     !!(data.cargoLog && data.cargoLog.pending),
+      notifyMuted: !!(data.cargoLog && data.cargoLog.notifyMuted),
+    };
 
     S._transient.lastSaveAt = data.savedAt || 0;
     S.status = S.inventory.length > 0 ? 'carrying' : 'walking';

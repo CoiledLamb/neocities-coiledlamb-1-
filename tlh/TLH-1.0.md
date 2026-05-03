@@ -40,21 +40,11 @@ The thesis. Anything in here is the game; changing it would be a different game.
 Open questions. Each one has implications that ripple, so they're worth deciding (or decisively deferring) rather than left ambient.
 
 ### roster
-- **NPC count.** 12 today. Could grow by 4–8 more. Affects route density, dialogue authoring load, trust pacing. The ring-rounded-square layout has rim slots — adding past 16 might mean rethinking the geometry.
-- **Third gift per NPC.** Two gifts is the locked floor; a third gift tier per NPC is on the table. Decision affects authoring load and the shape of the trust curve at the high end.
-- **High-tier unlock restructure.** t60 (battery charging) and t80 (free rest) are likely to be reshaped, and t100 doesn't have a defined unlock yet. Worth resolving before 1.0 since these are the "feels like a gift" moments the trust curve is selling toward.
-
-### balance (sim-informed)
-- **Canteen tuning.** Currently runs dry too often. Bias storm tuning toward more/more-concurrent rather than conservative.
-- **Boot durability curve.** Sim says too harsh. Designs deferred from v0.0.9.6.9.8.
-- **Trust pacing.** Sim says glacial.
-- **NPC equity.** Uneven gain rates across the cast.
+- **NPC count.** Implicitly 12 (locked-in by v0.1.0's 36-gift target = 12 × 3). Confirm before v0.1.0 NPC authoring starts; growing past 12 changes that math and the ring-rounded-square geometry.
 
 ### systems still being shaped
-- **Structures + salvage.** Postbox / generator / well are sketched. Open: salvage as ground-spawn vs. passive terrain yield. Open: build cost (salvage-only vs. salvage + scrip vs. salvage + trust).
-- **Mountain climbing.** Renderer needs elevation support. Open: is strain alone the right axis, or is there room for a discrete moment within idle-first?
-- **Cooking.** WIP. Shape TBD.
-- **Gear screen.** WIP. Alternate view for upgrades — needs decision on whether it replaces the current panel or coexists.
+- **Mountain climbing.** Renderer support scoped in v0.0.9.12. Open: mechanic depth — is strain alone the right axis, or is there room for a discrete moment within idle-first?
+- **Gear screen.** Alternate upgrades view. Not in the v0.0.9.7–v0.1.0 sequence — needs a call: ship pre-1.0 (and where), defer post-1.0, or cut.
 - **Sticky gun rework.** Design vision still not locked.
 
 ### tagging / language
@@ -73,24 +63,88 @@ Open questions. Each one has implications that ripple, so they're worth deciding
 
 ---
 
-## must-ship before 1.0
+## patch sequence to 1.0
 
-The work between here and there. Order is rough.
+The work between here and there. Each patch is scoped tightly enough to ship; the sequence respects what unblocks what.
 
-1. **v0.0.9.7 — polish pass.** Sim-informed balance: canteen, boots, trust, equity.
-2. **Structures + salvage.** Postbox, generator, well + materials gathering. Async hook through existing world overlay.
-3. **Mountain climbing.** Renderer elevation support + `terrainAt` / `courierTerrain` extension. Mechanic depth at TBD level.
-4. **Cooking.** Authoring + integration into the canteen/stamina/trust loop or wherever it lands.
-5. **Gear screen.** Alternate upgrades view shipped and decided-on.
-6. **Dispatch log virtualization** (v0.0.9.8 from existing handoff plan).
-7. **NPC expansion** if final count is >12. Dialogue, dispatch, gifts, trust profile per new NPC.
-8. **First-run onboarding.** What a cold arrival sees — current state assumes you already know the loop. Pre-1.0 quality bar.
-9. **Accessibility pass.** Reduced-motion, keyboard navigation, screen-reader semantics. Pre-1.0 quality bar.
-10. **Long-session reliability audit.** Profile a 48h+ idle tab for memory growth (trail cells, log entries, listeners). Existing 48h+ save makes a clean starting state. Fold a multi-tab smoke test in while the harness is open — confirm two simultaneous tabs don't race on saves or BroadcastChannel state.
-11. **Save schema cap at 1.0.** Drop pre-v9 migration chain in `persistence.js`. One-time simplification.
-12. **Build / deploy pipeline.** ~~A `bump-version.sh` or Makefile target replacing the current 273-occurrence sed dance.~~ Shipped: [tlh/scripts/bump-version.sh](tlh/scripts/bump-version.sh). Auto-detects current version, bumps cache-bust strings + subtitle, prints commit message stub. Iterate as needed.
-13. **Discoverability surfaces.** Page title, meta description, OG tags, non-Neocities favicon, "about" copy. Small surface, high leverage at launch.
-14. **One full balance pass after everything else lands**, since the systems above all interact.
+### v0.0.9.7 — the log & lift
+_UI foundations and cargo log, low risk, high momentum_
+
+- ✅ Cargo log surface _(shipped v0.0.9.7.1 as dispatch sub-tab; reworked v0.0.9.7.2 to slide-in drawer over upgrades + settlements, with pending-discovery dot)_
+- ✅ Cargo log skeleton — items + plants (plants stubbed for v0.0.9.8; structures handled by v0.0.9.10 upgrades-tab pattern instead) _(shipped v0.0.9.7.1)_
+- ✅ Topographic map presentation rework begins _(shipped v0.0.9.7.1; vignette / outside-ring dim / ring outline / node restyle remain)_
+- ~~UI facelift groundwork~~ — moved out of v0.0.9.7
+- ~~First-run onboarding rework alongside the new UI shell~~ — deferred (systems still molten)
+
+### v0.0.9.8 — the kitchen
+_Cooking system full implementation, no temperature content yet_
+
+- Two-plant combo mechanic
+- Picker UI, meal slot, overwrite warning
+- Field cooking (water cost) + depot cooking (trust-gated)
+- 9 plants implemented across existing biomes
+- Cargo log updated to support plants
+- Depot stoves per NPC reflecting terrain
+
+### v0.0.9.9 — the salvage
+_Salvage system and carrier upgrade_
+
+- Salvage as item, 6 slot dedicated bag
+- Ground spawns
+- Carrier lvl 2 recycling (active battery drain)
+- Carrier salvage inventory
+- Biome variance on salvage output (2-3 types, names TBD)
+- Scrapheap structure stubbed in
+
+### v0.0.9.10 — the build
+_Structures full implementation against locked salvage_
+
+- Trust tier restructure (t20/t40/t60/t80/t100)
+- Structure slots per NPC (1 default + 2 trust-unlocked)
+- Full structure catalog (~11): roads, generator, well, postbox, shelter, scrapheap, zipline, bridge, storm shelter, tool cache, lookout
+- Scrip costs early, salvage costs mid/late
+- Decay and storm exposure
+- Rebuild global meter (narrative only)
+- Settlement state block (population, condition text, current needs)
+- Cargo log updated to support structures
+
+### v0.0.9.11 — the heat
+_Temperature mechanic + biome data, no renderer changes yet_
+
+- Temperature penalty system implemented (feeds stamina/strain)
+- Temperature zones declared per terrain (hot/cold) — data only
+- Sunflower reworked to heat-specific trigger
+- Second desert plant designed and implemented
+- Mountain cold plant(s) stubbed or implemented
+- Cooking updated to support temperature triggers
+- Biome variance on salvage refined against existing terrain
+- New biome plant slots opened (not filled yet)
+- Cargo log updated with new plants
+
+### v0.0.9.12 — the relief
+_Renderer rework, last patch before 1.0_
+
+- Mesa, mountain, hill renderer support
+- Background scrolling rework
+- Optional: heat-zone visual cues (warm/cool tints) layered on the new renderer
+
+Renderer lands last so 1.0 polish doesn't risk being invalidated by visual rework. Heat (.11) ships on top of the existing renderer; the world doesn't look any different until .12, but the mechanic is in player hands.
+
+### v0.1.0 — the long haul
+_Polish, tuning, reset_
+
+- Structure tuning (cooldowns, costs, decay rates)
+- Zipline network shape finalized
+- Lookout pkg-spawn additive vs zero-sum decided
+- 36 NPC gift items authored — leaning toward first gift being a structure unlock per NPC
+- Sim-informed balance: canteen, boot durability, trust pacing, NPC equity
+- Accessibility pass (reduced-motion, keyboard nav, screen-reader semantics)
+- Long-session reliability audit — 48h+ idle profile for memory growth + multi-tab smoke test (no save / BroadcastChannel races)
+- Save schema cap — drop pre-v9 migration chain in `persistence.js`
+- Discoverability finish — page title, meta, OG tags, non-Neocities favicon, "about" copy (scaffolding shipped v0.0.9.6.10.24)
+- Rebuild global meter reset for live
+- Full headless sim pass
+- Any loose ends from 9.7-9.12
 
 ---
 
@@ -111,8 +165,8 @@ Listed so they don't quietly creep into the 1.0 must-ship list.
 The plain-language checklist that says "we're there."
 
 - [ ] Sim harness shows a balanced end-to-end loop. No system over- or under-solved.
-- [ ] Final NPC roster locked. Every NPC has full dialogue, five trust tiers, and at least two integrated gifts (third gift either landed or cut).
-- [ ] Every system named in **must-ship** is either landed or has been moved to **post-1.0** explicitly.
+- [ ] Final NPC roster locked. Every NPC has full dialogue, five trust tiers, and three integrated gifts (per v0.1.0 scope).
+- [ ] Every patch in the **patch sequence** is landed, or its scope explicitly moved to **post-1.0**.
 - [ ] All **molten** questions are resolved or decisively deferred.
 - [ ] A new player can complete one full ring loop without dev hand-holding and the game's shape is legible to them.
 - [ ] No regressions in mobile compatibility or save/load round-trip.
@@ -122,6 +176,6 @@ The plain-language checklist that says "we're there."
 
 ## a note for when this doc feels heavy
 
-It's a lot, but most of it is already in motion. The polish pass is scoped. Structures + salvage has a sketch. Mountains have most of the infrastructure. Cooking and the gear screen are the two genuinely open new systems, and "open" is fine — that's what the molten section is for.
+It's a lot, but most of it is already scoped. The patch sequence has slots for cooking, salvage, structures, terrain, and temperature. The gear screen and the depth of the mountain mechanic are the two genuinely open holes, and "open" is fine — that's what the molten section is for.
 
 1.0 is closer than the version number suggests.
