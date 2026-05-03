@@ -32,11 +32,11 @@
    ============================================== */
 'use strict';
 
-import { S }              from '../state.js?v=097-0-3';
-import { NPC_DEFS }       from '../data/npc-defs.js?v=097-0-3';
-import { CARGO_LORE }     from '../data/cargo-lore.js?v=097-0-3';
-import { PLANTS }         from '../data/plants.js?v=097-0-3';
-import { buildCargoIndex } from '../data/cargo-index.js?v=097-0-3';
+import { S }              from '../state.js?v=097-0-4';
+import { NPC_DEFS }       from '../data/npc-defs.js?v=097-0-4';
+import { CARGO_LORE }     from '../data/cargo-lore.js?v=097-0-4';
+import { PLANTS }         from '../data/plants.js?v=097-0-4';
+import { buildCargoIndex } from '../data/cargo-index.js?v=097-0-4';
 
 const ITEM_INDEX = buildCargoIndex();
 
@@ -61,7 +61,11 @@ function markPending() {
     return;
   }
   S.cargoLog.pending = true;
-  if (btn) btn.classList.add('has-pending');
+  // v0.0.9.7.4 — mute is visual-only. Pending bit always flips so an
+  // un-mute later surfaces the accumulated state immediately; only the
+  // .has-pending class (which drives the oilslick border) is skipped
+  // when muted.
+  if (btn && !S.cargoLog.notifyMuted) btn.classList.add('has-pending');
 }
 
 function ensureItemEntry(label) {

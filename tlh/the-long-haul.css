@@ -1664,6 +1664,46 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   flex-shrink: 0;
   margin-bottom: 5px;
 }
+/* v0.0.9.7.4 — settlements ptitle right-side action group: notify-mute
+   toggle (left) + cargo drawer toggle (right). Mute is hidden by default
+   and only revealed while the drawer is open (via body.cargo-drawer-open
+   class set by openCargoDrawer in main.js). The setting itself persists
+   regardless of visibility — hiding the button just keeps the closed-state
+   ptitle uncluttered. */
+.settlements-ptitle-actions {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+/* v0.0.9.7.4 — notify-mute toggle. Same bordered-chip style as
+   .cargo-toggle-btn / .drink-btn. When pressed (muted), color flips to
+   accent — visually consistent with other "active" toggle states. */
+.cargo-mute-btn {
+  display: none;  /* revealed when body.cargo-drawer-open */
+  background: transparent;
+  border: 1px solid #1e5554;
+  border-radius: 1px;
+  padding: 2px 7px;
+  cursor: pointer;
+  color: var(--tlh-text-secondary);
+  font-family: 'Source Code Pro', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: lowercase;
+  transition: border-color 0.12s, color 0.12s;
+  flex-shrink: 0;
+  /* Float above the drawer (z-index: 5) the same way .cargo-toggle-btn
+     does — without this lift the button would be buried by the drawer
+     overlay and unclickable. */
+  position: relative;
+  z-index: 6;
+}
+body.cargo-drawer-open .cargo-mute-btn { display: inline-block; }
+.cargo-mute-btn:hover { border-color: #40a4b9; color: var(--tlh-text); }
+.cargo-mute-btn[aria-pressed="true"] {
+  color: var(--tlh-accent);
+  border-color: #40a4b9;
+}
 
 /* v0.0.9.5.1 — no max/min height cap on the panel scroll children;
    flex: 1 + min-height: 0 above lets them size to whatever vertical

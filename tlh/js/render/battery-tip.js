@@ -14,10 +14,10 @@
    =========================================================== */
 'use strict';
 
-import { S } from '../state.js?v=097-0-3';
-import { activeBatteryConsumers, activeBatterySolarGainPerTick, listBatteryConsumers } from '../battery.js?v=097-0-3';
-import * as C from '../constants.js?v=097-0-3';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=097-0-3';
+import { S } from '../state.js?v=097-0-4';
+import { activeBatteryConsumers, activeBatterySolarGainPerTick, listBatteryConsumers } from '../battery.js?v=097-0-4';
+import * as C from '../constants.js?v=097-0-4';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=097-0-4';
 
 const ID = 'battery';
 
