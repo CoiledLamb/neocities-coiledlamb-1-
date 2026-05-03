@@ -1664,16 +1664,18 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   flex-shrink: 0;
   margin-bottom: 5px;
 }
-/* v0.0.9.7.4 — settlements ptitle right-side action group: notify-mute
-   toggle (left) + cargo drawer toggle (right). Mute is hidden by default
-   and only revealed while the drawer is open (via body.cargo-drawer-open
-   class set by openCargoDrawer in main.js). The setting itself persists
-   regardless of visibility — hiding the button just keeps the closed-state
-   ptitle uncluttered. */
+/* v0.0.9.7.4 — settlements ptitle right-side action group. The cargo
+   drawer toggle is the only flow child; the notify-mute toggle is
+   absolutely positioned to the LEFT of it so revealing the mute
+   button doesn't shift the cargo button's position when the drawer
+   opens. Mute is hidden by default and revealed while the drawer is
+   open (via body.cargo-drawer-open class set by openCargoDrawer in
+   main.js). The setting itself persists regardless of visibility —
+   hiding the button just keeps the closed-state ptitle uncluttered. */
 .settlements-ptitle-actions {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  position: relative;  /* containing block for absolute mute button */
 }
 /* v0.0.9.7.4 — notify-mute toggle. Same bordered-chip style as
    .cargo-toggle-btn / .drink-btn. When pressed (muted), color flips to
@@ -1691,11 +1693,17 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   font-weight: 600;
   text-transform: lowercase;
   transition: border-color 0.12s, color 0.12s;
-  flex-shrink: 0;
+  /* Sit to the left of the cargo toggle button without taking flow
+     space. right: 100% puts the mute's right edge at the parent's
+     left edge (= cargo button's left edge); +6px adds a visual gap.
+     Top: 0 baseline-aligns with the cargo button. */
+  position: absolute;
+  right: calc(100% + 6px);
+  top: 0;
+  white-space: nowrap;
   /* Float above the drawer (z-index: 5) the same way .cargo-toggle-btn
      does — without this lift the button would be buried by the drawer
      overlay and unclickable. */
-  position: relative;
   z-index: 6;
 }
 body.cargo-drawer-open .cargo-mute-btn { display: inline-block; }
