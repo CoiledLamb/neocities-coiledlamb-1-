@@ -43,7 +43,7 @@ Open questions. Each one has implications that ripple, so they're worth deciding
 - **NPC count.** Implicitly 12 (locked-in by v0.1.0's 36-gift target = 12 × 3). Confirm before v0.1.0 NPC authoring starts; growing past 12 changes that math and the ring-rounded-square geometry.
 
 ### systems still being shaped
-- **Mountain climbing.** Renderer support scoped in v0.0.9.11. Open: mechanic depth — is strain alone the right axis, or is there room for a discrete moment within idle-first?
+- **Mountain climbing.** Renderer support scoped in v0.0.9.12. Open: mechanic depth — is strain alone the right axis, or is there room for a discrete moment within idle-first?
 - **Gear screen.** Alternate upgrades view. Not in the v0.0.9.7–v0.1.0 sequence — needs a call: ship pre-1.0 (and where), defer post-1.0, or cut.
 - **Sticky gun rework.** Design vision still not locked.
 
@@ -70,7 +70,7 @@ The work between here and there. Each patch is scoped tightly enough to ship; th
 ### v0.0.9.7 — the log & lift
 _UI foundations and cargo log, low risk, high momentum_
 
-- ✅ Log panel with dispatch/cargo toggle _(shipped v0.0.9.7.1)_
+- ✅ Cargo log surface _(shipped v0.0.9.7.1 as dispatch sub-tab; reworked v0.0.9.7.2 to slide-in drawer over upgrades + settlements, with pending-discovery dot)_
 - ✅ Cargo log skeleton — items + plants (plants stubbed for v0.0.9.8; structures handled by v0.0.9.10 upgrades-tab pattern instead) _(shipped v0.0.9.7.1)_
 - ✅ Topographic map presentation rework begins _(shipped v0.0.9.7.1; vignette / outside-ring dim / ring outline / node restyle remain)_
 - ~~UI facelift groundwork~~ — moved out of v0.0.9.7
@@ -108,24 +108,27 @@ _Structures full implementation against locked salvage_
 - Settlement state block (population, condition text, current needs)
 - Cargo log updated to support structures
 
-### v0.0.9.11 — the terrain
-_Renderer rework, unblocks everything downstream_
-
-- Mesa, mountain, hill renderer support
-- Background scrolling rework
-- Temperature zones declared per terrain (hot/cold)
-- Biome variance on salvage refined against new terrain
-- New biome plant slots opened (not filled yet)
-
-### v0.0.9.12 — the heat
-_Temperature effects and desert content, now unblocked_
+### v0.0.9.11 — the heat
+_Temperature mechanic + biome data, no renderer changes yet_
 
 - Temperature penalty system implemented (feeds stamina/strain)
+- Temperature zones declared per terrain (hot/cold) — data only
 - Sunflower reworked to heat-specific trigger
 - Second desert plant designed and implemented
 - Mountain cold plant(s) stubbed or implemented
 - Cooking updated to support temperature triggers
+- Biome variance on salvage refined against existing terrain
+- New biome plant slots opened (not filled yet)
 - Cargo log updated with new plants
+
+### v0.0.9.12 — the relief
+_Renderer rework, last patch before 1.0_
+
+- Mesa, mountain, hill renderer support
+- Background scrolling rework
+- Optional: heat-zone visual cues (warm/cool tints) layered on the new renderer
+
+Renderer lands last so 1.0 polish doesn't risk being invalidated by visual rework. Heat (.11) ships on top of the existing renderer; the world doesn't look any different until .12, but the mechanic is in player hands.
 
 ### v0.1.0 — the long haul
 _Polish, tuning, reset_
