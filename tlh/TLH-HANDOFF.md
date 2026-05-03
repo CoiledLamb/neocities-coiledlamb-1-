@@ -1,11 +1,11 @@
 # the long haul — game handoff doc
-_last updated: 2026-05-03 (**v0.0.9.7.5 shipped on branch** — kit-bar / route-map polish: ladder route-map glyph swapped from `‐‐` (HYPHEN x 2) to `Ħ` (H WITH STROKE — rails + crossbar), gear glyphs shrunk fs 9 → 8 + drop-shadow gated to `.gear-rotting` only, queue closeout pass for items 1+4 already shipped at .6.9.x. Cache-bust 097-0-5. v0.0.9.7.3 + .7.4 also live (cargo-log oilslick polish + per-player notification mute toggle). Next: .7.6 log dedup + .7.7 topo follow-ups to close out v0.0.9.7. See [just shipped](#just-shipped--v00975--kit-bar--route-map-polish--queue-closeout) section below.)_
+_last updated: 2026-05-03 (**v0.0.9.7.6 shipped on branch** — log dedup extension: inline `<span class="log-count">…</span>` spans are now stripped from the dedup match key, and `bumpCount` rebuilds from the new event so the latest count is preserved on the surviving line. Sandalweed harvest + lash messages updated to use the new span. Cache-bust 097-0-6. .7.5 (kit-bar / route-map polish) and .7.3 / .7.4 (cargo log polish + mute toggle) also live. Next: .7.7 topo follow-ups to close out v0.0.9.7. See [just shipped](#just-shipped--v00976--log-dedup-inline-counts-no-longer-break-n-collapse) section below.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.9.7.5 shipped on branch (kit-bar / route-map polish: ladder route-map glyph swapped to `Ħ`, gear glyphs fs 9 → 8 + drop-shadow gated to `.gear-rotting`; queue closeout pass for items 1+4 which already shipped during the .6.9.x cycle). v0.0.9.7.1 → .7.5 are all live: .7.1 cargo log skeleton + topo map raster begins; .7.2 cargo log relocated into a slide-in drawer; .7.3 oilslick pending border + clearer filter labels; .7.4 cargo log per-player notification mute toggle (+ fixup); .7.5 closes the kit-bar / map-polish queue. **Plan to close v0.0.9.7**: .7.6 = repeated-message log dedup (sandalweed harvest etc — pull inline counts out of dedup keys); .7.7 = topo follow-ups (outside-ring dim + hatch, vignette, ring polygon dashed outline, ring road restyle, node "well" treatment) per [.handoff-topo](tlh/.handoff-topo/) spec, mostly gated on `topographicMap`. Climbing animations + thick side-view rendering defer out of .7 (paired with parked destDrift rework). v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
+## ✅ CURRENT STATE: v0.0.9.7.6 shipped on branch (kit-bar / route-map polish: ladder route-map glyph swapped to `Ħ`, gear glyphs fs 9 → 8 + drop-shadow gated to `.gear-rotting`; queue closeout pass for items 1+4 which already shipped during the .6.9.x cycle). v0.0.9.7.6 added log-dedup compression (closes queue item 5): inline `<span class="log-count">…</span>` spans now strip from dedup match keys so messages like `harvested sandalweed (3/5)` collapse with later `(4/5)` events into one line whose visible count tracks the latest event while `×N` tracks repetition. v0.0.9.7.1 → .7.6 are all live: .7.1 cargo log skeleton + topo map raster begins; .7.2 cargo log relocated into a slide-in drawer; .7.3 oilslick pending border + clearer filter labels; .7.4 cargo log per-player notification mute toggle (+ fixup); .7.5 closes the kit-bar / map-polish queue. **Plan to close v0.0.9.7**: .7.7 = topo follow-ups (outside-ring dim + hatch, vignette, ring polygon dashed outline, ring road restyle, node "well" treatment) per [.handoff-topo](tlh/.handoff-topo/) spec, mostly gated on `topographicMap`. Climbing animations + thick side-view rendering defer out of .7 (paired with parked destDrift rework). v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
 
 Game is at `v0.0.9.5` on the `claude/amazing-hermann` branch (merged to main on completion). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches, a micro-polish, dest-div + outbound dispatch, cursor-based cargo UX, and the biggest single-arc expansion so far — NPC doubling + battery baseline + full trust-gift wiring:
 
@@ -47,6 +47,58 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
 **Resume next session**: v0.0.9.5 is shipped on the `claude/amazing-hermann` branch (5 scope commits + 1 design-lock docs commit + 1 ship-log docs commit). Merged to main. Next patch is **v0.0.9.6 — world patch: terrain bones + gear + world-overlay + trails** (consolidates the old .5 + .6 into a coherent world-mechanics patch; design fully refined 2026-04-17 during the .5 lockdown). **Idle-game-first philosophy locked**: no hard gates on traversal — gear is efficiency, never requirement. Every cell is crossable gear-less, just with higher penalty. Scope: terrain types anchored at v0.0.9.5 corner NPCs — rivers (theta NE source, flow diagonally SW, clay beds in `#98875f` / `#a64a2e`); mountain massifs at SW corner (pi's summit + lambda's slope), severe penalty but always traversable; **plateau / mesa country** (east side) as gear-teaching rung — visual obstacles with walkable paths carved between, plateau tops gated by placed ladder for pkg-top rewards (dests restricted to near-start NPC allowlist per v0.0.9.5 label lock), placed anchor for controlled descent else fall-as-guaranteed-trip; rocky hills as connective tissue; desert at nu's NW with day-scaled stamina drain. Rivers classified creek/river/wide with fall-and-ride-downstream failure mode (courier swept downstream ~5-10 ticks, catches themselves, pathfinding auto-reroutes). Shortcut rewrite: flat SHORTCUT multipliers retire in favor of per-cell terrain effects. Interior brought on-grid (weather + scanner + river-refill + terrain effects active during shortcut; pkg pickup in interior stays off pending .7+, except plateau tops). Ladder + anchor as kit-bar gear (1×1 slots each, bundled 1-5/6-10/11-20 = s/m/l slot; 5c each; 12h wall-clock base durability, lambda's mountain gear ×2 → 24h; spatial storm-at-gear-cell decay ×3). **All gear is placed** (no held/in-use model) — anchor at shore creates rope spanning river (up to 2 cells per anchor), chained ladders share one decay clock as atomic multi-cell infrastructure. Placement consumes inventory + creates world-overlay structure usable by others. Trails land with shared world-overlay data plumbing (per-cell trample, multiplayer-synced, emergent social paving). Mountain-pass carving as natural extension. Storms sweep across 2D interior (not just ring). **Ceramic wrap (theta t40, shipped v0.0.9.5)** waterproofs fragile cargo during river crossings + fall-downstream incidents — cross-patch synergy already wired. 9 flag-only upgrades from v0.0.9.5 (riverWaders, ceramicWrap, mobileCarrier1/2, mountainGear, improvedTieDowns, exoskeleton1/2, topographicMap) get their real effect code wired this patch. See [v0.0.9.6 implementation plan](#v0096-implementation-plan). Dispatch log virt still benched at **v0.0.9.8**; see [its plan](#v0098-implementation-plan).
+
+## just shipped — v0.0.9.7.6 — log dedup: inline counts no longer break ×N collapse
+
+Sixth commit of v0.0.9.7. Closes queue item 5 from the .6.5 review. Cache-bust 097-0-5 → 097-0-6 across 43 files via [tlh/scripts/bump-version.sh](tlh/scripts/bump-version.sh); subtitle now reads `v0.0.9.7.6`.
+
+### the problem
+
+The existing log dedup at [tlh/js/render/log.js](tlh/js/render/log.js) (v0.0.9.5.1) collapses consecutive identical messages into a single line with a `×N` counter. Match key strips the timestamp + the existing `<span class="log-mult">×N</span>` from the body. Messages with inline counts that change per fire — sandalweed harvest in particular (`harvested sandalweed (3/5)` → `(4/5)`) — never matched themselves; each fire spawned a new line. In a tight harvest loop, 5 cells = 5 nearly-identical lines flooding the log.
+
+### the fix
+
+Two-part, additive (no callsite changes for messages that don't have the problem):
+
+1. **Author the variable count inside a `<span class="log-count">…</span>`** in the message string. The dedup regex (`COUNT_INLINE_RE`) strips this span globally before comparison.
+2. **`bumpCount` now takes the new event's html** and uses it as the survivor's body, so the visible count reflects the LATEST event (e.g. `(4/5)` replaces `(3/5)` on the surviving line) while `×N` tracks repetition count independently.
+
+Two messages updated this commit:
+- `harvested sandalweed (N/M)` → count wrapped in `log-count` span ([tlh/js/packages.js:1091](tlh/js/packages.js:1091))
+- `boots failed — lashed on a sandalweed (N/M left)` → count wrapped in `log-count` span ([tlh/js/boots.js:87](tlh/js/boots.js:87))
+
+Verified live: 5 simulated harvest events with shifting counts collapse to one line `harvested sandalweed (5/5) ×5` (latest count + repetition multiplier).
+
+### file map
+
+**New (none — all reuse).**
+
+**Modified:**
+- [tlh/js/render/log.js](tlh/js/render/log.js) — `COUNT_INLINE_RE` added; `stripBody` strips it; `bumpCount` takes new html as 2nd arg; addLog updated to pass html
+- [tlh/js/packages.js](tlh/js/packages.js) — sandalweed harvest count wrapped in log-count span
+- [tlh/js/boots.js](tlh/js/boots.js) — sandalweed lash count wrapped in log-count span
+- [tlh/the-long-haul.css](tlh/the-long-haul.css) — `.log-count` style added (matches `.log-mult` palette/size, no margin-left since it sits inline)
+- [tlh/the-long-haul.html](tlh/the-long-haul.html) — subtitle bump `.7.5` → `.7.6`
+- 43 files — cache-bust query strings via `bash tlh/scripts/bump-version.sh 097-0-6`
+
+### explicit non-scope (decisions logged)
+
+- **Other messages with variable inline data** (e.g. `feed throttled (Ns)`, `sticky gun refilled +N shots`) — not touched. Those don't fire back-to-back identical-but-for-counter in practice; dedup wasn't broken, just the two sandalweed cases were the actual repetition risk. If others surface in play, wrapping their variable bits in `log-count` will dedup them automatically without any further log.js change.
+- **Strip count info entirely** (simpler alternative — drop `(N/M)` and let `×N` carry the count signal alone) — rejected. The latest count is genuinely useful info ("after this loop my sandalweed is 5/5"); preserving it on the surviving line costs one extra regex.
+
+### what's next
+
+.7.7 — **topo follow-ups** per [tlh/.handoff-topo/README.md](tlh/.handoff-topo/README.md). Last commit before v0.0.9.7 closes:
+- Outside-ring dim + diagonal hatch (gated on `topographicMap`)
+- Vignette (gated on `topographicMap`)
+- Ring polygon dashed outline (always)
+- Ring road: drop-shadow + 1.5 → 1.6px stroke (keep stage tinting)
+- Node circles: panelDarker stage-3 fill + textMid glyph + textDim label (gated on `topographicMap`)
+- Courier: unchanged (mockup's sonar pulse cut as gilding; existing `#routeDot` already does the static-position-dot job)
+
+After .7.7 closes, v0.0.9.7 wraps; v0.0.9.8 (the kitchen — cooking) opens.
+
+---
 
 ## just shipped — v0.0.9.7.5 — kit-bar / route-map polish + queue closeout
 

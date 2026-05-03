@@ -27,12 +27,12 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-5';
-import * as C from './constants.js?v=097-0-5';
-import { addLog } from './render/log.js?v=097-0-5';
-import { updateHUD } from './render/hud.js?v=097-0-5';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js?v=097-0-5';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-5';
+import { S } from './state.js?v=097-0-6';
+import * as C from './constants.js?v=097-0-6';
+import { addLog } from './render/log.js?v=097-0-6';
+import { updateHUD } from './render/hud.js?v=097-0-6';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js?v=097-0-6';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-6';
 
 // Local alias — live reference into S._transient. Never reassign.
 const els = S._transient.els;
@@ -84,7 +84,7 @@ export function checkAutobuy() {
   if (S.bootDurability <= 0 && S.sandalweedCount > 0) {
     S.sandalweedCount--; S.bootDurability = S.upgrades.sandalEfficiency ? 50 : 30; S.usingMakeshift = true;
     tEmit('boots.sandalweed_lashed', { sandalweedLeft: S.sandalweedCount, repairTo: S.bootDurability });
-    addLog('<span class="log-wn">boots failed</span> \u2014 lashed on a <span class="log-hi">sandalweed</span> (' + S.sandalweedCount + '/' + sandalCap() + ' left)');
+    addLog('<span class="log-wn">boots failed</span> \u2014 lashed on a <span class="log-hi">sandalweed</span> <span class="log-count">(' + S.sandalweedCount + '/' + sandalCap() + ' left)</span>');
     renderBoots(); return;
   }
   // Auto-PURCHASE requires autobuy intent (it costs scrip, player needs to opt in).

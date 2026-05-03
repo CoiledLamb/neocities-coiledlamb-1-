@@ -1801,6 +1801,11 @@ body.cargo-drawer-open .cargo-mute-btn { display: inline-block; }
 /* v0.0.9.5.1 — stacked-repeat counter badge appended to log lines
    when addLog coalesces consecutive duplicates. Dim teal, compact. */
 .log-mult { color: var(--tlh-text-dim); font-weight: 700; font-size: 9px; margin-left: 2px; letter-spacing: 0.03em; }
+/* v0.0.9.7.6 — log-count spans wrap inline counts (e.g.
+   "(3/5)" in sandalweed harvest) that the dedup logic strips for
+   matching. Lets repeated events with shifting counts collapse
+   into a single line whose count reflects the latest event. */
+.log-count { color: var(--tlh-text-dim); font-size: 9px; letter-spacing: 0.02em; }
 .log-hi   { color: var(--tlh-accent); }
 .log-wn   { color: var(--tlh-crit); }
 .log-ok   { color: var(--tlh-text-mid); }

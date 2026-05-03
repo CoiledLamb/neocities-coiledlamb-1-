@@ -28,8 +28,8 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-5';
-import * as C from '../constants.js?v=097-0-5';
+import { S } from '../state.js?v=097-0-6';
+import * as C from '../constants.js?v=097-0-6';
 
 const els = S._transient.els;
 
@@ -53,15 +53,27 @@ function tt() {
 // that differ only in when-they-fired still stack. Helps with tight
 // auto-loops (drink, weather alerts, harvest lines) that would
 // otherwise dominate the log.
-const TS_RE    = /^<span class="log-ts">\[\d+:\d+\]<\/span> /;
-const COUNT_RE = / <span class="log-mult">×\d+<\/span>$/;
+//
+// v0.0.9.7.6 — log-count spans are also stripped for matching,
+// so messages with inline counts (e.g. "harvested sandalweed
+// (3/5)") collapse across ticks even though the count differs.
+// bumpCount now takes the new event's html so the latest count
+// is preserved on the surviving line; ×N tracks repetition count.
+const TS_RE             = /^<span class="log-ts">\[\d+:\d+\]<\/span> /;
+const COUNT_RE          = / <span class="log-mult">×\d+<\/span>$/;
+const COUNT_INLINE_RE   = /<span class="log-count">[^<]*<\/span>/g;
 function stripBody(html) {
-  return html.replace(TS_RE, '').replace(COUNT_RE, '');
+  return html
+    .replace(TS_RE, '')
+    .replace(COUNT_RE, '')
+    .replace(COUNT_INLINE_RE, '');
 }
-function bumpCount(html) {
-  const m = html.match(/ <span class="log-mult">×(\d+)<\/span>$/);
+function bumpCount(prev, newHtml) {
+  const m = prev.match(/ <span class="log-mult">×(\d+)<\/span>$/);
   const n = m ? parseInt(m[1], 10) + 1 : 2;
-  const base = html.replace(COUNT_RE, '');
+  // Use newHtml as the base so the inline log-count reflects the
+  // latest event (e.g. (4/5) replaces (3/5) on the surviving line).
+  const base = newHtml.replace(COUNT_RE, '');
   return `${base} <span class="log-mult">×${n}</span>`;
 }
 
@@ -87,7 +99,7 @@ export function addLog(msg) {
   // repeatedly bumps a single entry instead of flooding the log.
   const prev = hist[hist.length - 1];
   if (prev && stripBody(prev) === stripBody(html)) {
-    const bumped = bumpCount(prev);
+    const bumped = bumpCount(prev, html);
     hist[hist.length - 1] = bumped;
     if (S.log.length > 0) S.log[S.log.length - 1] = bumped;
     // Update the existing top-most DOM node in place.
