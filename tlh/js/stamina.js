@@ -35,12 +35,12 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-2';
-import * as C from './constants.js?v=097-0-2';
-import { addLog } from './render/log.js?v=097-0-2';
-import { bindStrainTooltip } from './render/strain-tip.js?v=097-0-2';
-import { bindStaminaTooltip } from './render/stamina-tip.js?v=097-0-2';
-import { emit as tEmit } from './telemetry.js?v=097-0-2';
+import { S } from './state.js?v=097-0-3';
+import * as C from './constants.js?v=097-0-3';
+import { addLog } from './render/log.js?v=097-0-3';
+import { bindStrainTooltip } from './render/strain-tip.js?v=097-0-3';
+import { bindStaminaTooltip } from './render/stamina-tip.js?v=097-0-3';
+import { emit as tEmit } from './telemetry.js?v=097-0-3';
 
 const els = S._transient.els;
 

@@ -24,21 +24,21 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-2';
-import * as C from './constants.js?v=097-0-2';
-import { NPC_DEFS } from './data/npc-defs.js?v=097-0-2';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-2';
-import { postActivity, shortPorterId } from './multiplayer.js?v=097-0-2';
-import { updatePorterStripBadges } from './recovery.js?v=097-0-2';
-import { addTrust, computeTrustGain, speakDelivery } from './trust.js?v=097-0-2';
-import { removeFromInventories } from './carrier.js?v=097-0-2';
-import { getNodeStage, setNodeStage } from './identification.js?v=097-0-2';
-import { addLog } from './render/log.js?v=097-0-2';
-import { noteDelivered as cargoNoteDelivered } from './render/cargo-log.js?v=097-0-2';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-2';
-import { drawRouteMap } from './render/route-map.js?v=097-0-2';
-import { renderSettlements } from './render/settlements.js?v=097-0-2';
-import { onInventoryChange } from './packages.js?v=097-0-2';
+import { S } from './state.js?v=097-0-3';
+import * as C from './constants.js?v=097-0-3';
+import { NPC_DEFS } from './data/npc-defs.js?v=097-0-3';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-3';
+import { postActivity, shortPorterId } from './multiplayer.js?v=097-0-3';
+import { updatePorterStripBadges } from './recovery.js?v=097-0-3';
+import { addTrust, computeTrustGain, speakDelivery } from './trust.js?v=097-0-3';
+import { removeFromInventories } from './carrier.js?v=097-0-3';
+import { getNodeStage, setNodeStage } from './identification.js?v=097-0-3';
+import { addLog } from './render/log.js?v=097-0-3';
+import { noteDelivered as cargoNoteDelivered } from './render/cargo-log.js?v=097-0-3';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-3';
+import { drawRouteMap } from './render/route-map.js?v=097-0-3';
+import { renderSettlements } from './render/settlements.js?v=097-0-3';
+import { onInventoryChange } from './packages.js?v=097-0-3';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els        = S._transient.els;

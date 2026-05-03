@@ -1601,17 +1601,14 @@ body.drag-toss-pending, body.drag-toss-pending * { cursor: grabbing !important; 
   color: var(--tlh-accent);
   border-color: #40a4b9;
 }
-.cargo-toggle-btn.has-pending::after {
-  content: '';
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: 5px;
-  border-radius: 50%;
-  background: var(--tlh-accent);
-  vertical-align: middle;
-  position: relative;
-  top: -1px;
+/* v0.0.9.7.3 — pending-discovery state. Replaces the earlier accent
+   dot pseudo-element with the site-wide oilslick border animation
+   (defined in boot.css as @keyframes oil-border + .oil-border-active).
+   Cycles border-color through the teal/cyan/violet/pink palette over
+   4s — eyecatching without movement. Animations override the static
+   border-color from the base rule, so no specificity gymnastics. */
+.cargo-toggle-btn.has-pending {
+  animation: oil-border 4s linear infinite;
 }
 
 /* v0.0.9.7.2 — cargo drawer overlay. Slides down over the upgrades +

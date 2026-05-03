@@ -75,71 +75,71 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-2';
-import * as C from './constants.js?v=097-0-2';
-import { NPC_LINES } from './data/npc-lines.js?v=097-0-2';
-import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=097-0-2';
-import { ZONE_TYPES } from './data/zones.js?v=097-0-2';
-import { NODE_GLYPHS } from './data/glyphs.js?v=097-0-2';
-import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=097-0-2';
+import { S } from './state.js?v=097-0-3';
+import * as C from './constants.js?v=097-0-3';
+import { NPC_LINES } from './data/npc-lines.js?v=097-0-3';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=097-0-3';
+import { ZONE_TYPES } from './data/zones.js?v=097-0-3';
+import { NODE_GLYPHS } from './data/glyphs.js?v=097-0-3';
+import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=097-0-3';
 import {
   getPorterId, getCachedPorterId, postActivity, postLostDrop,
   fetchLostFromPeer, startPolling, stopPolling,
   shortPorterId, checkDistMilestones, isSilent, setSilent,
-} from './multiplayer.js?v=097-0-2';
-import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=097-0-2';
+} from './multiplayer.js?v=097-0-3';
+import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=097-0-3';
 import {
   getNodeStage, setNodeStage, markEdgeAdjacent, getDisplayLabel,
-} from './identification.js?v=097-0-2';
+} from './identification.js?v=097-0-3';
 import {
   addTrust, tryWarning, tryPreview, tryRestPrompt,
-} from './trust.js?v=097-0-2';
-import { renderChannels, tickAmbientChatter } from './channels.js?v=097-0-2';
+} from './trust.js?v=097-0-3';
+import { renderChannels, tickAmbientChatter } from './channels.js?v=097-0-3';
 import {
   buildWorld, calcCellPxWidth, worldPosFromRoute, renderFieldstrip,
   bindFieldstripInteractions,
-} from './world.js?v=097-0-2';
-import * as Pkg from './packages.js?v=097-0-2';
-import * as Trip from './trip.js?v=097-0-2';
-import * as Boots from './boots.js?v=097-0-2';
-import * as Carrier from './carrier.js?v=097-0-2';
-import * as Stamina from './stamina.js?v=097-0-2';
-import * as Upg from './upgrades.js?v=097-0-2';
-import { tickScanner } from './scanner.js?v=097-0-2';
-import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=097-0-2';
-import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=097-0-2';
-import { renderKit } from './render/kit.js?v=097-0-2';
-import { initAdminChannel } from './admin-channel.js?v=097-0-2';
-import { initSaveIo } from './save-io.js?v=097-0-2';
-import { addLog, restoreLogFromSave } from './render/log.js?v=097-0-2';
+} from './world.js?v=097-0-3';
+import * as Pkg from './packages.js?v=097-0-3';
+import * as Trip from './trip.js?v=097-0-3';
+import * as Boots from './boots.js?v=097-0-3';
+import * as Carrier from './carrier.js?v=097-0-3';
+import * as Stamina from './stamina.js?v=097-0-3';
+import * as Upg from './upgrades.js?v=097-0-3';
+import { tickScanner } from './scanner.js?v=097-0-3';
+import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=097-0-3';
+import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=097-0-3';
+import { renderKit } from './render/kit.js?v=097-0-3';
+import { initAdminChannel } from './admin-channel.js?v=097-0-3';
+import { initSaveIo } from './save-io.js?v=097-0-3';
+import { addLog, restoreLogFromSave } from './render/log.js?v=097-0-3';
 import {
   setHideUndiscovered as cargoSetHideUndiscovered,
   setHideCargo        as cargoSetHideCargo,
   setSearchQuery      as cargoSetSearchQuery,
   renderCargoLog,
-} from './render/cargo-log.js?v=097-0-2';
+} from './render/cargo-log.js?v=097-0-3';
 import {
   updateHUD, renderCargoSlots, renderCourierStack,
-} from './render/hud.js?v=097-0-2';
-import { bindDragGlobals } from './render/drag.js?v=097-0-2';
+} from './render/hud.js?v=097-0-3';
+import { bindDragGlobals } from './render/drag.js?v=097-0-3';
 import {
   drawRouteMap, updateRouteDot, updateRouteHud, layoutRouteNodes, currentEdge,
   initSegment, advanceSegmentAfterArrival, bindRouteInteractions,
   tickRouteInteractions, isOnShortcut, courierTerrain,
-} from './render/route-map.js?v=097-0-2';
+} from './render/route-map.js?v=097-0-3';
 import {
   TERRAIN_STAMINA_MULT, TERRAIN_CANTEEN_DELTA, desertStaminaMult,
   GEAR_FOR_TERRAIN, GEAR_STAMINA_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=097-0-2';
+} from './data/terrain.js?v=097-0-3';
 import {
   autoPlaceForCell, placedGearAt, tickGearDecay, resetGearLogThrottles,
-} from './gear.js?v=097-0-2';
-import { addTrampleAt, trampleAt } from './trail.js?v=097-0-2';
-import { emit as tEmit } from './telemetry.js?v=097-0-2';
-import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=097-0-2';
-import { renderNetwork } from './render/network.js?v=097-0-2';
-import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=097-0-2';
+} from './gear.js?v=097-0-3';
+import { addTrampleAt, trampleAt } from './trail.js?v=097-0-3';
+import { emit as tEmit } from './telemetry.js?v=097-0-3';
+import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=097-0-3';
+import { renderNetwork } from './render/network.js?v=097-0-3';
+import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=097-0-3';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -835,6 +835,13 @@ function init() {
       const on = !btn.classList.contains('is-active');
       btn.classList.toggle('is-active', on);
       btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      // v0.0.9.7.3 — verb-flip the label so "hide pkgs" reads as
+      // "show pkgs" while the filter is active. Opt-in via data-noun
+      // on the button; toggles without that attribute keep their
+      // static label.
+      if (btn.dataset.noun) {
+        btn.textContent = (on ? 'show ' : 'hide ') + btn.dataset.noun;
+      }
       onChange(on);
     });
   }

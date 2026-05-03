@@ -57,20 +57,20 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-2';
-import * as C from './constants.js?v=097-0-2';
-import { postLostDrop } from './multiplayer.js?v=097-0-2';
-import { staminaSegCount } from './stamina.js?v=097-0-2';
-import { emit as tEmit } from './telemetry.js?v=097-0-2';
+import { S } from './state.js?v=097-0-3';
+import * as C from './constants.js?v=097-0-3';
+import { postLostDrop } from './multiplayer.js?v=097-0-3';
+import { staminaSegCount } from './stamina.js?v=097-0-3';
+import { emit as tEmit } from './telemetry.js?v=097-0-3';
 // v0.0.9.6.9.13 — trip-dropped cargo needs to hit the same bottleneck
 // edge-tracker used by normal pick/deliver paths. Without this, a
 // severe trip at full cargo can transition out of maxed without
 // emitting inventory.freed.
-import { onInventoryChange } from './packages.js?v=097-0-2';
-import { addLog } from './render/log.js?v=097-0-2';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-2';
-import { weatherAtCourier } from './weather.js?v=097-0-2';
-import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js?v=097-0-2';
+import { onInventoryChange } from './packages.js?v=097-0-3';
+import { addLog } from './render/log.js?v=097-0-3';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-3';
+import { weatherAtCourier } from './weather.js?v=097-0-3';
+import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js?v=097-0-3';
 import {
   TERRAIN_TRIP_MULT,
   TERRAIN_HAS_SEVERE,
@@ -80,9 +80,9 @@ import {
   GEAR_FOR_TERRAIN,
   GEAR_TRIP_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=097-0-2';
-import { placedGearAt } from './gear.js?v=097-0-2';
-import { trampleAt } from './trail.js?v=097-0-2';
+} from './data/terrain.js?v=097-0-3';
+import { placedGearAt } from './gear.js?v=097-0-3';
+import { trampleAt } from './trail.js?v=097-0-3';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
