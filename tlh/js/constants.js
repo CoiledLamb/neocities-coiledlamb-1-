@@ -2,7 +2,7 @@
    THE LONG HAUL — tuning constants (v0.0.7.18)
 
    All const tuning values live here. Balance passes are a single-file
-   edit. Import as `import * as C from './constants.js?v=097-0-7'` and reference
+   edit. Import as `import * as C from './constants.js?v=097-0-8'` and reference
    as `C.TICK_MS`, `C.TRIP_CHANCE_BASE`, etc.
 
    Excluded (lives elsewhere):
@@ -210,6 +210,14 @@ export const TRIP_CHANCE_BASE  = 0.006;
 export const CATCH_CHANCE_BASE = 0.35;
 export const REST_TICKS_MIN    = 43;
 export const REST_TICKS_MAX    = 86;
+
+// v0.0.9.7.8 — pulled from stamina.js so balance passes are single-file.
+// DRINK_MIN_LOSS_PCT: minimum stamina-loss fraction before a sip is allowed
+// (also reused symmetrically as a min canteen-fraction gate so near-empty
+// canteens don't fire +0% drink spam). DRINK_EFFICIENT_MULT: canteen cost
+// multiplier applied when the efficientConsumption upgrade (nu t20) is owned.
+export const DRINK_MIN_LOSS_PCT   = 0.05;
+export const DRINK_EFFICIENT_MULT = 0.60;
 
 // ----- v0.0.9.3 shortcut travel -----
 // v0.0.9.6 commit 3 retired the flat SHORTCUT_STAMINA_MULT (1.20) and

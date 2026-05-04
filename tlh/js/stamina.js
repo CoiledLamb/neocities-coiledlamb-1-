@@ -35,18 +35,14 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-7';
-import * as C from './constants.js?v=097-0-7';
-import { addLog } from './render/log.js?v=097-0-7';
-import { bindStrainTooltip } from './render/strain-tip.js?v=097-0-7';
-import { bindStaminaTooltip } from './render/stamina-tip.js?v=097-0-7';
-import { emit as tEmit } from './telemetry.js?v=097-0-7';
+import { S } from './state.js?v=097-0-8';
+import * as C from './constants.js?v=097-0-8';
+import { addLog } from './render/log.js?v=097-0-8';
+import { bindStrainTooltip } from './render/strain-tip.js?v=097-0-8';
+import { bindStaminaTooltip } from './render/stamina-tip.js?v=097-0-8';
+import { emit as tEmit } from './telemetry.js?v=097-0-8';
 
 const els = S._transient.els;
-
-// Drink threshold (v0.0.7.18): must have lost at least this fraction of
-// stamina to drink. Prevents wasting a canteen sip on a 1% restore.
-const DRINK_MIN_LOSS_PCT = 0.05;
 
 // staminaSegCount is exported for trust.js (tryWarning) and
 // trip.js (tripChance scales with segs lost).
@@ -61,8 +57,8 @@ function canDrink() {
   // canteens combined with the critLow auto-drink safety net spam
   // "drank from canteen — +0%" every tick. Same threshold as the
   // stamina-side gate so manual + auto behave symmetrically.
-  if (S.canteen < S.canteenMax * DRINK_MIN_LOSS_PCT) return false;
-  return S.stamina < S.staminaMax * (1 - DRINK_MIN_LOSS_PCT);
+  if (S.canteen < S.canteenMax * C.DRINK_MIN_LOSS_PCT) return false;
+  return S.stamina < S.staminaMax * (1 - C.DRINK_MIN_LOSS_PCT);
 }
 
 // renderStamina is exported for trust.js (confirmDepotRest)
@@ -215,7 +211,7 @@ export function drinkWater() {
   const rest = Math.min(need, (S.canteen/S.canteenMax) * S.staminaMax);
   const canteenBefore = S.canteen;
   S.stamina  = Math.min(S.staminaMax, S.stamina+rest);
-  const drainMult = S.upgrades.efficientConsumption ? 0.60 : 1.0;
+  const drainMult = S.upgrades.efficientConsumption ? C.DRINK_EFFICIENT_MULT : 1.0;
   S.canteen  = Math.max(0, S.canteen-(rest/S.staminaMax)*S.canteenMax*drainMult);
   if (S.canteen < S.canteenMax * 0.005) S.canteen = 0;
   // v0.0.9.6.9.28 — emit drink telemetry so sim can see how often

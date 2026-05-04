@@ -81,9 +81,10 @@ export const S = {
     weatherRadio: false, weatherRadioT2: false, sandalEfficiency: false, scavengerEye: false,
     // v0.0.9.5 commit 4 — new trust-reward upgrades. Real effects where
     // v0.0.9.5 systems exist (reservoirTank, solarPanel, rainfallTurbine,
-    // scannerT2). Flag-only for v0.0.9.6-gated mechanics (riverWaders,
-    // ceramicWrap, mobileCarrier1/2, mountainGear, improvedTieDowns,
-    // exoskeleton1/2, topographicMap).
+    // scannerT2). Flag-only at the time for v0.0.9.6-gated mechanics
+    // (riverWaders, mobileCarrier1/2, mountainGear, improvedTieDowns,
+    // exoskeleton1/2, topographicMap). ceramicWrap shipped wired in
+    // v0.0.9.6.9.30.2 — see trip.js applySevereDamage for the hook.
     reservoirTank: false,
     riverWaders:   false, ceramicWrap:      false,
     mobileCarrier1: false, mobileCarrier2:  false,

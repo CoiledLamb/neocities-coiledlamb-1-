@@ -30,9 +30,9 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-7';
-import * as C from './constants.js?v=097-0-7';
-import { addLog } from './render/log.js?v=097-0-7';
+import { S } from './state.js?v=097-0-8';
+import * as C from './constants.js?v=097-0-8';
+import { addLog } from './render/log.js?v=097-0-8';
 
 function applyBuff(durationTicks, magnitude, source) {
   const sc = S.scanner;

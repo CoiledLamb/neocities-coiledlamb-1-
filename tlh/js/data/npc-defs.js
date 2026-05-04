@@ -2,14 +2,15 @@
    THE LONG HAUL — NPC definitions + adjacency
 
    Six depot NPCs (v0.0.8.4 added phi, xi, psi):
-     rho  at A   (steady/laconic, default trust)
-     iota at B   (young/eager, default trust)
-     tau  at H   (warm/observant, default trust)
-     phi  at ?   (weather station, forecaster, default trust)
-     xi   at C   (researcher in ruins, 'careful' — slow gain
-                  on normal pkgs, full on fragile/xl)
-     psi  at ·   (orphan-scavenger at waypoint, 'scavenger' —
-                  doubles on s pkgs, normal on m, halves on l/xl)
+     rho  at A   (steady/laconic)
+     iota at B   (young/eager)
+     tau  at H   (warm/observant)
+     phi  at ?   (weather station, forecaster)
+     xi   at C   (researcher in ruins)
+     psi  at ·   (orphan-scavenger at waypoint)
+
+   v0.0.9.6.10.17 retired the per-NPC trust profile system —
+   gain is uniform per delivery now (see computeTrustGain).
 
    v0.0.9.5 expansion (cast locked 2026-04-17):
      nu     at ν   (NW desert corner — purification plant)

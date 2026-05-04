@@ -57,20 +57,20 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-7';
-import * as C from './constants.js?v=097-0-7';
-import { postLostDrop } from './multiplayer.js?v=097-0-7';
-import { staminaSegCount } from './stamina.js?v=097-0-7';
-import { emit as tEmit } from './telemetry.js?v=097-0-7';
+import { S } from './state.js?v=097-0-8';
+import * as C from './constants.js?v=097-0-8';
+import { postLostDrop } from './multiplayer.js?v=097-0-8';
+import { staminaSegCount } from './stamina.js?v=097-0-8';
+import { emit as tEmit } from './telemetry.js?v=097-0-8';
 // v0.0.9.6.9.13 — trip-dropped cargo needs to hit the same bottleneck
 // edge-tracker used by normal pick/deliver paths. Without this, a
 // severe trip at full cargo can transition out of maxed without
 // emitting inventory.freed.
-import { onInventoryChange } from './packages.js?v=097-0-7';
-import { addLog } from './render/log.js?v=097-0-7';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-7';
-import { weatherAtCourier } from './weather.js?v=097-0-7';
-import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js?v=097-0-7';
+import { onInventoryChange } from './packages.js?v=097-0-8';
+import { addLog } from './render/log.js?v=097-0-8';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-8';
+import { weatherAtCourier } from './weather.js?v=097-0-8';
+import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js?v=097-0-8';
 import {
   TERRAIN_TRIP_MULT,
   TERRAIN_HAS_SEVERE,
@@ -80,9 +80,9 @@ import {
   GEAR_FOR_TERRAIN,
   GEAR_TRIP_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=097-0-7';
-import { placedGearAt } from './gear.js?v=097-0-7';
-import { trampleAt } from './trail.js?v=097-0-7';
+} from './data/terrain.js?v=097-0-8';
+import { placedGearAt } from './gear.js?v=097-0-8';
+import { trampleAt } from './trail.js?v=097-0-8';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -693,19 +693,36 @@ export function maybeTrip() {
       // "damaged — payout -0\u00a2" on repeat. Routes through the same
       // drop helper so the pkg lands on the ground (or in the recovery
       // pipeline if shortcut / no free cell / already isLost).
-      const oldScrip = target.scrip;
+      // v0.0.9.7.8 — fragile-first damage selection. Drop path stays
+      // uniform (above); damage biases onto fragile pkgs when any are
+      // in cargo. Without this, fragile only mattered on severe trips
+      // (river/mountain/rockyHills via applySevereDamage) and was
+      // invisible during regular ring play. ceramicWrap + future
+      // fragile-themed cooking grace compound naturally with the bias.
+      let dmgTarget = target;
+      let dmgIdx    = targetIdx;
+      const fragileIndices = [];
+      for (let i = 0; i < S.inventory.length; i++) {
+        const p = S.inventory[i];
+        if (p.tags && p.tags.includes('fragile')) fragileIndices.push(i);
+      }
+      if (fragileIndices.length > 0) {
+        dmgIdx    = fragileIndices[Math.floor(Math.random() * fragileIndices.length)];
+        dmgTarget = S.inventory[dmgIdx];
+      }
+      const oldScrip = dmgTarget.scrip;
       const newScrip = Math.max(1, Math.floor(oldScrip * 0.75));
       const scripLost = oldScrip - newScrip;
       if (scripLost === 0) {
-        dropTrippedPkg(target, targetIdx);
-        addLog(tripMsg('writeOff', flavor, target.label));
+        dropTrippedPkg(dmgTarget, dmgIdx);
+        addLog(tripMsg('writeOff', flavor, dmgTarget.label));
         renderCourierStack();
         renderCargoSlots(true);
         dropped = true;
       } else {
-        target.scrip = newScrip;
-        target.damaged = true; // v0.0.8.4: flag for delivery dialogue condition
-        addLog(tripMsg('damage', flavor, target.label, scripLost));
+        dmgTarget.scrip = newScrip;
+        dmgTarget.damaged = true; // v0.0.8.4: flag for delivery dialogue condition
+        addLog(tripMsg('damage', flavor, dmgTarget.label, scripLost));
       }
     }
   }

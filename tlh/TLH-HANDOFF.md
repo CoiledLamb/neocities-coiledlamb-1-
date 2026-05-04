@@ -1,11 +1,11 @@
 # the long haul — game handoff doc
-_last updated: 2026-05-03 (**v0.0.9.7.7 shipped on branch — v0.0.9.7 CLOSED.** Topo follow-ups landed per the .handoff-topo spec: outside-ring dim + diagonal hatch (gated on topographicMap), vignette (gated), ring polygon dashed outline (always), ring road drop-shadow + 1.5 → 1.6px stroke (always; stage tinting kept), node circle stage-3 fill swap to panelDarker for the "well cut into ground" effect (gated). Cache-bust 097-0-7. v0.0.9.7.1 → .7.7 are all live. Next: v0.0.9.8 — the kitchen (cooking system). See [just shipped](#just-shipped--v00977--topo-follow-ups--v0097-closed) section below.)_
+_last updated: 2026-05-03 (**v0.0.9.7.8 — pre-kitchen cleanup + balance.** Fragile-first damage selection on regular trips (drop path stays uniform; damage biases onto fragile pkgs in cargo when present) — fragile is now visible in regular ring play, not just severe trips. Stale NPC trust profile comments cleaned (xi 'careful' / psi 'scavenger' — system shelved in v0.0.9.6.10.17, leftover docstrings removed). Stale state.js comment about ceramicWrap being flag-only removed (it wired in v0.0.9.6.9.30.2). DRINK_MIN_LOSS_PCT + DRINK_EFFICIENT_MULT moved from stamina.js into constants.js for single-file balance. Em-dash audit found nothing to fix (codebase already uses `—`/`&mdash;` consistently). Cache-bust 097-0-8. **Kitchen design sketch in flight** — see [v0.0.9.8 design sketch — the kitchen](#v0098-design-sketch--the-kitchen-in-flight-2026-05-03); plant names locking in a separate chat.)_
 
 > Companion doc to [`HANDOFF.md`](./HANDOFF.md) (which covers site-wide infrastructure). This doc covers everything related to **The Long Haul** game: architecture, multiplayer, identification stages, persistence, bug list, specs, roadmap, and game-specific session log.
 
 ---
 
-## ✅ CURRENT STATE: v0.0.9.7.7 shipped on branch — v0.0.9.7 CLOSED (kit-bar / route-map polish: ladder route-map glyph swapped to `Ħ`, gear glyphs fs 9 → 8 + drop-shadow gated to `.gear-rotting`; queue closeout pass for items 1+4 which already shipped during the .6.9.x cycle). v0.0.9.7.6 added log-dedup compression (closes queue item 5): inline `<span class="log-count">…</span>` spans now strip from dedup match keys so messages like `harvested sandalweed (3/5)` collapse with later `(4/5)` events into one line whose visible count tracks the latest event while `×N` tracks repetition. v0.0.9.7.7 landed the topo follow-ups: outside-ring dim + hatch (gated on `topographicMap`), vignette (gated), ring polygon dashed outline (always), ring road drop-shadow + 1.5 → 1.6px stroke (always; stage tinting preserved), node stage-3 fill swap to panelDarker for the "well cut into the contour ground" effect (gated). v0.0.9.7.1 → .7.7 are all live: .7.1 cargo log skeleton + topo map raster begins; .7.2 cargo log relocated into a slide-in drawer; .7.3 oilslick pending border + clearer filter labels; .7.4 cargo log per-player notification mute toggle (+ fixup); .7.5 closes the kit-bar / map-polish queue. **v0.0.9.7 CLOSED at .7.7**. Climbing animations + thick side-view rendering deferred out of .7 (paired with the parked destDrift / scene-backdrop rework). Next patch: **v0.0.9.8 — the kitchen** (cooking system implementation) (outside-ring dim + hatch, vignette, ring polygon dashed outline, ring road restyle, node "well" treatment) per [.handoff-topo](tlh/.handoff-topo/) spec, mostly gated on `topographicMap`. Climbing animations + thick side-view rendering defer out of .7 (paired with parked destDrift rework). v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
+## ✅ CURRENT STATE: v0.0.9.7.8 shipped on branch — pre-kitchen cleanup + fragile rebalance. **Fragile-first damage selection** lands in `maybeTrip`'s damage path ([tlh/js/trip.js:690](tlh/js/trip.js:690) area): drop path stays uniform random across cargo, damage biases onto fragile pkgs when any are in inventory. Closes a real gap — fragile pkgs were only mechanically distinguished on severe trips (river/mountain/rockyHills via `applySevereDamage`); regular ring play treated them identically to non-fragile. Now the existing fragile-themed mitigations (ceramicWrap one-shot absorb, future fragile-themed cooking grace from v0.0.9.8 kitchen) compound naturally with a felt regular-trip risk. Cleanups: stale NPC trust profile comments removed from npc-defs.js header (xi 'careful' / psi 'scavenger' — system shelved in v0.0.9.6.10.17), stale `ceramicWrap` flag-only entry removed from state.js comment, `DRINK_MIN_LOSS_PCT` + `DRINK_EFFICIENT_MULT` (was inline `0.60`) moved into constants.js for single-file balance passes. Em-dash audit found zero stragglers — codebase already uses `—` / `&mdash;` consistently. **v0.0.9.7 stays CLOSED** (this is .7.8 cleanup, not .7 reopening). Cache-bust 097-0-8. Next: **v0.0.9.8 — the kitchen** (cooking system implementation; design sketch saved below). v0.0.9.7.6 added log-dedup compression (closes queue item 5): inline `<span class="log-count">…</span>` spans now strip from dedup match keys so messages like `harvested sandalweed (3/5)` collapse with later `(4/5)` events into one line whose visible count tracks the latest event while `×N` tracks repetition. v0.0.9.7.7 landed the topo follow-ups: outside-ring dim + hatch (gated on `topographicMap`), vignette (gated), ring polygon dashed outline (always), ring road drop-shadow + 1.5 → 1.6px stroke (always; stage tinting preserved), node stage-3 fill swap to panelDarker for the "well cut into the contour ground" effect (gated). v0.0.9.7.1 → .7.7 are all live: .7.1 cargo log skeleton + topo map raster begins; .7.2 cargo log relocated into a slide-in drawer; .7.3 oilslick pending border + clearer filter labels; .7.4 cargo log per-player notification mute toggle (+ fixup); .7.5 closes the kit-bar / map-polish queue. **v0.0.9.7 CLOSED at .7.7**. Climbing animations + thick side-view rendering deferred out of .7 (paired with the parked destDrift / scene-backdrop rework). Next patch: **v0.0.9.8 — the kitchen** (cooking system implementation) (outside-ring dim + hatch, vignette, ring polygon dashed outline, ring road restyle, node "well" treatment) per [.handoff-topo](tlh/.handoff-topo/) spec, mostly gated on `topographicMap`. Climbing animations + thick side-view rendering defer out of .7 (paired with parked destDrift rework). v0.0.9.6 arc COMPLETE; v0.0.9.6.9 sim harness shipped (first 20-run batch produced actionable balance data — canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven; sim-balance items folded into v0.1.0 polish pass per [tlh/TLH-1.0.md](tlh/TLH-1.0.md)).
 
 Game is at `v0.0.9.5` on the `claude/amazing-hermann` branch (merged to main on completion). The v0.0.8 arc shipped as three mechanical threads (packages / trust / weather). v0.0.9 has now landed three renderer / interaction patches, a micro-polish, dest-div + outbound dispatch, cursor-based cargo UX, and the biggest single-arc expansion so far — NPC doubling + battery baseline + full trust-gift wiring:
 
@@ -47,6 +47,59 @@ The side-view play area + sky from v0.0.9.1 are still untouched through v0.0.9.2
 19. ✅ **v0.0.8.8 — bug audit + mobile compatibility**: cleanup pass after the v0.0.8 feature arc.
 
 **Resume next session**: v0.0.9.5 is shipped on the `claude/amazing-hermann` branch (5 scope commits + 1 design-lock docs commit + 1 ship-log docs commit). Merged to main. Next patch is **v0.0.9.6 — world patch: terrain bones + gear + world-overlay + trails** (consolidates the old .5 + .6 into a coherent world-mechanics patch; design fully refined 2026-04-17 during the .5 lockdown). **Idle-game-first philosophy locked**: no hard gates on traversal — gear is efficiency, never requirement. Every cell is crossable gear-less, just with higher penalty. Scope: terrain types anchored at v0.0.9.5 corner NPCs — rivers (theta NE source, flow diagonally SW, clay beds in `#98875f` / `#a64a2e`); mountain massifs at SW corner (pi's summit + lambda's slope), severe penalty but always traversable; **plateau / mesa country** (east side) as gear-teaching rung — visual obstacles with walkable paths carved between, plateau tops gated by placed ladder for pkg-top rewards (dests restricted to near-start NPC allowlist per v0.0.9.5 label lock), placed anchor for controlled descent else fall-as-guaranteed-trip; rocky hills as connective tissue; desert at nu's NW with day-scaled stamina drain. Rivers classified creek/river/wide with fall-and-ride-downstream failure mode (courier swept downstream ~5-10 ticks, catches themselves, pathfinding auto-reroutes). Shortcut rewrite: flat SHORTCUT multipliers retire in favor of per-cell terrain effects. Interior brought on-grid (weather + scanner + river-refill + terrain effects active during shortcut; pkg pickup in interior stays off pending .7+, except plateau tops). Ladder + anchor as kit-bar gear (1×1 slots each, bundled 1-5/6-10/11-20 = s/m/l slot; 5c each; 12h wall-clock base durability, lambda's mountain gear ×2 → 24h; spatial storm-at-gear-cell decay ×3). **All gear is placed** (no held/in-use model) — anchor at shore creates rope spanning river (up to 2 cells per anchor), chained ladders share one decay clock as atomic multi-cell infrastructure. Placement consumes inventory + creates world-overlay structure usable by others. Trails land with shared world-overlay data plumbing (per-cell trample, multiplayer-synced, emergent social paving). Mountain-pass carving as natural extension. Storms sweep across 2D interior (not just ring). **Ceramic wrap (theta t40, shipped v0.0.9.5)** waterproofs fragile cargo during river crossings + fall-downstream incidents — cross-patch synergy already wired. 9 flag-only upgrades from v0.0.9.5 (riverWaders, ceramicWrap, mobileCarrier1/2, mountainGear, improvedTieDowns, exoskeleton1/2, topographicMap) get their real effect code wired this patch. See [v0.0.9.6 implementation plan](#v0096-implementation-plan). Dispatch log virt still benched at **v0.0.9.8**; see [its plan](#v0098-implementation-plan).
+
+## just shipped — v0.0.9.7.8 — pre-kitchen cleanup + fragile rebalance
+
+Small bundle landed before opening the kitchen patch (.8). Cache-bust 097-0-7 → 097-0-8 across 43 files; subtitle now reads `v0.0.9.7.8`.
+
+### fragile-first damage selection (the substantive change)
+
+Before this patch, fragile pkgs had **zero unique behavior** on regular trips — `maybeTrip`'s damage path picks a target uniformly random from inventory and applies −25% scrip ([tlh/js/trip.js:681-682](tlh/js/trip.js:681) area). Only severe trips (river/mountain/rockyHills via `applySevereDamage`) checked the fragile flag, where fragile pkgs eat 100% hit rate on river/mountain and 50% on rockyHills (vs. 50/60/0% non-fragile).
+
+Result: the only place fragile mattered in regular ring play was xi's delivery-dialogue priority — purely cosmetic. The fragile modifier looked like a real cargo handling concern but was invisible mechanically off the interior.
+
+Fix: in the damage branch (the `else` after the drop-chance roll), if there are any fragile pkgs in inventory, swap the target to a uniform-random fragile pkg before the −25% scrip math. Drop path stays uniform (so total damage events per trip don't change). Same write-off path (max(1, floor(scrip×0.75)) → 0 destroys the pkg via `dropTrippedPkg`).
+
+Felt impact:
+- Fragile pkgs visibly take damage more often during regular play. Players see "fragile X damaged" log messages and learn fragile = riskier.
+- ceramicWrap's permanent one-absorb-per-pkg is now meaningfully valuable in regular play, not just on severe trips.
+- Future fragile-themed cooking grace (v0.0.9.8 kitchen) compounds naturally — halves the bias rate, partially reverting toward uniform.
+- Tie-down still absorbs the trip entirely (so attentive players sidestep this), preserving the "tune in" reward.
+
+### cleanups
+
+1. **NPC trust profile comments** ([tlh/js/data/npc-defs.js:9-12](tlh/js/data/npc-defs.js:9)) — header docstring still described xi as 'careful' (slow gain on normal pkgs, full on fragile/xl) and psi as 'scavenger' (doubles s, halves l/xl). System was shelved in v0.0.9.6.10.17 with the per-NPC profile dispatcher removed from `computeTrustGain`. Cleaned the docstring to match actual flat-base behavior.
+
+2. **`ceramicWrap` flag-only comment** ([tlh/js/state.js:84-86](tlh/js/state.js:84)) — listed alongside `riverWaders`, `mobileCarrier1/2`, etc. as flag-only for v0.0.9.6-gated mechanics. ceramicWrap shipped wired in v0.0.9.6.9.30.2 (see `applySevereDamage` water saves + per-pkg one-shot absorb). Removed from the flag-only list, added a note pointing to where it's actually used.
+
+3. **Stamina constants** — `DRINK_MIN_LOSS_PCT = 0.05` was a local const in stamina.js; the `0.60` `efficientConsumption` multiplier was an inline literal in `drinkWater`. Both moved to constants.js as `DRINK_MIN_LOSS_PCT` and `DRINK_EFFICIENT_MULT`. stamina.js now references `C.DRINK_MIN_LOSS_PCT` / `C.DRINK_EFFICIENT_MULT`. No behavior change; balance passes are now single-file.
+
+4. **Em-dash audit** — pass requested. Found zero stragglers. npc-lines.js, addLog calls, upgrades.js, the-long-haul.html user-facing strings all use `—` / `&mdash;` consistently. The only `–` (en-dash) instances are in code comments using number-range notation ("1–2 dests", "5–6") — appropriate usage. No edits needed.
+
+### file map
+
+**Modified:**
+- [tlh/js/trip.js](tlh/js/trip.js) — fragile-first damage selection in `maybeTrip` else branch (~15 lines added)
+- [tlh/js/data/npc-defs.js](tlh/js/data/npc-defs.js) — header docstring cleanup
+- [tlh/js/state.js](tlh/js/state.js) — comment cleanup
+- [tlh/js/constants.js](tlh/js/constants.js) — added `DRINK_MIN_LOSS_PCT` + `DRINK_EFFICIENT_MULT`
+- [tlh/js/stamina.js](tlh/js/stamina.js) — removed local `DRINK_MIN_LOSS_PCT`, swap to `C.DRINK_MIN_LOSS_PCT` (3 sites) + `C.DRINK_EFFICIENT_MULT` (1 site)
+- [tlh/the-long-haul.html](tlh/the-long-haul.html) — subtitle bump to `.7.8`
+- 43 files — cache-bust `097-0-7` → `097-0-8` (via [tlh/scripts/bump-version.sh](tlh/scripts/bump-version.sh))
+
+### explicit non-scope (decisions logged)
+
+- **Drop path bias** — kept uniform random. Fragile-first applies only to damage. (Variant (a-soft) per design discussion; full (a) "fragile first for both drop AND damage" felt too punishing.)
+- **Magnitude tweak on fragile damage** — kept at base −25% (vs softer per-fragile). The bias creates frequency, not severity.
+- **Damage-resistant ceramic absorb stacking** — unchanged. ceramicWrap still grants one absorb per fragile pkg ever (persists with `pkg.ceramicAbsorbed`).
+- **Porter shortcut tolerances near xi/nu** — flagged for a future micro-patch (.7.9 or pre-.8). Would need its own observation period; bundling with cleanup risks confounding the fragile-first effect.
+- **Terrain ↔ topographic-map alignment audit** — deferred. Need a visual diff against the rendered map before fixing; not a comment-cleanup item. Schedule its own patch when worthwhile.
+
+### what's next
+
+**v0.0.9.8 — the kitchen** (cooking system). Design sketch in [v0.0.9.8 design sketch — the kitchen](#v0098-design-sketch--the-kitchen-in-flight-2026-05-03) below. Plant names locking in a separate chat; resume kitchen implementation once names land.
+
+---
 
 ## just shipped — v0.0.9.7.7 — topo follow-ups + v0.0.9.7 closed
 
@@ -103,6 +156,179 @@ Two queue items deferred out of v0.0.9.7:
 - Depot stoves per NPC reflecting terrain
 
 The cargo log's plant section (`notePlantFound` / `notePlantCookedRole` hooks at [tlh/js/render/cargo-log.js](tlh/js/render/cargo-log.js)) is wired and waiting; v0.0.9.8 populates `PLANTS` and starts firing the hooks.
+
+---
+
+## v0.0.9.8 design sketch — the kitchen (in flight, 2026-05-03)
+
+Drafted across multiple chats 2026-05-03. **Plant names selected from a generated catalog** (gemma3-27b list shared by user). The 12-ingredient roster below reflects all the design decisions through the full conversation. Resume here for kitchen implementation; only authoring + a few open items remain.
+
+### locked decisions
+
+- **Two-plant combo cook.** Trigger slot + conditional slot; same plant can fill both.
+- **Reveal contract** (per .7.1 cargo log spec): each plant has fixed `trigger` + `conditional` properties; cooking only reveals the role the plant played in the dish. Two plays per plant for full codex completion.
+- **No pair gating, no special-case combos.** Plant A's trigger pairs with Plant B's conditional with no lookup table — the plant card is the contract. Variety lives in the cross product. Balance lives at the trigger and conditional level individually (not in pairings).
+- **Buff duration**: ~850 ticks (≈5 min real-time at TICK_MS=350; tunable 750–900).
+- **Buff lifecycle**: queue + overwrite. New cook replaces current buff. No stacking.
+- **Recipe queue with priority fallback**: ordered preference list. "Try recipe 1; if I'm out of an ingredient, try recipe 2; ..." Echoes the boots autobuy fallback chain ([tlh/js/boots.js:84](tlh/js/boots.js:84)) and upgrade-shop pending pattern. Auto-cooks whenever current buff expires + ingredients + water present.
+- **Field cook**: anywhere, costs 10–20% canteen per cook (tunable). Picker UI for any 2 ingredients from stash.
+- **Depot cook**: trust-gated above t20 (exact tier deferred to v0.0.9.10's trust ladder restructure). Each NPC has an **authored signature recipe** (designer-curated combo) — not derived from "ingredients available on the path." Lets us pick the perfect pair for each NPC's voice and update across patches as new ingredients land.
+- **Per-ingredient stash cap**, sandalweed-style — no shared pantry.
+- **Cargo log "plants" section becomes "ingredients"** — covers plants + porter's pal + future weird non-plant items. The "hide items" filter renames to "ingredients only" or similar to reflect.
+- **Cook UI placement**: TBD, doesn't block scoping.
+- **Same-ingredient cook allowed** (uses 2 of that ingredient from stash). First field cook of a new plant reveals both halves at once.
+
+### the unified effect model
+
+**Trigger** = defines *when* the conditional is "on" (active window).
+**Conditional** = a grace modifier applied to the underlying system while on.
+**Buff window** = caps maximum on-time (~850 ticks).
+
+Two trigger flavors:
+- **State predicate** — conditional is on while the predicate holds (e.g., boots warn, in storm, on rocky terrain). On/off flips with state.
+- **Event sub-window** — conditional is on for ~200 ticks after each event fire; refresh on re-fire. (200-tick default; longer for `on_daylight` which is half-day.)
+
+This solves "I ate but the meal expired before anything happened": state-trigger meals start working the moment you enter the bad state; event-trigger meals earn value from any one of many common events within the buff window.
+
+**No probability gates** on triggers — earlier drafts had `30% chance on pickup` etc. but the buff window length already provides natural rate limiting, and gates muddy the player's expectation. Trigger fires every time its condition is met.
+
+Conditionals are all rate modifiers — no "stored, waits for downstream event" or one-shot-stored shapes. Unified model, every plant card is legible.
+
+### trigger vocabulary
+
+State predicates (5):
+
+| Tag | Active when |
+|---|---|
+| `boots_warn` | boots at warn/crit durability |
+| `canteen_low` | canteen under 25% |
+| `in_storm` | currently in a storm cell |
+| `strain_high` | strain ≥ 0.7 (sim-tunable; widen to ≥0.5 if uptime feels low) |
+| `on_rocky_terrain` | currently on river, rockyHills, or mountain cell |
+| `on_plateau_or_mountain` | currently on plateau or mountain cell (cliffhanger split — see ingredient table) |
+| `on_daylight` | sun is up (half-day uptime, paired with sunflower) |
+| `on_low_battery` | battery <25% |
+| `on_fragile_carried` | any fragile pkg in inventory |
+
+Event sub-windows (3):
+
+| Tag | Fires on | Window |
+|---|---|---|
+| `on_pickup` | pkg picked up | 200 ticks |
+| `on_delivery` | pkg delivered | 200 ticks |
+| `on_terrain_enter` | crossed into new terrain type | 200 ticks |
+
+**Cuts** from earlier drafts:
+- `on_trip` — strain integration absorbed direct trip-chance modification; trips themselves are mostly tie-down absorbed.
+- `on_rest` — felt vestigial; user dropped the rest mechanic from the cooking design space.
+- `exhausted` — replaced by more specific state predicates.
+- `on_dawn` — replaced by `on_daylight` state (more forgiving for idle play; you don't have to cook precisely at dawn).
+
+### conditional vocabulary
+
+| Tag | Grace effect | Notes |
+|---|---|---|
+| `boot_grace` | −40% boot degradation | matches smoke-sandalweed precedent (25% active) but stronger since meal has resource cost |
+| `canteen_grace` | **needs reframe** — see open items #1 below | no passive canteen drain to reduce; original effect doesn't fit |
+| `strain_grace` | −50% strain accrual | does NOT cover trip mitigation (tie-down handles that for free); the value is delaying strain-cap → trip cycle |
+| `terrain_grace` | −50% trip mult on rocky terrain (river + rockyHills) | clayroot — see split note below |
+| `terrain_grace_alpine` | −50% trip mult on plateau + mountain | cliffhanger half of the split |
+| `storm_grace` | −50% storm trip-mult contribution (downpour 1.50→1.25, rain 1.25→1.125, drizzle 1.10→1.05) | doesn't touch canteen-refill side of storms |
+| `scrip_grace` | +25% scrip per delivery | flagged as weak felt-attribution — needs log message reinforcement at impl time ("rustveil bonus: +5c") |
+| `scanner_grace` | scanner buff magnitude doubled (T1 ×0.5 → ×0.25) | flagged as weakest felt — invisible system change. Surface via a scanner-halo brightness pulse during buff |
+| `battery_grace` | flat +0.10/tick passive battery regen during sub-window | stacks with solar; ~75 charge over the half-day |
+| `gadget_grace` | −25% battery drain across all consumers | flagged as weak felt — invisible. Surface via battery bar tint or drain-rate readout |
+| `fragile_grace` | halves fragile hit rate during severe trips (mountain 100%→50%, river 100%→50%, rockyHills 50%→25%) | NEW — earned its slot via novel system reach (pkg modifier system); stacks with ceramicWrap |
+| `wild_grace` | at activation, RNG-selects one of {boot, canteen, strain, terrain, storm, scanner} grace; visible in buff display ("rolled X this time") | porter's pal only |
+
+**Cuts** from earlier drafts:
+- `trip_grace` — strain integration absorbed it; redundant.
+- `trust_grace` — "more numbers, more often" wasn't doing real design work.
+- `stamina_grace` — sunflower repositioned to battery_grace; no other plant earned the stamina-grace slot.
+- `outbound_grace` (NPC dispatch chance) — considered, cut. Felt moment too thin without UI surface to reinforce. Revisit if outbound system gets more visual weight.
+
+### the 12-ingredient roster
+
+| # | Ingredient | NPC anchor / biome | Trigger | Conditional |
+|---|---|---|---|---|
+| 1 | **gritgrass** | rho — ring/desert (renames sandalweed display, internal IDs stable per .9.5 precedent) | `boots_warn` | `boot_grace` |
+| 2 | **pebblewort** | iota / nu / delta — wetland/river | `canteen_low` | `canteen_grace` (TBD final shape) |
+| 3 | **clayroot** | theta — clay banks (river-adjacent harvest justifies river coverage) | `on_rocky_terrain` | `terrain_grace` (river + rockyHills) |
+| 4 | **rustveil** | xi — city ruins (lore: *"smelling faintly of wet pennies"* maps perfectly to scrip flavor) | `on_pickup` | `scrip_grace` |
+| 5 | **windscald** | phi — weather station / windswept plateau | `in_storm` | `storm_grace` |
+| 6 | **sunflower** | psi / iota — oasis/greenhouse (daytime ingredient; .11 may overlay heat trigger) | `on_daylight` | `battery_grace` |
+| 7 | **stone rasp** | gamma — workshop scrub | `strain_high` | `strain_grace` |
+| 8 | **stonesong** | lambda — climbing slope (lore: *"amplifies the sound of the wind"* = scanner amplification) | `on_terrain_enter` | `scanner_grace` |
+| 9 | **riverknot** | delta — reservoir banks (delta runs power infrastructure → gadget-themed) | `on_low_battery` | `gadget_grace` |
+| 10 | **cliffhanger** | lambda — alpine half of terrain_grace split (clay/clayroot covers river+hills; cliffhanger covers plateau+mountain) | `on_plateau_or_mountain` | `terrain_grace_alpine` |
+| 11 | **claybloom** | theta — kiln (ceramic-glaze plant; *"petals feel cool and smooth to the touch"*) | `on_fragile_carried` | `fragile_grace` |
+| 12 | **porter's pal** | xi — city ruins (NON-PLANT: pre-collapse preserved meal, archaeology drop at ruins cells) | (any, random both halves) | `wild_grace` |
+
+Mesa is uncovered (no mesa-specific plant). Acceptable — it's a small footprint and the lack of a mesa-grace doesn't break anything.
+
+**Sandalweed → gritgrass**: display-only rename via the v0.0.9.5 precedent ("pack mule rig → molly netting"-style). Internal `S.sandalweedCount`, `sandalEfficiency` upgrade ID, `sandalCap()`, etc. stay stable. No save migration. ~15-25 user-facing string sites to touch at impl time.
+
+**Porter's pal**: ingredient (not plant), spawns at ruins cells, rarer than plants, same stash cap (~5). At cook time RNG selects one of the 9 plants and uses its trigger (or conditional, depending on slot) for the meal. Each cook is a fresh roll, no memory. Wild-pool excludes the strongest conditionals (battery_grace, scrip_grace) to prevent jackpot-hunting.
+
+### NPC depot signatures (authored, not coverage-driven)
+
+Authored at impl time per NPC voice + path lore. Pi (cold summit) defers to v0.0.9.11 cold plants — no signature in .8.
+
+When v0.0.9.11 ships heat-themed plants + reworks sunflower's trigger, **audit signatures for sunflower dependency** and update affected recipes. (Currently sunflower is daylight/battery; .11 may add heat coverage that overrides or supplements.)
+
+### data shape
+
+```js
+// tlh/js/data/plants.js (currently empty stub)
+gritgrass: {
+  name:        'gritgrass',
+  biome:       ['ring', 'desert'],
+  lore:        '…',
+  trigger:     'boots_warn',
+  conditional: 'boot_grace',
+}
+```
+
+Trigger and conditional are tag strings; trigger semantics + conditional grace effects live in dedicated dispatchers (`TRIGGERS`, `CONDITIONALS`) that handle state-vs-event distinction, sub-window lengths, and the actual grace-modifier hooks into game systems. `wild_grace` lives in `CONDITIONALS` with the RNG pool defined inline.
+
+Porter's pal has its own data row (likely separate from PLANTS, e.g. INGREDIENTS keyed by id with a `kind: 'plant' | 'supply'` discriminator).
+
+### implementation findings from .7.8 audit (relevant for cooking design)
+
+- **No passive canteen drain.** Canteen only changes via `drinkWater` (consumed) and various refills (rain, wetland, storm burst, reservoir tank). So `canteen_grace` as "−50% drain at low canteen" doesn't have a hook to attach to. Reframe options below.
+- **Stamina drain is constants-driven** at `C.STAMINA_DRAIN = 0.40`/tick — single hook in [tlh/js/main.js:352](tlh/js/main.js:352). Easy modifier surface.
+- **Trust profile system fully shelved** ([tlh/js/data/npc-defs.js](tlh/js/data/npc-defs.js) header + computeTrustGain — cleanup landed in .7.8). Cooking-time trust modifiers (e.g. trust_grace if revived) plug into the flat `1 + floor(slots/2) + (lost ? 1 : 0)` formula at [tlh/js/trust.js:107-110](tlh/js/trust.js:107).
+- **Fragile mechanics are alive and now visibly punishing in regular play** (post-.7.8). `fragile_grace` slots cleanly as a third mitigation (alongside ceramicWrap one-absorb and tie-down trip-absorb).
+
+### open items (not blocking the sketch, blocking the build)
+
+1. **`canteen_grace` reframe.** Original "−50% drain at low canteen" has no hook (canteen only loses water through drinks). Options:
+   - (a) **Drink efficiency**: drinks cost 50% less canteen during buff. Stacks multiplicatively with `efficientConsumption` upgrade (×0.60 → ×0.30 combined). Felt as "each sip stretches further."
+   - (b) **Passive drip**: +0.05/tick canteen during buff while in `canteen_low` state. Like reservoir tank ×2.5. Always-on small refill.
+   - (c) **Storm refill amplifier**: while in storm, refill rates ×1.5 (drizzle 0.20→0.30, etc.). Trigger pairing weird (in_storm taken).
+   - My instinct: (a) drink efficiency. Distinct mechanic, parallels existing upgrade family.
+2. **Magnitude tuning** — per-plant variation vs flat across all conditionals. Likely state-trigger graces are −40% (longer uptime, weaker per-tick), event-trigger graces are −50% (briefer windows, stronger).
+3. **Cook UI placement** — kit bar, cargo drawer header, floating action button when ingredients + water present. Pick at impl time.
+4. **Recipe queue UI** — lives in a "meals" section of cargo log. Depth (single fallback or multi-step), ordering UX.
+5. **Depot tier choice** — deferred to .10 tier restructure.
+6. **`strain_high` activation window** — 0.7 cutoff gives ~30% uptime in active play. If sim shows under-firing, widen to ≥0.5 for ~50% uptime.
+7. **Weak-felt conditionals need impl-time UI reinforcement**: scrip_grace (log message "+25% bonus" on affected delivery), scanner_grace (halo brightness pulse during buff), gadget_grace (battery bar tint while active).
+
+### resume-here cheatsheet
+
+When picking this up for implementation:
+1. Confirm `canteen_grace` reframe (#1 above).
+2. Save schema bump for `cargoLog.plants` (slot already allocated per .7.1) + `cargoLog.supplies` for porter's pal + `S.activeBuff` + `S.recipeQueue`.
+3. Populate [tlh/js/data/plants.js](tlh/js/data/plants.js) with the 11 plant entries + author lore strings (1-2 lines each).
+4. Add INGREDIENTS layer (or extend PLANTS) for porter's pal as the non-plant entry.
+5. Implement `TRIGGERS` + `CONDITIONALS` dispatchers in `js/cooking.js` (new module) with the grace-modifier hooks into existing systems (boots, canteen, strain, trip, storm, scrip, scanner, battery, fragile, gadget).
+6. Cook UI: picker, queue surface, buff display.
+7. Sandalweed → gritgrass display rename pass (~15-25 string sites).
+8. Cargo log: plants section → ingredients section, hide-items filter rename.
+9. Depot signature-meal authoring (11 recipes × name + dialogue + plant pair; pi defers to .11).
+10. `notePlantFound` / `notePlantCookedRole` hooks (already wired at [tlh/js/render/cargo-log.js](tlh/js/render/cargo-log.js)) start firing as cooks happen.
+11. Field cook canteen cost hook (10-20% per cook).
+12. Recipe queue auto-cook when current buff expires.
 
 ---
 
