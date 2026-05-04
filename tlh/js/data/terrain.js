@@ -43,13 +43,32 @@ const RIVER_HALF_W     = 7;   // water half-width
 const CLAY_BANK_EXTRA  = 5;   // clay-bed band outside water
 const TRIBUTARY_HALF_W = 5;   // narrower side-channels
 
-// Tributaries run W→E, joining the main channel from
-// the west. Hand-placed endpoints — enough variety to
-// make interior crossings matter at more than one
-// latitude band.
+// v0.0.9.7.9 — tributaries aligned to topo-map.js STREAM_CTRLS so
+// the visible streams (drawn as Catmull-Rom curves in the heightmap
+// raster) classify gameplay-wise as river/clayBed where players see
+// them. Topo's 4 in-bounds streams (skipping the off-map stream that
+// goes y > 400) are sampled into 14 short straight segments — close
+// enough to the underlying curve that distToSegment within
+// RIVER_HALF_W (7) + CLAY_BANK_EXTRA (5) hits the right cells.
 const TRIBUTARIES = [
-  { ax: 175, ay: 155, bx: 270, by: 170 },  // upper W feeder
-  { ax: 150, ay: 245, bx: 245, by: 260 },  // lower W feeder
+  // SW lower feeder — (60,340) → (230,232) via 4 control points
+  { ax:  60, ay: 340, bx: 110, by: 290 },
+  { ax: 110, ay: 290, bx: 160, by: 260 },
+  { ax: 160, ay: 260, bx: 200, by: 245 },
+  { ax: 200, ay: 245, bx: 230, by: 232 },
+  // far W upper feeder — (0,130) → (220,162) via 4 control points (clamped from -10)
+  { ax:   0, ay: 130, bx:  60, by: 150 },
+  { ax:  60, ay: 150, bx: 120, by: 158 },
+  { ax: 120, ay: 158, bx: 180, by: 156 },
+  { ax: 180, ay: 156, bx: 220, by: 162 },
+  // E feeder — (360,240) → (258,248) via 3 control points (right-side stream from gamma area)
+  { ax: 360, ay: 240, bx: 320, by: 230 },
+  { ax: 320, ay: 230, bx: 285, by: 235 },
+  { ax: 285, ay: 235, bx: 258, by: 248 },
+  // short W mid feeder — (110,210) → (213,198) via 3 control points
+  { ax: 110, ay: 210, bx: 150, by: 205 },
+  { ax: 150, ay: 205, bx: 185, by: 200 },
+  { ax: 185, ay: 200, bx: 213, by: 198 },
 ];
 
 // --- biome radii (from NPC anchor) -------------------
@@ -424,7 +443,7 @@ export const GEAR_GLYPH = {
 // brand ramp and resolved lazily from the CSS palette so a
 // future bone-theme switch picks up automatically. tier.color
 // is a getter — call sites stay unchanged.
-import { tlhPalette as _gearPalette } from '../palette.js?v=097-0-8';
+import { tlhPalette as _gearPalette } from '../palette.js?v=097-0-9';
 export const GEAR_WEAR_TIERS = [
   { max: 0.35, name: 'fresh',     get color() { return _gearPalette().accent; } },
   { max: 0.70, name: 'weathered', get color() { return _gearPalette().warn;   } },

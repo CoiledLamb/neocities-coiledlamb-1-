@@ -75,71 +75,71 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-8';
-import * as C from './constants.js?v=097-0-8';
-import { NPC_LINES } from './data/npc-lines.js?v=097-0-8';
-import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=097-0-8';
-import { ZONE_TYPES } from './data/zones.js?v=097-0-8';
-import { NODE_GLYPHS } from './data/glyphs.js?v=097-0-8';
-import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=097-0-8';
+import { S } from './state.js?v=097-0-9';
+import * as C from './constants.js?v=097-0-9';
+import { NPC_LINES } from './data/npc-lines.js?v=097-0-9';
+import { NPC_DEFS, NPC_ADJACENT } from './data/npc-defs.js?v=097-0-9';
+import { ZONE_TYPES } from './data/zones.js?v=097-0-9';
+import { NODE_GLYPHS } from './data/glyphs.js?v=097-0-9';
+import { saveGame, loadGame, armWipe, updateSaveStrip } from './persistence.js?v=097-0-9';
 import {
   getPorterId, getCachedPorterId, postActivity, postLostDrop,
   fetchLostFromPeer, startPolling, stopPolling,
   shortPorterId, checkDistMilestones, isSilent, setSilent,
-} from './multiplayer.js?v=097-0-8';
-import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=097-0-8';
+} from './multiplayer.js?v=097-0-9';
+import { tickRecoveryAttempt, updatePorterStripBadges } from './recovery.js?v=097-0-9';
 import {
   getNodeStage, setNodeStage, markEdgeAdjacent, getDisplayLabel,
-} from './identification.js?v=097-0-8';
+} from './identification.js?v=097-0-9';
 import {
   addTrust, tryWarning, tryPreview, tryRestPrompt,
-} from './trust.js?v=097-0-8';
-import { renderChannels, tickAmbientChatter } from './channels.js?v=097-0-8';
+} from './trust.js?v=097-0-9';
+import { renderChannels, tickAmbientChatter } from './channels.js?v=097-0-9';
 import {
   buildWorld, calcCellPxWidth, worldPosFromRoute, renderFieldstrip,
   bindFieldstripInteractions,
-} from './world.js?v=097-0-8';
-import * as Pkg from './packages.js?v=097-0-8';
-import * as Trip from './trip.js?v=097-0-8';
-import * as Boots from './boots.js?v=097-0-8';
-import * as Carrier from './carrier.js?v=097-0-8';
-import * as Stamina from './stamina.js?v=097-0-8';
-import * as Upg from './upgrades.js?v=097-0-8';
-import { tickScanner } from './scanner.js?v=097-0-8';
-import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=097-0-8';
-import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=097-0-8';
-import { renderKit } from './render/kit.js?v=097-0-8';
-import { initAdminChannel } from './admin-channel.js?v=097-0-8';
-import { initSaveIo } from './save-io.js?v=097-0-8';
-import { addLog, restoreLogFromSave } from './render/log.js?v=097-0-8';
+} from './world.js?v=097-0-9';
+import * as Pkg from './packages.js?v=097-0-9';
+import * as Trip from './trip.js?v=097-0-9';
+import * as Boots from './boots.js?v=097-0-9';
+import * as Carrier from './carrier.js?v=097-0-9';
+import * as Stamina from './stamina.js?v=097-0-9';
+import * as Upg from './upgrades.js?v=097-0-9';
+import { tickScanner } from './scanner.js?v=097-0-9';
+import { tickWeather, initWeather, buildWeatherOverlay, weatherAtCourier } from './weather.js?v=097-0-9';
+import { activeBatteryDrainPerTick, activeBatterySolarGainPerTick } from './battery.js?v=097-0-9';
+import { renderKit } from './render/kit.js?v=097-0-9';
+import { initAdminChannel } from './admin-channel.js?v=097-0-9';
+import { initSaveIo } from './save-io.js?v=097-0-9';
+import { addLog, restoreLogFromSave } from './render/log.js?v=097-0-9';
 import {
   setHideUndiscovered as cargoSetHideUndiscovered,
   setHideCargo        as cargoSetHideCargo,
   setSearchQuery      as cargoSetSearchQuery,
   renderCargoLog,
-} from './render/cargo-log.js?v=097-0-8';
+} from './render/cargo-log.js?v=097-0-9';
 import {
   updateHUD, renderCargoSlots, renderCourierStack,
-} from './render/hud.js?v=097-0-8';
-import { bindDragGlobals } from './render/drag.js?v=097-0-8';
+} from './render/hud.js?v=097-0-9';
+import { bindDragGlobals } from './render/drag.js?v=097-0-9';
 import {
   drawRouteMap, updateRouteDot, updateRouteHud, layoutRouteNodes, currentEdge,
   initSegment, advanceSegmentAfterArrival, bindRouteInteractions,
   tickRouteInteractions, isOnShortcut, courierTerrain,
-} from './render/route-map.js?v=097-0-8';
+} from './render/route-map.js?v=097-0-9';
 import {
   TERRAIN_STAMINA_MULT, TERRAIN_CANTEEN_DELTA, desertStaminaMult,
   GEAR_FOR_TERRAIN, GEAR_STAMINA_MITIGATION,
-  reduceMultWithTrample,
-} from './data/terrain.js?v=097-0-8';
+  reduceMultWithTrample, mesaOutcropAt,
+} from './data/terrain.js?v=097-0-9';
 import {
   autoPlaceForCell, placedGearAt, tickGearDecay, resetGearLogThrottles,
-} from './gear.js?v=097-0-8';
-import { addTrampleAt, trampleAt } from './trail.js?v=097-0-8';
-import { emit as tEmit } from './telemetry.js?v=097-0-8';
-import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=097-0-8';
-import { renderNetwork } from './render/network.js?v=097-0-8';
-import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=097-0-8';
+} from './gear.js?v=097-0-9';
+import { addTrampleAt, trampleAt } from './trail.js?v=097-0-9';
+import { emit as tEmit } from './telemetry.js?v=097-0-9';
+import { renderSettlements, startEmergence, hasActiveEmergence } from './render/settlements.js?v=097-0-9';
+import { renderNetwork } from './render/network.js?v=097-0-9';
+import { initSky, renderSky, daylightOf, TICKS_PER_DAY } from './render/sky.js?v=097-0-9';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -332,19 +332,30 @@ export function tick() {
       if (currentTerrain === 'desert') {
         staminaMult = desertStaminaMult(daylightOf(S.ticks));
       }
+      // v0.0.9.7.9 — design intent: porter shouldn't seek mesas
+      // while on the ring; mesa engagement happens only when (a) on
+      // the interior (shortcut / river-drift) or (b) walking through
+      // a teaching outcrop placed deliberately on the ring path
+      // (.9.6.9.3 mesa outcrops at H↔A↔ν↔·↔B midpoints). Without
+      // gating, xi's corner plateau (PLATEAU_R 55 from SE corner)
+      // bled into ring segments gamma↔xi↔delta, causing both auto-
+      // ladder placement and trample accumulation along the ring's
+      // interior side — visible as a "trail into the interior" on
+      // long-running saves. Same gate covers gear placement +
+      // trample so the two stay in lockstep.
+      const onMesaOutcrop = currentTerrain === 'plateau' && courierXYNow && mesaOutcropAt(courierXYNow.x, courierXYNow.y);
+      const ringSeekingPlateau = !onInterior && currentTerrain === 'plateau' && !onMesaOutcrop;
       // v0.0.9.6 commit 4 — auto-place ladder/anchor on terrains
       // that benefit. Placed gear mitigates stamina drain.
-      if (GEAR_FOR_TERRAIN[currentTerrain] && courierXYNow) {
+      // v0.0.9.7.9 — skip auto-place when ring is incidentally
+      // crossing corner plateau (see gate note above).
+      if (GEAR_FOR_TERRAIN[currentTerrain] && courierXYNow && !ringSeekingPlateau) {
         const placed = autoPlaceForCell(currentTerrain, courierXYNow);
         if (placed) staminaMult *= GEAR_STAMINA_MITIGATION;
       }
       // v0.0.9.6 commit 6 — trample reduces staminaMult per cell.
-      // Only accumulate trample on the interior (shortcut / river-
-      // drift) — ring cells are already the "road" and shouldn't
-      // get paved by the courier walking them (that's the rim
-      // biome's job). Ring mesas still get trample since their
-      // (x,y) is along the road and worth reducing penalty on.
-      if (onInterior || currentTerrain === 'plateau') {
+      // v0.0.9.7.9 — same mesa-outcrop gate as gear placement above.
+      if (onInterior || onMesaOutcrop) {
         addTrampleAt(courierXYNow.x, courierXYNow.y);
         staminaMult = reduceMultWithTrample(staminaMult, trampleAt(courierXYNow.x, courierXYNow.y));
       }
