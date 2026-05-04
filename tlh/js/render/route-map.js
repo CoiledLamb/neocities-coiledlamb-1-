@@ -15,30 +15,30 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-9';
-import * as C from '../constants.js?v=097-0-9';
-import { getNodeStage, getDisplayLabel } from '../identification.js?v=097-0-9';
-import { TICKS_PER_DAY } from './sky.js?v=097-0-9';
-import { NPC_DEFS } from '../data/npc-defs.js?v=097-0-9';
+import { S } from '../state.js?v=097-0-10';
+import * as C from '../constants.js?v=097-0-10';
+import { getNodeStage, getDisplayLabel } from '../identification.js?v=097-0-10';
+import { TICKS_PER_DAY } from './sky.js?v=097-0-10';
+import { NPC_DEFS } from '../data/npc-defs.js?v=097-0-10';
 import {
   terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY,
   projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength,
   GEAR_GLYPH, gearWear, gearWearTier,
   cellKeyFromCoords, mesaOutcropAt,
-} from '../data/terrain.js?v=097-0-9';
+} from '../data/terrain.js?v=097-0-10';
 // v0.0.9.6.10.8 — trampleTier no longer consumed here (glyph-swap
 // dropped in favor of the persistent-dot layer). trampleAt is used
 // to floor the live trail's fade opacity.
-import { trampleAt } from '../trail.js?v=097-0-9';
+import { trampleAt } from '../trail.js?v=097-0-10';
 // v0.0.9.6.10.7 — use the density-filtered view of placed gear so
 // render matches placedGearAt() gameplay lookup. Full pool lives
 // on S.placedGear (persisted, broadcast-addressable); this is the
 // curated subset that should be visible to the player.
-import { visiblePlacedGear } from '../gear.js?v=097-0-9';
-import { speedMultiplier } from '../stamina.js?v=097-0-9';
-import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=097-0-9';
-import { tlhPalette } from '../palette.js?v=097-0-9';
-import { bakeSteppedHypsoPng } from '../data/topo-map.js?v=097-0-9';
+import { visiblePlacedGear, placedGearAt } from '../gear.js?v=097-0-10';
+import { speedMultiplier } from '../stamina.js?v=097-0-10';
+import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=097-0-10';
+import { tlhPalette } from '../palette.js?v=097-0-10';
+import { bakeSteppedHypsoPng } from '../data/topo-map.js?v=097-0-10';
 
 const els = S._transient.els;
 
@@ -360,6 +360,20 @@ function fmtEta(s) {
   return '~' + (r === 0 ? m + 'm' : m + 'm ' + r + 's');
 }
 
+// v0.0.9.7.10 \u2014 wall-clock duration formatter for placed-gear
+// lifetime tooltips. No leading "~" since gear decay is wall-clock,
+// not estimate-y. Spans h/m/s with the right grain at each scale.
+function fmtDuration(ms) {
+  if (!isFinite(ms) || ms <= 0) return '0s';
+  const totalSecs = Math.floor(ms / 1000);
+  if (totalSecs < 60) return totalSecs + 's';
+  const totalMins = Math.floor(totalSecs / 60);
+  if (totalMins < 60) return totalMins + 'm';
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins - h * 60;
+  return m === 0 ? h + 'h' : h + 'h ' + m + 'm';
+}
+
 // Display mapping: route node IDs → Greek letter equivalents.
 // v0.0.9.2 — ? and · now show as φ/ψ post-stage-1 (matches the
 // v0.0.8.4 NPC identity patch: phi at weather station, psi at the
@@ -677,10 +691,17 @@ export function drawRouteMap() {
     t.setAttribute('fill', tier.color);
     t.setAttribute('text-anchor', 'middle');
     t.setAttribute('class', `route-gear gear-${entry.type} gear-${tier.name}`);
+    // v0.0.9.7.10 \u2014 data-gear-x/y let bindRouteInteractions look up
+    // the placed entry on hover via placedGearAt(x, y) so the rich
+    // tooltip can show live time-till-decay. aria-label replaces the
+    // SVG <title> child \u2014 title would trigger the browser's native
+    // tooltip on hover after a delay, conflicting with the rich
+    // tooltip; aria-label keeps the accessible name without the
+    // popup. Screen readers still announce the gear type + tier.
+    t.setAttribute('data-gear-x', entry.x);
+    t.setAttribute('data-gear-y', entry.y);
+    t.setAttribute('aria-label', `${entry.type} \u2014 ${tier.name}`);
     t.textContent = GEAR_GLYPH[entry.type];
-    const title = document.createElementNS(ns, 'title');
-    title.textContent = `${entry.type} \u2014 ${tier.name}`;
-    t.appendChild(title);
     gearG.appendChild(t);
   }
   svg.appendChild(gearG);
@@ -1379,18 +1400,69 @@ export function bindRouteInteractions() {
   svg.addEventListener('mousemove', (e) => {
     const t = e.target;
     if (t.classList && t.classList.contains('route-node-hit')) {
+      // Node hover takes priority over gear (they don't overlap, but
+      // be explicit). Clear any active gear tooltip when a node takes
+      // focus so the rich-tooltip doesn't try to refresh stale state.
+      if (S._transient.hoveredGearKey) {
+        S._transient.hoveredGearKey = null;
+        hideRichTooltip();
+      }
       S._transient.hoveredNodeId = t.dataset.id;
       S._transient.hoveredPx     = { x: e.clientX, y: e.clientY };
       renderRouteTooltip();
-    } else if (S._transient.hoveredNodeId) {
-      S._transient.hoveredNodeId = null;
-      renderRouteTooltip();
+    } else if (t.classList && t.classList.contains('route-gear')) {
+      // v0.0.9.7.10 — placed-gear hover. Tooltip shows type + tier
+      // + live time-till-decay (refreshed at 500ms while open).
+      // Lookup the entry via placedGearAt; the data-gear-x/y on the
+      // text element are the snapped cell coords the entry registered
+      // with, so this is exact.
+      if (S._transient.hoveredNodeId) {
+        S._transient.hoveredNodeId = null;
+        renderRouteTooltip();
+      }
+      const gx = +t.getAttribute('data-gear-x');
+      const gy = +t.getAttribute('data-gear-y');
+      const entry = placedGearAt(gx, gy);
+      if (!entry) { hideRichTooltip(); S._transient.hoveredGearKey = null; return; }
+      const key = entry.type + ':' + gx + ',' + gy;
+      S._transient.hoveredGearKey = key;
+      const buildHtml = () => {
+        const wear = gearWear(entry);
+        const tier = gearWearTier(wear);
+        const elapsed = (Date.now() - (entry.placedWallClock || 0)) + (entry.stormDecayExtra || 0);
+        const remaining = Math.max(0, (entry.lifetimeMs || 0) - elapsed);
+        const decayLine = remaining > 0
+          ? `<span class="rich-tip-line">decays in ${fmtDuration(remaining)}</span>`
+          : `<span class="rich-tip-line">broken</span>`;
+        return `<span class="rich-tip-head">${entry.type} · ${tier.name}</span>` + decayLine;
+      };
+      showRichTooltip(t, buildHtml(), {
+        id: 'gear-' + key,
+        placement: 'cursor',
+        cursor: { x: e.clientX, y: e.clientY },
+        refresh: buildHtml,
+        refreshMs: 500,
+      });
+    } else {
+      // Mouse on neither node nor gear — clear both surfaces.
+      if (S._transient.hoveredNodeId) {
+        S._transient.hoveredNodeId = null;
+        renderRouteTooltip();
+      }
+      if (S._transient.hoveredGearKey) {
+        S._transient.hoveredGearKey = null;
+        hideRichTooltip();
+      }
     }
   });
   svg.addEventListener('mouseleave', () => {
     if (S._transient.hoveredNodeId) {
       S._transient.hoveredNodeId = null;
       renderRouteTooltip();
+    }
+    if (S._transient.hoveredGearKey) {
+      S._transient.hoveredGearKey = null;
+      hideRichTooltip();
     }
   });
   svg.addEventListener('click', (e) => {

@@ -41,10 +41,10 @@
    ============================================== */
 'use strict';
 
-import { S } from '../state.js?v=097-0-9';
-import * as C from '../constants.js?v=097-0-9';
-import { updateWeatherGearVisibility } from '../weather.js?v=097-0-9';
-import { drawRouteMap } from '../render/route-map.js?v=097-0-9';
+import { S } from '../state.js?v=097-0-10';
+import * as C from '../constants.js?v=097-0-10';
+import { updateWeatherGearVisibility } from '../weather.js?v=097-0-10';
+import { drawRouteMap } from '../render/route-map.js?v=097-0-10';
 
 export const UPGRADE_DEFS = [
   // ============================================================

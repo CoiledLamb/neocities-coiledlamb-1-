@@ -127,6 +127,21 @@ const MESA_OUTCROPS = [
 ];
 export const MESA_OUTCROP_CENTERS = MESA_OUTCROPS;
 
+// v0.0.9.7.10 — interior mesas mirror topo-map.js NAT_MESAS so the
+// visual stamps in the NW desert classify gameplay-wise as plateau.
+// Distinct from MESA_OUTCROPS: interior mesas DO NOT participate
+// in mesaOutcropAt — porter on the ring won't engage them (no pull
+// from ring), but courier crossing them via interior shortcut does
+// engage (auto-place ladder, climb, plateau-pkg eligibility). Positions
+// + radii copied from topo-map.js NAT_MESAS so visible and walkable
+// line up.
+const INTERIOR_MESAS = [
+  { x: 55, y: 215, r: 22, label: 'NW desert mesa low'  },
+  { x: 40, y: 175, r: 20, label: 'NW desert mesa mid'  },
+  { x: 55, y: 140, r: 18, label: 'NW desert mesa high' },
+];
+export const INTERIOR_MESA_CENTERS = INTERIOR_MESAS;
+
 /** Returns the mesa outcrop entry an (x, y) falls within, or null.
  *  Used by the terrain classifier + interior pkg spawn logic to
  *  distinguish mesa-outcrop plateaus from xi's corner plateau. */
@@ -221,6 +236,15 @@ export function terrainAt(x, y) {
   if (dXi < PLATEAU_R + j) return 'plateau';
   for (const m of MESA_OUTCROPS) {
     if (Math.hypot(x - m.x, y - m.y) < MESA_INNER_R + (j * 0.5)) return 'plateau';
+  }
+  // v0.0.9.7.10 — interior mesas (topo NAT_MESAS visual stamps).
+  // Checked before desert so cells within an interior mesa's r
+  // classify as plateau even when sitting inside nu's desert
+  // radius. mesaOutcropAt() is intentionally NOT updated for these
+  // (porter on the ring near them shouldn't engage; only interior
+  // shortcuts crossing them should).
+  for (const m of INTERIOR_MESAS) {
+    if (Math.hypot(x - m.x, y - m.y) < m.r + (j * 0.5)) return 'plateau';
   }
 
   // Desert: nu corner (warm, sparse)
@@ -443,7 +467,7 @@ export const GEAR_GLYPH = {
 // brand ramp and resolved lazily from the CSS palette so a
 // future bone-theme switch picks up automatically. tier.color
 // is a getter — call sites stay unchanged.
-import { tlhPalette as _gearPalette } from '../palette.js?v=097-0-9';
+import { tlhPalette as _gearPalette } from '../palette.js?v=097-0-10';
 export const GEAR_WEAR_TIERS = [
   { max: 0.35, name: 'fresh',     get color() { return _gearPalette().accent; } },
   { max: 0.70, name: 'weathered', get color() { return _gearPalette().warn;   } },

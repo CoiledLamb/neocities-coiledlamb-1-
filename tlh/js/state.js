@@ -530,6 +530,10 @@ export const S = {
     // Tooltip hover tracking (route-map.js writes to these).
     hoveredNodeId: null,
     hoveredPx:     { x: 0, y: 0 },
+    // v0.0.9.7.10 — placed-gear hover key (`type:x,y`). Cleared on
+    // mouseleave / when hover transitions to a node or empty space
+    // so the rich-tooltip refresher doesn't tick on stale state.
+    hoveredGearKey: null,
 
     // Gear popover outside-click handler (so we can remove it on close)
     gearPopHandler: null,

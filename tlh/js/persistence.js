@@ -34,10 +34,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-9';
-import * as C from './constants.js?v=097-0-9';
-import { addLog } from './render/log.js?v=097-0-9';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=097-0-9';
+import { S } from './state.js?v=097-0-10';
+import * as C from './constants.js?v=097-0-10';
+import { addLog } from './render/log.js?v=097-0-10';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=097-0-10';
 
 // v0.0.9.6.10.20 tag-shape migration. Old saves carry `pkg.modifier`
 // (string or null) from the pre-tag shape; new saves carry `pkg.tags`

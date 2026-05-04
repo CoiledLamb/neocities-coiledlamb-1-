@@ -22,7 +22,7 @@ import {
   PKG_LABELS_BY_SIZE,
   PKG_LABELS_BY_TERRAIN_ORIGIN,
   PKG_LOST_LABELS,
-} from './packages.js?v=097-0-9';
+} from './packages.js?v=097-0-10';
 
 function ensure(idx, label) {
   if (!idx[label]) {
