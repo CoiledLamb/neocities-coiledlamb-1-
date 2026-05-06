@@ -429,7 +429,7 @@ function buildBootDOM() {
 
   const banner = document.createElement('div');
   banner.className = 'tlh-banner';
-  banner.innerHTML = '<span>dispatch terminal</span><span class="right">v0.9.29</span>';
+  banner.innerHTML = '<span>dispatch terminal</span><span class="right">v0.0.9.7.12</span>';
   inner.appendChild(banner);
 
   const term = document.createElement('div');

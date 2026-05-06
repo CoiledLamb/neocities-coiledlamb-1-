@@ -18,11 +18,11 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-11';
-import * as C from '../constants.js?v=097-0-11';
-import { getCachedPorterId, shortPorterId, isSilent, isForcedSilent } from '../multiplayer.js?v=097-0-11';
-import { TERRAIN_LOCATION_NOUN } from '../data/terrain.js?v=097-0-11';
-import { esc } from '../util.js?v=097-0-11';
+import { S } from '../state.js?v=097-0-12';
+import * as C from '../constants.js?v=097-0-12';
+import { getCachedPorterId, shortPorterId, isSilent, isForcedSilent } from '../multiplayer.js?v=097-0-12';
+import { TERRAIN_LOCATION_NOUN } from '../data/terrain.js?v=097-0-12';
+import { esc } from '../util.js?v=097-0-12';
 
 const els = S._transient.els;
 

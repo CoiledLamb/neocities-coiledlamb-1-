@@ -2,7 +2,7 @@
    THE LONG HAUL — tuning constants (v0.0.7.18)
 
    All const tuning values live here. Balance passes are a single-file
-   edit. Import as `import * as C from './constants.js?v=097-0-11'` and reference
+   edit. Import as `import * as C from './constants.js?v=097-0-12'` and reference
    as `C.TICK_MS`, `C.TRIP_CHANCE_BASE`, etc.
 
    Excluded (lives elsewhere):
@@ -260,6 +260,14 @@ export const TRIP_DROP_CHANCE_LOST   = 0.30;
 export const STRAIN_DELTA_SCALE       = 0.25;
 export const STRAIN_REST_DISSIPATION  = 0.005;
 export const STRAIN_TRIP_THRESHOLD    = 1.0;
+
+// v0.0.9.7.12 — strain-bar / strain-tip crit threshold. The "trip
+// proximity" pink band where the strain bar reads as critical and the
+// strain tooltip head shifts color. Hardcoded as 0.85 across stamina,
+// strain-tip until now; lifted here so balance edits are single-file.
+// Note: warn threshold (0.50 in strain-tip vs 0.60 in stamina) is a
+// known mismatch left untouched in this pass.
+export const STRAIN_CRIT_THRESHOLD    = 0.85;
 
 // v0.0.9.6.9.20 — direct trip-chance multiplier when wearing makeshift
 // sandalweed lashing. Layered ON TOP of the existing boot-drain penalty

@@ -8,7 +8,11 @@
       "Bash(mkdir -p /tmp/tlh-topo)",
       "Bash(unzip -o \"/c/Users/venob/Downloads/the long haul.zip\" -d /tmp/tlh-topo)",
       "Read(//tmp/tlh-topo/**)",
-      "Bash(bash tlh/scripts/bump-version.sh 097-0-1)"
+      "Bash(bash tlh/scripts/bump-version.sh 097-0-1)",
+      "Bash(grep -E \"^\\\\s*return\\\\s*;|^\\\\s*break\\\\s*;$\")",
+      "Bash(xargs grep \"import.*upgrades\")",
+      "Bash(bash tlh/scripts/bump-version.sh 097-0-12)",
+      "Bash(python build_cachebust.py --check)"
     ]
   }
 }

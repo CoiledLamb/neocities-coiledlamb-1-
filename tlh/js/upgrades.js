@@ -4,9 +4,12 @@
    ./data/upgrades.js since commit 4; this module is the
    behavior half (paint the panel, spend scrip, fire .apply()).
 
-   Imports updated commit 17: addLog/updateHUD/renderCargoSlots
-   now from ./render/log.js + ./render/hud.js (was via main.js's
-   re-export layer in commit 16).
+   v0.0.9.7.12 — broke the prior hud.js ↔ upgrades.js circular
+   import. We register renderUpgrades with hud.js via
+   registerUpgradesRenderer at module load; hud.js no longer
+   imports this file. We still import updateHUD + renderCargoSlots
+   for buyUpgrade's post-purchase repaint — that's a one-way edge
+   now, not a cycle.
    Boots.renderBoots still circular-by-file with boots.js, fine
    because all calls are inside function bodies.
 
@@ -14,7 +17,7 @@
      S — game state singleton (state.js)
      UPGRADE_DEFS — upgrade list w/ apply closures (data/upgrades.js)
      addLog — render/log.js
-     updateHUD, renderCargoSlots — render/hud.js
+     updateHUD, renderCargoSlots, registerUpgradesRenderer — render/hud.js
      Boots.renderBoots — boots (namespace import)
 
    Local aliases:
@@ -22,13 +25,13 @@
 */
 'use strict';
 
-import { S } from './state.js?v=097-0-11';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=097-0-11';
-import { NPC_DEFS } from './data/npc-defs.js?v=097-0-11';
-import { addLog } from './render/log.js?v=097-0-11';
-import { updateHUD, renderCargoSlots } from './render/hud.js?v=097-0-11';
-import * as Boots from './boots.js?v=097-0-11';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-11';
+import { S } from './state.js?v=097-0-12';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=097-0-12';
+import { NPC_DEFS } from './data/npc-defs.js?v=097-0-12';
+import { addLog } from './render/log.js?v=097-0-12';
+import { updateHUD, renderCargoSlots, registerUpgradesRenderer } from './render/hud.js?v=097-0-12';
+import * as Boots from './boots.js?v=097-0-12';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-12';
 
 const els = S._transient.els;
 
@@ -93,6 +96,13 @@ export function renderUpgrades() {
     els.upgradesEl.appendChild(row);
   });
 }
+
+// v0.0.9.7.12 — register with hud.js. Replaces the prior pattern
+// where updateHUD imported Upg.renderUpgrades directly (back-edge of
+// the cycle). Module-load timing is fine: hud.js evaluates first
+// because we import from it above; by the time anything runs
+// updateHUD, this registration has executed.
+registerUpgradesRenderer(renderUpgrades);
 
 export function buyUpgrade(id) {
   const def = UPGRADE_DEFS.find(d => d.id === id);

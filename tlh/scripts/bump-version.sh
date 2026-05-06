@@ -64,11 +64,16 @@ echo "  updated cache-bust in $count files"
 
 # Decode cache-bust to subtitle dim suffix.
 # Example: 096-10-22 -> dim suffix .6.10.22 (bright is "v0.0.9", from char 1).
+# v0.0.9.7+ format dropped the second-to-last segment, so cache-busts
+# now look like 097-0-12 with a vestigial "0-" middle. Strip that
+# leading "0-" so 097-0-12 decodes to .7.12 (matching the displayed
+# 5-segment v0.0.9.7.12), while older 096-10-22 still decodes correctly.
 parse_dim() {
   local v="$1"
-  local first="${v%%-*}"            # 096
-  local rest="${v#*-}"              # 10-22
-  echo ".${first:2:1}.${rest//-/.}" # .6.10.22
+  local first="${v%%-*}"            # 096 / 097
+  local rest="${v#*-}"               # 10-22 / 0-12
+  rest="${rest#0-}"                  # strip vestigial leading "0-" (v0.0.9.7+)
+  echo ".${first:2:1}.${rest//-/.}" # .6.10.22 / .7.12
 }
 
 old_dim=$(parse_dim "$old_v")
@@ -82,8 +87,18 @@ else
   echo "  warning: subtitle dim part not found in expected format; check $html manually"
 fi
 
-# Decode to game version for commit-message hint.
+# Decode to game version for commit-message hint and boot banner update.
+old_game_v="0.0.${old_v:1:1}$old_dim"
 new_game_v="0.0.${new_v:1:1}$new_dim"
+
+# Update boot screen "dispatch terminal" banner version (tlh/tlh-boot.js).
+boot_js="$ROOT/tlh/tlh-boot.js"
+if grep -q "<span class=\"right\">v$old_game_v</span>" "$boot_js"; then
+  sed -i "s|<span class=\"right\">v$old_game_v</span>|<span class=\"right\">v$new_game_v</span>|" "$boot_js"
+  echo "  updated boot banner: v$old_game_v -> v$new_game_v"
+else
+  echo "  warning: boot banner version not found in expected format; check $boot_js manually"
+fi
 
 echo ""
 echo "next steps:"

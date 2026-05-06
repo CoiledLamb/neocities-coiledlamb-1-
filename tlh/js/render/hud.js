@@ -3,33 +3,41 @@
    updateHUD, renderCargoSlots, renderCourierStack. Painted
    from S.delivered/scrip/distKm/status/inventory.
 
-   Circular-by-file with upgrades.js (this calls Upg.renderUpgrades
-   from the bottom of updateHUD; upgrades.js imports updateHUD +
-   renderCargoSlots from here for buyUpgrade). Fine — every cross-
-   call is inside a function body, not at module load.
+   v0.0.9.7.12 — broke the prior hud.js ↔ upgrades.js circular
+   import. updateHUD no longer imports Upg directly; instead it
+   invokes whatever was registered via registerUpgradesRenderer.
+   upgrades.js calls registerUpgradesRenderer(renderUpgrades) at
+   module load, restoring identical "every updateHUD ticks the
+   upgrade panel cache" behavior without the back-edge import.
 
    Imports:
      S — game state (state.js)
      STATUS_COLORS — visual map (data/glyphs.js)
      formatPkgTooltip — packages.js (shared cargo + ground pkg tooltip)
-     Upg.renderUpgrades — upgrades.js (namespace import)
 
    Local aliases:
      els — live ref into S._transient.els (never reassign).
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-11';
-import { statusColor } from '../data/glyphs.js?v=097-0-11';
-import { tlhPalette } from '../palette.js?v=097-0-11';
-import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js?v=097-0-11';
-import { getDisplayLabel } from '../identification.js?v=097-0-11';
-import { bindCargoDragSource } from './drag.js?v=097-0-11';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=097-0-11';
-import * as Upg from '../upgrades.js?v=097-0-11';
-import { CARRIER_STATS } from '../constants.js?v=097-0-11';
+import { S } from '../state.js?v=097-0-12';
+import { statusColor } from '../data/glyphs.js?v=097-0-12';
+import { tlhPalette } from '../palette.js?v=097-0-12';
+import { formatPkgTooltip, formatPkgTooltipHTML } from '../packages.js?v=097-0-12';
+import { getDisplayLabel } from '../identification.js?v=097-0-12';
+import { bindCargoDragSource } from './drag.js?v=097-0-12';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=097-0-12';
+import { CARRIER_STATS } from '../constants.js?v=097-0-12';
 
 const els = S._transient.els;
+
+// v0.0.9.7.12 — upgrade-panel renderer slot. upgrades.js registers
+// itself via registerUpgradesRenderer() at module load. Pre-
+// registration ticks (very brief, during boot) skip the upgrade
+// repaint silently; upgrades.js calls renderUpgrades on its own
+// buyUpgrade path so nothing is structurally lost.
+let upgradesRenderer = null;
+export function registerUpgradesRenderer(fn) { upgradesRenderer = fn; }
 
 // v0.0.9.6.1 — shared sticky-gun web glyph + ammo-state classifier.
 // 8 radial spokes + 2 concentric octagonal rings rendered inline via
@@ -85,7 +93,7 @@ export function updateHUD() {
   els.walked.textContent    = (Math.round(S.distKm * 10) / 10) + 'km';
   els.status.textContent    = S.status;
   els.status.style.color    = statusColor(S.status) || tlhPalette().text;
-  Upg.renderUpgrades();
+  if (upgradesRenderer) upgradesRenderer();
 }
 
 function cargoKey() {
