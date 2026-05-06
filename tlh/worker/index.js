@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — multiplayer feed worker
-   v0.0.9.6.10.23 (sustainability pass)
+   v0.0.9.6.10.24 (boundary fixes)
    ==============================================
    Endpoints:
      POST /activity        append event, rate-limited per porter
@@ -15,6 +15,21 @@
      feed:recent        JSON array, last 200 events, all porters (7d TTL, refreshed on write)
      lost:{porterId}    JSON array, last 20 lost-pkg drops by this porter (21d TTL = FLOOR + DEAD_WEEK_GRACE)
      rate:{porterId}    marker, 60s TTL, signals "porter has open rate window"
+
+   v0.0.9.6.10.24 boundary fixes — wire-protocol drift cleanup:
+     - ALLOWED_TYPES: added gear_placement, trample_milestone, toss.
+       Clients have been broadcasting these since v0.0.9.6 commits 5/7
+       (peer-placed ladders/anchors and peer paving milestones); the
+       worker silently 400'd them, so receivers (gear.js, trail.js)
+       never saw peer activity.
+     - /lost POST now reads body.pkg.{label,size,scrip} to match the
+       nested shape clients send (matches /activity's body.data style).
+     - /lost/:porterId GET response key renamed list → lost so client
+       fetchLostFromPeer can find the array.
+     - /feed reads feed:recent once instead of twice (events + census
+       were each doing their own KV get).
+     - Envelope size guard: requests >8 KB rejected with 413 before
+       request.json() can consume them.
 
    v0.0.9.6.10.23 sustainability pass — write-amp diet:
      - census:active KV key retired; census now derived from feed:recent on read.
@@ -53,6 +68,7 @@ const LOST_CAP        = 20;           // max lost-pkg drops kept per porter
 const FEED_TTL_S      = 7  * 24 * 60 * 60;   // 7d — feed:recent storage hygiene
 const LOST_TTL_S      = 21 * 24 * 60 * 60;   // 21d — FLOOR(14) + DEAD_WEEK_GRACE(7)
 const MAX_DATA_BYTES  = 512;          // event.data JSON byte cap
+const MAX_BODY_BYTES  = 8 * 1024;     // envelope cap (Content-Length)
 
 const ALLOWED_TYPES = new Set([
   'delivery',
@@ -61,6 +77,9 @@ const ALLOWED_TYPES = new Set([
   'lost_drop',
   'lost_recovered',
   'trust_unlock',
+  'gear_placement',     // peer-placed ladder/anchor (v0.0.9.6 commit 5)
+  'trample_milestone',  // peer paving threshold crossing (v0.0.9.6 commit 7)
+  'toss',               // pkg dropped onto trail
 ]);
 
 const PORTER_ID_RE = /^PTR-[0-9A-F]{4,8}(-[0-9A-F]{4})?$/i;
@@ -154,9 +173,12 @@ async function appendEvent(env, event) {
   await env.FEED.put('feed:recent', JSON.stringify(feed), { expirationTtl: FEED_TTL_S });
 }
 
-async function readFeed(env, sinceTs) {
+async function readFeed(env) {
   const raw = await env.FEED.get('feed:recent');
-  const feed = raw ? JSON.parse(raw) : [];
+  return raw ? JSON.parse(raw) : [];
+}
+
+function filterFeedSince(feed, sinceTs) {
   if (sinceTs && Number.isFinite(sinceTs)) {
     return feed.filter(e => e.timestamp > sinceTs);
   }
@@ -170,10 +192,10 @@ async function readFeed(env, sinceTs) {
 // the unique-porter count within FEED_CAP events; a true all-time count
 // would need a separate counter (out of scope here — see porter-profiles
 // follow-up in TLH-HANDOFF.md).
-async function deriveCensusBreakdown(env) {
-  const raw = await env.FEED.get('feed:recent');
-  if (!raw) return { today: 0, week: 0, total: 0 };
-  const feed   = JSON.parse(raw);
+//
+// v0.0.9.6.10.24: takes the parsed feed array (not env) so /feed can read
+// feed:recent once and pass the result to both events + census.
+function deriveCensusBreakdown(feed) {
   const now    = Date.now();
   const today  = new Set();
   const week   = new Set();
@@ -219,6 +241,19 @@ export default {
       return new Response(null, { status: 204, headers: CORS });
     }
 
+    // v0.0.9.6.10.24 — envelope size guard. Real events are ≤1 KB; cap at
+    // 8 KB so a misbehaving client can't push request.json() toward the
+    // 128 MB memory limit. Content-Length is browser-set on normal POSTs;
+    // if absent (chunked or odd client), fall through and let the parser
+    // backstop.
+    const lenHeader = request.headers.get('Content-Length');
+    if (lenHeader) {
+      const len = parseInt(lenHeader, 10);
+      if (Number.isFinite(len) && len > MAX_BODY_BYTES) {
+        return errorResponse('payload_too_large', 413);
+      }
+    }
+
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
 
@@ -248,10 +283,11 @@ export default {
       if (request.method === 'GET' && path === '/feed') {
         const sinceParam = url.searchParams.get('since');
         const since = sinceParam ? parseInt(sinceParam, 10) : 0;
-        const events    = await readFeed(env, since);
-        const breakdown = await deriveCensusBreakdown(env);
+        // v0.0.9.6.10.24 — single read; events + census share the parse.
+        const feed      = await readFeed(env);
+        const breakdown = deriveCensusBreakdown(feed);
         return jsonResponse({
-          events,
+          events:          filterFeedSince(feed, since),
           census:          breakdown.today,  // back-compat: legacy clients read a number
           censusBreakdown: breakdown,        // { today, week, total } for network panel
           serverTime:      Date.now(),
@@ -259,34 +295,40 @@ export default {
       }
 
       // ---------- POST /lost ----------
+      // v0.0.9.6.10.24 — body shape is { porterId, pkg: {label,size,scrip} }
+      // matching what multiplayer.js postLostDrop sends and the /activity
+      // body.data convention.
       if (request.method === 'POST' && path === '/lost') {
         let body;
         try { body = await request.json(); }
         catch (e) { return errorResponse('invalid_json', 400); }
 
         if (!validPorterId(body && body.porterId)) return errorResponse('invalid_porter_id', 400);
-        if (!body.label) return errorResponse('missing_label', 400);
+        const pkg = body && body.pkg;
+        if (!pkg || !pkg.label) return errorResponse('missing_label', 400);
 
         const allowed = await checkRate(env, body.porterId);
         if (!allowed) return jsonResponse({ ok: true });
 
-        await registerLostPkg(env, body.porterId, body);
+        await registerLostPkg(env, body.porterId, pkg);
         return jsonResponse({ ok: true });
       }
 
       // ---------- GET /lost/:porterId ----------
+      // v0.0.9.6.10.24 — response key is `lost` (was `list`) so client
+      // fetchLostFromPeer's `data.lost` access actually finds the array.
       if (request.method === 'GET' && path.startsWith('/lost/')) {
         const porterId = path.slice('/lost/'.length).toUpperCase();
         if (!validPorterId(porterId)) return errorResponse('invalid_porter_id', 400);
-        const list = await readLostRegistry(env, porterId);
-        return jsonResponse({ porterId, list });
+        const lost = await readLostRegistry(env, porterId);
+        return jsonResponse({ porterId, lost });
       }
 
       // ---------- GET / ----------
       if (request.method === 'GET' && path === '/') {
         return jsonResponse({
           name:    'tlh-feed',
-          version: '0.0.9.6.10.23',
+          version: '0.0.9.6.10.24',
           endpoints: [
             'POST /activity',
             'GET  /feed?since=<timestamp>',
