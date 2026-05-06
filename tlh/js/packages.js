@@ -33,23 +33,24 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-10';
-import * as C from './constants.js?v=097-0-10';
-import { NPC_DEFS } from './data/npc-defs.js?v=097-0-10';
+import { S } from './state.js?v=097-0-11';
+import * as C from './constants.js?v=097-0-11';
+import { NPC_DEFS } from './data/npc-defs.js?v=097-0-11';
 import {
   PKG_BASES, PKG_SIZE_WEIGHTS, PKG_SIZE_WEIGHTS_RISKY,
   PKG_TAG_EFFECTS, PKG_LABELS_BY_SIZE, PKG_LOST_SCRIP_MULT,
   PKG_LABELS_BY_TERRAIN_ORIGIN,
-} from './data/packages.js?v=097-0-10';
-import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js?v=097-0-10';
-import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js?v=097-0-10';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-10';
-import { postActivity, shortPorterId, postLostDrop, formatPorterFreshness } from './multiplayer.js?v=097-0-10';
+} from './data/packages.js?v=097-0-11';
+import { cellKeyFromCoords, snapInteriorCell, mesaOutcropAt, terrainAt, MESA_OUTCROP_CENTERS } from './data/terrain.js?v=097-0-11';
+import { placedGearAt, autoPlaceForCell, visiblePlacedGear } from './gear.js?v=097-0-11';
+import { esc } from './util.js?v=097-0-11';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-11';
+import { postActivity, shortPorterId, postLostDrop, formatPorterFreshness } from './multiplayer.js?v=097-0-11';
 // v0.0.9.6.9.30.4 — updatePorterStripBadges, computeTrustGain,
 // speakDelivery, recordDelivery, removeFromInventories moved to
 // packages-delivery.js with tryDeliver.
-import { addTrust } from './trust.js?v=097-0-10';
-import { cartFits, pushToCart } from './carrier.js?v=097-0-10';
+import { addTrust } from './trust.js?v=097-0-11';
+import { cartFits, pushToCart } from './carrier.js?v=097-0-11';
 
 // v0.0.9.6.9.30j — bucket-routing helper. All three pickup paths
 // (NPC dispatch, ring/ground, interior) funnel new pkgs through this
@@ -76,13 +77,13 @@ function cartOrMainFits(pkg) {
 }
 // v0.0.9.6.9.30.4 — getNodeStage / setNodeStage / drawRouteMap /
 // renderSettlements moved to packages-delivery.js.
-import { sandalCap, renderBoots } from './boots.js?v=097-0-10';
-import { addLog } from './render/log.js?v=097-0-10';
-import { noteFound as cargoNoteFound } from './render/cargo-log.js?v=097-0-10';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-10';
-import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js?v=097-0-10';
-import { weatherAtCourier } from './weather.js?v=097-0-10';
-import { getDisplayLabel } from './identification.js?v=097-0-10';
+import { sandalCap, renderBoots } from './boots.js?v=097-0-11';
+import { addLog } from './render/log.js?v=097-0-11';
+import { noteFound as cargoNoteFound } from './render/cargo-log.js?v=097-0-11';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-11';
+import { courierXY, pointInRing, distanceKmToNode } from './render/route-map.js?v=097-0-11';
+import { weatherAtCourier } from './weather.js?v=097-0-11';
+import { getDisplayLabel } from './identification.js?v=097-0-11';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -91,7 +92,7 @@ const worldCells = S._transient.worldCells;
 // v0.0.9.6.9.30.4 — tryDeliver + its broadcast throttle
 // (DELIVERY_BROADCAST_GATE_MS, lastDeliveryBroadcastTs) moved to
 // packages-delivery.js. tryDeliver is re-exported below so existing
-// `import * as Pkg from './packages.js?v=097-0-10'` consumers keep working.
+// `import * as Pkg from './packages.js?v=097-0-11'` consumers keep working.
 
 // v0.0.7.21 — sticky gun occupies one cargo slot unless holstered.
 // Every pkg slot accounting goes through this helper so cargo
@@ -195,9 +196,8 @@ export function formatPkgTooltip(pkg) {
 // can show "13¢ (was 22¢)" with the current value in pink and the
 // original dimmed. Used by the rich-tooltip path in render/hud.js;
 // fieldstrip stays on the plain-text formatter (its pkgs are pristine).
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
+// esc() moved to util.js (v0.0.9.7.11) — render/network.js and addLog
+// interpolations of pkg.label needed the same primitive.
 export function formatPkgTooltipHTML(pkg) {
   const modTag = (pkg.tags && pkg.tags.length) ? ` (${esc(pkg.tags.join('+'))})` : '';
   // v0.0.9.6.9.30 — first line wrapped in .rich-tip-head so the
@@ -860,7 +860,7 @@ function acceptPickup(ci, offset) {
     if (S._transient.lastPickupFailKey !== key) {
       S._transient.lastPickupFailKey = key;
       const reason = slotsShort ? 'no cargo slots' : 'too heavy';
-      addLog(`<span class="log-soft">can't lift</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
+      addLog(`<span class="log-soft">can't lift</span> [${pkg.size}] ${esc(pkg.label)} \u2014 ${reason}`);
     }
     return false;
   }
@@ -1010,7 +1010,7 @@ function acceptInteriorPickup(entry) {
     if (S._transient.lastPickupFailKey !== key) {
       S._transient.lastPickupFailKey = key;
       const reason = slotsShort ? 'no cargo slots' : 'too heavy';
-      addLog(`<span class="log-soft">can't lift</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
+      addLog(`<span class="log-soft">can't lift</span> [${pkg.size}] ${esc(pkg.label)} \u2014 ${reason}`);
     }
     return false;
   }
@@ -1210,7 +1210,7 @@ export function ejectFromCargo(invIdx) {
       terrainOrigin:     pkg.terrainOrigin || 'ring',
     });
     const reason = forcedLost ? 'trail too crowded' : 'scattered on the toss';
-    addLog(`<span class="log-wn">lost</span> [${pkg.size}] ${pkg.label} \u2014 ${reason}`);
+    addLog(`<span class="log-wn">lost</span> [${pkg.size}] ${esc(pkg.label)} \u2014 ${reason}`);
   } else {
     // Drop to world cell. Build a fresh pkg shape matching what
     // rollPkg produces so auto/cursor pickup works normally.
@@ -1244,7 +1244,7 @@ export function ejectFromCargo(invIdx) {
       reason:             'manual',
       terrainOrigin:      pkg.terrainOrigin || 'ring',
     });
-    addLog(`tossed <span class="log-hi">[${pkg.size}] ${pkg.label}</span> onto the trail`);
+    addLog(`tossed <span class="log-hi">[${pkg.size}] ${esc(pkg.label)}</span> onto the trail`);
     postActivity('toss', { label: pkg.label, size: pkg.size });
   }
 
@@ -1259,9 +1259,9 @@ export function ejectFromCargo(invIdx) {
 // ============================================================
 // PACKAGE DELIVERY — tryDeliver lives in ./packages-delivery.js
 // (extracted v0.0.9.6.9.30.4). Re-exported below so existing
-// `import * as Pkg from './packages.js?v=097-0-10'` consumers keep working.
+// `import * as Pkg from './packages.js?v=097-0-11'` consumers keep working.
 // ============================================================
-export { tryDeliver } from './packages-delivery.js?v=097-0-10';
+export { tryDeliver } from './packages-delivery.js?v=097-0-11';
 
 export function tickPkgRespawns() {
   for (let i = 0; i < C.TOTAL_CELLS; i++) {

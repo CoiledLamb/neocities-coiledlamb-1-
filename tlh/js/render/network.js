@@ -18,10 +18,11 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-10';
-import * as C from '../constants.js?v=097-0-10';
-import { getCachedPorterId, shortPorterId, isSilent, isForcedSilent } from '../multiplayer.js?v=097-0-10';
-import { TERRAIN_LOCATION_NOUN } from '../data/terrain.js?v=097-0-10';
+import { S } from '../state.js?v=097-0-11';
+import * as C from '../constants.js?v=097-0-11';
+import { getCachedPorterId, shortPorterId, isSilent, isForcedSilent } from '../multiplayer.js?v=097-0-11';
+import { TERRAIN_LOCATION_NOUN } from '../data/terrain.js?v=097-0-11';
+import { esc } from '../util.js?v=097-0-11';
 
 const els = S._transient.els;
 
@@ -108,6 +109,13 @@ function formatEvent(e) {
   // the porter's freshest seen-time (not the current event's timestamp)
   // so a recent event from a porter who also has stale events in feed
   // doesn't get wrongly muted.
+  //
+  // v0.0.9.7.11 — every peer-data string field below is wrapped in esc()
+  // before interpolation. The worker validates the OUTER porterId via regex
+  // (so e.porterId passed to shortPorterId is safe to render raw), but it
+  // does NOT validate inner-shape fields like data.destLabel, data.label,
+  // data.npcLabel, data.type, data.forPorter, etc. Those could contain raw
+  // HTML from a malicious peer; render-site escape is the fix.
   const lastSeen   = (S._transient.porterLastSeen && S._transient.porterLastSeen[e.porterId]) || e.timestamp;
   const longQuiet  = (Date.now() - lastSeen) > C.LONG_QUIET_MS;
   const idCls      = longQuiet ? 'net-hi long-quiet' : 'net-hi';
@@ -115,39 +123,44 @@ function formatEvent(e) {
   const data       = e.data || {};
   switch (e.type) {
     case 'delivery':
-      return `${who} delivered to <span class="net-ac">${data.destLabel || '?'}</span>`;
+      return `${who} delivered to <span class="net-ac">${esc(data.destLabel || '?')}</span>`;
     case 'milestone':
       if (data.kind === 'distance') {
         // v0.0.7.21 — coalesced milestones carry values[]; render as a list.
         if (Array.isArray(data.values) && data.values.length > 1) {
-          return `${who} hit <span class="net-ac">${data.values.join('km, ')}km</span>`;
+          const safeValues = data.values.map(v => esc(String(v))).join('km, ');
+          return `${who} hit <span class="net-ac">${safeValues}km</span>`;
         }
-        return `${who} hit <span class="net-ac">${data.value}km</span>`;
+        return `${who} hit <span class="net-ac">${esc(String(data.value))}km</span>`;
       }
       return `${who} reached a milestone`;
     case 'discovery':
-      return `${who} scouted: <span class="net-ac">${data.label || data.nodeId || '?'}</span>`;
+      return `${who} scouted: <span class="net-ac">${esc(data.label || data.nodeId || '?')}</span>`;
     case 'lost_drop':
-      return `${who} lost <span class="net-ac">${data.label || 'cargo'}</span>`;
+      return `${who} lost <span class="net-ac">${esc(data.label || 'cargo')}</span>`;
     case 'lost_recovered':
       if (data.forPorter) {
-        return `${who} recovered <span class="net-ac">${data.label || 'lost cargo'}</span> for <span class="net-hi">${shortPorterId(data.forPorter)}</span>`;
+        // data.forPorter is NOT regex-validated by the worker (only outer
+        // porterId is). shortPorterId returns the input as-is when it doesn't
+        // match the 2-part format, so esc() is required.
+        return `${who} recovered <span class="net-ac">${esc(data.label || 'lost cargo')}</span> for <span class="net-hi">${esc(shortPorterId(data.forPorter))}</span>`;
       }
-      return `${who} recovered <span class="net-ac">${data.label || 'lost cargo'}</span>`;
+      return `${who} recovered <span class="net-ac">${esc(data.label || 'lost cargo')}</span>`;
     case 'trust_unlock': {
-      const tier = data.tier ? ` (${data.tier})` : '';
-      return `${who} earned trust at <span class="net-ac">${data.npcLabel || '?'}</span>${tier}`;
+      const tier = data.tier ? ` (${esc(String(data.tier))})` : '';
+      return `${who} earned trust at <span class="net-ac">${esc(data.npcLabel || '?')}</span>${tier}`;
     }
     case 'gear_placement': {
       // v0.0.9.6.10 — peer-placed infrastructure moved off the channels
       // panel and onto the network panel (alongside other porter
-      // activity). Terrain noun from TERRAIN_LOCATION_NOUN; falls back
-      // to generic "slope" if the payload terrain is missing/unknown.
+      // activity). Terrain noun from TERRAIN_LOCATION_NOUN (hardcoded
+      // table — safe); falls back to 'slope' if missing/unknown.
       const noun = TERRAIN_LOCATION_NOUN[data.terrain] || 'slope';
       const a    = /^[aeiou]/i.test(data.type || '') ? 'an' : 'a';
-      return `${who} placed ${a} <span class="net-ac">${data.type || 'piece of gear'}</span> on the ${noun}`;
+      return `${who} placed ${a} <span class="net-ac">${esc(data.type || 'piece of gear')}</span> on the ${noun}`;
     }
     default:
+      // e.type is on the worker's allowlist — known string set, no escape needed.
       return `${who} ${e.type}`;
   }
 }

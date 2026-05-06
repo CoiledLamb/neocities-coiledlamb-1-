@@ -2,7 +2,7 @@
    THE LONG HAUL — tuning constants (v0.0.7.18)
 
    All const tuning values live here. Balance passes are a single-file
-   edit. Import as `import * as C from './constants.js?v=097-0-10'` and reference
+   edit. Import as `import * as C from './constants.js?v=097-0-11'` and reference
    as `C.TICK_MS`, `C.TRIP_CHANCE_BASE`, etc.
 
    Excluded (lives elsewhere):

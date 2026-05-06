@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — multiplayer feed worker
-   v0.0.9.6.10.24 (boundary fixes)
+   v0.0.9.6.10.25 (security hardening)
    ==============================================
    Endpoints:
      POST /activity        append event, rate-limited per porter
@@ -15,6 +15,30 @@
      feed:recent        JSON array, last 200 events, all porters (7d TTL, refreshed on write)
      lost:{porterId}    JSON array, last 20 lost-pkg drops by this porter (21d TTL = FLOOR + DEAD_WEEK_GRACE)
      rate:{porterId}    marker, 60s TTL, signals "porter has open rate window"
+
+   Known design limitations (intentional — do NOT "fix" without conversation):
+     - Porter IDs are client-generated and not authenticated. Anyone can claim any
+       ID. By design: presence not pressure, no accounts, no PII story to maintain.
+       The regex on validPorterId only checks format (sane hex string), not identity.
+     - DoS via porter-ID spam is possible: a bad actor could generate N porter IDs
+       and POST one event each, blowing the 1000-write/day KV free-tier quota.
+       Mitigation lives at the Cloudflare edge layer (WAF, IP rate-limit) — not in
+       worker code. The 429-on-quota-exhausted path triggers forced-silent client
+       UX, so the game stays solo-playable through the abuse window.
+
+   v0.0.9.6.10.25 security hardening:
+     - 500 error responses no longer leak err.message to clients. Internal errors
+       are logged via console.error (visible in observability) and return a generic
+       'server_error' to the client.
+     - JSON.parse of stored KV values now goes through safeParseJson with a try/catch
+       fallback to []. A malformed value (manual wrangler kv edit, partial write under
+       quota pressure) used to 500 every subsequent request to that endpoint until
+       manually fixed; now it self-recovers with a console.warn.
+     - JSON.stringify in validEvent is wrapped in try/catch. Circular refs / BigInt
+       payloads now return 400 invalid_event instead of cascading to 500.
+     - MAX_DATA_BYTES check uses TextEncoder for true byte count. Previous .length
+       check counted UTF-16 code units, so multi-byte chars (emoji, CJK) could slip
+       slightly oversized payloads past the cap. Envelope cap (8 KB) is unchanged.
 
    v0.0.9.6.10.24 boundary fixes — wire-protocol drift cleanup:
      - ALLOWED_TYPES: added gear_placement, trample_milestone, toss.
@@ -129,6 +153,9 @@ function isKvQuotaError(err) {
 // ============================================================
 // VALIDATION
 // ============================================================
+// Porter IDs are client-generated and NOT authenticated — see "Known design
+// limitations" in the header. This regex only checks format (sane hex string),
+// not identity. Forgery is intentional design space, not a bug.
 function validPorterId(id) {
   return typeof id === 'string' && PORTER_ID_RE.test(id);
 }
@@ -139,9 +166,28 @@ function validEvent(body) {
   if (typeof body.type !== 'string' || !ALLOWED_TYPES.has(body.type)) return false;
   if (body.data !== undefined) {
     if (typeof body.data !== 'object' || body.data === null) return false;
-    if (JSON.stringify(body.data).length > MAX_DATA_BYTES) return false;
+    // v0.0.9.6.10.25 — try/catch around JSON.stringify (circular refs, BigInt
+    // throw); use TextEncoder for true byte count (.length counts UTF-16 code
+    // units, which would let multi-byte chars sneak past the byte cap).
+    let serialized;
+    try { serialized = JSON.stringify(body.data); }
+    catch (e) { return false; }
+    if (new TextEncoder().encode(serialized).length > MAX_DATA_BYTES) return false;
   }
   return true;
+}
+
+// v0.0.9.6.10.25 — defensive JSON.parse for stored KV values. A malformed
+// value (manual wrangler kv edit, partial write under quota pressure) used to
+// throw and 500 every subsequent request to that endpoint. Now self-recovers
+// with a console.warn (visible in observability).
+function safeParseJson(raw, fallback) {
+  if (!raw) return fallback;
+  try { return JSON.parse(raw); }
+  catch (e) {
+    console.warn('[tlh] JSON.parse failed for stored KV value, using fallback', e && e.message);
+    return fallback;
+  }
 }
 
 // ============================================================
@@ -166,7 +212,7 @@ async function checkRate(env, porterId) {
 // ============================================================
 async function appendEvent(env, event) {
   const raw = await env.FEED.get('feed:recent');
-  const feed = raw ? JSON.parse(raw) : [];
+  const feed = safeParseJson(raw, []);
   feed.push(event);
   // Trim to cap, keeping newest
   if (feed.length > FEED_CAP) feed.splice(0, feed.length - FEED_CAP);
@@ -175,7 +221,7 @@ async function appendEvent(env, event) {
 
 async function readFeed(env) {
   const raw = await env.FEED.get('feed:recent');
-  return raw ? JSON.parse(raw) : [];
+  return safeParseJson(raw, []);
 }
 
 function filterFeedSince(feed, sinceTs) {
@@ -215,7 +261,7 @@ function deriveCensusBreakdown(feed) {
 async function registerLostPkg(env, porterId, pkg) {
   const key = `lost:${porterId}`;
   const raw = await env.FEED.get(key);
-  const list = raw ? JSON.parse(raw) : [];
+  const list = safeParseJson(raw, []);
   list.push({
     label:     String(pkg.label || '').slice(0, 32),
     size:      ['s', 'm', 'l'].includes(pkg.size) ? pkg.size : 's',
@@ -229,7 +275,7 @@ async function registerLostPkg(env, porterId, pkg) {
 
 async function readLostRegistry(env, porterId) {
   const raw = await env.FEED.get(`lost:${porterId}`);
-  return raw ? JSON.parse(raw) : [];
+  return safeParseJson(raw, []);
 }
 
 // ============================================================
@@ -328,7 +374,7 @@ export default {
       if (request.method === 'GET' && path === '/') {
         return jsonResponse({
           name:    'tlh-feed',
-          version: '0.0.9.6.10.24',
+          version: '0.0.9.6.10.25',
           endpoints: [
             'POST /activity',
             'GET  /feed?since=<timestamp>',
@@ -350,7 +396,11 @@ export default {
           { 'Retry-After': String(retryAfter) }
         );
       }
-      return errorResponse('server_error: ' + (err && err.message ? err.message : 'unknown'), 500);
+      // v0.0.9.6.10.25 — log full error server-side (visible in observability),
+      // return generic message to client. Previously we leaked err.message which
+      // could surface stack-trace fragments or internal state.
+      console.error('[tlh] worker error', err);
+      return errorResponse('server_error', 500);
     }
   },
 };

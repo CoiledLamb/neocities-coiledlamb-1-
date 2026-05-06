@@ -16,3 +16,14 @@ export function pickRandom(arr) {
   if (!arr || arr.length === 0) return null;
   return arr[Math.floor(Math.random() * arr.length)];
 }
+
+// HTML-escape a string for safe interpolation into innerHTML / template-literal
+// HTML construction. Five-char escape covers the standard XSS surface.
+//
+// v0.0.9.7.11 — promoted from packages.js (was private to formatPkgTooltipHTML)
+// because peer-data render paths in render/network.js and addLog interpolations
+// of pkg.label needed the same primitive. Render-site escape is the pattern;
+// don't escape at ingestion or you'll double-escape and display literal entities.
+export function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}

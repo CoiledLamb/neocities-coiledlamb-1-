@@ -24,21 +24,22 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-10';
-import * as C from './constants.js?v=097-0-10';
-import { NPC_DEFS } from './data/npc-defs.js?v=097-0-10';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-10';
-import { postActivity, shortPorterId } from './multiplayer.js?v=097-0-10';
-import { updatePorterStripBadges } from './recovery.js?v=097-0-10';
-import { addTrust, computeTrustGain, speakDelivery } from './trust.js?v=097-0-10';
-import { removeFromInventories } from './carrier.js?v=097-0-10';
-import { getNodeStage, setNodeStage } from './identification.js?v=097-0-10';
-import { addLog } from './render/log.js?v=097-0-10';
-import { noteDelivered as cargoNoteDelivered } from './render/cargo-log.js?v=097-0-10';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-10';
-import { drawRouteMap } from './render/route-map.js?v=097-0-10';
-import { renderSettlements } from './render/settlements.js?v=097-0-10';
-import { onInventoryChange } from './packages.js?v=097-0-10';
+import { S } from './state.js?v=097-0-11';
+import * as C from './constants.js?v=097-0-11';
+import { NPC_DEFS } from './data/npc-defs.js?v=097-0-11';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-11';
+import { postActivity, shortPorterId } from './multiplayer.js?v=097-0-11';
+import { updatePorterStripBadges } from './recovery.js?v=097-0-11';
+import { addTrust, computeTrustGain, speakDelivery } from './trust.js?v=097-0-11';
+import { removeFromInventories } from './carrier.js?v=097-0-11';
+import { getNodeStage, setNodeStage } from './identification.js?v=097-0-11';
+import { addLog } from './render/log.js?v=097-0-11';
+import { noteDelivered as cargoNoteDelivered } from './render/cargo-log.js?v=097-0-11';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-11';
+import { drawRouteMap } from './render/route-map.js?v=097-0-11';
+import { renderSettlements } from './render/settlements.js?v=097-0-11';
+import { onInventoryChange } from './packages.js?v=097-0-11';
+import { esc } from './util.js?v=097-0-11';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els        = S._transient.els;
@@ -150,7 +151,7 @@ export function tryDeliver(arrivedNodeId) {
     const outboundTag = pkg.outboundFrom
       ? ` <span class="log-hi">[from ${NPC_DEFS[pkg.outboundFrom] ? NPC_DEFS[pkg.outboundFrom].callsign : pkg.outboundFrom}]</span>`
       : '';
-    addLog(`delivered <span class="log-hi">[${pkg.size}] ${pkg.label}</span>${outboundTag} to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2${trustSuffix}</span>`);
+    addLog(`delivered <span class="log-hi">[${pkg.size}] ${esc(pkg.label)}</span>${outboundTag} to <span class="log-hi">${destLabel}</span> \u2014 <span class="log-ok">+${pkg.scrip}\u00a2${trustSuffix}</span>`);
     // v0.0.9.5.1 — delivery broadcasts were the single largest feed
     // contributor (every porter delivers constantly). Throttled to
     // one broadcast per porter per DELIVERY_BROADCAST_GATE_MS so the
@@ -168,7 +169,7 @@ export function tryDeliver(arrivedNodeId) {
         size: pkg.size,
         forPorter: pkg.recoveryFromPorter,
       });
-      addLog(`<span class="log-ok">recovered</span> <span class="log-hi">${pkg.label}</span> \u2014 left by <span class="log-hi">${shortPorterId(pkg.recoveryFromPorter)}</span>`);
+      addLog(`<span class="log-ok">recovered</span> <span class="log-hi">${esc(pkg.label)}</span> \u2014 left by <span class="log-hi">${shortPorterId(pkg.recoveryFromPorter)}</span>`);
     }
 
     if (totalGain > 0) {
