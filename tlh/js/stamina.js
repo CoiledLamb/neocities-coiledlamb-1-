@@ -35,12 +35,12 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-11';
-import * as C from './constants.js?v=097-0-11';
-import { addLog } from './render/log.js?v=097-0-11';
-import { bindStrainTooltip } from './render/strain-tip.js?v=097-0-11';
-import { bindStaminaTooltip } from './render/stamina-tip.js?v=097-0-11';
-import { emit as tEmit } from './telemetry.js?v=097-0-11';
+import { S } from './state.js?v=097-0-12';
+import * as C from './constants.js?v=097-0-12';
+import { addLog } from './render/log.js?v=097-0-12';
+import { bindStrainTooltip } from './render/strain-tip.js?v=097-0-12';
+import { bindStaminaTooltip } from './render/stamina-tip.js?v=097-0-12';
+import { emit as tEmit } from './telemetry.js?v=097-0-12';
 
 const els = S._transient.els;
 
@@ -112,9 +112,9 @@ export function renderStamina() {
   if (strainFill) {
     const strainVal = S.strain || 0;
     strainFill.style.width = (strainVal * 100) + '%';
-    const strainCls = strainVal >= 0.85 ? 'strain-bar-fill crit'
-                    : strainVal >= 0.60 ? 'strain-bar-fill warn'
-                    :                     'strain-bar-fill';
+    const strainCls = strainVal >= C.STRAIN_CRIT_THRESHOLD ? 'strain-bar-fill crit'
+                    : strainVal >= 0.60                    ? 'strain-bar-fill warn'
+                    :                                        'strain-bar-fill';
     if (strainFill.className !== strainCls) strainFill.className = strainCls;
   }
   const strainBar = document.getElementById('strainBar');
@@ -127,9 +127,9 @@ export function renderStamina() {
     const pct = Math.round((S.strain || 0) * 100);
     const txt = pct + '%';
     if (strainValEl.textContent !== txt) strainValEl.textContent = txt;
-    const cls = pct >= 85 ? 'strain-val crit'
-              : pct >= 60 ? 'strain-val warn'
-              :             'strain-val';
+    const cls = pct >= C.STRAIN_CRIT_THRESHOLD * 100 ? 'strain-val crit'
+              : pct >= 60                            ? 'strain-val warn'
+              :                                        'strain-val';
     if (strainValEl.className !== cls) strainValEl.className = cls;
   }
   // v0.0.9.6.9.26 — wire the strain rich-tooltip on first paint. The

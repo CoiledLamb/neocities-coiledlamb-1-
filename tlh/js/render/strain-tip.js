@@ -13,10 +13,10 @@
    =========================================================== */
 'use strict';
 
-import { S } from '../state.js?v=097-0-11';
-import { tripChanceBreakdown } from '../trip.js?v=097-0-11';
-import * as C from '../constants.js?v=097-0-11';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=097-0-11';
+import { S } from '../state.js?v=097-0-12';
+import { tripChanceBreakdown } from '../trip.js?v=097-0-12';
+import * as C from '../constants.js?v=097-0-12';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './rich-tooltip.js?v=097-0-12';
 
 const ID = 'strain';
 
@@ -51,12 +51,13 @@ function fmtSecs(s) {
 
 // v0.0.9.6.9.30 — strain head color shifts on trip proximity.
 // White at low strain, purple at warn (≥0.50), pink at crit
-// (≥0.85). Matches the boot screen's strainState() thresholds
-// and the rest of the game's white→purple→pink severity ramp.
+// (≥STRAIN_CRIT_THRESHOLD). Matches the boot screen's strainState()
+// thresholds and the rest of the game's white→purple→pink severity
+// ramp. Crit value lifted to constants.js v0.0.9.7.12.
 function strainHeadClass() {
   const s = S.strain || 0;
-  if (s >= 0.85) return 'rich-tip-head-strain crit';
-  if (s >= 0.50) return 'rich-tip-head-strain warn';
+  if (s >= C.STRAIN_CRIT_THRESHOLD) return 'rich-tip-head-strain crit';
+  if (s >= 0.50)                    return 'rich-tip-head-strain warn';
   return 'rich-tip-head-strain';
 }
 

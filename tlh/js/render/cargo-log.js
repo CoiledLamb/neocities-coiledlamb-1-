@@ -32,11 +32,11 @@
    ============================================== */
 'use strict';
 
-import { S }              from '../state.js?v=097-0-11';
-import { NPC_DEFS }       from '../data/npc-defs.js?v=097-0-11';
-import { CARGO_LORE }     from '../data/cargo-lore.js?v=097-0-11';
-import { PLANTS }         from '../data/plants.js?v=097-0-11';
-import { buildCargoIndex } from '../data/cargo-index.js?v=097-0-11';
+import { S }              from '../state.js?v=097-0-12';
+import { NPC_DEFS }       from '../data/npc-defs.js?v=097-0-12';
+import { CARGO_LORE }     from '../data/cargo-lore.js?v=097-0-12';
+import { PLANTS }         from '../data/plants.js?v=097-0-12';
+import { buildCargoIndex } from '../data/cargo-index.js?v=097-0-12';
 
 const ITEM_INDEX = buildCargoIndex();
 

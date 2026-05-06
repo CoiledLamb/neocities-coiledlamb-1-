@@ -61,7 +61,7 @@ export const S = {
   // when mode === 'logic'.
   grabMode: 'auto',
   autoGrab: true,
-  inRiver: false,  // stub for future river mechanic
+  inRiver: false,  // true while courier is on river terrain; written each tick by main.js, drives canteen refill
 
   // v0.0.8 — weather system. Storms are spatial world objects on the ring.
   // Replaces the old isRaining boolean.

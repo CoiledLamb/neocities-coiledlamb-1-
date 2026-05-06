@@ -33,11 +33,11 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-11';
-import * as C from './constants.js?v=097-0-11';
-import { addLog } from './render/log.js?v=097-0-11';
-import { pointInRing } from './render/route-map.js?v=097-0-11';
-import { emit as tEmit } from './telemetry.js?v=097-0-11';
+import { S } from './state.js?v=097-0-12';
+import * as C from './constants.js?v=097-0-12';
+import { addLog } from './render/log.js?v=097-0-12';
+import { pointInRing } from './render/route-map.js?v=097-0-12';
+import { emit as tEmit } from './telemetry.js?v=097-0-12';
 
 const els = S._transient.els;
 

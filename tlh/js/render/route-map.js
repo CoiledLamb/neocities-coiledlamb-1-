@@ -3,42 +3,55 @@
    Route SVG rendering. drawRouteMap paints the full route tree
    with stage-aware colors; updateRouteDot animates the porter
    dot along the active edge; layoutRouteNodes sets node coords
-   on init. currentEdge is a tiny helper used by both this file
-   and main's tick — exported so main can reuse it.
+   on init.
+
+   v0.0.9.7.12 — read-side segment getters (getCurrentSegment,
+   isOnShortcut, courierXY, courierTerrain, currentEdge) moved to
+   /segment.js so non-render callers stop depending on this render
+   module for position queries. Builders + state mutators
+   (makeRingSegment, makeShortcutSegment, makeRiverDriftSegment,
+   initSegment, advanceSegmentAfterArrival, beginRiverDrift,
+   startShortcut) stay here — they reference render-coord constants
+   (RING_CX/CY, UNITS_PER_KM) and the river projection helpers.
 
    Imports:
      S — game state (state.js)
      getNodeStage, getDisplayLabel — identification.js
+     currentEdge — segment.js (this file's tick uses it; non-render
+       callers should also import from segment.js, not from here)
 
    Local aliases:
      els — live ref into S._transient.els (never reassign).
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-11';
-import * as C from '../constants.js?v=097-0-11';
-import { getNodeStage, getDisplayLabel } from '../identification.js?v=097-0-11';
-import { TICKS_PER_DAY } from './sky.js?v=097-0-11';
-import { NPC_DEFS } from '../data/npc-defs.js?v=097-0-11';
+import { S } from '../state.js?v=097-0-12';
+import * as C from '../constants.js?v=097-0-12';
+import { getNodeStage, getDisplayLabel } from '../identification.js?v=097-0-12';
+import { TICKS_PER_DAY } from './sky.js?v=097-0-12';
+import { NPC_DEFS } from '../data/npc-defs.js?v=097-0-12';
 import {
   terrainAt, TERRAIN_GLYPHS, TERRAIN_COLORS, TERRAIN_OPACITY,
   projectOntoRiver, riverPointAt, riverDownstreamT, riverPathLength,
   GEAR_GLYPH, gearWear, gearWearTier,
   cellKeyFromCoords, mesaOutcropAt,
-} from '../data/terrain.js?v=097-0-11';
+} from '../data/terrain.js?v=097-0-12';
 // v0.0.9.6.10.8 — trampleTier no longer consumed here (glyph-swap
 // dropped in favor of the persistent-dot layer). trampleAt is used
 // to floor the live trail's fade opacity.
-import { trampleAt } from '../trail.js?v=097-0-11';
+import { trampleAt } from '../trail.js?v=097-0-12';
 // v0.0.9.6.10.7 — use the density-filtered view of placed gear so
 // render matches placedGearAt() gameplay lookup. Full pool lives
 // on S.placedGear (persisted, broadcast-addressable); this is the
 // curated subset that should be visible to the player.
-import { visiblePlacedGear, placedGearAt } from '../gear.js?v=097-0-11';
-import { speedMultiplier } from '../stamina.js?v=097-0-11';
-import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=097-0-11';
-import { tlhPalette } from '../palette.js?v=097-0-11';
-import { bakeSteppedHypsoPng } from '../data/topo-map.js?v=097-0-11';
+import { visiblePlacedGear, placedGearAt } from '../gear.js?v=097-0-12';
+import { speedMultiplier } from '../stamina.js?v=097-0-12';
+import { showRichTooltip, hideRichTooltip } from './rich-tooltip.js?v=097-0-12';
+import { tlhPalette } from '../palette.js?v=097-0-12';
+import { bakeSteppedHypsoPng } from '../data/topo-map.js?v=097-0-12';
+// v0.0.9.7.12 — segment getters moved to /segment.js. Render code
+// imports them back from there for the bits this file still calls.
+import { currentEdge } from '../segment.js?v=097-0-12';
 
 const els = S._transient.els;
 
@@ -55,56 +68,14 @@ const els = S._transient.els;
 //   length:  number (viewBox units),
 // }
 //
-// currentEdge() now derives from currentSegment so every downstream
-// caller (destDrift, cellToSvg, storm render) keeps working. S.edgeIdx
-// stays the canonical ring index for ring segments — shortcut segments
-// carry edgeIdx = -1 and callers that need a cell index handle that
-// special case (cellIndex returns -1 → treated as off-grid).
-
-export function getCurrentSegment() { return S._transient.currentSegment; }
-export function isOnShortcut() {
-  const seg = S._transient.currentSegment;
-  return !!(seg && seg.type === 'shortcut');
-}
-
-/** Courier's current SVG (x, y) on whichever segment is active.
- *  Null only if there's no segment yet (shouldn't happen after init). */
-export function courierXY() {
-  const seg = S._transient.currentSegment;
-  if (!seg) return null;
-  return seg.pathFn(S.dotT);
-}
-
-/** Terrain type under the courier. Shortcut + river-drift segments
- *  use the full terrainAt classifier (interior positions). Ring
- *  segments default to 'flat' but ALSO check mesa outcrops —
- *  v0.0.9.6.9.3 placed these on ring-edge midpoints so courier
- *  walking the road physically passes through them, engaging the
- *  auto-gear → ladder → plateau-pickup chain without requiring
- *  manual shortcut interaction. */
-export function courierTerrain() {
-  const seg = S._transient.currentSegment;
-  if (!seg) return 'flat';
-  const xy = seg.pathFn(S.dotT);
-  // v0.0.9.6.9.15 — ring now returns the actual geography it passes
-  // through (mountain / rockyHills / river / desert / plateau) instead
-  // of hardcoded 'flat'. Matches design intent: these terrains
-  // intersect the ring AS WELL as being interior, so trip mechanics
-  // and severe-trip branches see real geo on the ring path too. Mesa
-  // outcrops still take precedence (ring-specific plateau concept).
-  if (seg.type === 'ring') {
-    if (mesaOutcropAt(xy.x, xy.y)) return 'plateau';
-    return terrainAt(xy.x, xy.y) || 'flat';
-  }
-  return terrainAt(xy.x, xy.y);
-}
-
-export function currentEdge() {
-  const seg = S._transient.currentSegment;
-  if (seg) return [seg.from, seg.to];
-  // Fallback for old callers pre-init (shouldn't happen after initSegment).
-  return S.edges[S.edgeIdx % S.edges.length];
-}
+// v0.0.9.7.12 — read-side getters (getCurrentSegment, isOnShortcut,
+// courierXY, courierTerrain, currentEdge) moved to /segment.js so
+// non-render callers stop depending on this render module for
+// position queries. Builders + state mutators (makeRingSegment,
+// makeShortcutSegment, makeRiverDriftSegment, initSegment,
+// advanceSegmentAfterArrival, beginRiverDrift, startShortcut)
+// stay here — they reference render-coord constants (RING_CX/CY,
+// UNITS_PER_KM) and the river projection helpers below.
 
 /** Build a ring segment for the given edge index. */
 function makeRingSegment(edgeIdx) {
