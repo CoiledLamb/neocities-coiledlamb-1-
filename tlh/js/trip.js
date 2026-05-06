@@ -57,20 +57,21 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-10';
-import * as C from './constants.js?v=097-0-10';
-import { postLostDrop } from './multiplayer.js?v=097-0-10';
-import { staminaSegCount } from './stamina.js?v=097-0-10';
-import { emit as tEmit } from './telemetry.js?v=097-0-10';
+import { S } from './state.js?v=097-0-11';
+import * as C from './constants.js?v=097-0-11';
+import { postLostDrop } from './multiplayer.js?v=097-0-11';
+import { esc } from './util.js?v=097-0-11';
+import { staminaSegCount } from './stamina.js?v=097-0-11';
+import { emit as tEmit } from './telemetry.js?v=097-0-11';
 // v0.0.9.6.9.13 — trip-dropped cargo needs to hit the same bottleneck
 // edge-tracker used by normal pick/deliver paths. Without this, a
 // severe trip at full cargo can transition out of maxed without
 // emitting inventory.freed.
-import { onInventoryChange } from './packages.js?v=097-0-10';
-import { addLog } from './render/log.js?v=097-0-10';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-10';
-import { weatherAtCourier } from './weather.js?v=097-0-10';
-import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js?v=097-0-10';
+import { onInventoryChange } from './packages.js?v=097-0-11';
+import { addLog } from './render/log.js?v=097-0-11';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-11';
+import { weatherAtCourier } from './weather.js?v=097-0-11';
+import { courierXY, courierTerrain, beginRiverDrift } from './render/route-map.js?v=097-0-11';
 import {
   TERRAIN_TRIP_MULT,
   TERRAIN_HAS_SEVERE,
@@ -80,9 +81,9 @@ import {
   GEAR_FOR_TERRAIN,
   GEAR_TRIP_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=097-0-10';
-import { placedGearAt } from './gear.js?v=097-0-10';
-import { trampleAt } from './trail.js?v=097-0-10';
+} from './data/terrain.js?v=097-0-11';
+import { placedGearAt } from './gear.js?v=097-0-11';
+import { trampleAt } from './trail.js?v=097-0-11';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;
@@ -544,7 +545,7 @@ function applySevereDamage(terrain) {
     if (Math.random() >= hit) continue;
     if (absorbDry && isFragile && !pkg.ceramicAbsorbed) {
       pkg.ceramicAbsorbed = true;
-      addLog(`<span class="log-ok">ceramic wrap held</span> \u2014 <span class="log-hi">${pkg.label}</span> absorbed the hit`);
+      addLog(`<span class="log-ok">ceramic wrap held</span> \u2014 <span class="log-hi">${esc(pkg.label)}</span> absorbed the hit`);
       continue;
     }
     const oldScrip = pkg.scrip;
