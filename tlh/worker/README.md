@@ -95,20 +95,25 @@ That's it. Changes go live in seconds.
 | method | path | body | returns |
 |---|---|---|---|
 | POST | `/activity` | `{ porterId, type, data }` | `{ ok: true, timestamp }` |
-| GET  | `/feed?since=<ms>` | — | `{ events, census, serverTime }` |
-| POST | `/lost` | `{ porterId, label, size, scrip }` | `{ ok: true }` |
-| GET  | `/lost/:porterId` | — | `{ porterId, list }` |
+| GET  | `/feed?since=<ms>` | — | `{ events, census, censusBreakdown, serverTime }` |
+| POST | `/lost` | `{ porterId, pkg: { label, size, scrip } }` | `{ ok: true }` |
+| GET  | `/lost/:porterId` | — | `{ porterId, lost }` |
 | GET  | `/` | — | service info |
 
-Allowed event types: `delivery`, `milestone`, `discovery`, `lost_drop`, `lost_recovered`, `trust_unlock`.
+Allowed event types: `delivery`, `milestone`, `discovery`, `lost_drop`, `lost_recovered`, `trust_unlock`, `gear_placement`, `trample_milestone`, `toss`.
 
 ## limits & guarantees
 
-- **Rate limit**: 5 events per porter per 60 seconds. Excess events are *silently dropped* — `/activity` still returns `ok: true`. The client never sees rate limit errors.
+- **Rate limit**: client-enforced. The client throttles itself at `POST_MIN_INTERVAL_MS = 5000` (see [tlh/js/constants.js](../js/constants.js)). The worker tracks a 60s per-porter window via a marker key for write-amp control, but doesn't hard-reject — the global Cloudflare KV daily quota is the real backstop, surfaced to the client as 429.
 - **Feed cap**: last 200 events globally. Older events fall off.
-- **Census**: porters seen in last 24 hours. Auto-prunes on read.
+- **Census**: today / week / all-time porter counts derived from the feed on each read. No dedicated counter key.
 - **Lost registry**: last 20 lost-pkg drops per porter, FIFO.
+- **Body size**: requests over 8 KB are rejected with 413.
 - **CORS**: open. No auth.
+
+## graceful degradation (don't break this)
+
+When the worker hits its KV daily-write quota, it returns 429 with a `Retry-After` header pointing at UTC midnight. The client (`handleThrottle` in [tlh/js/multiplayer.js](../js/multiplayer.js)) interprets this as "go silent until then": the network toggle dims, broadcasts pause, and polling continues at a slower cadence so the throttle clearing is detected. The game stays fully playable solo; multiplayer just goes quiet until the quota resets. The 429 → forced-silent contract is intentional — don't change it without coordinating with the client side.
 
 ## free tier coverage
 

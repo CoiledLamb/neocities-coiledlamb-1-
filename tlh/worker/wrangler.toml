@@ -14,8 +14,16 @@
 
 name = "coiledlamb"
 main = "index.js"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-05-05"
 
 [[kv_namespaces]]
 binding = "FEED"
 id = "c7bdbec95cd6476f9c87abf55c03fdcb"
+
+# v0.0.9.6.10.24 — surface logs/traces in the Cloudflare dashboard so
+# future debugging doesn't require a live `wrangler tail` session.
+# head_sampling_rate = 1 captures every request; at this volume the
+# cost is negligible. Drop to 0.1 if traffic ever scales.
+[observability]
+enabled = true
+head_sampling_rate = 1
