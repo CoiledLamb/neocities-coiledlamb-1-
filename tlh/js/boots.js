@@ -27,12 +27,12 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-12';
-import * as C from './constants.js?v=097-0-12';
-import { addLog } from './render/log.js?v=097-0-12';
-import { updateHUD } from './render/hud.js?v=097-0-12';
-import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js?v=097-0-12';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-12';
+import { S } from './state.js?v=097-0-13';
+import * as C from './constants.js?v=097-0-13';
+import { addLog } from './render/log.js?v=097-0-13';
+import { updateHUD } from './render/hud.js?v=097-0-13';
+import { showRichTooltip, hideRichTooltip, activeRichTooltipId } from './render/rich-tooltip.js?v=097-0-13';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-13';
 
 // Local alias — live reference into S._transient. Never reassign.
 const els = S._transient.els;

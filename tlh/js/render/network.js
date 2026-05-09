@@ -18,11 +18,11 @@
 */
 'use strict';
 
-import { S } from '../state.js?v=097-0-12';
-import * as C from '../constants.js?v=097-0-12';
-import { getCachedPorterId, shortPorterId, isSilent, isForcedSilent } from '../multiplayer.js?v=097-0-12';
-import { TERRAIN_LOCATION_NOUN } from '../data/terrain.js?v=097-0-12';
-import { esc } from '../util.js?v=097-0-12';
+import { S } from '../state.js?v=097-0-13';
+import * as C from '../constants.js?v=097-0-13';
+import { getCachedPorterId, shortPorterId, isSilent, isForcedSilent } from '../multiplayer.js?v=097-0-13';
+import { TERRAIN_LOCATION_NOUN } from '../data/terrain.js?v=097-0-13';
+import { esc } from '../util.js?v=097-0-13';
 
 const els = S._transient.els;
 
@@ -155,6 +155,20 @@ function formatEvent(e) {
       // panel and onto the network panel (alongside other porter
       // activity). Terrain noun from TERRAIN_LOCATION_NOUN (hardcoded
       // table — safe); falls back to 'slope' if missing/unknown.
+      //
+      // v0.0.9.7.13 — batched senders ship data.placements: [...] without
+      // per-event terrain. Render as a count summary in that case;
+      // single-event senders keep the legacy "placed an anchor on the
+      // riverbank" form.
+      if (Array.isArray(data.placements)) {
+        const n = data.placements.length;
+        if (n === 1) {
+          const p = data.placements[0] || {};
+          const a = /^[aeiou]/i.test(p.type || '') ? 'an' : 'a';
+          return `${who} placed ${a} <span class="net-ac">${esc(p.type || 'piece of gear')}</span>`;
+        }
+        return `${who} placed <span class="net-ac">${n} pieces of gear</span>`;
+      }
       const noun = TERRAIN_LOCATION_NOUN[data.terrain] || 'slope';
       const a    = /^[aeiou]/i.test(data.type || '') ? 'an' : 'a';
       return `${who} placed ${a} <span class="net-ac">${esc(data.type || 'piece of gear')}</span> on the ${noun}`;

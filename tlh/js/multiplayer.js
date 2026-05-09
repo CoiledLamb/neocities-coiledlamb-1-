@@ -37,10 +37,10 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-12';
-import * as C from './constants.js?v=097-0-12';
-import { addLog } from './render/log.js?v=097-0-12';
-import { renderNetwork } from './render/network.js?v=097-0-12';
+import { S } from './state.js?v=097-0-13';
+import * as C from './constants.js?v=097-0-13';
+import { addLog } from './render/log.js?v=097-0-13';
+import { renderNetwork } from './render/network.js?v=097-0-13';
 
 export function getPorterId() {
   const LS_KEY = 'tlh-porter-id';
@@ -275,25 +275,51 @@ export function postLostDrop(pkg) {
 
 // v0.0.9.6 commit 5 — placed-gear broadcast. Fires when a courier
 // places a ladder or anchor so peers see each other's infrastructure
-// in the shared world. Receivers dedup on canonical id in
-// receiveGearPlacement. Queued via the same postActivity pipeline as
-// milestones / tosses so throttling + rate limits come for free.
+// in the shared world. Receivers dedup on canonical id (set in
+// pollFeed dispatch below).
+//
+// v0.0.9.7.13 — batched flush. Per-placement broadcasts dominated KV
+// puts (one porter on a long shortcut could fire 1000+/day, blowing
+// the worker's 1K/day free cap from a single tab). Placements now
+// accumulate in S._transient.gearBatchBuffer and flush every
+// GEAR_BATCH_FLUSH_MS as one event with data.placements: [...].
+// Per-placement payload is slimmed (placerId moves to the outer
+// e.porterId at receive time; terrain dropped — it was cosmetic for
+// the network panel log line and the batched form prefers a count
+// summary anyway).
+//
+// Drop-oldest on cap-hit preserves the 1-write-per-window guarantee
+// even under pathological placement rates; the porter's own
+// S.placedGear is unaffected (cap only impacts what peers see).
+function flushGearBatch() {
+  S._transient.gearBatchFlushTimer = null;
+  const buf = S._transient.gearBatchBuffer;
+  if (buf.length === 0) return;
+  const placements = buf.splice(0, buf.length);
+  postActivity('gear_placement', { placements });
+}
+
+function scheduleGearFlush() {
+  if (S._transient.gearBatchFlushTimer !== null) return;
+  S._transient.gearBatchFlushTimer = setTimeout(flushGearBatch, C.GEAR_BATCH_FLUSH_MS);
+}
+
 export function broadcastGearPlacement(payload) {
   if (isSilent()) return;
   if (!payload || !payload.id) return;
-  // Slim payload — the activity feed is seen by every peer; no need
-  // to ship stormDecayExtra (viewers compute their own wear from
-  // placedWallClock + lifetimeMs).
-  postActivity('gear_placement', {
+  const buf = S._transient.gearBatchBuffer;
+  // Drop oldest if buffer cap exceeded — keeps payload under
+  // worker's MAX_DATA_BYTES (4096 as of worker v0.0.9.6.10.26).
+  if (buf.length >= C.GEAR_BATCH_MAX) buf.shift();
+  buf.push({
     id:              payload.id,
-    placerId:        payload.placerId,
     type:            payload.type,
     x:               payload.x,
     y:               payload.y,
     placedWallClock: payload.placedWallClock,
     lifetimeMs:      payload.lifetimeMs,
-    terrain:         payload.terrain,
   });
+  scheduleGearFlush();
 }
 
 // v0.0.9.6 commit 7 — trample milestone broadcast. Fires when an
@@ -381,8 +407,21 @@ export async function pollFeed() {
         // gear.js receiver so peer placements land in the local
         // S.placedGear table for visibility + amortization. Dynamic
         // import keeps this cycle-safe (gear.js imports multiplayer).
+        //
+        // v0.0.9.7.13 — unwrap batched form. Senders running the new
+        // client send data.placements: [...] (one event = many
+        // placements); legacy senders may still send a single placement
+        // object. Backfill placerId from the outer e.porterId so
+        // receiveGearPlacement's entry shape stays stable across both
+        // wire formats.
         if (e.type === 'gear_placement' && e.data) {
-          freshGearEvents.push(e.data);
+          if (Array.isArray(e.data.placements)) {
+            for (const p of e.data.placements) {
+              freshGearEvents.push({ ...p, placerId: p.placerId || e.porterId });
+            }
+          } else {
+            freshGearEvents.push(e.data);
+          }
         }
         // v0.0.9.6 commit 7 — dispatch trample_milestone events into
         // trail.js receiver. Peer paving merges into local
@@ -394,12 +433,12 @@ export async function pollFeed() {
       }
     });
     if (freshGearEvents.length) {
-      import('./gear.js?v=097-0-12').then((gearMod) => {
+      import('./gear.js?v=097-0-13').then((gearMod) => {
         freshGearEvents.forEach(data => gearMod.receiveGearPlacement(data));
       });
     }
     if (freshTrampleEvents.length) {
-      import('./trail.js?v=097-0-12').then((trailMod) => {
+      import('./trail.js?v=097-0-13').then((trailMod) => {
         freshTrampleEvents.forEach(data => trailMod.receiveTrampleMilestone(data));
       });
     }

@@ -2,7 +2,7 @@
    THE LONG HAUL — tuning constants (v0.0.7.18)
 
    All const tuning values live here. Balance passes are a single-file
-   edit. Import as `import * as C from './constants.js?v=097-0-12'` and reference
+   edit. Import as `import * as C from './constants.js?v=097-0-13'` and reference
    as `C.TICK_MS`, `C.TRIP_CHANCE_BASE`, etc.
 
    Excluded (lives elsewhere):
@@ -333,6 +333,18 @@ export const THROTTLE_MAX_MS    = 24 * 60 * 60 * 1000;  // 24h
 export const POST_MIN_INTERVAL_MS  = 5000;
 export const MILESTONE_COALESCE_MS = 1500;
 export const THROTTLE_COOLDOWN_MS  = 60000;
+
+// v0.0.9.7.13 — gear_placement broadcast batching. Per-placement broadcasts
+// were the dominant KV write source: a busy porter on a long shortcut could
+// fire 1000+ /activity puts/day from gear alone, blowing the worker's daily
+// cap. Buffer placements locally and flush every GEAR_BATCH_FLUSH_MS as a
+// single batched event with data.placements: [...]. Hard cap on buffer size
+// keeps payload under the worker's MAX_DATA_BYTES (4096 as of worker
+// v0.0.9.6.10.26). Receivers (multiplayer.js pollFeed dispatch) unwrap the
+// batched form back into individual placements; gear.js stays oblivious to
+// the wire shape.
+export const GEAR_BATCH_FLUSH_MS = 60000;
+export const GEAR_BATCH_MAX      = 30;
 
 // ----- sticky gun (v0.0.7.21) -----
 // Pickup range while gun is equipped + ammo loaded. Ammo refills on H arrival.

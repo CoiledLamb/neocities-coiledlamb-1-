@@ -428,6 +428,15 @@ export const S = {
     feedThrottled: false,
     throttledUntil: 0,
 
+    // v0.0.9.7.13 — gear_placement broadcast buffer. Placements accumulate
+    // here as the courier walks shortcuts; flushed every GEAR_BATCH_FLUSH_MS
+    // as one batched activity event (data.placements: [...]). Hard cap at
+    // GEAR_BATCH_MAX entries — older entries drop if cap is hit (peer
+    // visibility loss only; local S.placedGear unaffected). See
+    // multiplayer.js scheduleGearFlush.
+    gearBatchBuffer:     [],
+    gearBatchFlushTimer: null,
+
     // v0.0.9.6.10.23 — worker-quota forced-silent state.
     // forcedSilent flips true on /feed or /activity 429 (worker daily KV
     // quota exhausted). isSilent() ORs this with the user's persisted
