@@ -57,22 +57,22 @@
    ============================================== */
 'use strict';
 
-import { S } from './state.js?v=097-0-12';
-import * as C from './constants.js?v=097-0-12';
-import { postLostDrop } from './multiplayer.js?v=097-0-12';
-import { esc } from './util.js?v=097-0-12';
-import { staminaSegCount } from './stamina.js?v=097-0-12';
-import { emit as tEmit } from './telemetry.js?v=097-0-12';
+import { S } from './state.js?v=097-0-13';
+import * as C from './constants.js?v=097-0-13';
+import { postLostDrop } from './multiplayer.js?v=097-0-13';
+import { esc } from './util.js?v=097-0-13';
+import { staminaSegCount } from './stamina.js?v=097-0-13';
+import { emit as tEmit } from './telemetry.js?v=097-0-13';
 // v0.0.9.6.9.13 — trip-dropped cargo needs to hit the same bottleneck
 // edge-tracker used by normal pick/deliver paths. Without this, a
 // severe trip at full cargo can transition out of maxed without
 // emitting inventory.freed.
-import { onInventoryChange } from './packages.js?v=097-0-12';
-import { addLog } from './render/log.js?v=097-0-12';
-import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-12';
-import { weatherAtCourier } from './weather.js?v=097-0-12';
-import { courierXY, courierTerrain } from './segment.js?v=097-0-12';
-import { beginRiverDrift } from './render/route-map.js?v=097-0-12';
+import { onInventoryChange } from './packages.js?v=097-0-13';
+import { addLog } from './render/log.js?v=097-0-13';
+import { renderCourierStack, renderCargoSlots } from './render/hud.js?v=097-0-13';
+import { weatherAtCourier } from './weather.js?v=097-0-13';
+import { courierXY, courierTerrain } from './segment.js?v=097-0-13';
+import { beginRiverDrift } from './render/route-map.js?v=097-0-13';
 import {
   TERRAIN_TRIP_MULT,
   TERRAIN_HAS_SEVERE,
@@ -82,9 +82,9 @@ import {
   GEAR_FOR_TERRAIN,
   GEAR_TRIP_MITIGATION,
   reduceMultWithTrample,
-} from './data/terrain.js?v=097-0-12';
-import { placedGearAt } from './gear.js?v=097-0-12';
-import { trampleAt } from './trail.js?v=097-0-12';
+} from './data/terrain.js?v=097-0-13';
+import { placedGearAt } from './gear.js?v=097-0-13';
+import { trampleAt } from './trail.js?v=097-0-13';
 
 // Local aliases — live references into S._transient. Never reassign these.
 const els = S._transient.els;

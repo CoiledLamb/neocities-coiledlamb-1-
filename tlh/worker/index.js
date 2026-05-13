@@ -1,6 +1,6 @@
 /* ==============================================
    THE LONG HAUL — multiplayer feed worker
-   v0.0.9.6.10.25 (security hardening)
+   v0.0.9.6.10.26 (gear_placement batch support)
    ==============================================
    Endpoints:
      POST /activity        append event, rate-limited per porter
@@ -25,6 +25,27 @@
        Mitigation lives at the Cloudflare edge layer (WAF, IP rate-limit) — not in
        worker code. The 429-on-quota-exhausted path triggers forced-silent client
        UX, so the game stays solo-playable through the abuse window.
+
+   v0.0.9.6.10.26 gear_placement batch support:
+     - MAX_DATA_BYTES bumped 512 -> 4096. Required for the client-side
+       gear_placement batching (game v0.0.9.7.13): instead of one
+       /activity put per gear placement, clients now buffer placements
+       for 60s and flush as a single event whose data shape is
+         { placements: [{ id, type, x, y, placedWallClock, lifetimeMs }, ...] }
+       At the client cap of GEAR_BATCH_MAX=30 entries, payload is ~3 KB
+       (~100 B/entry slim form). 4096-byte data cap fits comfortably
+       under the 8 KB envelope cap and leaves headroom if the per-entry
+       fields ever grow.
+     - No code change required for the new shape itself: validEvent
+       only checks data is an object within MAX_DATA_BYTES, and the
+       freeform JSON contract makes data.placements transparent to the
+       worker. Documented here so the next reader knows why the cap
+       moved (and that 'gear_placement' events in feed:recent now hold
+       arrays, not single placements).
+     - Pre-batch puts/day from one busy porter measured at ~1100;
+       projected post-batch is ~50-150 (one flush per active minute,
+       most minutes idle). Brings worker write load comfortably under
+       the 1000/day free-tier cap with headroom for multiple porters.
 
    v0.0.9.6.10.25 security hardening:
      - 500 error responses no longer leak err.message to clients. Internal errors
@@ -91,7 +112,7 @@ const WEEK_TTL_MS     = 7  * 24 * 60 * 60 * 1000;  // 7d "this week" window
 const LOST_CAP        = 20;           // max lost-pkg drops kept per porter
 const FEED_TTL_S      = 7  * 24 * 60 * 60;   // 7d — feed:recent storage hygiene
 const LOST_TTL_S      = 21 * 24 * 60 * 60;   // 21d — FLOOR(14) + DEAD_WEEK_GRACE(7)
-const MAX_DATA_BYTES  = 512;          // event.data JSON byte cap
+const MAX_DATA_BYTES  = 4096;         // event.data JSON byte cap (bumped from 512 in v.10.26 for gear_placement batching)
 const MAX_BODY_BYTES  = 8 * 1024;     // envelope cap (Content-Length)
 
 const ALLOWED_TYPES = new Set([
@@ -374,7 +395,7 @@ export default {
       if (request.method === 'GET' && path === '/') {
         return jsonResponse({
           name:    'tlh-feed',
-          version: '0.0.9.6.10.25',
+          version: '0.0.9.6.10.26',
           endpoints: [
             'POST /activity',
             'GET  /feed?since=<timestamp>',

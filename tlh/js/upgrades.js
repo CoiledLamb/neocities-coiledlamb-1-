@@ -25,13 +25,13 @@
 */
 'use strict';
 
-import { S } from './state.js?v=097-0-12';
-import { UPGRADE_DEFS } from './data/upgrades.js?v=097-0-12';
-import { NPC_DEFS } from './data/npc-defs.js?v=097-0-12';
-import { addLog } from './render/log.js?v=097-0-12';
-import { updateHUD, renderCargoSlots, registerUpgradesRenderer } from './render/hud.js?v=097-0-12';
-import * as Boots from './boots.js?v=097-0-12';
-import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-12';
+import { S } from './state.js?v=097-0-13';
+import { UPGRADE_DEFS } from './data/upgrades.js?v=097-0-13';
+import { NPC_DEFS } from './data/npc-defs.js?v=097-0-13';
+import { addLog } from './render/log.js?v=097-0-13';
+import { updateHUD, renderCargoSlots, registerUpgradesRenderer } from './render/hud.js?v=097-0-13';
+import * as Boots from './boots.js?v=097-0-13';
+import { emit as tEmit, accum as tAccum } from './telemetry.js?v=097-0-13';
 
 const els = S._transient.els;
 

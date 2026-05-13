@@ -21,8 +21,8 @@
 */
 'use strict';
 
-import { S } from './state.js?v=097-0-12';
-import { terrainAt, mesaOutcropAt } from './data/terrain.js?v=097-0-12';
+import { S } from './state.js?v=097-0-13';
+import { terrainAt, mesaOutcropAt } from './data/terrain.js?v=097-0-13';
 
 export function getCurrentSegment() { return S._transient.currentSegment; }
 
