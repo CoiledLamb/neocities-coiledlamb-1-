@@ -169,21 +169,20 @@ Authoring is part of the .8 patch — 11 recipes × name + dialogue + plant pair
 
 ---
 
-## open items requiring decision before code
+## decisions locked (2026-05-12 walkthrough)
 
-These should be surfaced to the user **before starting implementation**, not invented during build:
+These resolved during a kitchen walkthrough; impl can proceed against them.
 
-1. **`canteen_grace` reframe.** Original "−50% drain at low canteen" has no hook. Options:
-   - (a) **Drink efficiency**: drinks cost 50% less canteen during buff. Stacks multiplicatively with `efficientConsumption` upgrade (×0.60 → ×0.30 combined). Felt as "each sip stretches further."
-   - (b) **Passive drip**: +0.05/tick canteen during buff while in `canteen_low` state. Like reservoir tank ×2.5. Always-on small refill.
-   - (c) **Storm refill amplifier**: while in storm, refill rates ×1.5. Trigger pairing weird (`in_storm` taken).
-   - **Recommended: (a) drink efficiency.** Distinct mechanic, parallels the existing upgrade family.
-2. **Magnitude tuning** — per-plant variation vs flat across all conditionals. Likely state-trigger graces are −40% (longer uptime, weaker per-tick), event-trigger graces are −50% (briefer windows, stronger).
-3. **Cook UI placement** — kit bar button, cargo drawer header tab, or floating action button when ingredients + water present?
-4. **Recipe queue UI** — depth (single fallback or multi-step), ordering UX. Lives in the new "meals" sub-section of the cargo log.
-5. **Depot trust tier for cooking unlock** — deferred to v0.0.9.10 trust-ladder restructure. For now, gate at t40 or wait for the restructure to make a per-NPC call.
-6. **`strain_high` activation window** — 0.7 cutoff gives ~30% uptime in active play. Widen to ≥0.5 for ~50% uptime if sim shows under-firing.
-7. **Weak-felt conditionals need impl-time UI reinforcement**: `scrip_grace` (log message "+25% bonus" on affected delivery), `scanner_grace` (halo brightness pulse during buff), `gadget_grace` (battery bar tint while active). Don't ship these without their reinforcement.
+1. **`canteen_grace` = drink efficiency.** Drinks cost 50% less canteen during buff. Stacks multiplicatively with `efficientConsumption` upgrade (×0.60 × ×0.50 = ×0.30 combined). Felt as "each sip stretches further."
+2. **Magnitude tuning = flat split default.** State-trigger graces −40% (longer uptime, weaker per-tick); event-trigger graces −50% (briefer windows, stronger). Per-plant tuning available later if sim shows imbalance.
+3. **Cook UI = cargo drawer.** Cooking lives in a new "meals" sub-section of the cargo drawer. Drawer has the screen real estate to communicate effects clearly.
+4. **Recipe queue = 2-back.** 1 active meal + 1 queued. Clicking a meal in the meals screen prompts "cook now or add to queue." Expand depth later if needed.
+5. **Depot cook unlock = t40 placeholder.** Each NPC's depot opens at t40 trust for free cooking. Flagged for v0.0.9.10 trust restructure to revisit; name the code constant something like `DEPOT_COOK_TRUST_PLACEHOLDER` so the .10 patch picks it up.
+6. **`strain_high` cutoff = 0.7.** Active ~30% of the time. Widen to 0.5 if sim shows under-firing.
+
+## still open before impl
+
+7. **Weak-felt conditionals UI reinforcement — workshop required before .8 starts.** Original set: `scrip_grace` (log message at delivery), `scanner_grace` (halo brightness pulse), `gadget_grace` (battery bar tint). User feedback 2026-05-12: scrip_grace + scanner_grace flagged for potential pull/rework; gadget_grace in scope but needs mockup. Workshop should cover: which of the three survive in any form; if cut, do their plants (rustveil, stonesong) get replaced or does the roster shrink to 10/11; what does gadget_grace UI look like in mockup. **Roster lock may need revisit.**
 
 ---
 
