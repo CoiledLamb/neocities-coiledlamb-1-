@@ -27,14 +27,14 @@ If something below is ambiguous, defer to:
 
 ## locked design decisions
 
-- **Two-plant combo cook.** One trigger slot + one conditional slot. Same plant can fill both slots (uses 2 of that plant from stash; reveals both halves at once).
+- **Two-plant combo cook.** One trigger slot + one conditional slot. Two distinct ingredients required — no doubling the same plant in both slots.
 - **Reveal contract** (per .7.1 cargo log spec): each plant has fixed `trigger` + `conditional` properties; cooking reveals only the role the plant played in the dish. Two plays per plant for full codex completion.
 - **No pair gating, no special-case combos.** Plant A's trigger pairs with Plant B's conditional with no lookup table. The plant card is the contract. Variety lives in the cross product. Balance lives at the trigger and conditional level individually, not in pairings.
 - **Buff duration**: ~850 ticks (≈5 min real-time at TICK_MS=350). Tunable in 750–900 band.
-- **Buff lifecycle**: queue + overwrite. New cook replaces current buff. No stacking.
-- **Recipe queue, depth 2**: 1 active meal + 1 queued. Deliberate UI-scope compromise (per locked decision #4) — no priority-fallback semantics, just a single "what's next." Auto-cooks whenever current buff expires + ingredients + water present.
-- **Field cook**: anywhere, costs 10–20% canteen per cook (tunable). Picker UI for any 2 ingredients from stash.
-- **Depot cook**: small scrip cost + auto-rebuy toggle (per locked decision #5). Each NPC has an **authored signature recipe** (designer-curated combo), not derived from "ingredients available on the path." Designer picks the perfect pair for each NPC's voice.
+- **Buff lifecycle**: overwrite — new cook replaces current buff. No stacking, no FIFO queueing of buffs.
+- **Cooking flow**: manual cook by default + optional auto-cook toggle with 3-slot drag-orderable rotation (per locked decision #4). Rotation recipes are composed via the picker (revealed plants from the codex), not by cooking. See `meals UI spec` section for the full shape.
+- **Field cook**: anywhere not at an NPC. Picker UI for any 2 distinct ingredients from stash. Costs 10–20% canteen per cook (tunable).
+- **Depot cook**: at an NPC. Two sub-modes (per locked decision #5): (a) cook your own 2 ingredients in the NPC's kitchen — free (no canteen, no scrip); (b) eat the NPC's **authored signature meal** (designer-curated plant pair using their ingredients) — small scrip cost. Manual purchase only, no auto-buy. Doubles as a plant-discovery vector via the reveal contract.
 - **Per-ingredient stash cap**, sandalweed-style. No shared pantry.
 - **Cargo log "plants" section becomes "ingredients"** to cover plants + porter's pal + future weird non-plant items. Hide-items filter renames to "ingredients only" or similar.
 - **Cook UI placement**: cargo drawer "meals" sub-section (per locked decision #3).
@@ -77,12 +77,11 @@ This solves "I ate but the meal expired before anything happened":
 | `on_low_battery` | battery <25% |
 | `on_fragile_carried` | any fragile pkg in inventory |
 
-**Event sub-windows (3)** — conditional on for ~200 ticks after each event fire; refresh on re-fire:
+**Event sub-windows (2)** — conditional on for ~200 ticks after each event fire; refresh on re-fire:
 
 | Tag | Fires on | Window |
 |---|---|---|
 | `on_pickup` | pkg picked up | 200 ticks |
-| `on_delivery` | pkg delivered | 200 ticks |
 | `on_terrain_enter` | crossed into new terrain type | 200 ticks |
 
 **Cuts** from earlier drafts (do NOT add these back without conversation):
@@ -91,6 +90,7 @@ This solves "I ate but the meal expired before anything happened":
 - `on_rest` — rest mechanic dropped from cooking design space (vestigial)
 - `exhausted` — replaced by more specific state predicates
 - `on_dawn` / `on_daylight` — daylight cycle cut from .8 entirely with sunflower deferred to .11
+- `on_delivery` — cut as a bad conditional candidate; surfaces too infrequently to land felt rewards reliably. `on_terrain_enter` (stonesong's anchor) has a similar concern and may need rework if it lands soft in playtest — flagged but in scope for .8
 
 ---
 
@@ -108,7 +108,7 @@ This solves "I ate but the meal expired before anything happened":
 | `scanner_grace` | scanner cooldown halved during conditional window (fires 2× as often) | reframed from magnitude-doubled per workshop 2026-05-13 — "thing happened again" is the legible felt signal |
 | `gadget_grace` | −25% battery drain across all consumers | UI fully spec'd — see `gadget_grace UI spec` section below |
 | `fragile_grace` | halves fragile hit rate during severe trips (mountain 100%→50%, river 100%→50%, rockyHills 50%→25%) | NEW — earned its slot via novel system reach (pkg modifier system); stacks with ceramicWrap |
-| `wild_grace` | at activation, RNG-selects one of the 10 non-wild conditionals (boot, canteen, strain, terrain, terrain_alpine, storm, scrip, scanner, gadget, fragile); visible in buff display ("rolled X this time") | porter's pal only — wild-pool exclusions dropped per workshop 2026-05-13 |
+| `wild_grace` | at activation, RNG-selects one of the 10 non-wild conditionals (boot, canteen, strain, terrain, terrain_alpine, storm, scrip, scanner, gadget, fragile); visible in buff display ("rolled X this time") | porter's pal only — every cook unique; **no cargo-log reveal** of the rolled plant's effect (porter's pal is its own ephemeral entry); full plant pool eligible |
 
 **Cuts** from earlier drafts:
 
@@ -133,13 +133,13 @@ This solves "I ate but the meal expired before anything happened":
 | 8 | **riverknot** | delta — reservoir banks (delta runs power infrastructure → gadget-themed) | `on_low_battery` | `gadget_grace` |
 | 9 | **cliffhanger** | lambda — alpine half of terrain_grace split (clayroot covers river+hills; cliffhanger covers plateau+mountain) | `on_plateau_or_mountain` | `terrain_grace_alpine` |
 | 10 | **claybloom** | theta — kiln (ceramic-glaze plant; *"petals feel cool and smooth to the touch"*) | `on_fragile_carried` | `fragile_grace` |
-| 11 | **porter's pal** | xi — city ruins (NON-PLANT: pre-collapse preserved meal, archaeology drop at ruins cells) | (any, random both halves) | `wild_grace` |
+| 11 | **porter's pal** | xi — city ruins (NON-PLANT: pre-collapse preserved meal, archaeology drop at ruins cells) | random (rolls 1 of 10 plant triggers per cook) | `wild_grace` |
 
 ### special notes per ingredient
 
 **Sandalweed → gritgrass display rename**: existing in-game sandalweed (boot-lash plant, kit-bar badge per [tlh/js/boots.js:198](js/boots.js:198)) gets renamed at the **display layer only** — internal `S.sandalweedCount`, `sandalEfficiency` upgrade ID, `sandalCap()`, etc. stay stable. No save migration. ~15-25 user-facing string sites to touch. Precedent: v0.0.9.5 rename pass ("pack mule rig → molly netting" etc.) per [TLH-HANDOFF.md:18](TLH-HANDOFF.md:18).
 
-**Porter's pal**: ingredient (not plant), spawns at ruins cells, rarer than plants, same stash cap (~5). At cook time RNG selects one of the 10 plants and uses its trigger (or conditional, depending on slot) for the meal. Each cook is a fresh roll, no memory. No wild-pool exclusions per workshop 2026-05-13 — full plant set eligible.
+**Porter's pal**: ingredient (not plant), spawns at ruins cells, rarer than plants, same stash cap (~5). Treated as a normal ingredient — occupies one slot, paired with a different ingredient in the other slot (no doubling, no porter's-pal-in-both-slots). At cook time RNG independently rolls per slot: trigger slot rolls 1 of 10 plant triggers; conditional slot rolls 1 of 10 non-wild conditionals (i.e. `wild_grace`). **No cargo-log reveal** — the rolled plant's effect is not added to the codex; porter's pal is its own ephemeral entry. Every cook is unique. No wild-pool exclusions — full plant set eligible per roll.
 
 **Sunflower**: cut from .8 per workshop 2026-05-13. Will be reintroduced in v0.0.9.11 as one of the new heat plants. `on_daylight` trigger and `battery_grace` conditional were sunflower-only and are removed from .8 vocab entirely.
 
@@ -151,7 +151,7 @@ Designer-curated combos, not coverage-driven. Each NPC's signature is one fixed 
 
 When .11 ships heat plants (including reintroduced sunflower), **audit signatures** for any heat-themed dependency and update affected recipes if needed.
 
-Authoring split per [feedback_tlh_player_copy.md]: agent wires 11 signature stubs (plant pair + empty name/dialogue slots) as part of the .8 patch; user fills in meal names and NPC dialogue. Signatures will largely be mixes of local plants — work through each NPC together when we get there.
+Authoring split per [feedback_tlh_player_copy.md]: agent wires 10 signature stubs (1 per non-pi non-psi NPC — plant pair + empty name/dialogue slots) as part of the .8 patch; user fills in meal names and NPC dialogue. Signatures will largely be mixes of local plants — work through each NPC together when we get there. Pi defers to .11 cold plants; psi defers until .11/heat/cold/drift introduces a plant that can anchor it (sunflower cut left psi without an anchor).
 
 ---
 
@@ -159,7 +159,7 @@ Authoring split per [feedback_tlh_player_copy.md]: agent wires 11 signature stub
 
 - **No passive canteen drain.** Canteen only changes via `drinkWater` (consumed) and various refills (rain, wetland, storm burst, reservoir tank). `canteen_grace` reframed to drink-efficiency modifier (per locked decision #1) — hooks at the `drinkWater` consumption point, not a passive drain rate.
 - **Stamina drain is constants-driven** at `C.STAMINA_DRAIN = 0.40`/tick — single hook in [tlh/js/main.js:352](js/main.js:352). Easy modifier surface.
-- **`DRINK_MIN_LOSS_PCT` and `DRINK_EFFICIENT_MULT`** already in [tlh/js/constants.js](js/constants.js) (.7.8 cleanup).
+- **`DRINK_MIN_LOSS_PCT` and `DRINK_EFFICIENT_MULT`** already in [tlh/js/constants.js](js/constants.js) (.7.8 cleanup). Confirmed: `DRINK_MIN_LOSS_PCT = 0.05` is a *gate* on when drinking is allowed (canteen ≥ 5%, stamina ≤ 95%), NOT a per-drink cost floor. `canteen_grace` × `DRINK_EFFICIENT_MULT` stacks cleanly to ×0.30 with no floor interference — headroom verified.
 - **Trust profile system fully shelved** (per v0.0.9.6.10.17). `computeTrustGain` at [tlh/js/trust.js:107-110](js/trust.js:107) is `1 + floor(slots/2) + (lost ? 1 : 0)`. Cooking-time trust modifiers (if revived) plug in here.
 - **Fragile mechanics are alive** (post-.7.8 fragile-first damage selection). `fragile_grace` slots cleanly as a third mitigation alongside ceramicWrap one-absorb and tie-down trip-absorb.
 - **Cargo log plants section + persistence** already wired in .7.1. Hooks `notePlantFound(id)` / `notePlantCookedRole(id, role)` at [tlh/js/render/cargo-log.js](js/render/cargo-log.js) waiting.
@@ -171,22 +171,93 @@ Authoring split per [feedback_tlh_player_copy.md]: agent wires 11 signature stub
 Resolved across walkthroughs on 2026-05-12 and 2026-05-13. Impl can proceed against the full list.
 
 1. **`canteen_grace` = drink efficiency.** Drinks cost 50% less canteen during buff. Stacks multiplicatively with `efficientConsumption` upgrade (×0.60 × ×0.50 = ×0.30 combined). Magnitude tunable later if sim shows imbalance.
-2. **Magnitude tuning = flat split default.** State-trigger graces −40% (longer uptime, weaker per-tick); event-trigger graces −50% (briefer windows, stronger). Per-plant tuning available later.
+2. **Magnitudes authored per-plant.** Each conditional's magnitude lives in the vocabulary table and is authored per-plant from the start. An earlier draft proposed flat state −40% / event −50% defaults; in practice every conditional overrides that default, so the "flat split" framing was dropped. State-vs-event distinction stays as a soft heuristic for future plants (state = longer uptime / weaker per-tick; event = briefer windows / stronger) but is not an active rule on the .8 vocab.
 3. **Cook UI = cargo drawer.** Cooking lives in a new "meals" sub-section of the cargo drawer. Drawer has the screen real estate to communicate effects clearly.
-4. **Recipe queue = depth 2.** 1 active meal + 1 queued. Clicking a meal in the meals screen prompts "cook now or add to queue." Deliberate UI-scope compromise; no priority-fallback semantics. Expand depth later if needed.
-5. **Depot cook = small scrip cost + auto-rebuy toggle.** Cooking at an NPC depot costs a small scrip fee (no trust gate). Player can opt into "auto-rebuy when buff expires" — fires next-in-queue cook at the depot automatically. Replaces earlier t40 free-gate placeholder.
+4. **Cooking flow = manual default + auto-cook toggle + 3-slot rotation.** Manual mode (default): player picks 2 distinct ingredients each cook via the picker. Auto-cook toggle (per-save state, hidden when rotation is empty): on buff expiry, walks the rotation pointer through saved slots; fires the first slot whose ingredients are available and advances. If no slot has ingredients, skips quietly. Rotation cap is 3 saved recipes, drag-to-reorder for priority. Recipes are composed via the picker (revealed plants only — no need to actually cook to save). Manual cook while auto-cook is on takes precedence and does not advance the pointer. See `meals UI spec` section for the full shape.
+5. **Cooking economics = three modes.** **Field cook** (anywhere not at an NPC): your stash ingredients, costs 10–20% canteen. **Depot cook with own ingredients** (at an NPC): your stash ingredients, free — the NPC's kitchen is hospitable space, no canteen, no scrip. **Depot signature** (at an NPC): NPC's ingredients (player doesn't need to own them), small scrip cost (~10c, tunable). Signature meals are manual purchase only — never part of auto-cook rotation. The earlier "auto-rebuy toggle" idea is dropped; the earlier t40 free-gate placeholder is also dropped. Signature meals double as a plant-discovery vector via the reveal contract (eating xi's `rustveil + clayroot` reveals both plants' roles).
 6. **`strain_high` cutoff = 0.7.** Active ~30% of the time. Widen to 0.5 if sim shows under-firing.
 7. **Weak-felt conditionals resolved (workshop 2026-05-13):**
    - **`scrip_grace` (rustveil):** keep +25% per delivery; surface via per-delivery log line `"rustveil bonus: +Nc"`.
    - **`scanner_grace` (stonesong):** reframed — scanner cooldown halved during conditional window (fires 2× as often), not magnitude doubled. Felt signal is "thing happened again."
    - **`gadget_grace` (riverknot):** keep −25% drain; UI spec landed (trailing-seg tint + side drain readout + tooltip annotation + trigger-fire log line) — see `gadget_grace UI spec` section.
    - All three plants retained; roster stays at 11.
-8. **Sunflower cut from .8.** Deferred to v0.0.9.11 as one of the new heat plants. `on_daylight` trigger and `battery_grace` conditional removed from .8 vocab (no orphans — both were sunflower-only).
+8. **Sunflower cut from .8.** Deferred to v0.0.9.11 as one of the new heat plants. `on_daylight` trigger and `battery_grace` conditional removed from .8 vocab (no orphans — both were sunflower-only). Psi (greenhouse NPC) is left without a plant anchor for its signature recipe; left as-is — .11 heat / cold / drift expansions will introduce new plants that can anchor psi when they arrive. Psi defers alongside pi in .8 — agent authors 10 signature stubs, not 11.
 9. **Porter's pal wild-pool exclusions dropped.** Wild pool spans the full conditional vocabulary (10 non-wild graces post-sunflower).
 
 ## still open before impl
 
-_None. All workshop deliverables landed; see `gadget_grace` UI spec below._
+_None. All workshop deliverables landed; see `meals UI spec` + `gadget_grace UI spec` sections below._
+
+---
+
+## meals UI spec (cooking flow)
+
+Locks the cargo-drawer "meals" sub-section that houses cooking. Covers manual cook, auto-cook + rotation, and the at-NPC signature-meal panel.
+
+### UI shape
+
+```
+┌─ MEALS ─────────────────────────────────┐
+│  ACTIVE: rustveil + clayroot            │
+│  [████░░░░░░░░░░] 3:24                  │
+│                                          │
+│  auto-cook  [● ON ]                     │
+│  rotation:                               │
+│    ≡  1. rustveil + clayroot      [×]   │
+│    ≡  2. gritgrass + windscald    [×]   │
+│       [+ add recipe]                    │
+│                                          │
+│  ─────────────────────────────────────  │
+│  COOK NOW                                │
+│  [pick 2 ingredients…]   cost: 15%      │
+│                                          │
+│  ─────────────────────────────────────  │
+│  AT XI                                   │
+│  signature: [unnamed]                    │
+│    rustveil + clayroot                   │
+│    [eat for 10c]                         │
+└──────────────────────────────────────────┘
+```
+
+### components
+
+1. **Active buff display** — current meal name + countdown bar. Hidden when no buff is active.
+2. **Auto-cook toggle** — per-save state, persists across sessions. **Hidden when rotation is empty** (toggle has nothing to fire).
+3. **Rotation list** — 0–3 saved recipes. Each slot shows recipe + drag handle + remove button. Drag-to-reorder shuffles priority (slot 1 = highest-priority next-up). After 3 slots are filled, the `+ add recipe` affordance hides until a slot is removed.
+4. **Add-recipe picker** — opens the 2-ingredient picker, but the confirm action is "save to slot" rather than "cook now." **Shows revealed plants only** (codex-known); unrevealed plants are not pickable for rotation slots — discover via cook-now or signature meal first, then save to rotation.
+5. **Cook-now picker** — any 2 *distinct* ingredients from stash, revealed or not. Blocks same-ingredient pairings at pick time. Cost label is dynamic: `cost: N%` (with canteen glyph) in field, `cost: free` at NPC.
+6. **Signature panel** (conditional, only when at an NPC) — NPC's authored signature recipe (plant pair + meal name + scrip cost). One-click `[eat for Nc]` button. Manual only — never auto-fires. Eating it consumes scrip and starts a buff (replaces current buff per overwrite rule).
+
+### behavior
+
+**Manual mode** (auto-cook OFF, or rotation empty):
+- Player picks 2 ingredients via cook-now picker, or buys NPC signature. Buff starts. Expires after ~850 ticks.
+- On expiry: nothing auto-fires. Player cooks again when ready.
+
+**Auto-cook mode** (auto-cook ON, rotation has ≥1 slot):
+- On buff expiry: walk rotation pointer starting at current slot.
+- For each slot, check ingredients available + cost affordable (canteen in field, free at NPC). If yes, cook. Advance pointer.
+- If no slot satisfies, skip quietly this cycle. Pointer stays. Retries on next expiry.
+- Manual cook during auto-cook takes precedence — replaces current buff, pointer does NOT advance.
+
+**Recipe save flow:**
+- Click `[+ add recipe]`. Picker opens with revealed plants only. Pick 2 distinct ingredients. Confirm. Slot fills.
+- To change order: drag the `≡` handle. To remove: click `[×]`.
+- To edit: remove and re-add (no in-place edit — keeps the UI surface minimal).
+
+**At-NPC behavior:**
+- Cook-now cost label flips from `cost: N%` to `cost: free` (using NPC's kitchen).
+- Signature panel appears as a separate section with NPC's authored meal + scrip cost.
+- Signature is manual-only; eating it reveals both plants' roles in the cargo log per the reveal contract (a discovery vector for plants the player hasn't foraged yet).
+- Porter's pal in a signature pair: works as expected (random roll on the signature's porter's-pal slot), but the NPC's signature shouldn't include porter's pal in both slots (no-doubling rule applies to authored signatures too).
+
+### what's explicitly NOT in this spec
+
+- Depth-2 fixed queue (replaced by rotation + auto-cook toggle — earlier draft rejected for not supporting "set it and forget it" idle play).
+- Save-via-cook (replaced by picker-based save — you don't need to consume ingredients to save a recipe).
+- Signature meal auto-buy / "auto-rebuy" toggle (dropped — signatures are explicit purchases).
+- Same-plant cooks (disallowed per locked design decisions — two distinct ingredients required, no doubling).
+- In-place rotation slot editing (remove + re-add only — kept UI surface minimum).
 
 ---
 
@@ -263,13 +334,13 @@ Same shape as `scrip_grace`'s per-delivery line. Fires once per conditional-wind
 1. **Save schema bump**: `S.cargoLog.plants` slot already allocated per .7.1 → extend with `S.cargoLog.supplies` for porter's pal, `S.activeBuff`, `S.recipeQueue`, `S.ingredientStash` (or rename `sandalweedCount` to a generic ingredient stash if you want — likely don't, keep separate for stability). Bump SAVE_VERSION; add migration that initializes new slots empty.
 2. **Populate [tlh/js/data/plants.js](js/data/plants.js)** with the 10 plant entries (sunflower deferred to .11). Leave lore strings empty — per [feedback_tlh_player_copy.md], the user authors plant lore, NPC dialogue, and meal names; agent wires structure only.
 3. **Add INGREDIENTS layer** (or extend PLANTS) for porter's pal as the non-plant entry with `kind: 'plant' | 'supply'` discriminator.
-4. **New `js/cooking.js` module**: `TRIGGERS` + `CONDITIONALS` dispatcher tables with the grace-modifier hooks into existing systems (boots, canteen, strain, trip, storm, scrip, scanner, fragile, gadget). Buff lifecycle (start, tick-down, expire, overwrite). Recipe queue logic (depth 2).
-5. **Cook UI**: picker (2-slot, ingredient list from stash), queue surface, active-buff display. Lives in the cargo drawer "meals" sub-section.
+4. **New `js/cooking.js` module**: `TRIGGERS` + `CONDITIONALS` dispatcher tables with the grace-modifier hooks into existing systems (boots, canteen, strain, trip, storm, scrip, scanner, fragile, gadget). Buff lifecycle (start, tick-down, expire, overwrite). Rotation logic (3-slot, pointer-walked auto-cook).
+5. **Cook UI**: picker (2-slot, blocks same-ingredient pairings; cook-now shows full stash, add-recipe shows revealed plants only), auto-cook toggle, rotation list with drag-to-reorder + remove, active-buff display, at-NPC signature panel. Lives in the cargo drawer "meals" sub-section — see `meals UI spec` section.
 6. **Sandalweed → gritgrass** display-rename pass — ~15-25 user-facing string sites. Internal IDs stay.
 7. **Cargo log update**: plants section → ingredients section, hide-items filter rename, render porter's pal alongside plants.
-8. **Depot signature-meal scaffolding**: 11 signature stubs (1 per non-pi NPC) — each stub is plant pair + empty slots for name and dialogue. User authors copy.
-9. **Field cook canteen cost** hook (10-20% per cook). **Depot cook scrip cost** hook + auto-rebuy toggle.
-10. **Recipe queue auto-cook** when current buff expires.
+8. **Depot signature-meal scaffolding**: 10 signature stubs (non-pi, non-psi NPCs) — each stub is plant pair + empty slots for name and dialogue. User authors copy. Pi defers to .11; psi defers until heat/cold/drift introduces an anchor plant.
+9. **Cook-cost dispatcher**: field cook = 10–20% canteen; depot cook with own ingredients = free; depot signature = small scrip cost. Cost source-aware (location-dependent).
+10. **Auto-cook + rotation** on buff expiry — walk 3-slot rotation pointer, pick first slot with available ingredients, advance. Skip quietly if none available. Manual cook takes precedence and does NOT advance pointer.
 11. **`notePlantFound` / `notePlantCookedRole` hooks** (already at [tlh/js/render/cargo-log.js](js/render/cargo-log.js)) start firing on first cook events.
 12. **UI reinforcement per workshop:**
     - `scrip_grace`: per-delivery log line at delivery hook.
@@ -287,18 +358,18 @@ Same shape as `scrip_grace`'s per-delivery line. Fires once per conditional-wind
 - **NPC outbound dispatch system** — `outbound_grace` was cut. Don't add a new plant slot for it without conversation.
 - **Topo-map visual stamps** — if adding new mesa visuals, MUST use the `NAT_MESAS` smoothstep pattern in [topo-map.js](js/data/topo-map.js), not hand-coded coordinates ("easy to mess up — match how our heightmap does elevation for them").
 - **Ring/interior speed bonus plants** — considered, cut. Don't reintroduce.
-- **Same-plant cook reveals both halves** — confirmed allowed; discoverable through play. Don't gate by requiring distinct plants.
+- **Two distinct ingredients required** — same-plant cooking is disallowed (reversed from an earlier draft). Codex completion requires cooking a plant with ≥2 distinct partners across its cooking life. Picker must block same-ingredient pairings at pick time.
 
 ---
 
 ## verification expectations
 
 - All 11 ingredient cards (10 plants + porter's pal) render correctly in the cargo log with the right reveal states.
-- Cooking a plant in trigger slot → reveals only that plant's trigger; conditional slot → reveals only conditional. Both halves at once if same plant in both slots.
+- Cooking a plant in trigger slot → reveals only that plant's trigger; conditional slot → reveals only conditional. Codex completion requires ≥2 distinct partners across a plant's cooking life. Picker blocks same-ingredient pairings.
 - Buff window (~850 ticks) ticks down visibly; overwrite when new cook happens.
-- Field cook consumes correct canteen %; depot cook charges small scrip fee; auto-rebuy toggle fires next-in-queue cook on buff expiry.
-- Recipe queue (depth 2) auto-cooks when current buff expires + ingredients + water present.
-- Porter's pal RNG roll picks from the full 10-plant set; no exclusions.
+- Field cook (anywhere not at NPC) consumes 10–20% canteen. Depot cook with own ingredients (at NPC) is free. Depot signature (at NPC, NPC's ingredients) costs scrip — manual only.
+- Auto-cook + rotation: on buff expiry, pointer walks the 3-slot rotation; fires first slot with available ingredients; skips quietly if none. Manual cook does not advance pointer.
+- Porter's pal RNG roll picks from the full 10-plant set per slot (independent rolls); no exclusions; no cargo-log reveal of the rolled plant; cannot pair with another porter's pal in the same cook.
 - Each grace effect actually fires on its trigger and modifies the right system. Test in-browser with eval if needed.
 - No regressions: sandalweed boot-lash still works, save load/save round-trips work, multiplayer doesn't break.
 - Browser preview (start with `preview_start tlh-static`, port pinned in [.claude/launch.json](.claude/launch.json) — note: each worktree uses its own port, default in this worktree is 8750; check before assuming).
@@ -317,7 +388,7 @@ Same shape as `scrip_grace`'s per-delivery line. Fires once per conditional-wind
 ## resume cheatsheet
 
 1. Read this doc + scan [TLH-1.0.md](TLH-1.0.md) (180 lines, fast).
-2. All design open-items closed (workshop landed 2026-05-13). Only outstanding pre-impl deliverable: `gadget_grace` UI mockup before cheatsheet step 12.
+2. All design open-items closed (workshop 2026-05-13 + pre-impl walkthrough 2026-05-13). Both UI specs landed: `meals UI spec` (cooking flow) and `gadget_grace UI spec` (HUD treatment).
 3. Set up a fresh worktree if you want isolation, or work on this one.
 4. Start with save schema + plant data populate + ingredients layer (steps 1-3 above), get something rendering in the cargo log.
 5. Then conditionals dispatcher + buff lifecycle (step 4).
