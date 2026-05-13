@@ -2,7 +2,7 @@
 
 _Standalone briefing for a fresh agent picking up the cooking system implementation. Self-contained — does not require reading the full TLH-HANDOFF.md to start, but cross-references it for deep dives._
 
-_Written 2026-05-03 after v0.0.9.7.10 shipped. Branch `main` is at `faa56ca`._
+_Written 2026-05-03 after v0.0.9.7.10 shipped; updated through 2026-05-13 (workshop + pre-impl walkthrough). Latest live version is v0.0.9.7.13._
 
 ---
 
@@ -64,7 +64,7 @@ This solves "I ate but the meal expired before anything happened":
 
 ## trigger vocabulary
 
-**State predicates (8)** — conditional active while predicate holds:
+**State predicates (7)** — conditional active while predicate holds:
 
 | Tag | Active when |
 |---|---|
@@ -72,8 +72,7 @@ This solves "I ate but the meal expired before anything happened":
 | `canteen_low` | canteen under 25% |
 | `in_storm` | currently in a storm cell |
 | `strain_high` | strain ≥ 0.7 (sim-tunable; widen to ≥0.5 if uptime feels low) |
-| `on_rocky_terrain` | currently on river OR rockyHills cell |
-| `on_plateau_or_mountain` | currently on plateau OR mountain cell |
+| `on_difficult_terrain` | currently on river OR rockyHills OR plateau OR mountain cell (unified per mutual-exclusion design rule — see decisions locked) |
 | `on_low_battery` | battery <25% |
 | `on_fragile_carried` | any fragile pkg in inventory |
 
@@ -91,6 +90,7 @@ This solves "I ate but the meal expired before anything happened":
 - `exhausted` — replaced by more specific state predicates
 - `on_dawn` / `on_daylight` — daylight cycle cut from .8 entirely with sunflower deferred to .11
 - `on_delivery` — cut as a bad conditional candidate; surfaces too infrequently to land felt rewards reliably. `on_terrain_enter` (stonesong's anchor) has a similar concern and may need rework if it lands soft in playtest — flagged but in scope for .8
+- `on_rocky_terrain` / `on_plateau_or_mountain` — merged into `on_difficult_terrain` per mutual-exclusion design rule (was creating broken cross-pairings between clayroot and cliffhanger); cliffhanger cut as collateral, slot vacuum to be filled by a .11+ plant
 
 ---
 
@@ -101,14 +101,13 @@ This solves "I ate but the meal expired before anything happened":
 | `boot_grace` | −40% boot degradation | matches smoke-sandalweed precedent (~25% active) but stronger since meal has resource cost |
 | `canteen_grace` | drink cost −50% canteen during buff | stacks ×0.5 with `efficientConsumption` upgrade (×0.30 combined); magnitude tunable later if sim shows imbalance |
 | `strain_grace` | −50% strain accrual | does NOT cover trip mitigation (tie-down handles that for free); value is delaying strain-cap → trip cycle |
-| `terrain_grace` | −50% trip mult on river + rockyHills | clayroot — see split note |
-| `terrain_grace_alpine` | −50% trip mult on plateau + mountain | cliffhanger — alpine half of the split |
+| `terrain_grace` | −50% trip mult on all difficult terrain (river + rockyHills + plateau + mountain) | clayroot — unified per mutual-exclusion rule (terrain_grace_alpine collapsed in here; cliffhanger cut). Magnitude tunable if broader coverage proves over-strong |
 | `storm_grace` | −50% storm trip-mult contribution (downpour 1.50→1.25, rain 1.25→1.125, drizzle 1.10→1.05) | doesn't touch canteen-refill side of storms |
 | `scrip_grace` | +25% scrip per delivery | felt-attribution via per-delivery log line (`"rustveil bonus: +Nc"`) — confirmed per workshop 2026-05-13 |
 | `scanner_grace` | scanner cooldown halved during conditional window (fires 2× as often) | reframed from magnitude-doubled per workshop 2026-05-13 — "thing happened again" is the legible felt signal |
 | `gadget_grace` | −25% battery drain across all consumers | UI fully spec'd — see `gadget_grace UI spec` section below |
 | `fragile_grace` | halves fragile hit rate during severe trips (mountain 100%→50%, river 100%→50%, rockyHills 50%→25%) | NEW — earned its slot via novel system reach (pkg modifier system); stacks with ceramicWrap |
-| `wild_grace` | at activation, RNG-selects one of the 10 non-wild conditionals (boot, canteen, strain, terrain, terrain_alpine, storm, scrip, scanner, gadget, fragile); visible in buff display ("rolled X this time") | porter's pal only — every cook unique; **no cargo-log reveal** of the rolled plant's effect (porter's pal is its own ephemeral entry); full plant pool eligible |
+| `wild_grace` | at activation, RNG-selects one of the 9 non-wild conditionals (boot, canteen, strain, terrain, storm, scrip, scanner, gadget, fragile); visible in buff display ("rolled X this time") | porter's pal only — every cook unique; **no cargo-log reveal** of the rolled plant's effect (porter's pal is its own ephemeral entry); full plant pool eligible |
 
 **Cuts** from earlier drafts:
 
@@ -116,32 +115,34 @@ This solves "I ate but the meal expired before anything happened":
 - `trust_grace` — "more numbers, more often" wasn't doing real design work
 - `stamina_grace` — no plant earned the slot; sunflower (originally proposed here, then repositioned through battery_grace) deferred to .11
 - `outbound_grace` (NPC dispatch chance) — felt moment too thin without UI surface to reinforce. Revisit if outbound system gets more visual weight.
+- `terrain_grace_alpine` — collapsed into unified `terrain_grace` per mutual-exclusion design rule. The clayroot↔cliffhanger cross-pairing was strictly broken (trigger and conditional terrain domains never overlap). Cliffhanger cut as collateral; slot to be filled by a .11+ plant.
 
 ---
 
-## the 11-ingredient roster (locked)
+## the 10-ingredient roster (locked)
 
 | # | Ingredient | NPC anchor / biome | Trigger | Conditional |
 |---|---|---|---|---|
 | 1 | **gritgrass** | rho — ring/desert (renames sandalweed display, internal IDs stable per .9.5 precedent) | `boots_warn` | `boot_grace` |
 | 2 | **pebblewort** | iota / nu / delta — wetland/river | `canteen_low` | `canteen_grace` |
-| 3 | **clayroot** | theta — clay banks (river-adjacent harvest justifies river coverage) | `on_rocky_terrain` | `terrain_grace` (river + rockyHills) |
+| 3 | **clayroot** | theta — clay banks (now covers all difficult terrain post-cliffhanger collapse) | `on_difficult_terrain` | `terrain_grace` (all difficult terrain) |
 | 4 | **rustveil** | xi — city ruins (lore: *"smelling faintly of wet pennies"* maps to scrip flavor) | `on_pickup` | `scrip_grace` |
 | 5 | **windscald** | phi — weather station / windswept plateau | `in_storm` | `storm_grace` |
 | 6 | **stone rasp** | gamma — workshop scrub | `strain_high` | `strain_grace` |
 | 7 | **stonesong** | lambda — climbing slope (lore: *"amplifies the sound of the wind"* = scanner amplification) | `on_terrain_enter` | `scanner_grace` |
 | 8 | **riverknot** | delta — reservoir banks (delta runs power infrastructure → gadget-themed) | `on_low_battery` | `gadget_grace` |
-| 9 | **cliffhanger** | lambda — alpine half of terrain_grace split (clayroot covers river+hills; cliffhanger covers plateau+mountain) | `on_plateau_or_mountain` | `terrain_grace_alpine` |
-| 10 | **claybloom** | theta — kiln (ceramic-glaze plant; *"petals feel cool and smooth to the touch"*) | `on_fragile_carried` | `fragile_grace` |
-| 11 | **porter's pal** | xi — city ruins (NON-PLANT: pre-collapse preserved meal, archaeology drop at ruins cells) | random (rolls 1 of 10 plant triggers per cook) | `wild_grace` |
+| 9 | **claybloom** | theta — kiln (ceramic-glaze plant; *"petals feel cool and smooth to the touch"*) | `on_fragile_carried` | `fragile_grace` |
+| 10 | **porter's pal** | xi — city ruins (NON-PLANT: pre-collapse preserved meal, archaeology drop at ruins cells) | random (rolls 1 of 9 plant triggers per cook) | `wild_grace` |
 
 ### special notes per ingredient
 
 **Sandalweed → gritgrass display rename**: existing in-game sandalweed (boot-lash plant, kit-bar badge per [tlh/js/boots.js:198](js/boots.js:198)) gets renamed at the **display layer only** — internal `S.sandalweedCount`, `sandalEfficiency` upgrade ID, `sandalCap()`, etc. stay stable. No save migration. ~15-25 user-facing string sites to touch. Precedent: v0.0.9.5 rename pass ("pack mule rig → molly netting" etc.) per [TLH-HANDOFF.md:18](TLH-HANDOFF.md:18).
 
-**Porter's pal**: ingredient (not plant), spawns at ruins cells, rarer than plants, same stash cap (~5). Treated as a normal ingredient — occupies one slot, paired with a different ingredient in the other slot (no doubling, no porter's-pal-in-both-slots). At cook time RNG independently rolls per slot: trigger slot rolls 1 of 10 plant triggers; conditional slot rolls 1 of 10 non-wild conditionals (i.e. `wild_grace`). **No cargo-log reveal** — the rolled plant's effect is not added to the codex; porter's pal is its own ephemeral entry. Every cook is unique. No wild-pool exclusions — full plant set eligible per roll.
+**Porter's pal**: ingredient (not plant), spawns at ruins cells, rarer than plants, same stash cap (~5). Treated as a normal ingredient — occupies one slot, paired with a different ingredient in the other slot (no doubling, no porter's-pal-in-both-slots). At cook time RNG independently rolls per slot: trigger slot fires one of the 9 plant triggers (rolled randomly); conditional slot fires `wild_grace`, which rolls one of the 9 non-wild conditionals. **No cargo-log reveal** — the rolled plant's effect is not added to the codex; porter's pal is its own ephemeral entry. Every cook is unique. No wild-pool exclusions — full plant set eligible per roll.
 
 **Sunflower**: cut from .8 per workshop 2026-05-13. Will be reintroduced in v0.0.9.11 as one of the new heat plants. `on_daylight` trigger and `battery_grace` conditional were sunflower-only and are removed from .8 vocab entirely.
+
+**Cliffhanger**: cut from .8 per pre-impl walkthrough 2026-05-13. Was anchored to lambda as the alpine half of the terrain_grace split, but its trigger (`on_plateau_or_mountain`) and clayroot's conditional (`terrain_grace`) had mutually-exclusive terrain domains — the clayroot↔cliffhanger cross-pairings were strictly broken (active but unable to fire). Resolution: collapse `terrain_grace_alpine` into a unified `terrain_grace` covering all difficult terrain (clayroot keeps the conditional, trigger renamed to `on_difficult_terrain`). Cliffhanger slot vacuum to be filled by a future plant — likely in .11+ heat/cold/drift expansion. Lambda still has stonesong as an anchor.
 
 ---
 
@@ -181,8 +182,9 @@ Resolved across walkthroughs on 2026-05-12 and 2026-05-13. Impl can proceed agai
    - **`scanner_grace` (stonesong):** reframed — scanner cooldown halved during conditional window (fires 2× as often), not magnitude doubled. Felt signal is "thing happened again."
    - **`gadget_grace` (riverknot):** keep −25% drain; UI spec landed (trailing-seg tint + side drain readout + tooltip annotation + trigger-fire log line) — see `gadget_grace UI spec` section.
    - All three plants retained; roster stays at 11.
-8. **Sunflower cut from .8.** Deferred to v0.0.9.11 as one of the new heat plants. `on_daylight` trigger and `battery_grace` conditional removed from .8 vocab (no orphans — both were sunflower-only). Psi (greenhouse NPC) is left without a plant anchor for its signature recipe; left as-is — .11 heat / cold / drift expansions will introduce new plants that can anchor psi when they arrive. Psi defers alongside pi in .8 — agent authors 10 signature stubs, not 11.
-9. **Porter's pal wild-pool exclusions dropped.** Wild pool spans the full conditional vocabulary (10 non-wild graces post-sunflower).
+8. **Sunflower + cliffhanger both cut from .8.** Sunflower deferred to v0.0.9.11 as a heat plant (`on_daylight` trigger and `battery_grace` conditional removed from .8 vocab, both were sunflower-only). Cliffhanger cut to resolve the mutual-exclusion break with clayroot (see #10 below) — `on_plateau_or_mountain` trigger collapsed into `on_difficult_terrain`, `terrain_grace_alpine` collapsed into a unified `terrain_grace`. Both cuts produce slot vacuums for .11+ plants to fill. Psi (greenhouse NPC) is left without a plant anchor for its signature recipe; left as-is — .11 heat / cold / drift expansions will introduce new plants that can anchor psi when they arrive. Psi defers alongside pi in .8 — agent authors 10 signature stubs (12 NPCs minus pi minus psi). Lambda still has stonesong as its anchor after cliffhanger's cut, so lambda's signature is unaffected.
+9. **Porter's pal wild-pool exclusions dropped.** Wild pool spans the full conditional vocabulary (9 non-wild graces post-sunflower and -cliffhanger).
+10. **Mutual-exclusion design rule.** Two plants whose triggers and conditionals can never co-occur in the same game state produce strictly-broken cross-pairings (trigger fires, conditional active, but the conditional's effect cannot land because its required context is excluded by the trigger's context). Resolution: **collapse the conflicting conditionals into one unified conditional covering both contexts; let trigger variety carry the design split.** The displaced plant goes into the cuts pile (or defers to a future patch where its slot can be re-filled). Applied in .8 to terrain pairings — `terrain_grace_alpine` collapsed into a unified `terrain_grace` covering all difficult terrain; cliffhanger cut (slot vacuum to be filled in .11+). **Expect to apply this rule when .11+ ships heat/cold pairings** — a `heat_grace` and `cold_grace` would create the same problem (heat trigger + cold grace never co-occurs). Use a single `temperature_grace` (or similar) that handles both extremes via trigger split. General heuristic: if you can't have plant A's trigger and plant B's conditional active at the same time *in any game state*, the cross-pair is broken — collapse.
 
 ## still open before impl
 
@@ -331,8 +333,8 @@ Same shape as `scrip_grace`'s per-delivery line. Fires once per conditional-wind
 
 ## implementation cheatsheet (suggested order)
 
-1. **Save schema bump**: `S.cargoLog.plants` slot already allocated per .7.1 → extend with `S.cargoLog.supplies` for porter's pal, `S.activeBuff`, `S.recipeQueue`, `S.ingredientStash` (or rename `sandalweedCount` to a generic ingredient stash if you want — likely don't, keep separate for stability). Bump SAVE_VERSION; add migration that initializes new slots empty.
-2. **Populate [tlh/js/data/plants.js](js/data/plants.js)** with the 10 plant entries (sunflower deferred to .11). Leave lore strings empty — per [feedback_tlh_player_copy.md], the user authors plant lore, NPC dialogue, and meal names; agent wires structure only.
+1. **Save schema bump**: `S.cargoLog.plants` slot already allocated per .7.1 → extend with `S.cargoLog.supplies` for porter's pal, `S.activeBuff`, `S.recipeRotation` (3-slot array + pointer index + auto-cook bool), `S.ingredientStash` (keep separate from `sandalweedCount` for stability). Bump SAVE_VERSION; add migration that initializes new slots empty.
+2. **Populate [tlh/js/data/plants.js](js/data/plants.js)** with the 9 plant entries (sunflower + cliffhanger deferred to .11+). Leave lore strings empty — per [feedback_tlh_player_copy.md], the user authors plant lore, NPC dialogue, and meal names; agent wires structure only.
 3. **Add INGREDIENTS layer** (or extend PLANTS) for porter's pal as the non-plant entry with `kind: 'plant' | 'supply'` discriminator.
 4. **New `js/cooking.js` module**: `TRIGGERS` + `CONDITIONALS` dispatcher tables with the grace-modifier hooks into existing systems (boots, canteen, strain, trip, storm, scrip, scanner, fragile, gadget). Buff lifecycle (start, tick-down, expire, overwrite). Rotation logic (3-slot, pointer-walked auto-cook).
 5. **Cook UI**: picker (2-slot, blocks same-ingredient pairings; cook-now shows full stash, add-recipe shows revealed plants only), auto-cook toggle, rotation list with drag-to-reorder + remove, active-buff display, at-NPC signature panel. Lives in the cargo drawer "meals" sub-section — see `meals UI spec` section.
@@ -364,12 +366,12 @@ Same shape as `scrip_grace`'s per-delivery line. Fires once per conditional-wind
 
 ## verification expectations
 
-- All 11 ingredient cards (10 plants + porter's pal) render correctly in the cargo log with the right reveal states.
+- All 10 ingredient cards (9 plants + porter's pal) render correctly in the cargo log with the right reveal states.
 - Cooking a plant in trigger slot → reveals only that plant's trigger; conditional slot → reveals only conditional. Codex completion requires ≥2 distinct partners across a plant's cooking life. Picker blocks same-ingredient pairings.
 - Buff window (~850 ticks) ticks down visibly; overwrite when new cook happens.
 - Field cook (anywhere not at NPC) consumes 10–20% canteen. Depot cook with own ingredients (at NPC) is free. Depot signature (at NPC, NPC's ingredients) costs scrip — manual only.
 - Auto-cook + rotation: on buff expiry, pointer walks the 3-slot rotation; fires first slot with available ingredients; skips quietly if none. Manual cook does not advance pointer.
-- Porter's pal RNG roll picks from the full 10-plant set per slot (independent rolls); no exclusions; no cargo-log reveal of the rolled plant; cannot pair with another porter's pal in the same cook.
+- Porter's pal RNG roll picks from the full 9-plant set per slot (independent rolls); no exclusions; no cargo-log reveal of the rolled plant; cannot pair with another porter's pal in the same cook.
 - Each grace effect actually fires on its trigger and modifies the right system. Test in-browser with eval if needed.
 - No regressions: sandalweed boot-lash still works, save load/save round-trips work, multiplayer doesn't break.
 - Browser preview (start with `preview_start tlh-static`, port pinned in [.claude/launch.json](.claude/launch.json) — note: each worktree uses its own port, default in this worktree is 8750; check before assuming).
@@ -379,8 +381,8 @@ Same shape as `scrip_grace`'s per-delivery line. Fires once per conditional-wind
 ## branch + version conventions
 
 - Subtitle in [tlh/the-long-haul.html](the-long-haul.html) is updated per patch via [tlh/scripts/bump-version.sh](scripts/bump-version.sh) (cache-bust strings) **plus a manual subtitle edit** (the script's parser doesn't handle the `.7.X` collapsed format and warns).
-- `.7.10` is the current live version. Next is **`.8.0`** (the kitchen). Or `.8.1` if you sub-divide.
-- Cache-bust format: `XYZ-N-M` → game version `0.0.<X>.<Y>.<Z>.<N>.<M>` collapsed where leading zeros allow. `097-0-10` = v0.0.9.7.10. For .8.0, bump to `098-0-0` (the script handles the parse).
+- `.7.13` is the current live version. Next is **`.8.0`** (the kitchen). Or `.8.1` if you sub-divide.
+- Cache-bust format: `XYZ-N-M` → game version `0.0.<X>.<Y>.<Z>.<N>.<M>` collapsed where leading zeros allow. `097-0-13` = v0.0.9.7.13. For .8.0, bump to `098-0-0` (the script handles the parse).
 - Each commit message: `tlh v<version> — <description>`. Co-author footer: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
 
 ---
