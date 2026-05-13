@@ -5,7 +5,9 @@ _a document for the developer, not the agents_
 
 ## what this is
 
-This is a place to zoom out. Not a technical spec, not a handoff. Just a clear-eyed account of what The Long Haul is, what it's been through, and where it's going. For when you've been deep in the weeds for too long and need to remember the shape of the whole thing.
+This is a place to zoom out. Not a technical spec, not a handoff. Just a clear-eyed account of what The Long Haul is, what it's been through, and what makes it tick. For when you've been deep in the weeds for too long and need to remember the shape of the whole thing.
+
+**Forward-looking scope** — patch sequence to 1.0, ship criteria, open design questions, deferred items — lives in [TLH-1.0.md](./TLH-1.0.md). This bible focuses on **what exists now** and **how we got here**.
 
 ---
 
@@ -16,6 +18,8 @@ The Long Haul is a post-post-apocalyptic idle courier game played in a browser. 
 ---
 
 ## core feel & philosophy
+
+The contractual version of these — what won't change before 1.0 — lives in TLH-1.0.md → locked. Below is the descriptive version: how the game feels when you're playing it.
 
 **Idle-game first.** The courier walks on their own. You set things up and check back in. No hard gates on traversal — gear makes things easier, never mandatory. Every cell is crossable without equipment, just with higher cost.
 
@@ -61,24 +65,26 @@ A 400×400 SVG viewport. The ring road forms a rounded square connecting 12 node
 
 ## the twelve NPCs
 
+Trust thresholds: **t20** and **t40** unlock per-NPC gifts; **t60** enables free battery charging at trusted destinations; **t80** enables free rest (stamina + canteen, no scrip).
+
+Per-NPC trust-profile system was retired in v0.0.9.6.10.17 — gain is uniform per delivery now, scaled by package slots (`1 + floor(slots/2)`).
+
 | ID | Callsign | Location | Voice | t20 gift | t40 gift |
 |----|----------|----------|-------|----------|----------|
-| A (rho) | rho | depot | former porter, wizened advice | boot clip 1 | boots T2 |
-| B (iota) | iota | greenhouse | 20s wetlands ecologist | sandalweed satchel | efficient consumption |
-| H (tau) | tau | home | your sibling, proud not overprotective | steady feet | sticky holster |
-| ? (phi) | phi | weather station | stoic forecaster | weather radio | — |
-| C (xi) | xi | city ruins | ruins researcher, careful | scanner T2 | — |
-| · (psi) | psi | oasis waypoint | orphan scavenger | scavenger's eye | topographic map |
-| ν (nu) | nu | purification plant | guardian, cautious desert water-keeper | drip-feed integration | reservoir tank |
-| θ (theta) | theta | kiln | artisan, nurturing potter | ceramic wrap | — |
-| γ (gamma) | gamma | workshop | debt-easer, tit-for-tat tinker | mobile carrier 1 | mobile carrier 2 |
-| λ (lambda) | lambda | climbing lodge | adventurer, gregarious | mountain gear | improved tie-downs |
-| π (pi) | pi | radio tower | researcher, reclusive summit antisocial | exoskeleton 1 | exoskeleton 2 |
-| δ (delta) | delta | reservoir | routine, tired-hopeful dam restorer | solar panel | rainfall turbine |
+| A | rho | depot | former porter, wizened advice | boot clip | extended clip |
+| B | iota | greenhouse | 20s wetlands ecologist | sandalweed satchel | interwoven lashing |
+| H | tau | home | your sibling, proud not overprotective | sticky gun | gun holster |
+| ? | phi | weather station | stoic forecaster | weather radio | forecast radar |
+| C | xi | city ruins | researcher in ruins, careful | terrain scanner | signal dish |
+| · | psi | oasis | orphan scavenger | pocket binoculars | topographic map |
+| ν | nu | treatment plant | guardian, cautious desert water-keeper | drip-feed integration | reservoir tank |
+| θ | theta | kiln | artisan, nurturing potter | river waders | ceramic wrap |
+| γ | gamma | workshop | debt-easer, tit-for-tat tinker | mobile carrier | reinforced chassis |
+| λ | lambda | lodge | adventurer, gregarious | mountain gear | improved tie-downs |
+| π | pi | radio tower | researcher, reclusive summit antisocial | exoskeleton | improved exoskeleton |
+| δ | delta | reservoir | routine, tired-hopeful dam restorer | advanced solar panel | rainfall turbine |
 
-All NPCs are nonbinary/agender. Trust threshold tiers: 20 / 40 / 60 / 80 / 100.
-- t60: battery charging at trusted destinations
-- t80: free rest (stamina + canteen, no scrip)
+All NPCs are nonbinary/agender. (Tau's dog is the one gendered exception.)
 
 ---
 
@@ -87,34 +93,36 @@ All NPCs are nonbinary/agender. Trust threshold tiers: 20 / 40 / 60 / 80 / 100.
 ### the courier loop
 - Walks the ring automatically (idle-first)
 - `S.dotT` (0→1) tracks position along current segment
-- `currentSegment` is the source of truth: ring segments or bezier shortcuts
+- `S._transient.currentSegment` is the source of truth: ring segment, bezier shortcut, or river-drift
 - Speed modified by stamina, terrain, strain
 - Arriving at a node triggers delivery checks, NPC dialogue, outbound dispatch
 
 ### packages
 - 4 sizes: s (1×1), m (2×1), l (2×2), xl (4×2) — footprint in the cargo grid
 - Modifiers: fragile, lightweight, heavy, unwieldy (each changes slot count)
-- ~232 authored labels, dest-tagged — each label knows which NPCs it can go between
+- ~373 authored labels, dest-tagged — each label knows which NPCs it can go between
 - Delivery earns scrip + trust scaled by `1 + floor(slots/2)`
 - Lost deliveries earn a small bonus trust; damaged earns delivery dialogue
+- Fragile-first damage selection (v0.0.9.7.8): drop path stays uniform random, damage path biases onto fragile pkgs when any are in inventory
 
 ### cargo & kit
 - 2-row CSS grid with bin-pack autosort
 - Default 6 slots, upgradeable to 8 → 12
 - Gun slot reserved bottom-right; tie-down toggle
 - Kit bar: stamina drink, scanner, boots, battery — separate from cargo slots
+- Cargo log (v0.0.9.7.1; slide-in drawer v0.0.9.7.2) — pending-discovery dot surfaces unseen items
 
 ### stamina & strain
 - Stamina: 0–100, drains while walking, restores at rest or from drinks
-- Strain: accumulates from terrain, load, weather; slows you
+- Strain: accumulates from terrain, load, weather; slows you. (Internal code names still use `tripChance` / `TRIP_MULT_*` — user-facing strings standardized to "strain buildup" in v0.0.9.6.10.14.)
 - Canteen: refills at water sources, rains, wetland cells; capped by upgrade
 - Overboost: stamina can briefly exceed 100 (overlay visual on the bar)
 
 ### trust
 - Per-NPC values 0–100
 - Earns through deliveries (weight-scaled), discoveries, outbound dispatch
-- Trust unlocks: upgrades at t20/t40, free battery charge at t60, free rest at t80
-- Each NPC has a trust profile shaping how gain is calculated (veteran, wetland-path, homecoming, etc.)
+- Unlocks: upgrades at t20/t40, free battery charge at t60, free rest at t80
+- Gain is uniform per delivery (formula above); per-NPC profile system retired in v0.0.9.6.10.17
 
 ### weather & storms
 - Storms are world objects with position, type, dual-gaussian shape
@@ -125,21 +133,24 @@ All NPCs are nonbinary/agender. Trust threshold tiers: 20 / 40 / 60 / 80 / 100.
 
 ### terrain
 - Classified by `terrainAt(x, y)` — deterministic, stable across reloads
-- Types: flat, river, desert, rocky hills, plateau/mesa, mountain
+- Types: `flat`, `river`, `clayBed`, `mountain`, `rockyHills`, `plateau`, `desert`
 - Each type has its own glyph pool, color, trip/stamina modifiers
 - Mesa outcrops on ring edges engage the plateau climbing mechanics
+- Interior mesas (NW desert region, v0.0.9.7.10) classify as plateau and engage climbing via shortcut
 - `courierTerrain()` feeds real geography into the mechanics loop
 
 ### multiplayer (async)
-- BroadcastChannel + server relay
+- BroadcastChannel + server relay (Cloudflare Worker at `tlh/worker/`)
 - Shared world objects: placed gear, trample trails, storm positions
 - Every player sees every placed object (visibility sharding deferred to ~10+ active users)
 - Canonical ID scheme: `${placerId}-${placedWallClock}-${ci}`
+- Worker has its own version line (`v0.0.9.6.10.x`) and ships independently from the game
 
 ### persistence
-- Save schema currently v8 (migrated at v0.0.9.5 from v7)
-- Saved locally + export/import available
-- `S._transient` is the non-persisted runtime layer (segment, trail cells, hover state, etc.)
+- Save schema currently v9 (migrated v8→v9 during the v0.0.9 arc)
+- Saved locally + export/import available; gzipped via `CompressionStream`
+- `S._transient` is the non-persisted runtime layer (currentSegment, trail cells, hover state, etc.)
+- Pre-v9 migration chain drops at 1.0 launch (forced fresh-start is acceptable; one-time simplification)
 
 ---
 
@@ -159,7 +170,7 @@ Three threads: packages, trust, weather.
 - **v0.0.8.8** — Bug audit + mobile compatibility
 
 ### v0.0.9 arc — the plane beneath the ring
-Renderer upgrade + 2D world + terrain + NPC expansion. Still in progress.
+Renderer upgrade + 2D world + terrain + NPC expansion.
 - **v0.0.9.1** — Day/night cycle: sky layer with sun arc, moon phases, stars, gradient backdrop
 - **v0.0.9.2** — Route map → 2D plane: square viewBox, interior texture, typewriter settlement reveal
 - **v0.0.9.3** — Shortcut travel: bezier curves through interior, dotted trail, live tooltip with km/ETA, segment abstraction refactor
@@ -167,88 +178,37 @@ Renderer upgrade + 2D world + terrain + NPC expansion. Still in progress.
 - **v0.0.9.4** — Package destination diversification (ring-distance-weighted); NPC outbound dispatch
 - **v0.0.9.4.1** — Cursor pickup, drag-to-toss from cargo, ground tooltips
 - **v0.0.9.5** — NPC expansion: 6-node hex → 12-node rounded square; 6 new NPCs with full dialogue (~280 lines); battery baseline (solar trickle, day/night sine curve); 13 new trust-reward upgrades; 232-label pool; save migration v7→v8
-- **v0.0.9.6** — World patch: terrain types (rivers, mountains, plateau, rocky hills, desert); ladder + anchor gear; world overlay + trails; trample system; storm sweep across interior; shortcut rewrite (per-cell terrain effects instead of flat multipliers); river drift segments; gear placement + decay
+- **v0.0.9.6** — World patch: terrain types (rivers, mountains, plateau, rocky hills, desert, clayBed); ladder + anchor gear; world overlay + trails; trample system; storm sweep across interior; shortcut rewrite (per-cell terrain effects instead of flat multipliers); river drift segments; gear placement + decay
 - **v0.0.9.6.9** — Simulation harness: 20-run batch produced balance data (canteen over-solved, boots too harsh, trust progression glacial, NPC equity uneven)
+- **v0.0.9.6.10** — Polish + sim follow-ups: trust profile system retired (uniform-gain), trip-chance language audit (user-facing "strain buildup"), security hardening, worker boundary fixes, save schema v8→v9
+- **v0.0.9.7** — Cargo log + topographic map presentation rework. Slide-in drawer with pending-discovery dot; topo raster + outside-ring dim/hatch + vignette + ring polygon outline + node "well" treatment. Interior mesas now climbable via shortcut (.7.10). Fragile-first damage selection (.7.8). Wide-net audit cleanup (.7.12). Worker boundary + gear_placement batch flush (.7.13).
 
 ---
 
-## current state (as of v0.0.9.6.10.x)
+## current state (as of v0.0.9.7.13)
 
-The world patch is complete. The interior is alive: terrain classifies correctly, trails persist, gear can be placed and degrades, storms sweep across the 2D plane, river drift is a failure state that resolves naturally. The sim harness exists and has produced real balance data.
+The world patch is complete. The interior is alive: terrain classifies correctly (including clayBed and interior mesas), trails persist, gear can be placed and degrades, storms sweep across the 2D plane, river drift is a failure state that resolves naturally. The sim harness has produced real balance data and the v0.0.9.7 arc closed out the topographic map rework + cargo log surface.
 
-**Next up: v0.0.9.7 — polish pass informed by sim findings.** Canteen tuning, boot durability curve, trust pacing, NPC equity.
-
-**After that: v0.0.9.8** — dispatch log virtualization (benched; see handoff for plan).
-
----
-
-## the next patch: structures + salvage (v0.0.9.7+)
-
-_Rough design sketch — not locked_
-
-**What it adds:** A "structures" submenu in the upgrades panel. Small quality-of-life buildables that persist in the world and hook into async multiplayer — arriving to find someone else built a well is a nice moment.
-
-**Proposed structures:**
-- Postbox — store/retrieve items
-- Generator — recharge batteries
-- Well — refill canteen
-
-**Materials mechanic (salvage):** Building structures requires materials gathered along the route, flavored as salvage from the post-apocalyptic landscape. Ties into the terrain types already in place — different terrain yields different salvage types.
-
-**Async hook:** Some structures on your path are pre-built by other players when you log in. Same world-overlay plumbing already established in v0.0.9.6.
-
----
-
-## the terrain/elevation question
-
-The renderer is more capable than it looks from the outside — it's SVG, 400×400, with per-cell terrain classification, gear overlays, storm isobars, trail layers, and trample persistence. It hasn't been updated for elevation, but the infrastructure is nearly all there:
-
-- `terrainAt(x, y)` classifies cells already — mountains/hills are just new terrain types in that classifier
-- `courierTerrain()` feeds terrain into trip/stamina mechanics — elevation effects hook in here
-- `mesaOutcropAt()` is an existing proof-of-concept for "elevated terrain on the ring path"
-- The `drawInterior` loop renders per-cell glyphs automatically — mountain glyphs appear once the terrain type exists
-
-What doesn't exist yet: an elevation *value* per cell (for slope-scaled strain). But terrain-type-as-elevation-proxy (the Cairn approach) may be sufficient for a first pass and much cheaper to implement.
-
-**Key insight for mountain climbing mechanics:** You're mostly pulling from Cairn's gear/load system, not its visual language. The load-bearing question is how strain scales with altitude and how gear modifies that curve — the renderer will follow.
-
----
-
-## things that are intentionally deferred
-
-- **Sprite art** — ASCII is working well and is fast to iterate. Sprites are a long-term ambition. Don't let this be a source of anxiety.
-- **Visibility sharding** (per-player world subsets) — deferred until ~10+ active concurrent players
-- **Dispatch log virtualization** — v0.0.9.8
-- **Modifier stacking** (fragile + lightweight combos) — deferred for clarity
-- **Interior package pickup** — currently off except plateau tops; deferred to v0.0.9.7+
-- **Sticky gun rework** — design vision not yet locked
-
----
-
-## open design questions (as of now)
-
-- **Mountain climbing feel:** Is strain the right axis for elevation, or should there be a more discrete moment even within the idle-first philosophy? The current design says always-traversable, but there's design space between "harder" and "blocked."
-- **Salvage distribution:** How does salvage spawn — on the ground like packages, or as a passive yield from walking certain terrain? The latter feels more idle-friendly.
-- **Structures build cost:** Should structures require just salvage, or also scrip, or also trust with a relevant NPC?
-- **When is 1.0?** What's the line between "content complete" and "done"? Worth writing down eventually.
+**Next up:** v0.0.9.8 — the kitchen (cooking system; see [TLH-KITCHEN.md](./TLH-KITCHEN.md) for the design sketch). The remaining patch sequence to 1.0 is in [TLH-1.0.md](./TLH-1.0.md) → salvage, structures, drift, heat, renderer rework, onboarding, polish.
 
 ---
 
 ## technical landmarks worth knowing
 
-- **`S`** — the global state object (state.js). `S._transient` is runtime-only (not persisted).
-- **`currentSegment`** — the source of truth for courier position: `{ from, to, type, pathFn, length }`. Types: `ring`, `shortcut`, `river-drift`.
-- **`terrainAt(x, y)`** in `data/terrain.js` — deterministic terrain classifier. The world map is generated here.
-- **`route-map.js`** — largest render file (~53kb). Owns the SVG viewport, storm rendering, trail system, trample persistence, tooltip system, shortcut interaction.
-- **Save schema v8** — migrated at v0.0.9.5. Keep an eye on migration cost when schema changes.
+- **`S`** — the global state object ([state.js](js/state.js)). `S._transient` is runtime-only (not persisted).
+- **`S._transient.currentSegment`** — the source of truth for courier position: `{ from, to, type, pathFn, length }`. Types: `ring`, `shortcut`, `river-drift`.
+- **`terrainAt(x, y)`** in [js/data/terrain.js](js/data/terrain.js) — deterministic terrain classifier. The world map is generated here.
+- **`route-map.js`** — largest render file (~65kb / 1449 lines). Owns the SVG viewport, storm rendering, trail system, trample persistence, tooltip system, shortcut interaction.
+- **Save schema v9** — `SAVE_VERSION` in [constants.js](js/constants.js). Migrations live in [persistence.js](js/persistence.js); pre-v9 chain drops at 1.0.
 - **Simulation harness** (v0.0.9.6.9) — runs many tick-batches offline. Balance data lives here. Use it before shipping balance changes.
+- **Worker** — Cloudflare Worker at [tlh/worker/](worker/). Versions independently (currently `v0.0.9.6.10.26`). Single-DO architecture; migration deferred post-1.0.
 
 ---
 
 ## when you feel like you can't see the whole thing
 
-You've shipped: multiplayer sync, spatial weather, a 12-NPC cast with authored dialogue, a 2D terrain-classified world, gear placement with decay, a trails system, a simulation harness for balance testing, and somewhere around 230 package labels. In a browser idle game. Built mostly solo with Claude Code.
+You've shipped: multiplayer sync, spatial weather, a 12-NPC cast with authored dialogue, a 2D terrain-classified world, gear placement with decay, a trails system, a simulation harness for balance testing, somewhere around 370 package labels, a cargo log surface, the topographic map rework, and interior mesa climbing. In a browser idle game. Built mostly solo with Claude Code.
 
 The scope feels big because the game is actually getting big. That's earned.
 
-The next thing doesn't have to be big. Structures + salvage is well-scoped and clearly visualized. The mountain climbing features are mostly about `terrainAt` and `courierTerrain`. You know how to do this.
+For where things go next — patch sequence, ship criteria, the molten questions — see TLH-1.0.md. This doc's job is to remember what the game already is.
